@@ -1,23 +1,79 @@
 :host { all: initial; }
-.ba-root { position: fixed; top: 80px; right: 0; width: 300px; max-height: 70vh;
-  display: flex; flex-direction: column; font-family: system-ui, sans-serif; font-size: 12px;
-  background: #15171c; color: #cbd2dc; border: 1px solid #2c2f38; border-radius: 8px 0 0 8px;
-  transform: translateX(0); transition: transform .2s; z-index: 2147483000; }
-.ba-root.collapsed { transform: translateX(300px); }
-.ba-handle { position: absolute; left: -22px; top: 24px; width: 22px; height: 64px;
-  background: #e0b341; color: #15171c; border-radius: 6px 0 0 6px; cursor: pointer;
-  writing-mode: vertical-rl; text-align: center; font-weight: 700; display:flex; align-items:center; justify-content:center; }
-.ba-tabs { display: flex; border-bottom: 1px solid #2c2f38; }
-.ba-tab { flex: 1; padding: 8px; text-align: center; cursor: pointer; color: #7e8694; }
-.ba-tab.active { color: #e0b341; box-shadow: inset 0 -2px 0 #e0b341; }
-.ba-list { overflow-y: auto; flex: 1; }
-.ba-row { padding: 8px; border-bottom: 1px solid #23262e; cursor: pointer; }
-.ba-row:hover { background: #1d2027; }
-.ba-line1 { display: flex; justify-content: space-between; }
-.ba-line1 b { color: #e8ecf2; }
-.ba-price { color: #e0b341; }
-.ba-line2 { display: flex; justify-content: space-between; margin-top: 3px; color: #8b93a1; font-size: 11px; }
-.ba-star, .ba-del { cursor: pointer; }
-.ba-empty { padding: 16px; color: #7e8694; }
-.ba-foot { padding: 8px; border-top: 1px solid #2c2f38; }
-.ba-foot a { color: #9fd0ff; text-decoration: none; }
+
+/* ── seominugi-com 글래스모피즘 채용 (premium-glass-card 레시피) ── */
+.ba-root {
+  position: fixed; top: 76px; right: 0; width: 390px; max-height: 74vh;
+  display: flex; flex-direction: column;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  font-size: 12.5px; line-height: 1.45; color: #e2e8f0;
+  background: rgba(21, 31, 40, 0.72);                 /* #151f28 반투명 */
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-top: 2px solid rgba(255, 255, 255, 0.4);     /* 시그니처 밝은 상단 테두리 */
+  border-right: none;
+  border-radius: 14px 0 0 14px;
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.12);
+  transform: translateX(0);
+  transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 2147483000; overflow: hidden;
+}
+.ba-root.collapsed { transform: translateX(390px); }
+
+.ba-handle {
+  position: absolute; left: -28px; top: 22px; width: 28px; height: 92px;
+  display: flex; align-items: center; justify-content: center;
+  writing-mode: vertical-rl; letter-spacing: 1px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.95), rgba(99, 102, 241, 0.95));
+  color: #0b1118; font-weight: 800; font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.25); border-right: none;
+  border-radius: 10px 0 0 10px;
+  box-shadow: -4px 4px 14px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+
+.ba-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 11px 14px 9px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.ba-title { font-weight: 700; color: #f1f5f9; font-size: 13px; }
+.ba-save {
+  font-size: 11px; font-weight: 700; color: #0b1118;
+  background: linear-gradient(135deg, #38bdf8, #6366f1);
+  border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 8px;
+  padding: 5px 11px; cursor: pointer; transition: filter .15s;
+}
+.ba-save:hover { filter: brightness(1.1); }
+
+.ba-tabs { display: flex; gap: 6px; padding: 8px 10px 0; }
+.ba-tab {
+  flex: 1; text-align: center; padding: 8px; cursor: pointer;
+  color: #94a3b8; font-weight: 600; border-radius: 8px 8px 0 0;
+  transition: color .15s, background .15s;
+}
+.ba-tab:hover { background: rgba(255, 255, 255, 0.05); }
+.ba-tab.active { color: #38bdf8; box-shadow: inset 0 -2px 0 #38bdf8; }
+
+.ba-list { overflow-y: auto; flex: 1; padding: 8px 10px 10px; }
+.ba-list::-webkit-scrollbar { width: 8px; }
+.ba-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+
+.ba-row {
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px; padding: 9px 12px; margin-bottom: 7px; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.ba-row:hover { background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.4); }
+.ba-line1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.ba-line1 b { color: #f1f5f9; font-weight: 700; }
+.ba-price { color: #fcd34d; font-weight: 700; white-space: nowrap; }
+.ba-line2 { display: flex; justify-content: space-between; margin-top: 4px; color: #94a3b8; font-size: 11px; gap: 8px; }
+.ba-star, .ba-del { cursor: pointer; opacity: .8; }
+.ba-star:hover { opacity: 1; color: #fcd34d; }
+.ba-del:hover { opacity: 1; color: #f87171; }
+.ba-empty { padding: 28px 16px; text-align: center; color: #64748b; }
+
+.ba-foot { padding: 10px 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.ba-foot a { color: #38bdf8; text-decoration: none; font-weight: 600; font-size: 11.5px; }
+.ba-foot a:hover { text-decoration: underline; }
