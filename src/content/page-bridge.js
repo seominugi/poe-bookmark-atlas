@@ -2,11 +2,15 @@
 // 페이지의 fetch/XHR를 후킹해 거래 검색(/search)·결과(/fetch) 요청을 가로채
 // ISOLATED content script로 window.postMessage 전달한다.
 (() => {
+  console.log('[BA] page-bridge loaded (MAIN world)')
   const RE = /\/api\/trade2?\/(search|fetch)\//
   const ORIGIN = location.origin
   const kindOf = (url) => (/\/search\//.test(url) ? 'search' : 'fetch')
   const post = (msg) => {
-    try { window.postMessage({ __baSource: 'ba-bridge', ...msg }, ORIGIN) } catch (_) {}
+    try {
+      window.postMessage({ __baSource: 'ba-bridge', ...msg }, ORIGIN)
+      console.log('[BA-bridge] captured', msg.kind, msg.url)
+    } catch (_) {}
   }
   const parseMaybe = (b) => {
     if (typeof b === 'string') { try { return JSON.parse(b) } catch (_) { return b } }
