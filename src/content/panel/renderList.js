@@ -3,8 +3,9 @@ import { formatPrice } from '../../lib/formatPrice.js'
 import { bindRowActions } from './rowActions.js'
 
 const fmtTime = (t) => {
-  const d = (Date.now() - t) / 6e4
-  return d < 60 ? `${d | 0}분` : d < 1440 ? `${(d / 60) | 0}시간` : `${(d / 1440) | 0}일`
+  const d = new Date(t)
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getMonth() + 1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
 function escapeHtml(s) {

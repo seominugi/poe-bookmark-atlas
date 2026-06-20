@@ -71,6 +71,7 @@ export function priceSnapshot(listings, rates) {
     const valueDiv = round4(r.sellable / epd)
     return {
       valueDiv,
+      exaltedPerDivine: epd,
       value: valueDiv,
       unit: 'divine',
       lowestAsk: round4(r.lowestAsk / epd),

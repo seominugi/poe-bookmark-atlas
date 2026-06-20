@@ -11,15 +11,15 @@ function trim(n) {
  * @returns {string} "≈ 2.3 div" | "≈ 80 ex" | ''
  */
 export function formatPrice(p) {
-  // 폴백 경로: 단위가 고정된 값
-  if (typeof p.value === 'number' && p.unit && UNIT_LABEL[p.unit]) {
-    return `≈ ${trim(p.value)} ${UNIT_LABEL[p.unit]}`
-  }
-  // 기본 경로: 디바인값 + 환율로 div/ex 선택
+  // 기본 경로: 디바인값 + 환율로 div/ex 선택 (valueDiv 우선)
   if (typeof p.valueDiv === 'number' && p.valueDiv > 0) {
     if (p.valueDiv >= 1) return `≈ ${trim(p.valueDiv)} div`
     if (p.exaltedPerDivine > 0) return `≈ ${trim(p.valueDiv * p.exaltedPerDivine)} ex`
     return `≈ ${trim(p.valueDiv)} div`
+  }
+  // 폴백 경로: 환율 실패 시 단위가 고정된 값
+  if (typeof p.value === 'number' && p.unit && UNIT_LABEL[p.unit]) {
+    return `≈ ${trim(p.value)} ${UNIT_LABEL[p.unit]}`
   }
   return ''
 }
