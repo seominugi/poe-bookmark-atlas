@@ -19,7 +19,7 @@ export function mountPanel({ game }) {
 
   const wrap = document.createElement('div')
   wrap.innerHTML = `
-    <div class="ba-root collapsed" id="ba-root">
+    <div class="ba-root" id="ba-root">
       <div class="ba-handle" id="ba-handle">🔖 북마크</div>
       <div class="ba-tabs">
         <div class="ba-tab active" data-tab="bookmark">🔖 북마크</div>
