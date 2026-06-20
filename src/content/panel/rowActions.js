@@ -1,6 +1,6 @@
 import { promoteToBookmark, remove } from '../../store/store.js'
 
-export function bindRowActions(listEl, root, kind) {
+export function bindRowActions(listEl, root, kind, showNameInput) {
   listEl.querySelectorAll('.ba-row').forEach((row) => {
     row.onclick = (e) => {
       if (e.target.closest('.ba-star') || e.target.closest('.ba-del')) return
@@ -9,8 +9,11 @@ export function bindRowActions(listEl, root, kind) {
   })
   listEl.querySelectorAll('.ba-star').forEach((s) => {
     s.onclick = async () => {
-      const name = prompt('북마크 이름 (비우면 제목 사용)', '') || undefined
-      await promoteToBookmark(s.dataset.id, name)
+      const name = showNameInput
+        ? await showNameInput(s.dataset.name || '')
+        : prompt('북마크 이름', s.dataset.name || '')
+      if (name === null) return // 취소
+      await promoteToBookmark(s.dataset.id, name || undefined)
       document.dispatchEvent(new CustomEvent('ba:records-changed'))
     }
   })
