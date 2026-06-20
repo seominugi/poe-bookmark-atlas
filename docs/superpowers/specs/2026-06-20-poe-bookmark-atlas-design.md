@@ -137,7 +137,7 @@ store → panelUI (탭·리스트 렌더)
 
 - **소스(주)**: 운영 백엔드 `smng-poe-pricer`의 라이브 엔드포인트
   `GET /api/{poe1|poe2}/currency-exchange?realmName=<리그명>` (서버 5분 캐시)
-  - 베이스 호스트는 구현 시 운영 배포 기준 1줄 확인(seominugi.com 운영 API).
+  - 베이스 호스트 `https://seominugi.com` **확인됨**(2026-06-20 라이브). **realmName은 공백을 언더스코어로** 변환해 호출한다(예: `Runes of Aldur`→`Runes_of_Aldur`; 공백 그대로면 404). service-worker가 변환을 담당.
 - **소스(대안)**: 동일 `exchange_rates`를 담은 published JSON(raw)도 가능(서버 의존 0). v1은 사용자가 지정한 라이브 API 우선.
 - **응답 구조**(예, POE2):
   ```json
