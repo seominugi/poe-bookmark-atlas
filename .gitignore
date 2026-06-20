@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Build / package output
+dist/
+build/
+*.zip
+
+# Brainstorm artifacts (visual companion — local only)
+.superpowers/
+
+# Secrets / env
+.env
+.env.*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs
+*.log
+npm-debug.log*
