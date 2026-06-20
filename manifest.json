@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "북마크 아틀라스",
+  "version": "0.1.0",
+  "description": "POE 거래소 검색 북마크 + 히스토리 관리 — 시세 스냅샷 포함",
+  "permissions": ["storage"],
+  "host_permissions": [
+    "https://poe.kakaogames.com/*",
+    "https://seominugi.com/*"
+  ],
+  "background": { "service_worker": "src/background/service-worker.js", "type": "module" },
+  "action": { "default_title": "북마크 아틀라스" },
+  "content_scripts": [
+    {
+      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*"],
+      "js": ["src/content/page-bridge.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
+    },
+    {
+      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*"],
+      "js": ["src/content/content-main.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
