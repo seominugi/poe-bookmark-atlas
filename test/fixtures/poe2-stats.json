@@ -1,0 +1,2 @@
+{ "result": [ { "label": "Pseudo", "entries": [ { "id": "explicit.stat_life", "text": "최대 생명 +#" } ] },
+  { "label": "Explicit", "entries": [ { "id": "explicit.stat_fire_res", "text": "화염 저항 +#%" } ] } ] }
