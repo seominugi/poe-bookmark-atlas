@@ -1,0 +1,4 @@
+{ "query": { "status": { "option": "online" }, "type": "Body Armour", "name": null,
+  "stats": [ { "type": "and", "filters": [ { "id": "explicit.stat_life", "value": { "min": 80 } }, { "id": "explicit.stat_fire_res", "value": { "min": 30 } } ] } ],
+  "filters": { "trade_filters": { "filters": { "price": { "min": null, "max": 3, "option": "divine" } } } } },
+  "sort": { "price": "asc" } }
