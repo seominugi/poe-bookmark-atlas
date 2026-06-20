@@ -45,7 +45,7 @@ poe-bookmark-atlas/
 │  ├─ background/
 │  │  └─ service-worker.js      # 외부 fetch(환율·stats) 프록시, 메시지 라우팅
 │  ├─ content/
-│  │  ├─ page-bridge.js         # MAIN world: fetch/XHR 가로채기 → postMessage
+│  │  ├─ page-bridge.js         # MAIN world: /search·/fetch 가로채기 → postMessage
 │  │  ├─ content-main.js        # ISOLATED: 캡처 수신→기록 생성→저장, 패널 마운트
 │  │  └─ panel/
 │  │     ├─ panel.js            # Shadow DOM 패널: 도킹·접기·탭·렌더·상호작용
@@ -963,6 +963,11 @@ git -c user.name="서민욱" -c user.email="alsdnr0712@gmail.com" commit -m "fea
 ---
 
 ## Phase 4 — 캡처 통합
+
+> **⚠️ 2026-06-20 설계 갱신 (실 API 검증 반영):** 가격은 **DOM 스크랩이 아니라 페이지의 `GET /api/trade2/fetch` 응답**에서 읽는다(`result[].listing.price = {amount, currency}`, 통화코드 `divine`/`exalted` 확인). 따라서:
+> - **Task 10 `page-bridge`**: `POST …/search`(쿼리)와 `GET …/fetch`(가격) **둘 다** 가로챈다. 매처 `/\/api\/trade2?\/(search|fetch)\//`.
+> - **Task 11**: `collectPrices.js`(DOM 스크랩) **폐기**. content-main이 bridge의 search·fetch 이벤트를 `query=<id>`로 연결, 첫 `/fetch` 배치(최저가 ~10)를 `priceSnapshot`에 투입.
+> - 아래 원본 코드 블록은 이 갱신 기준으로 대체해 구현한다(그라운딩된 코드 사용).
 
 ### Task 10: page-bridge (MAIN world 네트워크 가로채기)
 
