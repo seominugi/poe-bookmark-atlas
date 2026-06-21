@@ -8,7 +8,7 @@ const ECON = {
 }
 
 export function mountPanel({ game }) {
-  if (document.getElementById('ba-panel-host')) return
+  if (document.getElementById('ba-panel-host')) return { toggle() {}, show() {}, hide() {} }
   const host = document.createElement('div')
   host.id = 'ba-panel-host'
   document.body.appendChild(host)
@@ -42,7 +42,18 @@ export function mountPanel({ game }) {
   root.appendChild(wrap)
 
   const $ = (id) => root.getElementById(id)
-  $('ba-handle').onclick = () => $('ba-root').classList.toggle('collapsed')
+  const elRoot = $('ba-root')
+
+  // 접기/펼치기 = 표시/숨김 (핸들·✕·툴바 아이콘 공통, 상태 유지). 핸들은 항상 보여 다시 열 수 있음.
+  const isCollapsed = () => elRoot.classList.contains('collapsed')
+  const setCollapsed = (collapsed) => {
+    elRoot.classList.toggle('collapsed', collapsed)
+    try { chrome.storage.local.set({ uiCollapsed: collapsed }) } catch (_) {}
+  }
+  try {
+    chrome.storage.local.get('uiCollapsed').then((r) => { if (r && r.uiCollapsed) elRoot.classList.add('collapsed') })
+  } catch (_) {}
+  $('ba-handle').onclick = () => setCollapsed(!isCollapsed())
 
   let toastTimer = null
   const toast = (msg) => {
@@ -77,9 +88,10 @@ export function mountPanel({ game }) {
     })
   }
 
+  const ui = { showNameInput, toast }
   let tab = 'bookmark'
   const tabs = root.querySelectorAll('.ba-tab')
-  const refresh = () => renderList($('ba-list'), tab, root, showNameInput)
+  const refresh = () => renderList($('ba-list'), tab, root, ui)
   const selectTab = (name) => {
     tab = name
     tabs.forEach((x) => x.classList.toggle('active', x.dataset.tab === name))
@@ -108,4 +120,10 @@ export function mountPanel({ game }) {
 
   document.addEventListener('ba:records-changed', refresh)
   refresh()
+
+  return {
+    toggle: () => setCollapsed(!isCollapsed()),
+    show: () => setCollapsed(false),
+    hide: () => setCollapsed(true),
+  }
 }

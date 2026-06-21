@@ -1,10 +1,15 @@
 // src/store/store.js
 const KEY = 'records'
+const FOLDERS_KEY = 'folders'
 export const HISTORY_CAP = 50
 
-function uid() { return 'r_' + Math.random().toString(36).slice(2) + Date.now().toString(36) }
+function uid(prefix) { return (prefix || 'r_') + Math.random().toString(36).slice(2) + Date.now().toString(36) }
 async function readAll() { return (await chrome.storage.local.get(KEY))[KEY] ?? [] }
 async function writeAll(records) { await chrome.storage.local.set({ [KEY]: records }) }
+async function readFolders() { return (await chrome.storage.local.get(FOLDERS_KEY))[FOLDERS_KEY] ?? [] }
+async function writeFolders(folders) { await chrome.storage.local.set({ [FOLDERS_KEY]: folders }) }
+
+const maxBookmarkOrder = (all) => all.reduce((m, r) => (r.kind === 'bookmark' ? Math.max(m, r.order ?? 0) : m), 0)
 
 /** 히스토리 추가(동일 dedupeKey 갱신, 50개 캡). @returns {Promise<object>} */
 export async function addHistory(rec) {
@@ -25,15 +30,22 @@ export async function addHistory(rec) {
   return record
 }
 
+/** kind별 조회. 북마크는 order 오름차순, 히스토리는 최신순. */
 export async function listByKind(kind) {
-  return (await readAll()).filter((r) => r.kind === kind).sort((a, b) => b.updatedAt - a.updatedAt)
+  const list = (await readAll()).filter((r) => r.kind === kind)
+  if (kind === 'bookmark') return list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  return list.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
 export async function promoteToBookmark(id, name) {
   const all = await readAll()
   const r = all.find((x) => x.id === id)
   if (!r) return
-  r.kind = 'bookmark'; r.name = name ?? r.name ?? r.title; r.updatedAt = Date.now()
+  r.kind = 'bookmark'
+  r.name = name ?? r.name ?? r.title
+  r.folderId = r.folderId ?? null
+  r.order = maxBookmarkOrder(all) + 1
+  r.updatedAt = Date.now()
   await writeAll(all)
 }
 
@@ -51,7 +63,11 @@ export async function remove(id) {
 export async function addBookmark(rec, name) {
   const all = await readAll()
   const now = Date.now()
-  const record = { ...rec, id: uid(), kind: 'bookmark', name: name ?? rec.title, createdAt: now, updatedAt: now }
+  const record = {
+    ...rec, id: uid(), kind: 'bookmark', name: name ?? rec.title,
+    folderId: rec.folderId ?? null, order: maxBookmarkOrder(all) + 1,
+    createdAt: now, updatedAt: now,
+  }
   await writeAll([...all, record])
   return record
 }
@@ -61,4 +77,59 @@ export async function updateSnapshot(id, snapshot) {
   const all = await readAll()
   const r = all.find((x) => x.id === id)
   if (r) { r.snapshot = snapshot; r.updatedAt = Date.now(); await writeAll(all) }
+}
+
+/** 북마크를 새 검색(source)으로 덮어쓰기 — name·folderId·order·id·createdAt 유지 */
+export async function overwriteBookmark(id, source) {
+  const all = await readAll()
+  const r = all.find((x) => x.id === id && x.kind === 'bookmark')
+  if (!r) return
+  r.game = source.game
+  r.league = source.league
+  r.url = source.url
+  r.title = source.title
+  r.itemType = source.itemType
+  r.stats = source.stats
+  r.priceFilter = source.priceFilter
+  r.snapshot = source.snapshot
+  r.dedupeKey = source.dedupeKey
+  r.updatedAt = Date.now()
+  await writeAll(all)
+}
+
+/** DnD: 북마크의 폴더/순서 갱신 */
+export async function moveBookmark(id, patch) {
+  const all = await readAll()
+  const r = all.find((x) => x.id === id && x.kind === 'bookmark')
+  if (!r) return
+  if (patch.folderId !== undefined) r.folderId = patch.folderId
+  if (typeof patch.order === 'number') r.order = patch.order
+  r.updatedAt = Date.now()
+  await writeAll(all)
+}
+
+// ── 폴더 ──
+export async function listFolders() { return readFolders() }
+
+export async function addFolder(name) {
+  const folders = await readFolders()
+  const folder = { id: uid('f_'), name: name || '새 폴더' }
+  folders.push(folder)
+  await writeFolders(folders)
+  return folder
+}
+
+export async function renameFolder(id, name) {
+  const folders = await readFolders()
+  const f = folders.find((x) => x.id === id)
+  if (f) { f.name = name; await writeFolders(folders) }
+}
+
+/** 폴더 삭제 — 해당 폴더의 북마크는 미분류(folderId=null)로 */
+export async function deleteFolder(id) {
+  await writeFolders((await readFolders()).filter((f) => f.id !== id))
+  const all = await readAll()
+  let changed = false
+  for (const r of all) if (r.kind === 'bookmark' && r.folderId === id) { r.folderId = null; changed = true }
+  if (changed) await writeAll(all)
 }

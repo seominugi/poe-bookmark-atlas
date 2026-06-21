@@ -5,8 +5,8 @@
   position: fixed; top: 76px; right: 0; width: 390px; max-height: 74vh;
   display: flex; flex-direction: column;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 12.5px; line-height: 1.45; color: #e2e8f0;
-  background: rgba(21, 31, 40, 0.72);                 /* #151f28 반투명 */
+  font-size: 13px; line-height: 1.5; color: #eef2f7;
+  background: rgba(17, 24, 33, 0.93);                 /* 시인성 위해 불투명도 ↑ (배경 비침 최소화) */
   -webkit-backdrop-filter: blur(16px) saturate(140%);
   backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -44,6 +44,15 @@
   padding: 5px 11px; cursor: pointer; transition: filter .15s;
 }
 .ba-save:hover { filter: brightness(1.1); }
+.ba-head-actions { display: flex; align-items: center; gap: 8px; }
+.ba-close {
+  background: transparent; border: none; color: #94a3b8;
+  font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 5px; border-radius: 6px;
+}
+.ba-close:hover { color: #f87171; background: rgba(255, 255, 255, 0.06); }
+
+/* 완전 숨김 (✕ / 툴바 아이콘 토글) */
+.ba-root.ba-hidden { display: none; }
 
 .ba-tabs { display: flex; gap: 6px; padding: 8px 10px 0; }
 .ba-tab {
@@ -59,16 +68,17 @@
 .ba-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
 
 .ba-row {
-  background: rgba(255, 255, 255, 0.035);
-  border: 1px solid rgba(255, 255, 255, 0.07);
-  border-radius: 10px; padding: 9px 12px; margin-bottom: 7px; cursor: pointer;
+  background: rgba(43, 58, 78, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.13);
+  border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   transition: background .15s, border-color .15s;
 }
-.ba-row:hover { background: rgba(56, 189, 248, 0.08); border-color: rgba(56, 189, 248, 0.4); }
+.ba-row:hover { background: rgba(56, 73, 97, 0.97); border-color: rgba(56, 189, 248, 0.55); }
 .ba-line1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.ba-line1 b { color: #f1f5f9; font-weight: 700; }
-.ba-price { color: #fcd34d; font-weight: 700; white-space: nowrap; }
-.ba-line2 { display: flex; justify-content: space-between; margin-top: 4px; color: #94a3b8; font-size: 11px; gap: 8px; }
+.ba-line1 b { color: #f8fafc; font-weight: 700; font-size: 13px; }
+.ba-price { color: #fde047; font-weight: 800; white-space: nowrap; }
+.ba-line2 { display: flex; justify-content: space-between; margin-top: 5px; color: #c7d2de; font-size: 11px; gap: 8px; }
 .ba-star, .ba-del { cursor: pointer; opacity: .8; }
 .ba-star:hover { opacity: 1; color: #fcd34d; }
 .ba-del:hover { opacity: 1; color: #f87171; }
@@ -102,3 +112,32 @@
   text-align: center; box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
 }
 .ba-toast[hidden] { display: none; }
+
+/* 북마크 폴더 / 드래그앤드롭 */
+.ba-bm-toolbar { display: flex; justify-content: flex-end; margin-bottom: 6px; }
+.ba-add-folder {
+  font-size: 11px; font-weight: 700; color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px; padding: 4px 10px; cursor: pointer;
+}
+.ba-add-folder:hover { border-color: #38bdf8; color: #38bdf8; }
+.ba-folder { margin-bottom: 8px; }
+.ba-folder-head {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 6px; color: #cbd5e1; font-weight: 700; font-size: 11.5px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 4px;
+}
+.ba-folder-count { color: #64748b; font-weight: 600; font-size: 10.5px; }
+.ba-folder-rename, .ba-folder-del { cursor: pointer; opacity: .7; margin-left: 6px; }
+.ba-folder-rename:hover { opacity: 1; color: #38bdf8; }
+.ba-folder-del:hover { opacity: 1; color: #f87171; }
+.ba-folder-body { min-height: 8px; }
+.ba-folder-empty {
+  padding: 10px; text-align: center; color: #475569; font-size: 11px;
+  border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 8px; margin-bottom: 7px;
+}
+.ba-over { cursor: pointer; opacity: .8; }
+.ba-over:hover { opacity: 1; color: #38bdf8; }
+.ba-row[draggable="true"] { cursor: grab; }
+.ba-row.ba-dragging { opacity: .45; }
+.ba-row.ba-dragover { border-color: #38bdf8; box-shadow: inset 0 2px 0 #38bdf8; }
