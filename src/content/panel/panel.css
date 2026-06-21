@@ -16,21 +16,24 @@
   box-shadow: 0 15px 35px rgba(0, 0, 0, 0.45), inset 0 1px 1px rgba(255, 255, 255, 0.12);
   transform: translateX(0);
   transition: transform .25s cubic-bezier(0.4, 0, 0.2, 1);
-  z-index: 2147483000; overflow: hidden;
+  z-index: 2147483000; overflow: visible;
 }
 .ba-root.collapsed { transform: translateX(390px); }
 
 .ba-handle {
-  position: absolute; left: -28px; top: 22px; width: 28px; height: 92px;
+  position: absolute; left: -30px; top: 28px; width: 30px; height: 104px;
   display: flex; align-items: center; justify-content: center;
-  writing-mode: vertical-rl; letter-spacing: 1px;
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.95), rgba(99, 102, 241, 0.95));
-  color: #0b1118; font-weight: 800; font-size: 11px;
-  border: 1px solid rgba(255, 255, 255, 0.25); border-right: none;
-  border-radius: 10px 0 0 10px;
-  box-shadow: -4px 4px 14px rgba(0, 0, 0, 0.35);
-  cursor: pointer;
+  writing-mode: vertical-rl; letter-spacing: 2px;
+  background: rgba(17, 24, 33, 0.92);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  backdrop-filter: blur(16px) saturate(140%);
+  color: #7dd3fc; font-weight: 700; font-size: 11px;
+  border: 1px solid rgba(255, 255, 255, 0.14); border-right: none;
+  border-radius: 12px 0 0 12px;
+  box-shadow: -6px 0 18px rgba(0, 0, 0, 0.3);
+  cursor: pointer; transition: color .15s, background .15s;
 }
+.ba-handle:hover { color: #bae6fd; background: rgba(30, 41, 54, 0.95); }
 
 .ba-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -128,7 +131,8 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 4px;
 }
 .ba-folder-count { color: #64748b; font-weight: 600; font-size: 10.5px; }
-.ba-folder-rename, .ba-folder-del { cursor: pointer; opacity: .7; margin-left: 6px; }
+.ba-folder-save, .ba-folder-rename, .ba-folder-del { cursor: pointer; opacity: .75; margin-left: 6px; }
+.ba-folder-save:hover { opacity: 1; color: #7be495; }
 .ba-folder-rename:hover { opacity: 1; color: #38bdf8; }
 .ba-folder-del:hover { opacity: 1; color: #f87171; }
 .ba-folder-body { min-height: 8px; }

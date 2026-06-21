@@ -1,5 +1,5 @@
 import {
-  listByKind, listFolders, moveBookmark, overwriteBookmark,
+  listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
@@ -56,8 +56,8 @@ export async function renderList(listEl, kind, root, ui = {}) {
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
       g.id !== null
-        ? `<span class="ba-folder-rename" data-id="${g.id}" title="이름변경">✎</span><span class="ba-folder-del" data-id="${g.id}" title="폴더 삭제(북마크는 미분류로)">🗑</span>`
-        : ''
+        ? `<span class="ba-folder-save" data-fid="${g.id}" title="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" title="이름변경">✎</span><span class="ba-folder-del" data-id="${g.id}" title="폴더 삭제(북마크는 미분류로)">🗑</span>`
+        : `<span class="ba-folder-save" data-fid="" title="현재 검색을 미분류에 저장">➕</span>`
     html += `<div class="ba-folder" data-folder="${g.id ?? ''}">
       <div class="ba-folder-head"><span class="ba-folder-name">📁 ${escapeHtml(g.name)} <span class="ba-folder-count">${items.length}</span></span><span>${fActions}</span></div>
       <div class="ba-folder-body" data-folder="${g.id ?? ''}">${items.map((r) => rowHtml(r, 'bookmark')).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
@@ -109,6 +109,21 @@ function bindBookmark(listEl, ui) {
   }))
   listEl.querySelectorAll('.ba-folder-del').forEach((s) => s.addEventListener('click', async () => {
     await deleteFolder(s.dataset.id); changed()
+  }))
+
+  // ➕ 현재(최근) 검색을 이 폴더/미분류에 바로 저장
+  listEl.querySelectorAll('.ba-folder-save').forEach((b) => b.addEventListener('click', async () => {
+    const folderId = b.dataset.fid || null
+    const latest = (await listByKind('history'))[0]
+    if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
+    const name = ui.showNameInput ? await ui.showNameInput(latest.name || latest.title) : prompt('북마크 이름', latest.name || latest.title)
+    if (name === null) return
+    await addBookmark({
+      game: latest.game, league: latest.league, url: latest.url, title: latest.title,
+      itemType: latest.itemType, name: latest.name, stats: latest.stats,
+      priceFilter: latest.priceFilter, snapshot: latest.snapshot, dedupeKey: latest.dedupeKey, folderId,
+    }, name || latest.title)
+    changed(); toast('저장했습니다.')
   }))
 
   // 🔄 최근 검색으로 덮어쓰기

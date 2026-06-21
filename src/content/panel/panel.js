@@ -50,8 +50,12 @@ export function mountPanel({ game }) {
     elRoot.classList.toggle('collapsed', collapsed)
     try { chrome.storage.local.set({ uiCollapsed: collapsed }) } catch (_) {}
   }
+  // 초기 상태: 좁은 화면은 접힘(검색 영역 겹침 방지), 넓으면 펼침. 사용자 토글 선호는 기억.
+  if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
   try {
-    chrome.storage.local.get('uiCollapsed').then((r) => { if (r && r.uiCollapsed) elRoot.classList.add('collapsed') })
+    chrome.storage.local.get('uiCollapsed').then((r) => {
+      if (r && typeof r.uiCollapsed === 'boolean') elRoot.classList.toggle('collapsed', r.uiCollapsed)
+    })
   } catch (_) {}
   $('ba-handle').onclick = () => setCollapsed(!isCollapsed())
 
