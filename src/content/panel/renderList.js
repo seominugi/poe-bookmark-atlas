@@ -36,29 +36,18 @@ function rowHtml(r, kind) {
   </div>`
 }
 
-export async function renderList(listEl, kind, root, ui = {}) {
-  if (kind === 'history') {
-    const records = await listByKind('history', ui.game)
-    listEl.innerHTML = records.length
-      ? records.map((r) => rowHtml(r, 'history')).join('')
-      : `<div class="ba-empty">기록이 없습니다.</div>`
-    bindHistory(listEl, ui)
-    return
-  }
+// 북마크 + 히스토리를 한 스크롤에 통합 렌더 (탭 없음 → 패널 전체 높이 활용)
+export async function renderList(listEl, root, ui = {}) {
+  const [bookmarks, folders, history] = await Promise.all([
+    listByKind('bookmark', ui.game),
+    listFolders(ui.game),
+    listByKind('history', ui.game),
+  ])
 
-  // 북마크: 폴더 그룹 + 드래그앤드롭
-  const [bookmarks, folders] = await Promise.all([listByKind('bookmark', ui.game), listFolders(ui.game)])
-  if (!bookmarks.length && !folders.length) {
-    listEl.innerHTML = `<div class="ba-bm-toolbar"><button class="ba-add-folder">+ 새 폴더</button></div>
-      <div class="ba-empty">저장된 북마크가 없습니다.<br>검색 후 ☆ 또는 "현재 검색 저장"</div>`
-    bindBookmark(listEl, ui)
-    return
-  }
-
+  // ── 북마크 섹션 (폴더 그룹) ──
+  let html = `<div class="ba-sec-head"><span class="ba-sec-title">🔖 북마크 <span class="ba-sec-count">${bookmarks.length}</span></span><button class="ba-add-folder" data-tip="새 폴더 만들기">+ 폴더</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const byFolder = (fid) => bookmarks.filter((b) => (b.folderId ?? null) === fid)
-
-  let html = `<div class="ba-bm-toolbar"><button class="ba-add-folder">+ 새 폴더</button></div>`
   for (const g of groups) {
     const items = byFolder(g.id)
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
@@ -71,38 +60,54 @@ export async function renderList(listEl, kind, root, ui = {}) {
       <div class="ba-folder-body" data-folder="${g.id ?? ''}">${items.map((r) => rowHtml(r, 'bookmark')).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
   }
+
+  // ── 히스토리 섹션 ──
+  html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">🕘 히스토리 <span class="ba-sec-count">${history.length}</span></span></div>`
+  html += history.length
+    ? history.map((r) => rowHtml(r, 'history')).join('')
+    : `<div class="ba-empty-sm">최근 검색 기록이 없습니다.</div>`
+
   listEl.innerHTML = html
-  bindBookmark(listEl, ui)
+  bindAll(listEl, ui)
 }
 
-function bindRowOpen(listEl) {
+function bindAll(listEl, ui) {
+  const toast = ui.toast || (() => {})
+
+  // 행 열기 (그립·액션 클릭은 제외)
   listEl.querySelectorAll('.ba-row').forEach((row) => {
     row.addEventListener('click', (e) => {
       if (e.target.closest('.ba-star,.ba-over,.ba-del,.ba-grip,.ba-stale')) return
       location.href = decodeURIComponent(row.dataset.url)
     })
   })
-}
 
-function bindHistory(listEl, ui) {
-  bindRowOpen(listEl)
-  listEl.querySelectorAll('.ba-star').forEach((s) => {
+  // 🗑 삭제 (북마크 행)
+  listEl.querySelectorAll('.ba-del').forEach((d) =>
+    d.addEventListener('click', async () => { await remove(d.dataset.id); changed() }))
+
+  // ☆ 히스토리 → 북마크 승격
+  listEl.querySelectorAll('.ba-star').forEach((s) =>
     s.addEventListener('click', async () => {
       const name = ui.showNameInput ? await ui.showNameInput(s.dataset.name || '') : prompt('북마크 이름', s.dataset.name || '')
       if (name === null) return
-      await promoteToBookmark(s.dataset.id, name || undefined)
-      changed()
-    })
-  })
-  listEl.querySelectorAll('.ba-del').forEach((d) => {
-    d.addEventListener('click', async () => { await remove(d.dataset.id); changed() })
-  })
-}
+      await promoteToBookmark(s.dataset.id, name || undefined); changed()
+    }))
 
-function bindBookmark(listEl, ui) {
-  bindRowOpen(listEl)
-  const toast = ui.toast || (() => {})
+  // 🔄 최근 검색으로 덮어쓰기
+  listEl.querySelectorAll('.ba-over').forEach((o) =>
+    o.addEventListener('click', async () => {
+      const latest = (await listByKind('history', ui.game))[0]
+      if (!latest) { toast('갱신할 최근 검색이 없습니다.'); return }
+      await overwriteBookmark(o.dataset.id, {
+        game: latest.game, league: latest.league, url: latest.url, title: latest.title,
+        itemType: latest.itemType, stats: latest.stats, priceFilter: latest.priceFilter,
+        snapshot: latest.snapshot, dedupeKey: latest.dedupeKey,
+      })
+      changed(); toast('최근 검색으로 갱신했습니다.')
+    }))
 
+  // + 폴더
   const addBtn = listEl.querySelector('.ba-add-folder')
   if (addBtn) addBtn.addEventListener('click', async () => {
     const name = ui.showNameInput ? await ui.showNameInput('새 폴더') : prompt('폴더 이름', '새 폴더')
@@ -134,22 +139,6 @@ function bindBookmark(listEl, ui) {
     changed(); toast('저장했습니다.')
   }))
 
-  // 🔄 최근 검색으로 덮어쓰기
-  listEl.querySelectorAll('.ba-over').forEach((o) => o.addEventListener('click', async () => {
-    const latest = (await listByKind('history', ui.game))[0]
-    if (!latest) { toast('갱신할 최근 검색이 없습니다.'); return }
-    await overwriteBookmark(o.dataset.id, {
-      game: latest.game, league: latest.league, url: latest.url, title: latest.title,
-      itemType: latest.itemType, stats: latest.stats, priceFilter: latest.priceFilter,
-      snapshot: latest.snapshot, dedupeKey: latest.dedupeKey,
-    })
-    changed(); toast('최근 검색으로 갱신했습니다.')
-  }))
-
-  listEl.querySelectorAll('.ba-row .ba-del').forEach((d) => d.addEventListener('click', async () => {
-    await remove(d.dataset.id); changed()
-  }))
-
   bindDnD(listEl)
 }
 
@@ -157,15 +146,16 @@ function bindDnD(listEl) {
   let dragId = null
   const clearOver = () => listEl.querySelectorAll('.ba-dragover').forEach((x) => x.classList.remove('ba-dragover'))
 
-  // 드래그는 전용 그립(⠿)에서만 시작 — 행 클릭(열기)과 분리해 커서 혼동 방지
+  // 드래그는 전용 그립(⠿)에서만 시작 — 행 클릭(열기)과 분리
   listEl.querySelectorAll('.ba-grip').forEach((grip) => {
     const gripRow = grip.closest('.ba-row')
     grip.addEventListener('dragstart', (e) => { dragId = grip.dataset.id; e.dataTransfer.effectAllowed = 'move'; gripRow.classList.add('ba-dragging') })
     grip.addEventListener('dragend', () => { gripRow.classList.remove('ba-dragging'); dragId = null; clearOver() })
   })
 
-  // 모든 북마크 행은 드롭 타깃
+  // 북마크 행만 드롭 타깃 (히스토리 행은 그립이 없어 제외)
   listEl.querySelectorAll('.ba-row').forEach((row) => {
+    if (!row.querySelector('.ba-grip')) return
     row.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; clearOver(); row.classList.add('ba-dragover') })
     row.addEventListener('drop', async (e) => {
       e.preventDefault(); e.stopPropagation(); clearOver()

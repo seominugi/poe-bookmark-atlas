@@ -57,14 +57,19 @@
 /* 완전 숨김 (✕ / 툴바 아이콘 토글) */
 .ba-root.ba-hidden { display: none; }
 
-.ba-tabs { display: flex; gap: 6px; padding: 8px 10px 0; }
-.ba-tab {
-  flex: 1; text-align: center; padding: 8px; cursor: pointer;
-  color: #94a3b8; font-weight: 600; border-radius: 8px 8px 0 0;
-  transition: color .15s, background .15s;
+/* 섹션 헤더 (북마크 / 히스토리 — 통합 스크롤, 탭 대체) */
+.ba-sec-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin: 2px 2px 8px; padding-bottom: 7px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
-.ba-tab:hover { background: rgba(255, 255, 255, 0.05); }
-.ba-tab.active { color: #38bdf8; box-shadow: inset 0 -2px 0 #38bdf8; }
+.ba-sec-head.ba-sec-hist { margin-top: 18px; }
+.ba-sec-title { font-weight: 800; font-size: 13.5px; color: #e2e8f0; }
+.ba-sec-count {
+  font-size: 10.5px; font-weight: 700; color: #7dd3fc;
+  background: rgba(56, 189, 248, 0.12); border-radius: 10px; padding: 1px 7px; margin-left: 4px;
+}
+.ba-empty-sm { padding: 14px 12px; text-align: center; color: #64748b; font-size: 11.5px; }
 
 .ba-list { overflow-y: auto; flex: 1; padding: 8px 10px 10px; }
 .ba-list::-webkit-scrollbar { width: 8px; }
@@ -83,25 +88,36 @@
 .ba-price { color: #fde047; font-weight: 800; white-space: nowrap; }
 .ba-stale { color: #fbbf24; cursor: help; }
 .ba-line2 { display: flex; justify-content: space-between; margin-top: 5px; color: #c7d2de; font-size: 11px; gap: 8px; }
-.ba-star, .ba-del { cursor: pointer; opacity: .85; font-size: 16px; padding: 1px 4px; vertical-align: middle; }
+.ba-star, .ba-del { cursor: pointer; opacity: .85; font-size: 18px; padding: 1px 4px; vertical-align: middle; }
 .ba-star:hover { opacity: 1; color: #fcd34d; }
 .ba-del:hover { opacity: 1; color: #f87171; }
 .ba-empty { padding: 28px 16px; text-align: center; color: #64748b; }
 
-/* 상단 강조 시세 링크 배너 (헤더 바로 아래, 상단 여백 활용) */
+/* 시세 배너 — seominugi.com 경제(시세) 페이지 디자인 채용 (슬레이트 그라데이션 카드 + 시안 hover-indicator 바) */
 .ba-econ {
-  display: flex; align-items: center; gap: 10px;
-  margin: 10px 12px 4px; padding: 9px 12px;
-  text-decoration: none; border-radius: 10px;
-  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.18));
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
-  transition: filter .15s, border-color .15s;
+  position: relative; overflow: hidden;
+  display: flex; align-items: center; gap: 11px;
+  margin: 10px 12px 6px; padding: 12px 14px;
+  text-decoration: none; border-radius: 12px;
+  background: linear-gradient(145deg, rgba(30, 41, 59, 0.55), rgba(15, 23, 42, 0.75));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.08), 0 4px 14px rgba(0, 0, 0, 0.35);
+  transition: border-color .2s, box-shadow .2s;
 }
-.ba-econ:hover { filter: brightness(1.12); border-color: rgba(56, 189, 248, 0.85); }
-.ba-econ-ic { font-size: 18px; line-height: 1; }
-.ba-econ-tx { display: flex; flex-direction: column; line-height: 1.25; }
-.ba-econ-tx b { color: #e0f2fe; font-size: 12.5px; font-weight: 800; }
+.ba-econ::before {                                   /* 경제 페이지 hover-indicator 바 + 글로우 */
+  content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+  border-radius: 0 4px 4px 0; background: #38bdf8;
+  box-shadow: 0 0 8px rgba(56, 189, 248, 0.6); opacity: 0; transition: opacity .2s;
+}
+.ba-econ:hover { border-color: rgba(56, 189, 248, 0.5); box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.12), 0 0 18px rgba(56, 189, 248, 0.18), 0 4px 14px rgba(0, 0, 0, 0.4); }
+.ba-econ:hover::before { opacity: 1; }
+.ba-econ-ic {
+  flex-shrink: 0; width: 38px; height: 38px; font-size: 20px;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(56, 189, 248, 0.12); border: 1px solid rgba(56, 189, 248, 0.3); border-radius: 10px;
+}
+.ba-econ-tx { display: flex; flex-direction: column; line-height: 1.3; flex: 1; min-width: 0; }
+.ba-econ-tx b { color: #f1f5f9; font-size: 13px; font-weight: 800; }
 .ba-econ-tx small { color: #7dd3fc; font-size: 10.5px; }
 
 /* 소셜 · 후원 링크 (상단 공간 활용) */
@@ -171,7 +187,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 4px;
 }
 .ba-folder-count { color: #64748b; font-weight: 600; font-size: 10.5px; }
-.ba-folder-save, .ba-folder-rename, .ba-folder-del { cursor: pointer; opacity: .78; margin-left: 8px; font-size: 15px; vertical-align: middle; }
+.ba-folder-save, .ba-folder-rename, .ba-folder-del { cursor: pointer; opacity: .78; margin-left: 8px; font-size: 16px; vertical-align: middle; }
 .ba-folder-save:hover { opacity: 1; color: #7be495; }
 .ba-folder-rename:hover { opacity: 1; color: #38bdf8; }
 .ba-folder-del:hover { opacity: 1; color: #f87171; }
@@ -180,11 +196,11 @@
   padding: 10px; text-align: center; color: #475569; font-size: 11px;
   border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 8px; margin-bottom: 7px;
 }
-.ba-over { cursor: pointer; opacity: .85; font-size: 16px; padding: 1px 4px; vertical-align: middle; }
+.ba-over { cursor: pointer; opacity: .85; font-size: 18px; padding: 1px 4px; vertical-align: middle; }
 .ba-over:hover { opacity: 1; color: #38bdf8; }
 /* 행 좌측 영역(그립+제목) + 드래그 전용 그립 */
 .ba-l1l { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.ba-grip { cursor: grab; color: #64748b; opacity: .65; font-size: 16px; user-select: none; flex-shrink: 0; }
+.ba-grip { cursor: grab; color: #64748b; opacity: .65; font-size: 18px; user-select: none; flex-shrink: 0; }
 .ba-grip:hover { opacity: 1; color: #9fb0c3; }
 .ba-grip:active { cursor: grabbing; }
 .ba-row.ba-dragging { opacity: .45; }

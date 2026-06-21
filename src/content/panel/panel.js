@@ -41,10 +41,6 @@ export function mountPanel({ game }) {
         <button class="ba-name-ok" id="ba-name-ok">저장</button>
         <button class="ba-name-cancel" id="ba-name-cancel">취소</button>
       </div>
-      <div class="ba-tabs">
-        <div class="ba-tab active" data-tab="bookmark">🔖 북마크</div>
-        <div class="ba-tab" data-tab="history">🕘 히스토리</div>
-      </div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-toast" id="ba-toast" hidden></div>
     </div>
@@ -128,15 +124,7 @@ export function mountPanel({ game }) {
   }
 
   const ui = { showNameInput, toast, game }
-  let tab = 'bookmark'
-  const tabs = root.querySelectorAll('.ba-tab')
-  const refresh = () => renderList($('ba-list'), tab, root, ui)
-  const selectTab = (name) => {
-    tab = name
-    tabs.forEach((x) => x.classList.toggle('active', x.dataset.tab === name))
-    refresh()
-  }
-  tabs.forEach((t) => { t.onclick = () => selectTab(t.dataset.tab) })
+  const refresh = () => renderList($('ba-list'), root, ui)
 
   // 최근(현재) 검색을 북마크로 저장
   $('ba-save').onclick = async () => {
@@ -153,7 +141,7 @@ export function mountPanel({ game }) {
       },
       name || latest.title,
     )
-    selectTab('bookmark')
+    refresh()
     toast('북마크에 저장했습니다.')
   }
 
