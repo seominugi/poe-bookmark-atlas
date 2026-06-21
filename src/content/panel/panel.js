@@ -41,8 +41,8 @@ export function mountPanel({ game }) {
       </div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-toast" id="ba-toast" hidden></div>
-      <div class="ba-tip" id="ba-tip" hidden></div>
-    </div>`
+    </div>
+    <div class="ba-tip" id="ba-tip" hidden></div>`
   root.appendChild(wrap)
 
   const $ = (id) => root.getElementById(id)
