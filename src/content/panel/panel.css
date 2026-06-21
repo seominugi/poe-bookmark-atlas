@@ -2,7 +2,7 @@
 
 /* ── seominugi-com 글래스모피즘 채용 (premium-glass-card 레시피) ── */
 .ba-root {
-  position: fixed; top: 56px; right: 0; width: 390px; max-height: calc(100vh - 72px);
+  position: fixed; top: 0; bottom: 0; right: 0; width: 390px;
   display: flex; flex-direction: column;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px; line-height: 1.5; color: #eef2f7;
