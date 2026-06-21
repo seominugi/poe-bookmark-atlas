@@ -12,19 +12,25 @@ const fmtTime = (t) => {
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
+const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능성 경고
 
 function rowHtml(r, kind) {
   const price = r.snapshot ? formatPrice(r.snapshot) : ''
   const title = escapeHtml(r.name || r.title)
   const stats = escapeHtml((r.stats || []).slice(0, 3).join(' · '))
+  const when = r.lastUsedAt || r.updatedAt
+  const stale = kind === 'bookmark' && Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
+  const warn = stale
+    ? `<span class="ba-stale" title="오래된 북마크 — 거래소 저장 링크가 만료됐을 수 있어요. 클릭해 결과가 뜨면 자동 갱신됩니다.">⚠</span> `
+    : ''
   const actions =
     kind === 'history'
       ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" title="북마크로 저장">☆</span>`
       : `<span class="ba-over" data-id="${r.id}" title="최근 검색으로 갱신(덮어쓰기)">🔄</span><span class="ba-del" data-id="${r.id}" title="삭제">🗑</span>`
   const drag = kind === 'bookmark' ? ' draggable="true"' : ''
   return `<div class="ba-row"${drag} data-id="${r.id}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-url="${encodeURIComponent(r.url)}">
-    <div class="ba-line1"><span>🔖 <b>${title}</b></span><span class="ba-price">${price}</span></div>
-    <div class="ba-line2"><span>${stats}</span><span>${actions} ${fmtTime(r.updatedAt)}</span></div>
+    <div class="ba-line1"><span>${warn}🔖 <b>${title}</b></span><span class="ba-price">${price}</span></div>
+    <div class="ba-line2"><span>${stats}</span><span>${actions} ${fmtTime(when)}</span></div>
   </div>`
 }
 

@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   addHistory, listByKind, promoteToBookmark, rename, remove, HISTORY_CAP,
   addBookmark, overwriteBookmark, moveBookmark,
-  listFolders, addFolder, renameFolder, deleteFolder,
+  listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -115,5 +115,12 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     await addFolder('무기', 'poe1')
     expect((await listFolders('poe2')).map((f) => f.name)).toEqual(['갑옷'])
     expect((await listFolders('poe1')).map((f) => f.name)).toEqual(['무기'])
+  })
+
+  it('markUsedByUrl: 해당 URL 북마크의 lastUsedAt 갱신', async () => {
+    await addBookmark(rec({ url: 'u-x' }), 'A')
+    expect((await listByKind('bookmark'))[0].lastUsedAt).toBeUndefined()
+    await markUsedByUrl('u-x')
+    expect((await listByKind('bookmark'))[0].lastUsedAt).toBeTruthy()
   })
 })

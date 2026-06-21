@@ -108,6 +108,16 @@ export async function moveBookmark(id, patch) {
   await writeAll(all)
 }
 
+/** 저장된 검색을 열어 결과가 실제 로드되면 호출 — 해당 URL 북마크의 lastUsedAt 갱신(만료 경고 해제) */
+export async function markUsedByUrl(url) {
+  const all = await readAll()
+  let changed = false
+  for (const r of all) {
+    if (r.kind === 'bookmark' && r.url === url) { r.lastUsedAt = Date.now(); changed = true }
+  }
+  if (changed) await writeAll(all)
+}
+
 // ── 폴더 (game 스코프) ──
 /** game 지정 시 해당 게임 폴더 + 게임 미지정(레거시) 폴더. */
 export async function listFolders(game) {

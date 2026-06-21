@@ -4,7 +4,7 @@ import { parseSearchQuery } from '../lib/searchParser.js'
 import { buildStatMap } from '../lib/statMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { parseExaltedPerDivine } from '../lib/currencyRates.js'
-import { addHistory } from '../store/store.js'
+import { addHistory, markUsedByUrl } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 
@@ -65,6 +65,9 @@ window.addEventListener('message', async (e) => {
       .map((r) => r && r.listing && r.listing.price)
       .filter(Boolean)
       .map((p) => ({ amount: p.amount, currency: p.currency }))
+
+    // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt 갱신
+    if (listings.length > 0) markUsedByUrl(location.href)
 
     let snapshot = null
     try {
