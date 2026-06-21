@@ -30,9 +30,9 @@ export async function addHistory(rec) {
   return record
 }
 
-/** kind별 조회. 북마크는 order 오름차순, 히스토리는 최신순. */
-export async function listByKind(kind) {
-  const list = (await readAll()).filter((r) => r.kind === kind)
+/** kind별 조회. game 지정 시 해당 게임만. 북마크는 order 오름차순, 히스토리는 최신순. */
+export async function listByKind(kind, game) {
+  const list = (await readAll()).filter((r) => r.kind === kind && (!game || r.game === game))
   if (kind === 'bookmark') return list.sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
   return list.sort((a, b) => b.updatedAt - a.updatedAt)
 }
@@ -108,12 +108,16 @@ export async function moveBookmark(id, patch) {
   await writeAll(all)
 }
 
-// ── 폴더 ──
-export async function listFolders() { return readFolders() }
-
-export async function addFolder(name) {
+// ── 폴더 (game 스코프) ──
+/** game 지정 시 해당 게임 폴더 + 게임 미지정(레거시) 폴더. */
+export async function listFolders(game) {
   const folders = await readFolders()
-  const folder = { id: uid('f_'), name: name || '새 폴더' }
+  return game ? folders.filter((f) => !f.game || f.game === game) : folders
+}
+
+export async function addFolder(name, game) {
+  const folders = await readFolders()
+  const folder = { id: uid('f_'), name: name || '새 폴더', game: game ?? null }
   folders.push(folder)
   await writeFolders(folders)
   return folder

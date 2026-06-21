@@ -23,7 +23,7 @@ export function mountPanel({ game }) {
     <div class="ba-root" id="ba-root">
       <div class="ba-handle" id="ba-handle">🔖 북마크</div>
       <div class="ba-head">
-        <span class="ba-title">🔖 북마크 아틀라스</span>
+        <span class="ba-title">🔖 북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
         <button class="ba-save" id="ba-save" title="최근 검색을 북마크로 저장">★ 현재 검색 저장</button>
       </div>
       <div class="ba-namebar" id="ba-namebar" hidden>
@@ -92,7 +92,7 @@ export function mountPanel({ game }) {
     })
   }
 
-  const ui = { showNameInput, toast }
+  const ui = { showNameInput, toast, game }
   let tab = 'bookmark'
   const tabs = root.querySelectorAll('.ba-tab')
   const refresh = () => renderList($('ba-list'), tab, root, ui)
@@ -105,7 +105,7 @@ export function mountPanel({ game }) {
 
   // 최근(현재) 검색을 북마크로 저장
   $('ba-save').onclick = async () => {
-    const latest = (await listByKind('history'))[0]
+    const latest = (await listByKind('history', game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
     const name = await showNameInput(latest.name || latest.title)
     if (name === null) return

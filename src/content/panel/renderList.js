@@ -30,7 +30,7 @@ function rowHtml(r, kind) {
 
 export async function renderList(listEl, kind, root, ui = {}) {
   if (kind === 'history') {
-    const records = await listByKind('history')
+    const records = await listByKind('history', ui.game)
     listEl.innerHTML = records.length
       ? records.map((r) => rowHtml(r, 'history')).join('')
       : `<div class="ba-empty">기록이 없습니다.</div>`
@@ -39,7 +39,7 @@ export async function renderList(listEl, kind, root, ui = {}) {
   }
 
   // 북마크: 폴더 그룹 + 드래그앤드롭
-  const [bookmarks, folders] = await Promise.all([listByKind('bookmark'), listFolders()])
+  const [bookmarks, folders] = await Promise.all([listByKind('bookmark', ui.game), listFolders(ui.game)])
   if (!bookmarks.length && !folders.length) {
     listEl.innerHTML = `<div class="ba-bm-toolbar"><button class="ba-add-folder">+ 새 폴더</button></div>
       <div class="ba-empty">저장된 북마크가 없습니다.<br>검색 후 ☆ 또는 "현재 검색 저장"</div>`
@@ -99,7 +99,7 @@ function bindBookmark(listEl, ui) {
   if (addBtn) addBtn.addEventListener('click', async () => {
     const name = ui.showNameInput ? await ui.showNameInput('새 폴더') : prompt('폴더 이름', '새 폴더')
     if (name === null) return
-    await addFolder(name || '새 폴더'); changed()
+    await addFolder(name || '새 폴더', ui.game); changed()
   })
 
   listEl.querySelectorAll('.ba-folder-rename').forEach((s) => s.addEventListener('click', async () => {
@@ -114,7 +114,7 @@ function bindBookmark(listEl, ui) {
   // ➕ 현재(최근) 검색을 이 폴더/미분류에 바로 저장
   listEl.querySelectorAll('.ba-folder-save').forEach((b) => b.addEventListener('click', async () => {
     const folderId = b.dataset.fid || null
-    const latest = (await listByKind('history'))[0]
+    const latest = (await listByKind('history', ui.game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
     const name = ui.showNameInput ? await ui.showNameInput(latest.name || latest.title) : prompt('북마크 이름', latest.name || latest.title)
     if (name === null) return
@@ -128,7 +128,7 @@ function bindBookmark(listEl, ui) {
 
   // 🔄 최근 검색으로 덮어쓰기
   listEl.querySelectorAll('.ba-over').forEach((o) => o.addEventListener('click', async () => {
-    const latest = (await listByKind('history'))[0]
+    const latest = (await listByKind('history', ui.game))[0]
     if (!latest) { toast('갱신할 최근 검색이 없습니다.'); return }
     await overwriteBookmark(o.dataset.id, {
       game: latest.game, league: latest.league, url: latest.url, title: latest.title,

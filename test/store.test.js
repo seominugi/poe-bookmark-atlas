@@ -104,4 +104,16 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     await deleteFolder(f.id)
     expect((await listByKind('bookmark'))[0].folderId).toBeNull()
   })
+
+  it('game 스코프: 북마크·폴더가 게임별로 분리', async () => {
+    await addBookmark(rec({ game: 'poe2', title: 'P2' }), 'P2')
+    await addBookmark(rec({ game: 'poe1', title: 'P1', dedupeKey: 'k2' }), 'P1')
+    expect((await listByKind('bookmark', 'poe2')).map((x) => x.title)).toEqual(['P2'])
+    expect((await listByKind('bookmark', 'poe1')).map((x) => x.title)).toEqual(['P1'])
+    expect((await listByKind('bookmark')).length).toBe(2)
+    await addFolder('갑옷', 'poe2')
+    await addFolder('무기', 'poe1')
+    expect((await listFolders('poe2')).map((f) => f.name)).toEqual(['갑옷'])
+    expect((await listFolders('poe1')).map((f) => f.name)).toEqual(['무기'])
+  })
 })
