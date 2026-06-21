@@ -104,6 +104,23 @@
 .ba-econ-tx b { color: #e0f2fe; font-size: 12.5px; font-weight: 800; }
 .ba-econ-tx small { color: #7dd3fc; font-size: 10.5px; }
 
+/* 소셜 · 후원 링크 (상단 공간 활용) */
+.ba-social { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; padding: 2px 12px 6px; }
+.ba-soc {
+  font-size: 11px; color: #cbd5e1; text-decoration: none;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px; padding: 4px 8px;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.ba-soc:hover { color: #f1f5f9; border-color: rgba(56, 189, 248, 0.5); background: rgba(56, 189, 248, 0.1); }
+.ba-donate {
+  margin-left: auto; font-size: 11px; font-weight: 800; color: #fff;
+  background: linear-gradient(135deg, #ec4899, #f43f5e);
+  border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 7px;
+  padding: 4px 10px; text-decoration: none; transition: filter .15s;
+}
+.ba-donate:hover { filter: brightness(1.1); }
+
 /* 커스텀 툴팁 (네이티브 title 대체, 브라우저 안에서 렌더) */
 .ba-tip {
   position: fixed; z-index: 2147483600; max-width: 230px;

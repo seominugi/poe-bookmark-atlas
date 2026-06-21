@@ -30,6 +30,12 @@ export function mountPanel({ game }) {
         <span class="ba-econ-ic">📊</span>
         <span class="ba-econ-tx"><b>아이템 시세 자세히 보기</b><small>seominugi.com 경제 데이터 ↗</small></span>
       </a>
+      <div class="ba-social">
+        <a class="ba-soc" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널">▶ 유튜브</a>
+        <a class="ba-soc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 — 피드백·버그 제보">💬 디스코드</a>
+        <a class="ba-soc" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페">☕ 카페</a>
+        <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="투네이션으로 후원하기 — 감사합니다!">💗 후원</a>
+      </div>
       <div class="ba-namebar" id="ba-namebar" hidden>
         <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
         <button class="ba-name-ok" id="ba-name-ok">저장</button>
