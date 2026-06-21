@@ -6,6 +6,7 @@ import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { parseExaltedPerDivine } from '../lib/currencyRates.js'
 import { addHistory } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
+import { initFuzzyPrefix } from './fuzzyPrefix.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -91,4 +92,5 @@ window.addEventListener('message', async (e) => {
   }
 })
 
+initFuzzyPrefix()
 mountPanel({ game })
