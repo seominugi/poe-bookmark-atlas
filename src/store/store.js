@@ -118,6 +118,19 @@ export async function markUsedByUrl(url) {
   if (changed) await writeAll(all)
 }
 
+/** 오래된(staleMs 이상 미사용) 북마크 일괄 삭제. game 스코프. @returns {Promise<number>} 삭제 개수 */
+export async function removeStaleBookmarks(game, staleMs, now = Date.now()) {
+  const all = await readAll()
+  const isStale = (r) =>
+    r.kind === 'bookmark' &&
+    (!game || r.game === game) &&
+    now - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > staleMs
+  const kept = all.filter((r) => !isStale(r))
+  const removed = all.length - kept.length
+  if (removed > 0) await writeAll(kept)
+  return removed
+}
+
 // ── 폴더 (game 스코프) ──
 /** game 지정 시 해당 게임 폴더 + 게임 미지정(레거시) 폴더. */
 export async function listFolders(game) {

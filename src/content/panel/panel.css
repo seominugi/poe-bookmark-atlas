@@ -70,10 +70,19 @@
   background: rgba(56, 189, 248, 0.12); border-radius: 10px; padding: 1px 7px; margin-left: 4px;
 }
 .ba-empty-sm { padding: 14px 12px; text-align: center; color: #64748b; font-size: 11.5px; }
+.ba-sec-actions { display: flex; align-items: center; gap: 6px; }
+.ba-clean-stale {
+  font-size: 11px; font-weight: 700; color: #fca5a5; white-space: nowrap;
+  background: rgba(248, 113, 113, 0.1); border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: 8px; padding: 4px 9px; cursor: pointer;
+}
+.ba-clean-stale:hover { background: rgba(248, 113, 113, 0.2); color: #fecaca; }
 
-.ba-list { overflow-y: auto; flex: 1; padding: 8px 10px 10px; }
-.ba-list::-webkit-scrollbar { width: 8px; }
-.ba-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 4px; }
+.ba-list { overflow-y: auto; flex: 1; padding: 8px 10px 10px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+.ba-list::-webkit-scrollbar { width: 6px; }
+.ba-list::-webkit-scrollbar-track { background: transparent; }
+.ba-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
+.ba-list::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.22); }
 
 .ba-row {
   background: rgba(43, 58, 78, 0.92);
@@ -87,7 +96,10 @@
 .ba-line1 b { color: #f8fafc; font-weight: 700; font-size: 13px; }
 .ba-price { color: #fde047; font-weight: 800; white-space: nowrap; }
 .ba-stale { color: #fbbf24; cursor: help; }
-.ba-line2 { display: flex; justify-content: space-between; margin-top: 5px; color: #c7d2de; font-size: 11px; gap: 8px; }
+/* 카드 메타(즐겨찾기·액션 + 시간, 왼쪽 정렬) + 속성(줄바꿈) */
+.ba-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: #c7d2de; font-size: 11px; }
+.ba-time { color: #94a3b8; }
+.ba-stats { margin-top: 5px; color: #aab6c5; font-size: 11px; line-height: 1.5; word-break: break-word; }
 .ba-star, .ba-del { cursor: pointer; opacity: .85; font-size: 18px; padding: 1px 4px; vertical-align: middle; }
 .ba-star:hover { opacity: 1; color: #fcd34d; }
 .ba-del:hover { opacity: 1; color: #f87171; }

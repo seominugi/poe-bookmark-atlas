@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   addHistory, listByKind, promoteToBookmark, rename, remove, HISTORY_CAP,
   addBookmark, overwriteBookmark, moveBookmark,
-  listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl,
+  listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -122,5 +122,25 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     expect((await listByKind('bookmark'))[0].lastUsedAt).toBeUndefined()
     await markUsedByUrl('u-x')
     expect((await listByKind('bookmark'))[0].lastUsedAt).toBeTruthy()
+  })
+
+  it('removeStaleBookmarks: staleMs 이상 미사용 북마크만 game 스코프로 일괄 삭제', async () => {
+    const STALE = 14 * 24 * 60 * 60 * 1000
+    const day = 24 * 60 * 60 * 1000
+    const old = await addBookmark(rec({ title: 'old' }), 'old')
+    const fresh = await addBookmark(rec({ title: 'fresh', dedupeKey: 'k2' }), 'fresh')
+    const other = await addBookmark(rec({ game: 'poe1', title: 'p1', dedupeKey: 'k3' }), 'p1')
+    const now = 2_000_000_000_000
+    // 저장된 레코드의 lastUsedAt을 직접 제어
+    const { records } = await chrome.storage.local.get('records')
+    records.find((r) => r.id === old.id).lastUsedAt = now - 20 * day // 20일 전 → stale
+    records.find((r) => r.id === fresh.id).lastUsedAt = now - 1 * day // 1일 전 → 유지
+    records.find((r) => r.id === other.id).lastUsedAt = now - 30 * day // 30일 전이지만 poe1 → 유지
+    await chrome.storage.local.set({ records })
+
+    const n = await removeStaleBookmarks('poe2', STALE, now)
+    expect(n).toBe(1)
+    expect((await listByKind('bookmark', 'poe2')).map((x) => x.title)).toEqual(['fresh'])
+    expect((await listByKind('bookmark', 'poe1')).map((x) => x.title)).toEqual(['p1'])
   })
 })
