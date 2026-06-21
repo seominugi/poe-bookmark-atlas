@@ -46,15 +46,24 @@ export function mountPanel({ game }) {
 
   // 접기/펼치기 = 표시/숨김 (핸들·✕·툴바 아이콘 공통, 상태 유지). 핸들은 항상 보여 다시 열 수 있음.
   const isCollapsed = () => elRoot.classList.contains('collapsed')
+  // 펼쳤을 때 페이지 콘텐츠를 왼쪽으로 밀어 패널 자리를 확보(도킹) → 검색 영역과 겹침 방지
+  const applyPagePush = (collapsed) => {
+    try {
+      document.documentElement.style.setProperty('margin-right', collapsed ? '' : '390px', 'important')
+      document.documentElement.style.setProperty('transition', 'margin-right .25s ease', 'important')
+    } catch (_) {}
+  }
   const setCollapsed = (collapsed) => {
     elRoot.classList.toggle('collapsed', collapsed)
+    applyPagePush(collapsed)
     try { chrome.storage.local.set({ uiCollapsed: collapsed }) } catch (_) {}
   }
   // 초기 상태: 좁은 화면은 접힘(검색 영역 겹침 방지), 넓으면 펼침. 사용자 토글 선호는 기억.
   if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
+  applyPagePush(isCollapsed())
   try {
     chrome.storage.local.get('uiCollapsed').then((r) => {
-      if (r && typeof r.uiCollapsed === 'boolean') elRoot.classList.toggle('collapsed', r.uiCollapsed)
+      if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
     })
   } catch (_) {}
   $('ba-handle').onclick = () => setCollapsed(!isCollapsed())
