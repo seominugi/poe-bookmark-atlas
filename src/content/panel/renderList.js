@@ -21,15 +21,17 @@ function rowHtml(r, kind) {
   const when = r.lastUsedAt || r.updatedAt
   const stale = kind === 'bookmark' && Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
   const warn = stale
-    ? `<span class="ba-stale" title="오래된 북마크 — 거래소 저장 링크가 만료됐을 수 있어요. 클릭해 결과가 뜨면 자동 갱신됩니다.">⚠</span> `
+    ? `<span class="ba-stale" data-tip="오래된 북마크 — 거래소 저장 링크가 만료됐을 수 있어요. 클릭해 결과가 뜨면 자동 갱신됩니다.">⚠</span> `
     : ''
   const actions =
     kind === 'history'
-      ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" title="북마크로 저장">☆</span>`
-      : `<span class="ba-over" data-id="${r.id}" title="최근 검색으로 갱신(덮어쓰기)">🔄</span><span class="ba-del" data-id="${r.id}" title="삭제">🗑</span>`
-  const drag = kind === 'bookmark' ? ' draggable="true"' : ''
-  return `<div class="ba-row"${drag} data-id="${r.id}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-url="${encodeURIComponent(r.url)}">
-    <div class="ba-line1"><span>${warn}🔖 <b>${title}</b></span><span class="ba-price">${price}</span></div>
+      ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">☆</span>`
+      : `<span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">🔄</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">🗑</span>`
+  const grip = kind === 'bookmark'
+    ? `<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해서 순서·폴더 이동">⠿</span>`
+    : ''
+  return `<div class="ba-row" data-id="${r.id}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-url="${encodeURIComponent(r.url)}">
+    <div class="ba-line1"><span class="ba-l1l">${grip}${warn}🔖 <b>${title}</b></span><span class="ba-price">${price}</span></div>
     <div class="ba-line2"><span>${stats}</span><span>${actions} ${fmtTime(when)}</span></div>
   </div>`
 }
@@ -62,8 +64,8 @@ export async function renderList(listEl, kind, root, ui = {}) {
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
       g.id !== null
-        ? `<span class="ba-folder-save" data-fid="${g.id}" title="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" title="이름변경">✎</span><span class="ba-folder-del" data-id="${g.id}" title="폴더 삭제(북마크는 미분류로)">🗑</span>`
-        : `<span class="ba-folder-save" data-fid="" title="현재 검색을 미분류에 저장">➕</span>`
+        ? `<span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" data-tip="이름변경">✎</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">🗑</span>`
+        : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">➕</span>`
     html += `<div class="ba-folder" data-folder="${g.id ?? ''}">
       <div class="ba-folder-head"><span class="ba-folder-name">📁 ${escapeHtml(g.name)} <span class="ba-folder-count">${items.length}</span></span><span>${fActions}</span></div>
       <div class="ba-folder-body" data-folder="${g.id ?? ''}">${items.map((r) => rowHtml(r, 'bookmark')).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
@@ -76,7 +78,7 @@ export async function renderList(listEl, kind, root, ui = {}) {
 function bindRowOpen(listEl) {
   listEl.querySelectorAll('.ba-row').forEach((row) => {
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.ba-star,.ba-over,.ba-del')) return
+      if (e.target.closest('.ba-star,.ba-over,.ba-del,.ba-grip,.ba-stale')) return
       location.href = decodeURIComponent(row.dataset.url)
     })
   })
@@ -155,9 +157,15 @@ function bindDnD(listEl) {
   let dragId = null
   const clearOver = () => listEl.querySelectorAll('.ba-dragover').forEach((x) => x.classList.remove('ba-dragover'))
 
-  listEl.querySelectorAll('.ba-row[draggable="true"]').forEach((row) => {
-    row.addEventListener('dragstart', (e) => { dragId = row.dataset.id; e.dataTransfer.effectAllowed = 'move'; row.classList.add('ba-dragging') })
-    row.addEventListener('dragend', () => { row.classList.remove('ba-dragging'); dragId = null; clearOver() })
+  // 드래그는 전용 그립(⠿)에서만 시작 — 행 클릭(열기)과 분리해 커서 혼동 방지
+  listEl.querySelectorAll('.ba-grip').forEach((grip) => {
+    const gripRow = grip.closest('.ba-row')
+    grip.addEventListener('dragstart', (e) => { dragId = grip.dataset.id; e.dataTransfer.effectAllowed = 'move'; gripRow.classList.add('ba-dragging') })
+    grip.addEventListener('dragend', () => { gripRow.classList.remove('ba-dragging'); dragId = null; clearOver() })
+  })
+
+  // 모든 북마크 행은 드롭 타깃
+  listEl.querySelectorAll('.ba-row').forEach((row) => {
     row.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; clearOver(); row.classList.add('ba-dragover') })
     row.addEventListener('drop', async (e) => {
       e.preventDefault(); e.stopPropagation(); clearOver()

@@ -88,9 +88,31 @@
 .ba-del:hover { opacity: 1; color: #f87171; }
 .ba-empty { padding: 28px 16px; text-align: center; color: #64748b; }
 
-.ba-foot { padding: 10px 14px; border-top: 1px solid rgba(255, 255, 255, 0.08); }
-.ba-foot a { color: #38bdf8; text-decoration: none; font-weight: 600; font-size: 11.5px; }
-.ba-foot a:hover { text-decoration: underline; }
+/* 상단 강조 시세 링크 배너 (헤더 바로 아래, 상단 여백 활용) */
+.ba-econ {
+  display: flex; align-items: center; gap: 10px;
+  margin: 10px 12px 4px; padding: 9px 12px;
+  text-decoration: none; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.18), rgba(99, 102, 241, 0.18));
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25), inset 0 1px 1px rgba(255, 255, 255, 0.1);
+  transition: filter .15s, border-color .15s;
+}
+.ba-econ:hover { filter: brightness(1.12); border-color: rgba(56, 189, 248, 0.85); }
+.ba-econ-ic { font-size: 18px; line-height: 1; }
+.ba-econ-tx { display: flex; flex-direction: column; line-height: 1.25; }
+.ba-econ-tx b { color: #e0f2fe; font-size: 12.5px; font-weight: 800; }
+.ba-econ-tx small { color: #7dd3fc; font-size: 10.5px; }
+
+/* 커스텀 툴팁 (네이티브 title 대체, 브라우저 안에서 렌더) */
+.ba-tip {
+  position: fixed; z-index: 2147483600; max-width: 230px;
+  background: rgba(11, 17, 24, 0.97); color: #e2e8f0;
+  border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 8px;
+  padding: 6px 9px; font-size: 11px; line-height: 1.4;
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); pointer-events: none;
+}
+.ba-tip[hidden] { display: none; }
 
 /* 인라인 이름 입력바 (네이티브 prompt 대체) */
 .ba-namebar { display: flex; gap: 6px; padding: 8px 12px; border-bottom: 1px solid rgba(255, 255, 255, 0.08); }
@@ -143,6 +165,10 @@
 }
 .ba-over { cursor: pointer; opacity: .8; }
 .ba-over:hover { opacity: 1; color: #38bdf8; }
-.ba-row[draggable="true"] { cursor: grab; }
+/* 행 좌측 영역(그립+제목) + 드래그 전용 그립 */
+.ba-l1l { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ba-grip { cursor: grab; color: #64748b; opacity: .6; font-size: 13px; user-select: none; flex-shrink: 0; }
+.ba-grip:hover { opacity: 1; color: #9fb0c3; }
+.ba-grip:active { cursor: grabbing; }
 .ba-row.ba-dragging { opacity: .45; }
 .ba-row.ba-dragover { border-color: #38bdf8; box-shadow: inset 0 2px 0 #38bdf8; }

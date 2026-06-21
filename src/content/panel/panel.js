@@ -24,8 +24,12 @@ export function mountPanel({ game }) {
       <div class="ba-handle" id="ba-handle">🔖 북마크</div>
       <div class="ba-head">
         <span class="ba-title">🔖 북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
-        <button class="ba-save" id="ba-save" title="최근 검색을 북마크로 저장">★ 현재 검색 저장</button>
+        <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">★ 현재 검색 저장</button>
       </div>
+      <a class="ba-econ" href="${ECON[game] || ECON.poe2}" target="_blank" rel="noopener">
+        <span class="ba-econ-ic">📊</span>
+        <span class="ba-econ-tx"><b>아이템 시세 자세히 보기</b><small>seominugi.com 경제 데이터 ↗</small></span>
+      </a>
       <div class="ba-namebar" id="ba-namebar" hidden>
         <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
         <button class="ba-name-ok" id="ba-name-ok">저장</button>
@@ -37,7 +41,7 @@ export function mountPanel({ game }) {
       </div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-toast" id="ba-toast" hidden></div>
-      <div class="ba-foot"><a href="${ECON[game] || ECON.poe2}" target="_blank" rel="noopener">📊 아이템 시세 자세히 → seominugi.com ↗</a></div>
+      <div class="ba-tip" id="ba-tip" hidden></div>
     </div>`
   root.appendChild(wrap)
 
@@ -73,6 +77,22 @@ export function mountPanel({ game }) {
     const t = $('ba-toast'); t.textContent = msg; t.hidden = false
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, 2200)
   }
+
+  // 커스텀 툴팁 — 네이티브 title 대신 패널 안(Shadow DOM)에서 렌더. 우측 도킹이라 요소 왼쪽에 표시.
+  const tipEl = $('ba-tip')
+  root.addEventListener('mouseover', (e) => {
+    const el = e.target.closest && e.target.closest('[data-tip]')
+    if (!el) return
+    tipEl.textContent = el.getAttribute('data-tip')
+    tipEl.hidden = false
+    const r = el.getBoundingClientRect()
+    tipEl.style.left = 'auto'
+    tipEl.style.top = Math.max(8, r.top) + 'px'
+    tipEl.style.right = Math.max(8, window.innerWidth - r.left + 8) + 'px'
+  })
+  root.addEventListener('mouseout', (e) => {
+    if (e.target.closest && e.target.closest('[data-tip]')) tipEl.hidden = true
+  })
 
   // 패널 내부 인라인 이름 입력 (네이티브 prompt 대체). @returns {Promise<string|null>}
   function showNameInput(defaultName) {
