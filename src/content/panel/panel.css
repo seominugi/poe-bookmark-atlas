@@ -2,7 +2,7 @@
 
 /* ── seominugi-com 글래스모피즘 채용 (premium-glass-card 레시피) ── */
 .ba-root {
-  position: fixed; top: 52px; bottom: 0; right: 0; width: 390px;
+  position: fixed; top: 0; bottom: 0; right: 0; width: 390px;
   display: flex; flex-direction: column;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px; line-height: 1.5; color: #eef2f7;
@@ -21,7 +21,7 @@
 .ba-root.collapsed { transform: translateX(390px); }
 
 .ba-handle {
-  position: absolute; left: -30px; top: 28px; width: 30px; height: 104px;
+  position: absolute; left: -30px; top: 50%; margin-top: -52px; width: 30px; height: 104px;
   display: flex; align-items: center; justify-content: center;
   writing-mode: vertical-rl; letter-spacing: 2px;
   background: rgba(17, 24, 33, 0.92);
@@ -37,7 +37,7 @@
 
 .ba-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 11px 14px 9px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 14px 16px 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 .ba-title { font-weight: 700; color: #f1f5f9; font-size: 13px; }
 .ba-save {
@@ -78,7 +78,7 @@
 }
 .ba-clean-stale:hover { background: rgba(248, 113, 113, 0.2); color: #fecaca; }
 
-.ba-list { overflow-y: auto; flex: 1; padding: 8px 10px 10px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+.ba-list { overflow-y: auto; flex: 1; padding: 12px 14px 14px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 .ba-list::-webkit-scrollbar { width: 6px; }
 .ba-list::-webkit-scrollbar-track { background: transparent; }
 .ba-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.1); border-radius: 3px; }
