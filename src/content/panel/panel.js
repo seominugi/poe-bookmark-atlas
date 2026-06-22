@@ -140,7 +140,7 @@ export function mountPanel({ game }) {
       {
         game: latest.game, league: latest.league, url: latest.url,
         title: latest.title, itemType: latest.itemType, name: latest.name,
-        stats: latest.stats, priceFilter: latest.priceFilter, snapshot: latest.snapshot,
+        stats: latest.stats, statGroups: latest.statGroups, priceFilter: latest.priceFilter, snapshot: latest.snapshot,
         dedupeKey: latest.dedupeKey,
       },
       name || latest.title,

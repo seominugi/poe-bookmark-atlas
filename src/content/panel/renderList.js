@@ -16,13 +16,22 @@ const escapeHtml = (s) =>
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
 const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능성 경고
 
+// 조건 상세 툴팁 텍스트 — 그룹 타입(및·제외·숫자·가중 합계…)별로 묶어 표시, 구 레코드는 평탄 폴백
+function condTipText(r) {
+  const groups = r.statGroups
+  if (Array.isArray(groups) && groups.length) {
+    return groups.map((g) => `[${g.label}]\n${g.filters.map((f) => `  ${f}`).join('\n')}`).join('\n')
+  }
+  return (r.stats || []).join('\n')
+}
+
 function rowHtml(r, kind) {
   const price = r.snapshot ? formatPrice(r.snapshot) : ''
   const title = escapeHtml(r.name || r.title)
   const statItems = r.stats || []
-  // 카드엔 조건 개수만 가볍게, 상세는 hover 툴팁(줄바꿈)으로
+  // 카드엔 조건 개수만 가볍게, 상세는 hover 툴팁(그룹 타입별 줄바꿈)으로
   const condSummary = statItems.length
-    ? `<span class="ba-cond" data-tip="${escapeHtml(statItems.join('\n'))}">🔎 조건 ${statItems.length}개</span>`
+    ? `<span class="ba-cond" data-tip="${escapeHtml(condTipText(r))}">🔎 조건 ${statItems.length}개</span>`
     : ''
   const when = r.lastUsedAt || r.updatedAt
   const stale = kind === 'bookmark' && Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
@@ -112,7 +121,7 @@ function bindAll(listEl, ui) {
       if (!latest) { toast('갱신할 최근 검색이 없습니다.'); return }
       await overwriteBookmark(o.dataset.id, {
         game: latest.game, league: latest.league, url: latest.url, title: latest.title,
-        itemType: latest.itemType, stats: latest.stats, priceFilter: latest.priceFilter,
+        itemType: latest.itemType, stats: latest.stats, statGroups: latest.statGroups, priceFilter: latest.priceFilter,
         snapshot: latest.snapshot, dedupeKey: latest.dedupeKey,
       })
       changed(); toast('최근 검색으로 갱신했습니다.')
@@ -157,7 +166,7 @@ function bindAll(listEl, ui) {
     if (name === null) return
     await addBookmark({
       game: latest.game, league: latest.league, url: latest.url, title: latest.title,
-      itemType: latest.itemType, name: latest.name, stats: latest.stats,
+      itemType: latest.itemType, name: latest.name, stats: latest.stats, statGroups: latest.statGroups,
       priceFilter: latest.priceFilter, snapshot: latest.snapshot, dedupeKey: latest.dedupeKey, folderId,
     }, name || latest.title)
     changed(); toast('저장했습니다.')

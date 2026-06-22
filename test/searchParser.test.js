@@ -24,4 +24,22 @@ describe('parseSearchQuery', () => {
     const q = { query: { name: 'Astramentis', type: 'Amulet', stats: [] } }
     expect(parseSearchQuery(q, statMap).title).toBe('Astramentis')
   })
+  it('statGroups: 그룹 타입을 한글 라벨로 보존', () => {
+    const r = parseSearchQuery(fixture, statMap)
+    expect(r.statGroups).toEqual([{ type: 'and', label: '및', filters: ['최대 생명', '화염 저항'] }])
+  })
+  it('statGroups: 여러 그룹 타입(및·제외·숫자)과 count 최소값 라벨', () => {
+    const q = { query: { stats: [
+      { type: 'and', filters: [{ id: 'explicit.stat_life' }] },
+      { type: 'not', filters: [{ id: 'explicit.stat_fire_res' }] },
+      { type: 'count', value: { min: 2 }, filters: [{ id: 'explicit.stat_life' }, { id: 'explicit.stat_fire_res' }] },
+    ] } }
+    const r = parseSearchQuery(q, statMap)
+    expect(r.statGroups.map((g) => g.label)).toEqual(['및', '제외', '숫자 ≥2'])
+    expect(r.stats).toEqual(['최대 생명', '화염 저항', '최대 생명', '화염 저항'])
+  })
+  it('빈 필터 그룹은 statGroups에서 제외', () => {
+    const q = { query: { stats: [{ type: 'and', filters: [] }, { type: 'not', filters: [{ id: 'explicit.stat_life' }] }] } }
+    expect(parseSearchQuery(q, statMap).statGroups.map((g) => g.label)).toEqual(['제외'])
+  })
 })

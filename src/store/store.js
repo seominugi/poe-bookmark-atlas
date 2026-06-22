@@ -90,6 +90,7 @@ export async function overwriteBookmark(id, source) {
   r.title = source.title
   r.itemType = source.itemType
   r.stats = source.stats
+  r.statGroups = source.statGroups
   r.priceFilter = source.priceFilter
   r.snapshot = source.snapshot
   r.dedupeKey = source.dedupeKey

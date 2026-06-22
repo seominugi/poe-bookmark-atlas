@@ -86,6 +86,7 @@ window.addEventListener('message', async (e) => {
       itemType: parsed.itemType,
       name: parsed.name,
       stats: parsed.stats,
+      statGroups: parsed.statGroups,
       priceFilter: parsed.priceFilter,
       snapshot: snapshot || undefined,
       dedupeKey: dedupeKey(pending.query),
