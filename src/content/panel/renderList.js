@@ -6,15 +6,31 @@ import { formatPrice } from '../../lib/formatPrice.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
 
+// content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
+// import 값은 '/assets/..'(호스트 페이지 기준 절대경로)라 그대로 쓰면 poe.kakaogames.com/assets/.. → 404.
+const divineUrl = chrome.runtime.getURL(divineIcon)
+const exaltedUrl = chrome.runtime.getURL(exaltedIcon)
+
 let cleanArmed = 0 // "오래된 항목 정리" 2-클릭 확인 (모듈 레벨 — 재렌더 후에도 유지)
+
+/** 같은 조건의 기존 북마크 행을 스크롤·강조 — 중복 저장 차단 시 위치를 안내 */
+export function highlightBookmark(container, id) {
+  const row = container && container.querySelector(`.ba-row[data-id="${CSS.escape(id)}"]`)
+  if (!row) return
+  row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  row.classList.remove('ba-flash')
+  void row.offsetWidth // 리플로우로 애니메이션 재시작
+  row.classList.add('ba-flash')
+  setTimeout(() => row.classList.remove('ba-flash'), 1800)
+}
 
 // 가격 문자열의 단위(div/ex)를 화폐 아이콘으로 치환
 function priceHtml(snap) {
   const s = snap ? formatPrice(snap) : ''
   if (!s) return ''
   return s
-    .replace(/\bdiv\b/, `<img class="ba-cur" src="${divineIcon}" alt="div">`)
-    .replace(/\bex\b/, `<img class="ba-cur" src="${exaltedIcon}" alt="ex">`)
+    .replace(/\bdiv\b/, `<img class="ba-cur" src="${divineUrl}" alt="div">`)
+    .replace(/\bex\b/, `<img class="ba-cur" src="${exaltedUrl}" alt="ex">`)
 }
 
 const fmtTime = (t) => {
@@ -130,7 +146,8 @@ function bindAll(listEl, ui) {
   listEl.querySelectorAll('.ba-star').forEach((s) =>
     s.addEventListener('click', async () => {
       const hist = (await listByKind('history', ui.game)).find((r) => r.id === s.dataset.id)
-      if (hist && (await findBookmark(hist.dedupeKey, ui.game))) { toast('이미 같은 조건의 북마크가 있습니다.'); return }
+      const dup = hist && (await findBookmark(hist.dedupeKey, ui.game))
+      if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark(listEl, dup.id); return }
       const name = ui.showNameInput ? await ui.showNameInput(s.dataset.name || '') : prompt('북마크 이름', s.dataset.name || '')
       if (name === null) return
       await promoteToBookmark(s.dataset.id, name || undefined); changed()
@@ -201,7 +218,8 @@ function bindAll(listEl, ui) {
     const folderId = b.dataset.fid || null
     const latest = (await listByKind('history', ui.game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
-    if (await findBookmark(latest.dedupeKey, ui.game)) { toast('이미 같은 조건의 북마크가 있습니다.'); return }
+    const dup = await findBookmark(latest.dedupeKey, ui.game)
+    if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark(listEl, dup.id); return }
     const name = ui.showNameInput ? await ui.showNameInput(latest.name || latest.title) : prompt('북마크 이름', latest.name || latest.title)
     if (name === null) return
     await addBookmark({
