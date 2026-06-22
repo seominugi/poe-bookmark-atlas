@@ -1,6 +1,6 @@
 import css from './panel.css?inline'
 import { renderList } from './renderList.js'
-import { listByKind, addBookmark } from '../../store/store.js'
+import { listByKind, addBookmark, findBookmark } from '../../store/store.js'
 
 const ECON = {
   poe1: 'https://seominugi.com/poe1/economy/items',
@@ -134,6 +134,7 @@ export function mountPanel({ game }) {
   $('ba-save').onclick = async () => {
     const latest = (await listByKind('history', game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
+    if (await findBookmark(latest.dedupeKey, game)) { toast('이미 같은 조건의 북마크가 있습니다.'); return }
     const name = await showNameInput(latest.name || latest.title)
     if (name === null) return
     await addBookmark(

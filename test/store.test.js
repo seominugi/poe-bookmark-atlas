@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   addHistory, listByKind, promoteToBookmark, rename, remove, HISTORY_CAP,
   addBookmark, overwriteBookmark, moveBookmark,
-  listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks,
+  listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks, findBookmark,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -122,6 +122,14 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     expect((await listByKind('bookmark'))[0].lastUsedAt).toBeUndefined()
     await markUsedByUrl('u-x')
     expect((await listByKind('bookmark'))[0].lastUsedAt).toBeTruthy()
+  })
+
+  it('findBookmark: 같은 dedupeKey·game 북마크 탐지(중복 방지)', async () => {
+    await addBookmark(rec({ dedupeKey: 'dk1' }), 'A')
+    expect(await findBookmark('dk1', 'poe2')).toBeTruthy()
+    expect(await findBookmark('dk1', 'poe1')).toBeNull() // 다른 게임
+    expect(await findBookmark('dk-none', 'poe2')).toBeNull()
+    expect(await findBookmark('', 'poe2')).toBeNull()
   })
 
   it('removeStaleBookmarks: staleMs 이상 미사용 북마크만 game 스코프로 일괄 삭제', async () => {

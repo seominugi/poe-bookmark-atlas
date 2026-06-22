@@ -37,6 +37,12 @@ export async function listByKind(kind, game) {
   return list.sort((a, b) => b.updatedAt - a.updatedAt)
 }
 
+/** 같은 dedupeKey(조건)·game의 북마크가 있으면 반환 — 중복 저장 방지용 */
+export async function findBookmark(dedupeKey, game) {
+  if (!dedupeKey) return null
+  return (await readAll()).find((r) => r.kind === 'bookmark' && r.dedupeKey === dedupeKey && (!game || r.game === game)) || null
+}
+
 export async function promoteToBookmark(id, name) {
   const all = await readAll()
   const r = all.find((x) => x.id === id)

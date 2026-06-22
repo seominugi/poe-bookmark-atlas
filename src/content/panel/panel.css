@@ -213,6 +213,11 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 4px;
 }
 .ba-folder-count { color: #64748b; font-weight: 600; font-size: 10.5px; }
+.ba-folder-edit {
+  background: rgba(255, 255, 255, 0.08); border: 1px solid #38bdf8; border-radius: 6px;
+  color: #f1f5f9; font-size: 11.5px; font-weight: 700; padding: 2px 7px; outline: none;
+  width: 150px; max-width: 65%; font-family: inherit;
+}
 .ba-folder-save, .ba-folder-rename, .ba-folder-del { cursor: pointer; opacity: .78; margin-left: 9px; font-size: 18px; vertical-align: middle; }
 .ba-folder-save:hover { opacity: 1; color: #7be495; }
 .ba-folder-rename:hover { opacity: 1; color: #38bdf8; }

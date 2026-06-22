@@ -1,6 +1,6 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
-  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename,
+  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename, findBookmark,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import divineIcon from '../../icons/divine.png'
@@ -85,7 +85,7 @@ export async function renderList(listEl, root, ui = {}) {
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
       g.id !== null
-        ? `<span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" data-tip="이름변경">✎</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">🗑</span>`
+        ? `<span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">✎</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">🗑</span>`
         : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">➕</span>`
     html += `<div class="ba-folder" data-folder="${g.id ?? ''}">
       <div class="ba-folder-head"><span class="ba-folder-name">📁 ${escapeHtml(g.name)} <span class="ba-folder-count">${items.length}</span></span><span>${fActions}</span></div>
@@ -126,9 +126,11 @@ function bindAll(listEl, ui) {
       await rename(s.dataset.id, name || s.dataset.name || ''); changed()
     }))
 
-  // ☆ 히스토리 → 북마크 승격
+  // ☆ 히스토리 → 북마크 승격 (같은 조건 북마크가 있으면 중복 저장 방지)
   listEl.querySelectorAll('.ba-star').forEach((s) =>
     s.addEventListener('click', async () => {
+      const hist = (await listByKind('history', ui.game)).find((r) => r.id === s.dataset.id)
+      if (hist && (await findBookmark(hist.dedupeKey, ui.game))) { toast('이미 같은 조건의 북마크가 있습니다.'); return }
       const name = ui.showNameInput ? await ui.showNameInput(s.dataset.name || '') : prompt('북마크 이름', s.dataset.name || '')
       if (name === null) return
       await promoteToBookmark(s.dataset.id, name || undefined); changed()
@@ -168,10 +170,27 @@ function bindAll(listEl, ui) {
     }
   })
 
-  listEl.querySelectorAll('.ba-folder-rename').forEach((s) => s.addEventListener('click', async () => {
-    const name = ui.showNameInput ? await ui.showNameInput('') : prompt('새 폴더 이름', '')
-    if (!name) return
-    await renameFolder(s.dataset.id, name); changed()
+  // ✎ 폴더 이름 변경 — 현재 이름에서 바로 인라인 수정
+  listEl.querySelectorAll('.ba-folder-rename').forEach((s) => s.addEventListener('click', () => {
+    const id = s.dataset.id
+    const nameEl = s.closest('.ba-folder-head').querySelector('.ba-folder-name')
+    if (nameEl.querySelector('.ba-folder-edit')) return // 이미 편집 중
+    nameEl.innerHTML = `<input class="ba-folder-edit" value="${escapeHtml(s.dataset.name || '')}" maxlength="40" />`
+    const input = nameEl.querySelector('.ba-folder-edit')
+    input.focus(); input.select()
+    let done = false
+    const commit = async (save) => {
+      if (done) return
+      done = true
+      const v = input.value.trim()
+      if (save && v) await renameFolder(id, v)
+      changed() // 재렌더로 폴더 헤더 복원
+    }
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commit(true) }
+      else if (e.key === 'Escape') { e.preventDefault(); commit(false) }
+    })
+    input.addEventListener('blur', () => commit(true))
   }))
   listEl.querySelectorAll('.ba-folder-del').forEach((s) => s.addEventListener('click', async () => {
     await deleteFolder(s.dataset.id); changed()
@@ -182,6 +201,7 @@ function bindAll(listEl, ui) {
     const folderId = b.dataset.fid || null
     const latest = (await listByKind('history', ui.game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
+    if (await findBookmark(latest.dedupeKey, ui.game)) { toast('이미 같은 조건의 북마크가 있습니다.'); return }
     const name = ui.showNameInput ? await ui.showNameInput(latest.name || latest.title) : prompt('북마크 이름', latest.name || latest.title)
     if (name === null) return
     await addBookmark({
