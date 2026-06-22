@@ -1,6 +1,6 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
-  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks,
+  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 
@@ -41,7 +41,7 @@ function rowHtml(r, kind) {
   const actions =
     kind === 'history'
       ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">☆</span>`
-      : `<span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">🔄</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">🗑</span>`
+      : `<span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">🔄</span><span class="ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">✎</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">🗑</span>`
   const grip = kind === 'bookmark'
     ? `<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해서 순서·폴더 이동">⠿</span>`
     : ''
@@ -97,7 +97,7 @@ function bindAll(listEl, ui) {
   // 행 열기 (그립·액션 클릭은 제외)
   listEl.querySelectorAll('.ba-row').forEach((row) => {
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.ba-star,.ba-over,.ba-del,.ba-grip,.ba-stale')) return
+      if (e.target.closest('.ba-star,.ba-over,.ba-rename,.ba-del,.ba-grip,.ba-stale')) return
       location.href = decodeURIComponent(row.dataset.url)
     })
   })
@@ -105,6 +105,14 @@ function bindAll(listEl, ui) {
   // 🗑 삭제 (북마크 행)
   listEl.querySelectorAll('.ba-del').forEach((d) =>
     d.addEventListener('click', async () => { await remove(d.dataset.id); changed() }))
+
+  // ✎ 북마크 이름 변경
+  listEl.querySelectorAll('.ba-rename').forEach((s) =>
+    s.addEventListener('click', async () => {
+      const name = ui.showNameInput ? await ui.showNameInput(s.dataset.name || '') : prompt('새 이름', s.dataset.name || '')
+      if (name === null) return
+      await rename(s.dataset.id, name || s.dataset.name || ''); changed()
+    }))
 
   // ☆ 히스토리 → 북마크 승격
   listEl.querySelectorAll('.ba-star').forEach((s) =>
