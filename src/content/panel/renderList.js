@@ -3,8 +3,19 @@ import {
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
+import divineIcon from '../../icons/divine.png'
+import exaltedIcon from '../../icons/exalted.png'
 
 let cleanArmed = 0 // "오래된 항목 정리" 2-클릭 확인 (모듈 레벨 — 재렌더 후에도 유지)
+
+// 가격 문자열의 단위(div/ex)를 화폐 아이콘으로 치환
+function priceHtml(snap) {
+  const s = snap ? formatPrice(snap) : ''
+  if (!s) return ''
+  return s
+    .replace(/\bdiv\b/, `<img class="ba-cur" src="${divineIcon}" alt="div">`)
+    .replace(/\bex\b/, `<img class="ba-cur" src="${exaltedIcon}" alt="ex">`)
+}
 
 const fmtTime = (t) => {
   const d = new Date(t)
@@ -27,7 +38,7 @@ function condTipText(r) {
 }
 
 function rowHtml(r, kind) {
-  const price = r.snapshot ? formatPrice(r.snapshot) : ''
+  const price = priceHtml(r.snapshot)
   const title = escapeHtml(r.name || r.title)
   const statItems = r.stats || []
   // 카드엔 조건 개수만 가볍게, 상세는 hover 툴팁(그룹 타입별 줄바꿈)으로

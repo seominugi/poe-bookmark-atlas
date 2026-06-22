@@ -94,7 +94,8 @@
 .ba-row:hover { background: rgba(56, 73, 97, 0.97); border-color: rgba(56, 189, 248, 0.55); }
 .ba-line1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ba-line1 b { color: #f8fafc; font-weight: 700; font-size: 13px; }
-.ba-price { color: #fde047; font-weight: 800; white-space: nowrap; }
+.ba-price { color: #fde047; font-weight: 800; white-space: nowrap; display: inline-flex; align-items: center; gap: 2px; }
+.ba-cur { width: 18px; height: 18px; vertical-align: middle; }
 .ba-stale { color: #fbbf24; cursor: help; }
 /* 카드 메타(즐겨찾기·액션 + 시간, 왼쪽 정렬) + 속성(줄바꿈) */
 .ba-meta { display: flex; align-items: center; gap: 8px; margin-top: 8px; color: #c7d2de; font-size: 11px; }
