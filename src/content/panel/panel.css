@@ -157,11 +157,11 @@
 
 /* 커스텀 툴팁 (네이티브 title 대체, 브라우저 안에서 렌더) */
 .ba-tip {
-  position: fixed; z-index: 2147483600; max-width: 280px;
+  position: fixed; z-index: 2147483600; max-width: 720px;
   background: rgba(11, 17, 24, 0.97); color: #e2e8f0;
   border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 8px;
-  padding: 7px 10px; font-size: 11px; line-height: 1.5;
-  white-space: pre-line; text-align: left;
+  padding: 7px 11px; font-size: 11px; line-height: 1.55;
+  white-space: pre; text-align: left;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); pointer-events: none;
 }
 .ba-tip[hidden] { display: none; }

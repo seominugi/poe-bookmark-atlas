@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseSearchQuery } from '../src/lib/searchParser.js'
+import { parseSearchQuery, searchIdentity } from '../src/lib/searchParser.js'
 import fixture from './fixtures/poe2-search-query.json'
 
 const statMap = { 'explicit.stat_life': '최대 생명', 'explicit.stat_fire_res': '화염 저항' }
@@ -41,5 +41,23 @@ describe('parseSearchQuery', () => {
   it('빈 필터 그룹은 statGroups에서 제외', () => {
     const q = { query: { stats: [{ type: 'and', filters: [] }, { type: 'not', filters: [{ id: 'explicit.stat_life' }] }] } }
     expect(parseSearchQuery(q, statMap).statGroups.map((g) => g.label)).toEqual(['제외'])
+  })
+})
+
+describe('searchIdentity (조건 동일성 — 히스토리 중복 제거)', () => {
+  it('필터 순서·키 순서가 달라도 같은 조건이면 동일 키', () => {
+    const a = { query: { type: 'Amulet', stats: [{ type: 'and', filters: [{ id: 's1', value: { min: 1 } }, { id: 's2' }] }] } }
+    const b = { query: { stats: [{ type: 'and', filters: [{ id: 's2' }, { id: 's1', value: { min: 1 } }] }], type: 'Amulet' } }
+    expect(searchIdentity(a)).toBe(searchIdentity(b))
+  })
+  it('값(min/max)이 다르면 다른 키', () => {
+    const a = { query: { stats: [{ type: 'and', filters: [{ id: 's1', value: { min: 80 } }] }] } }
+    const b = { query: { stats: [{ type: 'and', filters: [{ id: 's1', value: { min: 100 } }] }] } }
+    expect(searchIdentity(a)).not.toBe(searchIdentity(b))
+  })
+  it('가격·타입·그룹 타입을 반영', () => {
+    const a = { query: { type: 'Ring', filters: { trade_filters: { filters: { price: { max: 3, option: 'divine' } } } }, stats: [{ type: 'not', filters: [{ id: 's1' }] }] } }
+    const b = { query: { type: 'Ring', filters: { trade_filters: { filters: { price: { max: 3, option: 'divine' } } } }, stats: [{ type: 'and', filters: [{ id: 's1' }] }] } }
+    expect(searchIdentity(a)).not.toBe(searchIdentity(b)) // and vs not
   })
 })

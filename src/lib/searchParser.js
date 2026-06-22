@@ -39,3 +39,25 @@ export function parseSearchQuery(payload, statMap = {}) {
 
   return { title, itemType, name, stats, statGroups, priceFilter, sortIsPriceAsc }
 }
+
+/**
+ * 검색 "조건 동일성" 키 — 구조(키 순서·필터 순서)에 무관하게 같은 조건이면 같은 문자열.
+ * 히스토리 중복 제거(같은 조건 재검색 시 최신으로 갱신)용. 값(min/max)까지 반영.
+ * @param {any} payload 검색 요청 바디
+ */
+export function searchIdentity(payload) {
+  const q = payload?.query ?? {}
+  const parts = [`t:${q.type || ''}`, `n:${q.name || ''}`]
+  const p = q.filters?.trade_filters?.filters?.price
+  if (p && (p.min != null || p.max != null)) parts.push(`p:${p.min ?? ''}/${p.max ?? ''}/${p.option ?? ''}`)
+  const groups = []
+  for (const g of q.stats ?? []) {
+    const fs = (g.filters ?? [])
+      .filter((f) => f?.id)
+      .map((f) => `${f.id}=${f.value?.min ?? ''}~${f.value?.max ?? ''}`)
+      .sort()
+    if (fs.length) groups.push(`${g.type || 'and'}[${fs.join(',')}]`)
+  }
+  groups.sort()
+  return [...parts, ...groups].join('|')
+}

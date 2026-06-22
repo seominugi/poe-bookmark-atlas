@@ -1,6 +1,6 @@
 // content-main.js (ISOLATED world)
 // page-bridge가 가로챈 search·fetch 이벤트를 받아 기록을 만들고 저장한다.
-import { parseSearchQuery } from '../lib/searchParser.js'
+import { parseSearchQuery, searchIdentity } from '../lib/searchParser.js'
 import { buildStatMap } from '../lib/statMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { parseExaltedPerDivine } from '../lib/currencyRates.js'
@@ -40,7 +40,7 @@ ensureStatMap()
 
 let pending = null // { queryId, query, league, url, done }
 const queryIdFromUrl = (url) => { const m = /[?&]query=([^&]+)/.exec(url); return m ? m[1] : null }
-const dedupeKey = (query) => game + '|' + JSON.stringify((query && query.query) || {})
+const dedupeKey = (query) => game + '|' + searchIdentity(query)
 
 window.addEventListener('message', async (e) => {
   if (e.origin !== location.origin) return
