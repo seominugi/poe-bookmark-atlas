@@ -2,7 +2,7 @@
 
 /* ── seominugi-com 글래스모피즘 채용 (premium-glass-card 레시피) ── */
 .ba-root {
-  position: fixed; top: 0; bottom: 0; right: 0; width: 390px;
+  position: fixed; top: 52px; bottom: 0; right: 0; width: 390px;
   display: flex; flex-direction: column;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px; line-height: 1.5; color: #eef2f7;
@@ -99,8 +99,15 @@
 /* 카드 메타(즐겨찾기·액션 + 시간, 왼쪽 정렬) + 속성(줄바꿈) */
 .ba-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: #c7d2de; font-size: 11px; }
 .ba-time { color: #94a3b8; }
-.ba-stats { margin-top: 5px; color: #aab6c5; font-size: 11px; line-height: 1.5; word-break: break-word; }
-.ba-star, .ba-del { cursor: pointer; opacity: .85; font-size: 18px; padding: 1px 4px; vertical-align: middle; }
+/* 속성: 항목별 한 줄(줄바꿈) — 가독성 */
+.ba-stats { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
+.ba-stat-item {
+  color: #b9c4d2; font-size: 11px; line-height: 1.4; word-break: break-word;
+  padding-left: 11px; position: relative;
+}
+.ba-stat-item::before { content: '·'; position: absolute; left: 3px; color: #7dd3fc; font-weight: 800; }
+.ba-stat-more { color: #64748b; font-size: 10.5px; padding-left: 11px; margin-top: 1px; }
+.ba-star, .ba-del { cursor: pointer; opacity: .85; font-size: 20px; padding: 2px 5px; vertical-align: middle; }
 .ba-star:hover { opacity: 1; color: #fcd34d; }
 .ba-del:hover { opacity: 1; color: #f87171; }
 .ba-empty { padding: 28px 16px; text-align: center; color: #64748b; }
@@ -199,7 +206,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08); margin-bottom: 4px;
 }
 .ba-folder-count { color: #64748b; font-weight: 600; font-size: 10.5px; }
-.ba-folder-save, .ba-folder-rename, .ba-folder-del { cursor: pointer; opacity: .78; margin-left: 8px; font-size: 16px; vertical-align: middle; }
+.ba-folder-save, .ba-folder-rename, .ba-folder-del { cursor: pointer; opacity: .78; margin-left: 9px; font-size: 18px; vertical-align: middle; }
 .ba-folder-save:hover { opacity: 1; color: #7be495; }
 .ba-folder-rename:hover { opacity: 1; color: #38bdf8; }
 .ba-folder-del:hover { opacity: 1; color: #f87171; }
@@ -208,12 +215,12 @@
   padding: 10px; text-align: center; color: #475569; font-size: 11px;
   border: 1px dashed rgba(255, 255, 255, 0.12); border-radius: 8px; margin-bottom: 7px;
 }
-.ba-over { cursor: pointer; opacity: .85; font-size: 18px; padding: 1px 4px; vertical-align: middle; }
+.ba-over { cursor: pointer; opacity: .85; font-size: 20px; padding: 2px 5px; vertical-align: middle; }
 .ba-over:hover { opacity: 1; color: #38bdf8; }
 /* 행 좌측 영역(그립+제목) + 드래그 전용 그립 */
 .ba-l1l { display: flex; align-items: center; gap: 6px; min-width: 0; }
-.ba-grip { cursor: grab; color: #64748b; opacity: .65; font-size: 18px; user-select: none; flex-shrink: 0; }
-.ba-grip:hover { opacity: 1; color: #9fb0c3; }
+.ba-grip { cursor: grab; color: #94a3b8; opacity: .8; font-size: 20px; user-select: none; flex-shrink: 0; padding: 4px 6px; margin: -2px 0; border-radius: 7px; line-height: 1; }
+.ba-grip:hover { opacity: 1; color: #cbd5e1; background: rgba(255, 255, 255, 0.1); }
 .ba-grip:active { cursor: grabbing; }
 .ba-row.ba-dragging { opacity: .45; }
 .ba-row.ba-dragover { border-color: #38bdf8; box-shadow: inset 0 2px 0 #38bdf8; }
