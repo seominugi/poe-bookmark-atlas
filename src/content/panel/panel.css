@@ -99,14 +99,13 @@
 /* 카드 메타(즐겨찾기·액션 + 시간, 왼쪽 정렬) + 속성(줄바꿈) */
 .ba-meta { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: #c7d2de; font-size: 11px; }
 .ba-time { color: #94a3b8; }
-/* 속성: 항목별 한 줄(줄바꿈) — 가독성 */
-.ba-stats { margin-top: 6px; display: flex; flex-direction: column; gap: 3px; }
-.ba-stat-item {
-  color: #b9c4d2; font-size: 11px; line-height: 1.4; word-break: break-word;
-  padding-left: 11px; position: relative;
+/* 검색 조건 요약 칩 — 상세는 hover 툴팁으로 */
+.ba-cond {
+  margin-left: auto; cursor: help; font-size: 11px; color: #93c5fd; white-space: nowrap;
+  background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 7px; padding: 2px 8px;
 }
-.ba-stat-item::before { content: '·'; position: absolute; left: 3px; color: #7dd3fc; font-weight: 800; }
-.ba-stat-more { color: #64748b; font-size: 10.5px; padding-left: 11px; margin-top: 1px; }
+.ba-cond:hover { background: rgba(56, 189, 248, 0.2); color: #bae6fd; }
 .ba-star, .ba-del { cursor: pointer; opacity: .85; font-size: 20px; padding: 2px 5px; vertical-align: middle; }
 .ba-star:hover { opacity: 1; color: #fcd34d; }
 .ba-del:hover { opacity: 1; color: #f87171; }
@@ -158,10 +157,11 @@
 
 /* 커스텀 툴팁 (네이티브 title 대체, 브라우저 안에서 렌더) */
 .ba-tip {
-  position: fixed; z-index: 2147483600; max-width: 230px;
+  position: fixed; z-index: 2147483600; max-width: 280px;
   background: rgba(11, 17, 24, 0.97); color: #e2e8f0;
   border: 1px solid rgba(56, 189, 248, 0.5); border-radius: 8px;
-  padding: 6px 9px; font-size: 11px; line-height: 1.4;
+  padding: 7px 10px; font-size: 11px; line-height: 1.5;
+  white-space: pre-line; text-align: left;
   box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5); pointer-events: none;
 }
 .ba-tip[hidden] { display: none; }

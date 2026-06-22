@@ -89,8 +89,12 @@ export function mountPanel({ game }) {
     tipEl.hidden = false
     const r = el.getBoundingClientRect()
     tipEl.style.left = 'auto'
-    tipEl.style.top = Math.max(8, r.top) + 'px'
     tipEl.style.right = Math.max(8, window.innerWidth - r.left + 8) + 'px'
+    // 세로: 요소 상단에 맞추되, 아래로 넘치면 위로 끌어올려 뷰포트 안에 유지(긴 조건 목록 대응)
+    const h = tipEl.offsetHeight
+    let top = r.top
+    if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - 8 - h)
+    tipEl.style.top = top + 'px'
   })
   root.addEventListener('mouseout', (e) => {
     if (e.target.closest && e.target.closest('[data-tip]')) tipEl.hidden = true

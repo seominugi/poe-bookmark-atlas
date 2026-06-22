@@ -20,8 +20,9 @@ function rowHtml(r, kind) {
   const price = r.snapshot ? formatPrice(r.snapshot) : ''
   const title = escapeHtml(r.name || r.title)
   const statItems = r.stats || []
-  const statsHtml = statItems.length
-    ? `<div class="ba-stats">${statItems.slice(0, 6).map((s) => `<div class="ba-stat-item">${escapeHtml(s)}</div>`).join('')}${statItems.length > 6 ? `<div class="ba-stat-more">외 ${statItems.length - 6}개</div>` : ''}</div>`
+  // 카드엔 조건 개수만 가볍게, 상세는 hover 툴팁(줄바꿈)으로
+  const condSummary = statItems.length
+    ? `<span class="ba-cond" data-tip="${escapeHtml(statItems.join('\n'))}">🔎 조건 ${statItems.length}개</span>`
     : ''
   const when = r.lastUsedAt || r.updatedAt
   const stale = kind === 'bookmark' && Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
@@ -37,8 +38,7 @@ function rowHtml(r, kind) {
     : ''
   return `<div class="ba-row" data-id="${r.id}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-url="${encodeURIComponent(r.url)}">
     <div class="ba-line1"><span class="ba-l1l">${grip}${warn}🔖 <b>${title}</b></span><span class="ba-price">${price}</span></div>
-    <div class="ba-meta">${actions}<span class="ba-time">${fmtTime(when)}</span></div>
-    ${statsHtml}
+    <div class="ba-meta">${actions}<span class="ba-time">${fmtTime(when)}</span>${condSummary}</div>
   </div>`
 }
 
