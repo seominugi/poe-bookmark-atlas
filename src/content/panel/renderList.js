@@ -19,7 +19,6 @@ const exaltedUrl = chrome.runtime.getURL(exaltedIcon)
 export const analystUrl = chrome.runtime.getURL(analystIcon)
 export const researcherUrl = chrome.runtime.getURL(researcherIcon)
 
-let cleanArmed = 0 // "오래된 항목 정리" 2-클릭 확인 (모듈 레벨 — 재렌더 후에도 유지)
 let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보기"로 +200씩 (모듈 레벨 유지)
 let bmSearch = '' // 북마크 빠른 검색어 (모듈 레벨 — 재렌더 후에도 유지)
 let hsSearch = '' // 히스토리 빠른 검색어
@@ -344,18 +343,29 @@ function bindAll(listEl, ui) {
     inp.click()
   })
 
-  // 🧹 오래된 북마크 일괄 정리 (2-클릭 확인 — 네이티브 다이얼로그 없이 토스트로)
+  // 🧹 오래된 북마크 일괄 정리 — 2클릭 확인 + 버튼에 카운트다운(3초)
   const cleanBtn = listEl.querySelector('.ba-clean-stale')
-  if (cleanBtn) cleanBtn.addEventListener('click', async () => {
-    if (Date.now() - cleanArmed < 4000) {
-      cleanArmed = 0
-      const n = await removeStaleBookmarks(ui.game, STALE_MS)
-      changed(); toast(`오래된 북마크 ${n}개를 정리했습니다.`)
-    } else {
-      cleanArmed = Date.now()
-      toast('한 번 더 누르면 오래된 북마크를 삭제합니다.')
-    }
-  })
+  if (cleanBtn) {
+    const cleanOrig = cleanBtn.innerHTML
+    let cdTimer = null
+    const resetClean = () => { clearInterval(cdTimer); cdTimer = null; cleanBtn.innerHTML = cleanOrig; cleanBtn.classList.remove('armed') }
+    cleanBtn.addEventListener('click', async () => {
+      if (cdTimer) { // 무장 상태에서 다시 누름 → 삭제 확정
+        resetClean()
+        const n = await removeStaleBookmarks(ui.game, STALE_MS)
+        changed(); toast(`오래된 북마크 ${n}개를 정리했습니다.`)
+        return
+      }
+      let sec = 3 // 첫 클릭 → 무장 + 카운트다운
+      cleanBtn.classList.add('armed')
+      cleanBtn.innerHTML = `${icon('trash', 13)}한 번 더! (${sec})`
+      cdTimer = setInterval(() => {
+        sec -= 1
+        if (sec <= 0) resetClean()
+        else cleanBtn.innerHTML = `${icon('trash', 13)}한 번 더! (${sec})`
+      }, 1000)
+    })
+  }
 
   // 히스토리 더 보기 (점진 렌더)
   const moreBtn = listEl.querySelector('.ba-more-hist')
