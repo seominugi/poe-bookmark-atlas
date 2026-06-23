@@ -38,7 +38,6 @@ export function mountPanel({ game, league }) {
           <span class="ba-kbd-wrap">
             <span class="ba-kbd-chip">${icon('keyboard', 15)}</span>
             <div class="ba-kbd-pop">
-              <button class="ba-kbd-pin" type="button" aria-label="고정 해제">${icon('pin', 13)}</button>
               <div class="ba-kbd-pop-group">패널 단축키</div>
               <div class="ba-kbd-pop-row"><span>패널 열기 / 접기</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>B</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>현재 검색 저장</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>S</kbd></span></div>
@@ -318,7 +317,7 @@ export function mountPanel({ game, league }) {
     { sel: '.ba-sec-hist', title: '③ 자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
     { sel: '.ba-econ-row', title: '④ 시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
     { sel: '#ba-handle', title: '⑤ 언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
-    { sel: '.ba-kbd-chip', title: '⑥ 단축키 모음 & 변경', body: '⌨ 칩에 올리거나 클릭하면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
+    { sel: '.ba-kbd-chip', title: '⑥ 단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
   ]
   function startTour() {
     setCollapsed(false)
@@ -343,9 +342,8 @@ export function mountPanel({ game, league }) {
     render()
   }
 
-  // 단축키 칩: 호버/클릭 시 팝오버 표시 + 클릭 고정(핀) + 바깥/페이지 클릭 시 닫힘.
-  // 패널이 overflow:hidden이라 absolute면 잘림 → position:fixed로 띄우고 JS로 칩 아래 배치
-  // (칩 우측에 맞추되 패널 좌우 안쪽으로 클램프). .ba-tip와 동일한 잘림-회피 전략.
+  // 단축키 칩: 호버 시 팝오버 표시(.ba-kbd-wrap:hover). 패널이 overflow:hidden이라
+  // absolute면 잘림 → position:fixed로 띄우고 JS로 칩 아래 배치(.ba-root 기준, 패널 좌우 클램프).
   ;(() => {
     const wrap = root.querySelector('.ba-kbd-wrap')
     if (!wrap) return
@@ -355,8 +353,7 @@ export function mountPanel({ game, league }) {
       const cr = chip.getBoundingClientRect()
       const rr = elRoot.getBoundingClientRect()
       const popW = pop.offsetWidth || 278
-      // 칩 우측에 맞춘 뷰포트 좌표를 패널 좌우 안으로 클램프
-      let leftVp = cr.right - popW
+      let leftVp = cr.right - popW // 칩 우측에 맞춤
       const minVp = rr.left + 12
       const maxVp = rr.right - 12 - popW
       if (leftVp < minVp) leftVp = minVp
@@ -366,15 +363,8 @@ export function mountPanel({ game, league }) {
       pop.style.top = Math.round(cr.bottom - rr.top + 9) + 'px'
     }
     wrap.addEventListener('mouseenter', positionPop)
-    chip.addEventListener('click', (e) => { e.stopPropagation(); positionPop(); wrap.classList.toggle('pinned') })
     const guide = wrap.querySelector('.ba-kbd-pop-guide')
-    if (guide) guide.addEventListener('click', (e) => { e.stopPropagation(); wrap.classList.remove('pinned'); startTour() })
-    const pin = wrap.querySelector('.ba-kbd-pin')
-    if (pin) pin.addEventListener('click', (e) => { e.stopPropagation(); wrap.classList.remove('pinned') })
-    document.addEventListener('click', (e) => {
-      const path = e.composedPath ? e.composedPath() : []
-      if (!path.includes(wrap)) wrap.classList.remove('pinned')
-    })
+    if (guide) guide.addEventListener('click', () => startTour())
   })()
 
   document.addEventListener('ba:records-changed', () => { refresh(); updateHandleBadge() })
