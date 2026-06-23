@@ -20,6 +20,9 @@ export const researcherUrl = chrome.runtime.getURL(researcherIcon)
 
 let cleanArmed = 0 // "오래된 항목 정리" 2-클릭 확인 (모듈 레벨 — 재렌더 후에도 유지)
 let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보기"로 +200씩 (모듈 레벨 유지)
+let bmSearch = '' // 북마크 빠른 검색어 (모듈 레벨 — 재렌더 후에도 유지)
+let hsSearch = '' // 히스토리 빠른 검색어
+let bmSort = 'order' // 북마크 정렬: order(수동 순) | recent(최근) | name(이름)
 
 /** 같은 조건의 기존 북마크 행을 스크롤·강조 — 중복 저장 차단 시 위치를 안내 */
 export function highlightBookmark(container, id) {
@@ -51,6 +54,33 @@ const escapeHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
 const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능성 경고
+
+// 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 모듈 상태(bmSearch/hsSearch) 기준.
+function applyFilters(listEl) {
+  const norm = (s) => (s || '').trim().toLowerCase()
+  const bm = norm(bmSearch)
+  const hs = norm(hsSearch)
+  listEl.querySelectorAll('.ba-row[data-kind="history"]').forEach((row) => {
+    row.style.display = !hs || (row.dataset.search || '').includes(hs) ? '' : 'none'
+  })
+  let bmVisible = 0
+  listEl.querySelectorAll('.ba-folder').forEach((folder) => {
+    let inFolder = 0
+    folder.querySelectorAll('.ba-row[data-kind="bookmark"]').forEach((row) => {
+      const show = !bm || (row.dataset.search || '').includes(bm)
+      row.style.display = show ? '' : 'none'
+      if (show) { inFolder++; bmVisible++ }
+    })
+    // 검색 중 보이는 행 없는 폴더는 숨김 (검색 아닐 땐 항상 표시 — 미분류 드롭 타깃 유지)
+    folder.style.display = bm && inFolder === 0 ? 'none' : ''
+  })
+  const bmBar = listEl.querySelector('.ba-search[data-scope="bm"]')
+  let noRes = listEl.querySelector('.ba-no-result')
+  if (bm && bmVisible === 0) {
+    if (!noRes && bmBar) { noRes = document.createElement('div'); noRes.className = 'ba-no-result'; bmBar.closest('.ba-filter-bar').after(noRes) }
+    if (noRes) { noRes.textContent = `"${bmSearch.trim()}"에 해당하는 북마크가 없습니다.`; noRes.hidden = false }
+  } else if (noRes) { noRes.hidden = true }
+}
 
 // 조건 상세 툴팁 텍스트 — 그룹 타입(및·제외·숫자·가중 합계…)별로 묶어 표시, 구 레코드는 평탄 폴백
 function condTipText(r) {
@@ -86,7 +116,8 @@ function rowHtml(r, kind) {
   const titleHtml = kind === 'bookmark'
     ? `🔖 <span class="ba-open" data-tip="검색 다시 열기"><b>${title}</b></span>`
     : `🔖 <b>${title}</b>`
-  return `<div class="ba-row" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-url="${encodeURIComponent(r.url)}">
+  const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${(r.stats || []).join(' ')}`.toLowerCase())
+  return `<div class="ba-row" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
     <div class="ba-line1"><span class="ba-l1l">${grip}${warn}${titleHtml}</span><span class="ba-price">${price}</span></div>
     <div class="ba-meta">${actions}<span class="ba-time">${fmtTime(when)}</span>${condSummary}</div>
   </div>`
@@ -107,8 +138,21 @@ export async function renderList(listEl, root, ui = {}) {
     ? `<button class="ba-clean-stale" data-tip="14일 이상 미사용 북마크 ${staleN}개를 일괄 삭제">🧹 오래된 항목 ${staleN}</button>`
     : ''
   let html = `<div class="ba-sec-head"><span class="ba-sec-title">🔖 북마크 <span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">+ 폴더</button><span class="ba-import" data-tip="JSON에서 북마크 가져오기">⬆</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">⬇</span></span></div>`
+  html += `<div class="ba-filter-bar">
+    <input class="ba-search" data-scope="bm" placeholder="🔍 북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" />
+    <span class="ba-sort">
+      <button class="ba-sort-seg ${bmSort === 'order' ? 'active' : ''}" data-sort="order" data-tip="수동 순서">순서</button>
+      <button class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</button>
+      <button class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</button>
+    </span>
+  </div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const byFolder = (fid) => bookmarks.filter((b) => (b.folderId ?? null) === fid)
+  const sortItems = (arr) => {
+    if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
+    if (bmSort === 'name') return [...arr].sort((a, b) => String(a.name || a.title).localeCompare(String(b.name || b.title), 'ko'))
+    return arr
+  }
   // 빈 상태 — 북마크도 사용자 폴더도 없을 때 (마스코트 안내)
   if (bookmarks.length === 0 && folders.length === 0) {
     html += `<div class="ba-empty-bm">
@@ -117,7 +161,7 @@ export async function renderList(listEl, root, ui = {}) {
       <small>좋은 검색을 찾으면 상단 <span class="hl">현재 검색 저장</span>으로<br>북마크해 두고 언제든 다시 열어보세요</small>
     </div>`
   } else for (const g of groups) {
-    const items = byFolder(g.id)
+    const items = sortItems(byFolder(g.id))
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
       g.id !== null
@@ -137,6 +181,7 @@ export async function renderList(listEl, root, ui = {}) {
   // ── 히스토리 섹션 (점진 렌더) ──
   html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">🕘 히스토리 <span class="ba-sec-count">${history.length}</span></span></div>`
   if (history.length) {
+    html += `<div class="ba-filter-bar"><input class="ba-search" data-scope="hs" placeholder="🔍 히스토리 검색 (이름·조건)" value="${escapeHtml(hsSearch)}" /></div>`
     html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history')).join('')
     if (history.length > historyLimit) {
       html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>`
@@ -147,6 +192,7 @@ export async function renderList(listEl, root, ui = {}) {
 
   listEl.innerHTML = html
   bindAll(listEl, ui)
+  applyFilters(listEl) // 재렌더 후 현재 검색어로 필터 재적용
 }
 
 function bindAll(listEl, ui) {
@@ -278,6 +324,15 @@ function bindAll(listEl, ui) {
   // 히스토리 더 보기 (점진 렌더)
   const moreBtn = listEl.querySelector('.ba-more-hist')
   if (moreBtn) moreBtn.addEventListener('click', () => { historyLimit += 200; changed() })
+
+  // 빠른 검색 — 입력 시 재렌더 없이 show/hide (검색창 포커스 유지)
+  listEl.querySelectorAll('.ba-search').forEach((inp) => inp.addEventListener('input', () => {
+    if (inp.dataset.scope === 'bm') bmSearch = inp.value
+    else hsSearch = inp.value
+    applyFilters(listEl)
+  }))
+  // 정렬 토글 — 재렌더
+  listEl.querySelectorAll('.ba-sort-seg').forEach((b) => b.addEventListener('click', () => { bmSort = b.dataset.sort; changed() }))
 
   // ✎ 폴더 이름 변경 — 현재 이름에서 바로 인라인 수정
   listEl.querySelectorAll('.ba-folder-rename').forEach((s) => s.addEventListener('click', () => {
