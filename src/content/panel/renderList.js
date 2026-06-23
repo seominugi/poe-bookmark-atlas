@@ -19,6 +19,7 @@ export const analystUrl = chrome.runtime.getURL(analystIcon)
 export const researcherUrl = chrome.runtime.getURL(researcherIcon)
 
 let cleanArmed = 0 // "오래된 항목 정리" 2-클릭 확인 (모듈 레벨 — 재렌더 후에도 유지)
+let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보기"로 +200씩 (모듈 레벨 유지)
 
 /** 같은 조건의 기존 북마크 행을 스크롤·강조 — 중복 저장 차단 시 위치를 안내 */
 export function highlightBookmark(container, id) {
@@ -133,11 +134,16 @@ export async function renderList(listEl, root, ui = {}) {
     </div>`
   }
 
-  // ── 히스토리 섹션 ──
+  // ── 히스토리 섹션 (점진 렌더) ──
   html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">🕘 히스토리 <span class="ba-sec-count">${history.length}</span></span></div>`
-  html += history.length
-    ? history.map((r) => rowHtml(r, 'history')).join('')
-    : `<div class="ba-empty-sm">최근 검색 기록이 없습니다.</div>`
+  if (history.length) {
+    html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history')).join('')
+    if (history.length > historyLimit) {
+      html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>`
+    }
+  } else {
+    html += '<div class="ba-empty-sm">최근 검색 기록이 없습니다.</div>'
+  }
 
   listEl.innerHTML = html
   bindAll(listEl, ui)
@@ -268,6 +274,10 @@ function bindAll(listEl, ui) {
       toast('한 번 더 누르면 오래된 북마크를 삭제합니다.')
     }
   })
+
+  // 히스토리 더 보기 (점진 렌더)
+  const moreBtn = listEl.querySelector('.ba-more-hist')
+  if (moreBtn) moreBtn.addEventListener('click', () => { historyLimit += 200; changed() })
 
   // ✎ 폴더 이름 변경 — 현재 이름에서 바로 인라인 수정
   listEl.querySelectorAll('.ba-folder-rename').forEach((s) => s.addEventListener('click', () => {

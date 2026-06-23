@@ -245,6 +245,13 @@
 .ba-sec-hist .ba-sec-count { color: var(--ba-text-muted); background: rgba(255,255,255,0.08); }
 .ba-sec-actions { display: flex; align-items: center; gap: 6px; }
 .ba-empty-sm { padding: 26px 12px; text-align: center; color: var(--ba-text-muted); font-size: 12px; }
+.ba-more-hist {
+  display: block; width: 100%; margin-top: 4px; padding: 9px; cursor: pointer;
+  font-size: 11.5px; font-weight: 700; color: var(--ba-text-muted); font-family: inherit;
+  background: rgba(255, 255, 255, 0.04); border: 1px solid var(--ba-border); border-radius: 9px;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.ba-more-hist:hover { color: var(--ba-text); border-color: var(--ba-violet-line); background: var(--ba-violet-soft); }
 .ba-empty { padding: 28px 16px; text-align: center; color: var(--ba-text-muted); }
 
 /* 보조 버튼 — 의미색 */
@@ -312,6 +319,7 @@
   border-radius: 12px; padding: 11px 13px; margin-bottom: 9px; cursor: pointer;
   box-shadow: 0 8px 28px rgba(0,0,0,0.4), inset 0 1px 1px 0 rgba(255,255,255,0.24), inset 0 -1px 1px 0 rgba(0,0,0,0.22);
   transition: border-color .15s, box-shadow .15s, transform .15s;
+  content-visibility: auto; contain-intrinsic-size: 0 74px; /* 화면 밖 카드는 렌더 생략(대용량 대응) */
 }
 .ba-row:hover {
   border-top-color: rgba(196, 181, 253, 0.85);
