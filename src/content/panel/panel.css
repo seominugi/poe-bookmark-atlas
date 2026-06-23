@@ -490,6 +490,9 @@
 .ba-time { display: inline-flex; align-items: center; gap: 4px; }
 .ba-cond { display: inline-flex; align-items: center; gap: 5px; }
 .ba-meta .ba-star, .ba-meta .ba-copy { width: 27px; height: 27px; }
+.ba-l1l { flex: 1; }                 /* .dc.html: 이름 영역이 공간 차지 → 긴 이름 말줄임 */
+.ba-chips { margin-top: 8px; }       /* .dc.html: line1과 조건칩 사이 간격 */
+.ba-grip { padding: 0; font-size: 0; }  /* SVG 그립(14px) — 이모지용 패딩 제거 */
 
 /* 히스토리 카드 — 가벼운 글래스 변형(.dc.html: surface .5 / 하이라이트 .3·.2) */
 .ba-row.ba-hist {
