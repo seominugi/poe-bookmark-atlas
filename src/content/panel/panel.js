@@ -31,10 +31,7 @@ export function mountPanel({ game, league }) {
     <div class="ba-root" id="ba-root">
       <div class="ba-head">
         <span class="ba-title">북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
-        <div class="ba-head-actions">
-          <button class="ba-density" id="ba-density" data-tip="정보 밀도 전환 (여유 ↔ 조밀)">${icon('layers', 15)}</button>
-          <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">${icon('bookmark', 14)}현재 검색 저장</button>
-        </div>
+        <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">${icon('bookmark', 14)}현재 검색 저장</button>
       </div>
       <div class="ba-econ-row">
         <a class="ba-econ-btn items" href="${ECON_ITEMS[game] || ECON_ITEMS.poe2}" target="_blank" rel="noopener" data-tip="아이템 시세 — 서미누기의 POE 경제 ↗">
@@ -57,7 +54,7 @@ export function mountPanel({ game, league }) {
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-foot">
         <div class="ba-foot-tx">
-          <span class="ba-foot-chip"><b>서미누기 제작</b></span>
+          <span class="ba-foot-chip-wrap"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></span>
           <small>피드백 · 문의 — 버그·건의 환영</small>
         </div>
         <a class="ba-foot-soc ba-foot-soc--cafe" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페에서 문의하기"><img src="${cafeUrl}" alt="네이버 카페"></a>
@@ -66,7 +63,10 @@ export function mountPanel({ game, league }) {
       </div>
       <div class="ba-toast" id="ba-toast" hidden></div>
     </div>
-    <div class="ba-handle" id="ba-handle" data-tip="패널 접기 / 펼치기"><span class="ba-handle-ic">${icon('bookmark', 18)}</span></div>
+    <div class="ba-handle" id="ba-handle">
+      <div class="ba-handle-grip" id="ba-handle-grip" data-tip="드래그하면 핸들 위치를 위아래로 옮겨요">${icon('grip', 14)}</div>
+      <div class="ba-handle-toggle" id="ba-handle-toggle" data-tip="클릭하면 패널을 접고 펼쳐요 (Alt+B)"><span class="ba-handle-glint"></span><span class="ba-handle-body"><span class="ba-handle-label">북마크</span><span class="ba-handle-badge" id="ba-handle-badge" hidden></span></span></div>
+    </div>
     <div class="ba-tip" id="ba-tip" hidden></div>`
   root.appendChild(wrap)
 
@@ -82,10 +82,18 @@ export function mountPanel({ game, league }) {
       document.documentElement.style.setProperty('transition', 'margin-right .25s ease', 'important')
     } catch (_) {}
   }
+  // 접힘 시 핸들에 북마크 수 배지 표시
+  const updateHandleBadge = async () => {
+    const badge = $('ba-handle-badge'); if (!badge) return
+    const n = (await listByKind('bookmark', game)).length
+    badge.textContent = n
+    badge.hidden = !(isCollapsed() && n > 0)
+  }
   const setCollapsed = (collapsed) => {
     elRoot.classList.toggle('collapsed', collapsed)
     applyPagePush(collapsed)
     try { chrome.storage.local.set({ uiCollapsed: collapsed }) } catch (_) {}
+    updateHandleBadge()
   }
   // 초기 상태: 좁은 화면은 접힘(검색 영역 겹침 방지), 넓으면 펼침. 사용자 토글 선호는 기억.
   if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
@@ -93,9 +101,34 @@ export function mountPanel({ game, league }) {
   try {
     chrome.storage.local.get('uiCollapsed').then((r) => {
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
+      updateHandleBadge()
     })
   } catch (_) {}
-  $('ba-handle').onclick = () => setCollapsed(!isCollapsed())
+  updateHandleBadge()
+
+  // 핸들: 하단 토글(접기/펼치기) + 상단 그립 드래그(상하 위치 이동)
+  $('ba-handle-toggle').onclick = () => setCollapsed(!isCollapsed())
+  ;(() => {
+    const handleEl = $('ba-handle')
+    const grip = $('ba-handle-grip')
+    let dragging = false
+    let startY = 0
+    let startTop = 0
+    grip.addEventListener('pointerdown', (e) => {
+      dragging = true; startY = e.clientY; startTop = handleEl.getBoundingClientRect().top
+      try { grip.setPointerCapture(e.pointerId) } catch (_) {}
+      e.preventDefault()
+    })
+    grip.addEventListener('pointermove', (e) => {
+      if (!dragging) return
+      const top = Math.max(8, Math.min(window.innerHeight - 124, startTop + (e.clientY - startY)))
+      handleEl.style.top = top + 'px'
+      handleEl.style.marginTop = '0'
+    })
+    const endDrag = (e) => { if (!dragging) return; dragging = false; try { grip.releasePointerCapture(e.pointerId) } catch (_) {} }
+    grip.addEventListener('pointerup', endDrag)
+    grip.addEventListener('pointercancel', endDrag)
+  })()
 
   let toastTimer = null
   const toast = (msg) => {
@@ -103,17 +136,11 @@ export function mountPanel({ game, league }) {
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, 2200)
   }
 
-  // 정보 밀도 (여유/조밀) — 노안 배려 기본은 여유. chrome.storage 영속화.
+  // 정보 밀도 (여유/조밀) — 북마크 섹션 헤더의 토글로 제어. chrome.storage 영속화.
   let density = 'comfortable'
   const applyDensity = (d) => { density = d; elRoot.setAttribute('data-density', d) }
   applyDensity(density)
-  try { chrome.storage.local.get('uiDensity').then((r) => { if (r && r.uiDensity) applyDensity(r.uiDensity) }) } catch (_) {}
-  $('ba-density').onclick = () => {
-    const next = density === 'comfortable' ? 'compact' : 'comfortable'
-    applyDensity(next)
-    try { chrome.storage.local.set({ uiDensity: next }) } catch (_) {}
-    toast(next === 'compact' ? '조밀 모드' : '여유 모드')
-  }
+  try { chrome.storage.local.get('uiDensity').then((r) => { if (r && r.uiDensity && r.uiDensity !== density) { applyDensity(r.uiDensity); refresh() } }) } catch (_) {}
 
   // 커스텀 툴팁 — 네이티브 title 대신 패널 안(Shadow DOM)에서 렌더. 우측 도킹이라 요소 왼쪽에 표시.
   const tipEl = $('ba-tip')
@@ -215,7 +242,11 @@ export function mountPanel({ game, league }) {
     })
   }
 
-  const ui = { showNameInput, showSaveInput, toast, game, league }
+  const ui = {
+    showNameInput, showSaveInput, toast, game, league,
+    getDensity: () => density,
+    setDensity: (d) => { applyDensity(d); try { chrome.storage.local.set({ uiDensity: d }) } catch (_) {} refresh() },
+  }
   const refresh = () => renderList($('ba-list'), root, ui)
 
   // 최근(현재) 검색을 북마크로 저장 (버튼 + 단축키/팝업 공용)
@@ -271,7 +302,7 @@ export function mountPanel({ game, league }) {
     render()
   }
 
-  document.addEventListener('ba:records-changed', refresh)
+  document.addEventListener('ba:records-changed', () => { refresh(); updateHandleBadge() })
   refresh()
 
   // 첫 실행 가이드(1회, tourDone) + 팝업 "다시 보기"(baTourRestart) 재실행

@@ -96,36 +96,43 @@ function condTipText(r) {
 function rowHtml(r, kind, currentLeague) {
   const price = priceHtml(r.snapshot)
   const title = escapeHtml(r.name || r.title)
-  const statItems = r.stats || []
-  // 카드엔 조건 개수만 가볍게, 상세는 hover 툴팁(그룹 타입별 줄바꿈)으로
-  const condSummary = statItems.length
-    ? `<span class="ba-cond" data-tip="${escapeHtml(condTipText(r))}">${icon('search', 12)}조건 ${statItems.length}개</span>`
-    : ''
+  const stats = r.stats || []
   const when = r.lastUsedAt || r.updatedAt
-  const stale = kind === 'bookmark' && Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
-  // soft-stale(삭제 대신 흐림+배지) + 리그 불일치 — 동일 UI로 통합. 열어서 결과가 뜨면 자동 갱신(markUsedByUrl).
-  const otherLeague = kind === 'bookmark' && currentLeague && r.league && r.league !== currentLeague
+  const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${stats.join(' ')}`.toLowerCase())
+  const condTip = escapeHtml(condTipText(r))
+
+  // ── 히스토리: 카드 전체 클릭으로 재검색 ──
+  if (kind === 'history') {
+    const condChip = stats.length ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${stats.length}개</span>` : ''
+    return `<div class="ba-row ba-row--hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
+      <div class="ba-r1"><span class="ba-l1l"><span class="ba-row-ic">${icon('clock', 13)}</span><b>${title}</b></span><span class="ba-price">${price}</span></div>
+      <div class="ba-meta"><span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">${icon('star', 14)}</span><span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 14)}</span><span class="ba-time">${icon('clock', 11)}${fmtTime(when)}</span>${condChip}</div>
+    </div>`
+  }
+
+  // ── 북마크: 이름 칩(검색 아이콘)만 재검색 → 오클릭 방지 ──
+  const stale = Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
+  const otherLeague = currentLeague && r.league && r.league !== currentLeague
   const dim = stale || otherLeague
-  const badges =
-    (stale ? '<span class="ba-badge ba-badge--stale" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요. 열어서 결과가 뜨면 자동 갱신됩니다.">갱신 필요</span>' : '') +
-    (otherLeague ? `<span class="ba-badge ba-badge--league" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요">이전 리그</span>` : '')
-  const copyBtn = `<span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 15)}</span>`
-  const actions =
-    kind === 'history'
-      ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">${icon('star', 15)}</span>${copyBtn}`
-      : `<span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 15)}</span><span class="ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 15)}</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 15)}</span>${copyBtn}`
-  const grip = kind === 'bookmark'
-    ? `<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해서 순서·폴더 이동">${icon('grip', 17)}</span>`
-    : ''
-  // 북마크는 이름 칩(.ba-open)만 재검색 트리거 → 오클릭 방지. 히스토리는 카드 전체 클릭 유지.
-  const titleIc = `<span class="ba-row-ic">${icon(kind === 'bookmark' ? 'bookmark' : 'clock', 13)}</span>`
-  const titleHtml = kind === 'bookmark'
-    ? `${titleIc}<span class="ba-open" data-tip="검색 다시 열기"><b>${title}</b></span>`
-    : `${titleIc}<b>${title}</b>`
-  const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${(r.stats || []).join(' ')}`.toLowerCase())
-  return `<div class="ba-row${dim ? ' ba-row--dim' : ''}" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-    <div class="ba-line1"><span class="ba-l1l">${grip}${titleHtml}${badges}</span><span class="ba-price">${price}</span></div>
-    <div class="ba-meta">${actions}<span class="ba-time">${fmtTime(when)}</span>${condSummary}</div>
+  const attn = stale
+    ? `<span class="ba-attn" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요. 열어서 결과가 뜨면 자동 갱신됩니다.">${icon('refresh', 10)}갱신 필요</span>`
+    : otherLeague
+      ? `<span class="ba-attn ba-attn--league" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요">${icon('alert', 10)}이전 리그</span>`
+      : ''
+  const chips = stats.slice(0, 2).map((s) => `<span class="ba-cchip">${escapeHtml(s)}</span>`).join('')
+  const moreN = stats.length - 2
+  const more = moreN > 0 ? `<span class="ba-cmore" data-tip="${condTip}">+${moreN}</span>` : ''
+  const chipsRow = (attn || stats.length) ? `<div class="ba-chips">${attn}${chips}${more}</div>` : ''
+  return `<div class="ba-row ba-row--bm${dim ? ' ba-row--dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
+    <div class="ba-r1">
+      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span><span class="ba-open" data-tip="클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-price ba-price--pill">${price}</span>
+    </div>
+    ${chipsRow}
+    <div class="ba-r3">
+      <span class="ba-time">${icon('clock', 11)}${fmtTime(when)}</span>
+      <span class="ba-acts"><span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
+    </div>
   </div>`
 }
 
@@ -143,7 +150,9 @@ export async function renderList(listEl, root, ui = {}) {
   const cleanupBtn = staleN > 0
     ? `<button class="ba-clean-stale" data-tip="14일 이상 미사용 북마크 ${staleN}개를 일괄 삭제">${icon('broom', 13)}오래된 항목 ${staleN}</button>`
     : ''
-  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더</button><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span></div>`
+  const dens = ui.getDensity ? ui.getDensity() : 'comfortable'
+  const densToggle = `<span class="ba-dens"><span class="ba-dens-seg ${dens === 'comfortable' ? 'active' : ''}" data-dens="comfortable" data-tip="여유 보기 — 글씨·간격이 큼 (읽기 편함)">여유</span><span class="ba-dens-seg ${dens === 'compact' ? 'active' : ''}" data-dens="compact" data-tip="조밀 보기 — 한 화면에 더 많이">조밀</span></span>`
+  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${densToggle}${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더</button><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span></div>`
   html += `<div class="ba-filter-bar">
     <span class="ba-search-wrap">${icon('search', 13)}<input class="ba-search" data-scope="bm" placeholder="북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span>
     <span class="ba-sort">
@@ -342,6 +351,8 @@ function bindAll(listEl, ui) {
   }))
   // 정렬 토글 — 재렌더
   listEl.querySelectorAll('.ba-sort-seg').forEach((b) => b.addEventListener('click', () => { bmSort = b.dataset.sort; changed() }))
+  // 정보 밀도 토글 (여유/조밀)
+  listEl.querySelectorAll('.ba-dens-seg').forEach((b) => b.addEventListener('click', () => { if (ui.setDensity) ui.setDensity(b.dataset.dens) }))
 
   // ✎ 폴더 이름 변경 — 현재 이름에서 바로 인라인 수정
   listEl.querySelectorAll('.ba-folder-rename').forEach((s) => s.addEventListener('click', () => {

@@ -79,17 +79,30 @@
 /* 접힘 핸들 */
 .ba-handle {
   position: fixed; right: 402px; top: 50%; margin-top: -58px; width: 30px; height: 116px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  background: var(--ba-panel-bg); color: #7dd3fc;
+  display: flex; flex-direction: column; align-items: stretch;
+  background: rgba(15, 23, 42, 0.96); color: #7dd3fc;
   border: 1px solid var(--ba-border); border-right: none;
   border-radius: 12px 0 0 12px;
   box-shadow: -6px 0 18px rgba(0, 0, 0, 0.34);
-  cursor: pointer; z-index: 2147483050;
-  transition: right 0.26s var(--ba-ease), color 0.15s;
+  overflow: hidden; z-index: 2147483050;
+  transition: right 0.26s var(--ba-ease);
 }
 .ba-root.collapsed ~ .ba-handle { right: 0; }   /* 접힘 시 핸들을 화면 우측 끝으로 */
-.ba-handle:hover { color: #bae6fd; }
-.ba-handle-ic { display: flex; }
+.ba-handle-grip {
+  display: flex; align-items: center; justify-content: center; padding: 9px 0;
+  cursor: ns-resize; color: #64748b; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  touch-action: none; user-select: none; transition: color 0.15s;
+}
+.ba-handle-grip:hover { color: #7dd3fc; }
+.ba-handle-grip:active { cursor: grabbing; }
+.ba-handle-toggle { position: relative; flex: 1; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #7dd3fc; overflow: hidden; transition: color 0.15s; }
+.ba-handle-toggle:hover { color: #bae6fd; }
+.ba-handle-glint { position: absolute; inset: 0; pointer-events: none; z-index: 0; background: linear-gradient(to bottom, transparent, rgba(125, 211, 252, 0.22), transparent); animation: ba-glint-v 5.5s ease-in-out infinite; animation-delay: -1.6s; }
+.ba-handle-body { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.ba-handle-label { writing-mode: vertical-rl; letter-spacing: 2px; font-weight: 700; font-size: 11px; }
+.ba-handle-badge { min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #0b0a16; background: #c4b5fd; border-radius: 999px; padding: 0 5px; box-shadow: 0 0 10px rgba(196, 181, 253, 0.5); }
+.ba-handle-badge[hidden] { display: none; }
+@keyframes ba-glint-v { 0% { transform: translateY(-150%); } 30% { transform: translateY(150%); } 100% { transform: translateY(150%); } }
 
 /* ---- 헤더 ---- */
 .ba-head {
@@ -286,6 +299,11 @@
   background: transparent; border: none; border-radius: 6px; padding: 4px 8px; cursor: pointer; transition: all .15s;
 }
 .ba-sort-seg.active { color: #0b0a16; background: var(--ba-violet-2); }
+/* 정보 밀도 토글 (섹션 헤더) */
+.ba-dens { display: inline-flex; background: rgba(255, 255, 255, 0.05); border: 1px solid var(--ba-border); border-radius: 8px; overflow: hidden; flex: none; font-size: 10.5px; font-weight: 700; }
+.ba-dens-seg { display: inline-flex; align-items: center; padding: 5px 9px; cursor: pointer; color: var(--ba-text-muted); transition: color 0.15s, background 0.15s; }
+.ba-dens-seg + .ba-dens-seg { border-left: 1px solid var(--ba-border); }
+.ba-dens-seg.active { color: #0b0a16; background: var(--ba-violet-2); }
 .ba-no-result { padding: 18px 12px; text-align: center; color: var(--ba-text-muted); font-size: 11.5px; }
 .ba-empty { padding: 28px 16px; text-align: center; color: var(--ba-text-muted); }
 
@@ -501,8 +519,12 @@
 /* 피드백 푸터 (하단 소셜) */
 .ba-foot { flex: none; display: flex; align-items: center; gap: 9px; padding: 12px 14px 14px; border-top: 1px solid var(--ba-violet-soft); background: rgba(0, 0, 0, 0.18); }
 .ba-foot-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; line-height: 1.3; flex: 1; min-width: 0; }
-.ba-foot-chip { display: inline-flex; padding: 5px 13px; border-radius: 999px; background: linear-gradient(180deg, rgba(167, 139, 250, 0.2), rgba(125, 211, 252, 0.09)); border: 1px solid var(--ba-violet-line); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); }
-.ba-foot-chip b { font-size: 13.5px; font-weight: 800; background: linear-gradient(90deg, #c4b5fd, #7dd3fc); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; letter-spacing: -0.01em; }
+.ba-foot-chip-wrap { position: relative; display: inline-flex; }
+.ba-foot-glow { position: absolute; inset: 0; border-radius: 999px; box-shadow: 0 0 12px 1px rgba(167, 139, 250, 0.45); opacity: 0.25; animation: ba-chip-glow 3.6s ease-in-out infinite; pointer-events: none; }
+.ba-foot-chip { position: relative; overflow: hidden; display: inline-flex; padding: 5px 13px; border-radius: 999px; background: linear-gradient(180deg, rgba(167, 139, 250, 0.2), rgba(125, 211, 252, 0.09)); border: 1px solid var(--ba-violet-line); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+.ba-foot-glint { position: absolute; inset: 0; background: linear-gradient(to right, transparent, rgba(255, 255, 255, 0.15), transparent); animation: ba-glint 5s ease-in-out infinite; animation-delay: -1.5s; pointer-events: none; z-index: 1; }
+.ba-foot-chip b { position: relative; z-index: 0; font-size: 13.5px; font-weight: 800; background: linear-gradient(90deg, #c4b5fd, #7dd3fc); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; letter-spacing: -0.01em; }
+@keyframes ba-chip-glow { 0%, 100% { opacity: 0.22; } 50% { opacity: 0.85; } }
 .ba-foot-tx small { font-size: 11px; color: var(--ba-text-muted); font-weight: 600; }
 .ba-foot-soc { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; text-decoration: none; flex: none; transition: background 0.15s, border-color 0.15s, transform 0.1s; }
 .ba-foot-soc:hover { transform: translateY(-1px); }
@@ -516,6 +538,31 @@
 .ba-foot-soc--cafe img { width: 19px; height: 19px; }
 .ba-foot-soc--yt img { width: 22px; height: 15px; }
 .ba-foot-soc--dc img { width: 18px; height: 18px; }
+
+/* ── 디자인 v1.0 카드 (북마크·히스토리) ── */
+.ba-r1 { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.ba-r1 .ba-l1l { flex: 1; }
+/* 이름 = 검색 칩 (클릭 시 재검색) */
+.ba-open { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 3px 9px 3px 7px; margin: -3px 0; border-radius: 8px; cursor: pointer; background: transparent; border: 1px solid transparent; transition: background 0.16s, border-color 0.16s, box-shadow 0.16s; }
+.ba-open .ba-ic { color: #8b85a8; transition: color 0.16s; }
+.ba-open b { color: var(--ba-text-strong); font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ba-open:hover { background: var(--ba-violet-soft); border-color: var(--ba-violet-line); box-shadow: 0 0 14px rgba(167, 139, 250, 0.3); }
+.ba-open:hover .ba-ic { color: var(--ba-violet-2); }
+/* 가격 pill (북마크) */
+.ba-price--pill { padding: 3px 8px 3px 9px; background: rgba(252, 211, 77, 0.1); border: 1px solid rgba(252, 211, 77, 0.28); border-radius: 999px; font-size: 12.5px; }
+.ba-price--pill .ba-cur { width: 16px; height: 16px; }
+/* 조건 텍스트 칩 */
+.ba-chips { display: flex; flex-wrap: wrap; gap: 5px; margin: 9px 0 0; }
+.ba-cchip { font-size: 10.5px; color: #b9b2dd; background: var(--ba-violet-soft); border: 1px solid rgba(167, 139, 250, 0.22); border-radius: 6px; padding: 3px 8px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ba-cmore { font-size: 10.5px; font-weight: 700; color: #7dd3fc; background: rgba(125, 211, 252, 0.1); border: 1px solid rgba(125, 211, 252, 0.28); border-radius: 6px; padding: 3px 8px; cursor: help; }
+/* 주의 배지 (오래됨/리그) */
+.ba-attn { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; color: var(--ba-warn); background: var(--ba-warn-soft); border: 1px solid var(--ba-warn-line); border-radius: 6px; padding: 3px 8px; cursor: help; }
+/* 카드 푸터 (시간 + 액션) */
+.ba-r3 { display: flex; align-items: center; gap: 6px; margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255, 255, 255, 0.06); }
+.ba-acts { margin-left: auto; display: inline-flex; gap: 5px; }
+.ba-time { display: inline-flex; align-items: center; gap: 4px; color: var(--ba-text-muted); font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+/* 액션 버튼 크기 디자인 일치 (27px) */
+.ba-star, .ba-del, .ba-over, .ba-rename, .ba-copy { width: 27px; height: 27px; }
 
 /* ---- 빈 상태 (선택: renderList 빈 상태 마크업 시) ---- */
 .ba-empty-bm { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 16px 10px; text-align: center; }
