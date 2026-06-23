@@ -562,7 +562,7 @@
 .ba-foot-chip { position: relative; overflow: hidden; display: inline-flex; align-items: center; padding: 5px 13px; border-radius: 999px; background: linear-gradient(180deg, rgba(167,139,250,.2), rgba(125,211,252,.09)); border: 1px solid rgba(167,139,250,.45); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); }
 .ba-foot-glint { position: absolute; inset: 0; background: linear-gradient(to right, transparent, rgba(255,255,255,.15), transparent); animation: ba-glint 5s ease-in-out infinite; animation-delay: -1.5s; pointer-events: none; z-index: 1; }
 .ba-foot-chip b { position: relative; z-index: 0; font-size: 14px; font-weight: 800; background: linear-gradient(90deg, #c4b5fd, #7dd3fc); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.01em; white-space: nowrap; }
-.ba-foot-tx small { font-size: 11.5px; color: #9b94bd; font-weight: 600; letter-spacing: -.01em; }
+.ba-foot-tx small { font-size: 11.5px; color: #9b94bd; font-weight: 600; letter-spacing: -.01em; word-break: keep-all; line-height: 1.45; }
 .ba-foot-soc { width: 33px; height: 33px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; text-decoration: none; flex: none; transition: background .15s, border-color .15s, transform .1s; }
 .ba-foot-soc img { object-fit: contain; display: block; }
 .ba-foot-soc--cafe { background: rgba(3,207,93,.1); border: 1px solid rgba(3,207,93,.28); }

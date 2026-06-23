@@ -28,6 +28,12 @@
       "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*"],
       "js": ["src/content/content-main.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*"],
+      "js": ["src/content/stat-shortcut.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
     }
   ]
 }
