@@ -48,22 +48,23 @@
 }
 
 .ba-root {
-  position: fixed; top: 0; bottom: 0; right: 0; width: 390px;
+  /* 플로팅 패널: 화면 모서리에서 14px 띄우고 전 모서리 라운딩 */
+  position: fixed; top: 14px; bottom: 14px; right: 14px; width: 384px;
   display: flex; flex-direction: column;
   font-family: 'Pretendard', 'Inter', 'Noto Sans KR', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px; line-height: 1.5; color: var(--ba-text);
   letter-spacing: -0.01em;
-  background: var(--ba-panel-bg);
-  border: 1px solid var(--ba-border);
-  border-top: 2px solid var(--ba-border-hi);
-  border-right: none;
-  border-radius: var(--ba-r-card) 0 0 var(--ba-r-card);
+  background:
+    linear-gradient(var(--ba-panel-bg), var(--ba-panel-bg)) padding-box,
+    linear-gradient(180deg, #fbbf24 0%, #fb7185 25%, #c084fc 50%, #818cf8 75%, #a78bfa 100%) fixed border-box;
+  border: 1.5px solid transparent;   /* 상단 앵버(보색) → 하단 바이올렛 선셋 그라데이션 (정적 = 성능 영향 없음) */
+  border-radius: 14px;
   box-shadow: 0 15px 44px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.08);
   transform: translateX(0);
   transition: transform .26s var(--ba-ease);
   z-index: 2147483000; overflow: hidden;   /* 스크롤 콘텐츠를 라운딩 안쪽으로 클립 */
 }
-.ba-root.collapsed { transform: translateX(390px); }
+.ba-root.collapsed { transform: translateX(132%); }   /* 우측 화면 밖으로 슬라이드 아웃 */
 .ba-root.ba-hidden { display: none; }
 
 /* 전역 포커스 링 + 모션 최소화 대응 */
@@ -72,19 +73,34 @@
   .ba-root *, .ba-handle { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
 }
 
-/* 접힘 핸들 */
+/* 접힘 핸들 — 고정 위치, 패널 좌측에 '딱 붙는' 탭. 세로 드래그로 위치 이동 + 클릭으로 접기.
+   ⚠ right 값이 패널 좌측 모서리(=right 14 + width 384 = 398px)와 정확히 일치해야 틈이 안 생김 */
 .ba-handle {
-  position: absolute; left: -30px; top: 50%; margin-top: -52px; width: 30px; height: 104px;
-  display: flex; align-items: center; justify-content: center;
-  writing-mode: vertical-rl; letter-spacing: 2px;
-  background: var(--ba-panel-bg);
-  color: var(--ba-violet-2); font-weight: 700; font-size: 11px;
-  border: 1px solid var(--ba-border); border-right: none;
+  position: fixed; right: 398px; top: 50%; margin-top: -58px; width: 30px; height: 116px;
+  display: flex; flex-direction: column; align-items: center;
+  background:
+    linear-gradient(rgba(24, 21, 42, 0.96), rgba(24, 21, 42, 0.96)) padding-box,
+    linear-gradient(180deg, #fbbf24, #fb7185, #c084fc, #818cf8, #a78bfa) fixed border-box;   /* fixed → 패널과 같은 세로 좌표계 공유. 5스톱 균등 분포로 드래그 전 구간 색 변화 */
+  color: var(--ba-cyan-2, #7dd3fc);
+  border: 1.5px solid transparent; border-right: none;
   border-radius: 12px 0 0 12px;
   box-shadow: -6px 0 18px rgba(0, 0, 0, 0.34);
-  cursor: pointer; transition: color .15s, background .15s;
+  overflow: hidden; z-index: 2147483050;
+  transition: right .26s var(--ba-ease);
 }
-.ba-handle:hover { color: #ddd6fe; }
+.ba-root.collapsed ~ .ba-handle { right: 0; }   /* 접힘 시 화면 우측 끝으로 */
+/* 상단: 드래그 그립 (세로 위치 이동) */
+.ba-handle-grip {
+  width: 100%; display: flex; align-items: center; justify-content: center; padding: 9px 0;
+  cursor: ns-resize; color: #64748b; border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  touch-action: none; user-select: none; transition: color .15s;
+}
+.ba-handle-grip:hover { color: #7dd3fc; }
+/* 하단: 클릭 접기/펼치기 — 세로 '북마크' 라벨 + 개수 배지 + 글린트 */
+.ba-handle-toggle { position: relative; flex: 1; width: 100%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: #7dd3fc; transition: color .15s; overflow: hidden; }
+.ba-handle-toggle:hover { color: #bae6fd; }
+.ba-handle-toggle .lbl { writing-mode: vertical-rl; letter-spacing: 2px; font-weight: 700; font-size: 11px; }
+.ba-handle-badge { min-width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #0b0a16; background: var(--ba-violet-2); border-radius: 999px; padding: 0 5px; box-shadow: 0 0 10px rgba(196, 181, 253, 0.5); }
 
 /* ---- 헤더 ---- */
 .ba-head {
@@ -406,3 +422,61 @@
 .ba-empty-bm b { font-size: 13px; color: var(--ba-text-strong); font-weight: 800; }
 .ba-empty-bm small { font-size: 11.5px; color: var(--ba-text-muted); line-height: 1.6; }
 .ba-empty-bm .hl { color: var(--ba-violet-2); font-weight: 700; }
+
+/* ============================================================
+ * v1.0 신규 UI — 빠른 검색 / 정렬·밀도 토글 / 리그·갱신 배지 / 조건 칩 / 폴더 색 띠
+ * (프로토타입 v1.0 인라인 값 그대로. 카드 내부 정확 구조는 미리보기 렌더 참조)
+ * ============================================================ */
+
+/* 빠른 검색 + 정렬 행 (북마크 탭 상단) */
+.ba-search-row { display: flex; gap: 7px; margin-bottom: 9px; }
+.ba-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); border-radius: 9px; padding: 7px 10px; }
+.ba-search input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--ba-text-strong); font-size: 12.5px; font-family: inherit; }
+.ba-search .clear { width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; color: #8b85a8; cursor: pointer; flex: none; }
+.ba-search .clear:hover { color: #fda4af; }
+
+/* 분절 토글 — 정렬(순서/최근/이름) · 밀도(여유/조밀) 공용 */
+.ba-seg { display: inline-flex; align-items: stretch; background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); border-radius: 9px; overflow: hidden; flex: none; font-size: 11px; font-weight: 700; }
+.ba-seg > * { display: inline-flex; align-items: center; padding: 5px 10px; cursor: pointer; color: #9b94bd; }
+.ba-seg > * + * { border-left: 1px solid var(--ba-border); }
+.ba-seg > .active { background: linear-gradient(180deg, rgba(167,139,250,0.34), rgba(167,139,250,0.18)); color: #f3efff; font-weight: 800; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12); }
+
+/* 리그 불일치 / soft-stale 통합 배지 (클릭 = 갱신·재검색) — 앰버 */
+.ba-attn { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; color: var(--ba-warn); background: var(--ba-warn-soft); border: 1px solid var(--ba-warn-line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+.ba-attn:hover { background: rgba(251,191,36,0.28); }
+/* 흐림 처리된 행 (갱신/리그 필요) */
+.ba-row.ba-attn-dim { opacity: .6; }
+
+/* 조건 칩 (스탯 요약) + "+N" 더보기 */
+.ba-chip { font-size: 10.5px; color: #b9b2dd; background: rgba(167,139,250,0.10); border: 1px solid rgba(167,139,250,0.22); border-radius: 6px; padding: 3px 8px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ba-chip-more { font-size: 10.5px; font-weight: 700; color: #7dd3fc; background: rgba(125,211,252,0.10); border: 1px solid rgba(125,211,252,0.28); border-radius: 6px; padding: 3px 8px; cursor: help; }
+.ba-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+
+/* 이름 = 클릭 칩(다시 열기) — 북마크는 이 칩만 재검색 트리거 */
+.ba-open { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 3px 9px 3px 7px; margin: -3px 0; border-radius: 8px; cursor: pointer; background: transparent; border: 1px solid transparent; transition: background .16s, border-color .16s, box-shadow .16s; }
+.ba-open:hover { background: rgba(167,139,250,0.16); border-color: rgba(167,139,250,0.45); box-shadow: 0 0 14px rgba(167,139,250,0.3); }
+.ba-open b { color: var(--ba-text-strong); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 가격 = 앰버 알약 (카드 우상단) */
+.ba-price-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 9px; background: rgba(252,211,77,0.10); border: 1px solid rgba(252,211,77,0.28); border-radius: 999px; color: var(--ba-gold); font-weight: 800; white-space: nowrap; font-size: 12.5px; font-variant-numeric: tabular-nums; flex: none; }
+.ba-price-pill img { width: 16px; height: 16px; }
+
+/* 카드 하단 액션 행 (시간 + 복사/갱신/이름/삭제 26px) */
+.ba-rowfoot { display: flex; align-items: center; gap: 6px; margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.06); }
+.ba-rowfoot .time { display: inline-flex; align-items: center; gap: 4px; color: #8b85a8; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ba-rowfoot .acts { margin-left: auto; display: inline-flex; gap: 5px; }
+.ba-act { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; color: #8b85a8; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); border-radius: 7px; cursor: pointer; transition: color .15s; }
+.ba-act.copy:hover { color: var(--ba-cyan); }
+.ba-act.over:hover  { color: #7dd3fc; }
+.ba-act.rename:hover { color: var(--ba-violet-2); }
+.ba-act.del:hover   { color: #fda4af; }
+
+/* 폴더 색 구분 — 헤더 좌측 3px 띠 (color는 마크업에서 인라인으로 주입) */
+.ba-folder-head { border-left: 3px solid var(--ba-violet); }   /* 기본값; 폴더별 color로 덮어쓰기 */
+
+/* 대용량 리스트 — 화면 밖 카드 레이아웃·페인트 생략 (드래그/이벤트 영향 없음) */
+.ba-row { content-visibility: auto; contain-intrinsic-size: 96px; }
+
+/* 정보 밀도 — 조밀 모드(.ba-list.dense)에서 카드 패딩·이름 크기 축소 */
+.ba-list.dense .ba-row { padding: 8px 11px; margin-bottom: 7px; }
+.ba-list.dense .ba-open b, .ba-list.dense .ba-line1 b { font-size: 13px; }

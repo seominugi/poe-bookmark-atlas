@@ -6,8 +6,10 @@ import { suggestName } from '../../lib/suggestName.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
 import ytIcon from '../../icons/yt_icon_rgb.png'
 import discordIcon from '../../icons/icon_clyde_white_RGB.png'
+import logoIcon from '../../icons/icon128.png'
 
-// 소셜 로고 — content script(ISOLATED)라 확장 URL로 해석
+// 로고·소셜 로고 — content script(ISOLATED)라 확장 URL로 해석
+const logoUrl = chrome.runtime.getURL(logoIcon)
 const cafeUrl = chrome.runtime.getURL(cafeIcon)
 const ytUrl = chrome.runtime.getURL(ytIcon)
 const discordUrl = chrome.runtime.getURL(discordIcon)
@@ -30,8 +32,11 @@ export function mountPanel({ game, league }) {
   wrap.innerHTML = `
     <div class="ba-root" id="ba-root">
       <div class="ba-head">
-        <span class="ba-title">북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
-        <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">${icon('bookmark', 14)}현재 검색 저장</button>
+        <div class="ba-brand">
+          <img class="ba-brand-logo" src="${logoUrl}" alt="" />
+          <span class="ba-brand-tx"><b>북마크 아틀라스</b><small>${game === 'poe2' ? 'POE2' : 'POE1'} TRADE MANAGER</small></span>
+        </div>
+        <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>
       </div>
       <div class="ba-econ-row">
         <a class="ba-econ-btn items" href="${ECON_ITEMS[game] || ECON_ITEMS.poe2}" target="_blank" rel="noopener" data-tip="아이템 시세 — 서미누기의 POE 경제 ↗">
@@ -78,7 +83,7 @@ export function mountPanel({ game, league }) {
   // 펼쳤을 때 페이지 콘텐츠를 왼쪽으로 밀어 패널 자리를 확보(도킹) → 검색 영역과 겹침 방지
   const applyPagePush = (collapsed) => {
     try {
-      document.documentElement.style.setProperty('margin-right', collapsed ? '' : '390px', 'important')
+      document.documentElement.style.setProperty('margin-right', collapsed ? '' : '412px', 'important')
       document.documentElement.style.setProperty('transition', 'margin-right .25s ease', 'important')
     } catch (_) {}
   }

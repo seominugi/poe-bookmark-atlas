@@ -76,10 +76,10 @@ function applyFilters(listEl) {
     // 검색 중 보이는 행 없는 폴더는 숨김 (검색 아닐 땐 항상 표시 — 미분류 드롭 타깃 유지)
     folder.style.display = bm && inFolder === 0 ? 'none' : ''
   })
-  const bmBar = listEl.querySelector('.ba-search[data-scope="bm"]')
+  const bmBar = listEl.querySelector('.ba-search-input[data-scope="bm"]')
   let noRes = listEl.querySelector('.ba-no-result')
   if (bm && bmVisible === 0) {
-    if (!noRes && bmBar) { noRes = document.createElement('div'); noRes.className = 'ba-no-result'; bmBar.closest('.ba-filter-bar').after(noRes) }
+    if (!noRes && bmBar) { noRes = document.createElement('div'); noRes.className = 'ba-no-result'; bmBar.closest('.ba-search-row').after(noRes) }
     if (noRes) { noRes.textContent = `"${bmSearch.trim()}"에 해당하는 북마크가 없습니다.`; noRes.hidden = false }
   } else if (noRes) { noRes.hidden = true }
 }
@@ -101,37 +101,38 @@ function rowHtml(r, kind, currentLeague) {
   const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${stats.join(' ')}`.toLowerCase())
   const condTip = escapeHtml(condTipText(r))
 
-  // ── 히스토리: 카드 전체 클릭으로 재검색 ──
+  // ── 히스토리: 카드 전체 클릭으로 재검색 (디자인: 가벼운 글래스 카드) ──
   if (kind === 'history') {
     const condChip = stats.length ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${stats.length}개</span>` : ''
-    return `<div class="ba-row ba-row--hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-      <div class="ba-r1"><span class="ba-l1l"><span class="ba-row-ic">${icon('clock', 13)}</span><b>${title}</b></span><span class="ba-price">${price}</span></div>
+    return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
+      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}<b>${title}</b></span><span class="ba-price">${price}</span></div>
       <div class="ba-meta"><span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">${icon('star', 14)}</span><span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 14)}</span><span class="ba-time">${icon('clock', 11)}${fmtTime(when)}</span>${condChip}</div>
     </div>`
   }
 
-  // ── 북마크: 이름 칩(검색 아이콘)만 재검색 → 오클릭 방지 ──
+  // ── 북마크: 이름 칩(.ba-open)만 재검색 → 오클릭 방지 ──
   const stale = Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
   const otherLeague = currentLeague && r.league && r.league !== currentLeague
   const dim = stale || otherLeague
+  // 리그·갱신 통합 배지(.ba-attn) — 앰버, 클릭=갱신·재검색
   const attn = stale
-    ? `<span class="ba-attn" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요. 열어서 결과가 뜨면 자동 갱신됩니다.">${icon('refresh', 10)}갱신 필요</span>`
+    ? `<span class="ba-attn ba-over" data-id="${r.id}" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요. 클릭하면 최근 검색으로 갱신합니다.">${icon('refresh', 10)}갱신 필요</span>`
     : otherLeague
-      ? `<span class="ba-attn ba-attn--league" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요">${icon('alert', 10)}이전 리그</span>`
+      ? `<span class="ba-attn ba-open" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요. 클릭해 다시 검색.">${icon('refresh', 10)}이전 리그</span>`
       : ''
-  const chips = stats.slice(0, 2).map((s) => `<span class="ba-cchip">${escapeHtml(s)}</span>`).join('')
+  const chips = stats.slice(0, 2).map((s) => `<span class="ba-chip">${escapeHtml(s)}</span>`).join('')
   const moreN = stats.length - 2
-  const more = moreN > 0 ? `<span class="ba-cmore" data-tip="${condTip}">+${moreN}</span>` : ''
+  const more = moreN > 0 ? `<span class="ba-chip-more" data-tip="${condTip}">+${moreN}</span>` : ''
   const chipsRow = (attn || stats.length) ? `<div class="ba-chips">${attn}${chips}${more}</div>` : ''
-  return `<div class="ba-row ba-row--bm${dim ? ' ba-row--dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-    <div class="ba-r1">
+  return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
+    <div class="ba-line1">
       <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span><span class="ba-open" data-tip="클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
-      <span class="ba-price ba-price--pill">${price}</span>
+      <span class="ba-price-pill">${price}</span>
     </div>
     ${chipsRow}
-    <div class="ba-r3">
-      <span class="ba-time">${icon('clock', 11)}${fmtTime(when)}</span>
-      <span class="ba-acts"><span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
+    <div class="ba-rowfoot">
+      <span class="time">${icon('clock', 11)}${fmtTime(when)}</span>
+      <span class="acts"><span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-act over ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-act del ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
     </div>
   </div>`
 }
@@ -151,14 +152,14 @@ export async function renderList(listEl, root, ui = {}) {
     ? `<button class="ba-clean-stale" data-tip="14일 이상 미사용 북마크 ${staleN}개를 일괄 삭제">${icon('broom', 13)}오래된 항목 ${staleN}</button>`
     : ''
   const dens = ui.getDensity ? ui.getDensity() : 'comfortable'
-  const densToggle = `<span class="ba-dens"><span class="ba-dens-seg ${dens === 'comfortable' ? 'active' : ''}" data-dens="comfortable" data-tip="여유 보기 — 글씨·간격이 큼 (읽기 편함)">여유</span><span class="ba-dens-seg ${dens === 'compact' ? 'active' : ''}" data-dens="compact" data-tip="조밀 보기 — 한 화면에 더 많이">조밀</span></span>`
+  const densToggle = `<span class="ba-seg"><span class="ba-dens-seg ${dens === 'comfortable' ? 'active' : ''}" data-dens="comfortable" data-tip="여유 보기 — 글씨·간격이 큼 (읽기 편함)">여유</span><span class="ba-dens-seg ${dens === 'compact' ? 'active' : ''}" data-dens="compact" data-tip="조밀 보기 — 한 화면에 더 많이">조밀</span></span>`
   let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${densToggle}${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더</button><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span></div>`
-  html += `<div class="ba-filter-bar">
-    <span class="ba-search-wrap">${icon('search', 13)}<input class="ba-search" data-scope="bm" placeholder="북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span>
-    <span class="ba-sort">
-      <button class="ba-sort-seg ${bmSort === 'order' ? 'active' : ''}" data-sort="order" data-tip="수동 순서">순서</button>
-      <button class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</button>
-      <button class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</button>
+  html += `<div class="ba-search-row">
+    <span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span>
+    <span class="ba-seg">
+      <span class="ba-sort-seg ${bmSort === 'order' ? 'active' : ''}" data-sort="order" data-tip="수동 순서">순서</span>
+      <span class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</span>
+      <span class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</span>
     </span>
   </div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
@@ -199,7 +200,7 @@ export async function renderList(listEl, root, ui = {}) {
   // ── 히스토리 섹션 (점진 렌더) ──
   html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 15)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span></div>`
   if (history.length) {
-    html += `<div class="ba-filter-bar"><span class="ba-search-wrap">${icon('search', 13)}<input class="ba-search" data-scope="hs" placeholder="히스토리 검색 (이름·조건)" value="${escapeHtml(hsSearch)}" /></span></div>`
+    html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="hs" placeholder="히스토리 검색 (이름·조건)" value="${escapeHtml(hsSearch)}" /></span></div>`
     html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history')).join('')
     if (history.length > historyLimit) {
       html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>`
@@ -344,7 +345,7 @@ function bindAll(listEl, ui) {
   if (moreBtn) moreBtn.addEventListener('click', () => { historyLimit += 200; changed() })
 
   // 빠른 검색 — 입력 시 재렌더 없이 show/hide (검색창 포커스 유지)
-  listEl.querySelectorAll('.ba-search').forEach((inp) => inp.addEventListener('input', () => {
+  listEl.querySelectorAll('.ba-search-input').forEach((inp) => inp.addEventListener('input', () => {
     if (inp.dataset.scope === 'bm') bmSearch = inp.value
     else hsSearch = inp.value
     applyFilters(listEl)
