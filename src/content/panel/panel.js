@@ -6,7 +6,7 @@ import { suggestName } from '../../lib/suggestName.js'
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
 
-export function mountPanel({ game }) {
+export function mountPanel({ game, league }) {
   if (document.getElementById('ba-panel-host')) return { toggle() {}, show() {}, hide() {} }
   const host = document.createElement('div')
   host.id = 'ba-panel-host'
@@ -188,7 +188,7 @@ export function mountPanel({ game }) {
     })
   }
 
-  const ui = { showNameInput, showSaveInput, toast, game }
+  const ui = { showNameInput, showSaveInput, toast, game, league }
   const refresh = () => renderList($('ba-list'), root, ui)
 
   // 최근(현재) 검색을 북마크로 저장

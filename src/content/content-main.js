@@ -97,4 +97,4 @@ window.addEventListener('message', async (e) => {
 })
 
 initFuzzyPrefix()
-mountPanel({ game })
+mountPanel({ game, league: leagueFromUrl() })

@@ -91,7 +91,7 @@ function condTipText(r) {
   return (r.stats || []).join('\n')
 }
 
-function rowHtml(r, kind) {
+function rowHtml(r, kind, currentLeague) {
   const price = priceHtml(r.snapshot)
   const title = escapeHtml(r.name || r.title)
   const statItems = r.stats || []
@@ -103,6 +103,11 @@ function rowHtml(r, kind) {
   const stale = kind === 'bookmark' && Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
   const warn = stale
     ? `<span class="ba-stale" data-tip="오래된 북마크 — 거래소 저장 링크가 만료됐을 수 있어요. 클릭해 결과가 뜨면 자동 갱신됩니다.">⚠</span> `
+    : ''
+  // 저장 당시 리그와 현재 리그가 다르면 흐림 + "이전 리그" 배지 (다른 리그라 안 열릴 수 있음)
+  const otherLeague = kind === 'bookmark' && currentLeague && r.league && r.league !== currentLeague
+  const leagueBadge = otherLeague
+    ? `<span class="ba-badge ba-badge--league" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요">이전 리그</span>`
     : ''
   const copyBtn = `<span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">🔗</span>`
   const actions =
@@ -117,8 +122,8 @@ function rowHtml(r, kind) {
     ? `🔖 <span class="ba-open" data-tip="검색 다시 열기"><b>${title}</b></span>`
     : `🔖 <b>${title}</b>`
   const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${(r.stats || []).join(' ')}`.toLowerCase())
-  return `<div class="ba-row" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-    <div class="ba-line1"><span class="ba-l1l">${grip}${warn}${titleHtml}</span><span class="ba-price">${price}</span></div>
+  return `<div class="ba-row${otherLeague ? ' ba-row--dim' : ''}" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
+    <div class="ba-line1"><span class="ba-l1l">${grip}${warn}${titleHtml}${leagueBadge}</span><span class="ba-price">${price}</span></div>
     <div class="ba-meta">${actions}<span class="ba-time">${fmtTime(when)}</span>${condSummary}</div>
   </div>`
 }
@@ -174,7 +179,7 @@ export async function renderList(listEl, root, ui = {}) {
       : `<span class="ba-folder-dot ba-folder-dot--none"></span>`
     html += `<div class="ba-folder" data-folder="${g.id ?? ''}">
       <div class="ba-folder-head"><span class="ba-folder-name">${dot} ${escapeHtml(g.name)} <span class="ba-folder-count">${items.length}</span></span><span>${fActions}</span></div>
-      <div class="ba-folder-body" data-folder="${g.id ?? ''}">${items.map((r) => rowHtml(r, 'bookmark')).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
+      <div class="ba-folder-body" data-folder="${g.id ?? ''}">${items.map((r) => rowHtml(r, 'bookmark', ui.league)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
   }
 
