@@ -532,7 +532,8 @@
 .ba-econ-row { margin: 9px 16px 7px; }
 /* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */
 .ba-action-row { display: flex; justify-content: flex-end; align-items: center; gap: 7px; margin: 0 2px 10px; }
-.ba-action-row .ba-add-folder, .ba-action-row .ba-clean-stale { gap: 4px; }
+/* 아이콘(SVG block) + 텍스트 가로 정렬 — 없으면 아이콘이 윗줄로 줄바꿈돼 버튼이 어긋남 */
+.ba-clean-stale, .ba-add-folder { display: inline-flex; align-items: center; gap: 4px; }
 
 /* 핸들 — 세로 글린트 + 라벨/배지 본문 (.dc.html 구조) */
 .ba-handle-glint { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, rgba(125,211,252,.22), transparent); animation: baGlintV 5.5s ease-in-out infinite; animation-delay: -1.6s; pointer-events: none; z-index: 0; }
