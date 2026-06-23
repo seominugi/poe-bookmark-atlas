@@ -538,7 +538,9 @@
 /* 핸들 — 세로 글린트 + 라벨/배지 본문 (.dc.html 구조) */
 .ba-handle-glint { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, rgba(125,211,252,.22), transparent); animation: baGlintV 5.5s ease-in-out infinite; animation-delay: -1.6s; pointer-events: none; z-index: 0; }
 .ba-handle-body { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; }
-.ba-handle-label { writing-mode: vertical-rl; letter-spacing: 2px; font-weight: 700; font-size: 11px; }
+.ba-handle-label { writing-mode: vertical-rl; letter-spacing: 2px; font-weight: 700; font-size: 11px; flex: none; }
+/* box-sizing:border-box → min-width:18px이 패딩 포함 전체 너비. 한 자리는 18×18 원형, 두 자리는 약간 늘어남 */
+.ba-handle-badge { flex: none; box-sizing: border-box; }
 @keyframes baGlintV { 0% { transform: translateY(-120%); } 55%, 100% { transform: translateY(120%); } }
 
 /* 피드백 푸터 — 서미누기 제작 칩(글린트·글로우) + 소셜 (.dc.html) */
