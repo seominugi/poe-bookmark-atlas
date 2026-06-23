@@ -116,9 +116,9 @@ function rowHtml(r, kind, currentLeague) {
   const dim = stale || otherLeague
   // 리그·갱신 통합 배지(.ba-attn) — 앰버, 클릭=갱신·재검색
   const attn = stale
-    ? `<span class="ba-attn ba-over" data-id="${r.id}" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요. 클릭하면 최근 검색으로 갱신합니다.">${icon('refresh', 10)}갱신 필요</span>`
+    ? `<span class="ba-attn ba-over" data-id="${r.id}" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요.\n클릭하면 최근 검색으로 갱신합니다.">${icon('refresh', 10)}갱신 필요</span>`
     : otherLeague
-      ? `<span class="ba-attn ba-open" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요. 클릭해 다시 검색.">${icon('refresh', 10)}이전 리그</span>`
+      ? `<span class="ba-attn ba-open" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)}\n다른 리그라 열리지 않을 수 있어요.\n클릭해 현재 리그로 다시 검색하세요.">${icon('refresh', 10)}이전 리그</span>`
       : ''
   const chips = stats.slice(0, 2).map((s) => `<span class="ba-chip">${escapeHtml(s)}</span>`).join('')
   const moreN = stats.length - 2
@@ -149,7 +149,7 @@ export async function renderList(listEl, root, ui = {}) {
   const now = Date.now()
   const staleN = bookmarks.filter((b) => now - (b.lastUsedAt || b.createdAt || b.updatedAt || 0) > STALE_MS).length
   const cleanupBtn = staleN > 0
-    ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요. 오래된 검색은 거래소 필터·파라미터가 바뀌면 더 못 불러올 수 있어요.">${icon('broom', 13)}오래된 ${staleN}</button>`
+    ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요.\n오래된 검색은 거래소 필터·파라미터가 바뀌면\n더 이상 불러오지 못할 수 있거든요.">${icon('broom', 13)}오래된 ${staleN}</button>`
     : ''
   const dens = ui.getDensity ? ui.getDensity() : 'comfortable'
   const densToggle = `<span class="ba-seg"><span class="ba-dens-seg ${dens === 'comfortable' ? 'active' : ''}" data-dens="comfortable" data-tip="여유 보기 — 글씨·간격이 큼 (읽기 편함)">여유</span><span class="ba-dens-seg ${dens === 'compact' ? 'active' : ''}" data-dens="compact" data-tip="조밀 보기 — 한 화면에 더 많이">조밀</span></span>`
