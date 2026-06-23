@@ -35,6 +35,19 @@ export function mountPanel({ game, league }) {
         <div class="ba-brand">
           <img class="ba-brand-logo" src="${logoUrl}" alt="" />
           <span class="ba-brand-tx"><b>북마크 아틀라스</b><small>${game === 'poe2' ? 'POE2' : 'POE1'} TRADE MANAGER</small></span>
+          <span class="ba-kbd-wrap">
+            <span class="ba-kbd-chip">${icon('keyboard', 15)}</span>
+            <div class="ba-kbd-pop">
+              <div class="ba-kbd-pop-group">패널 단축키</div>
+              <div class="ba-kbd-pop-row"><span>패널 열기 / 접기</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>B</kbd></span></div>
+              <div class="ba-kbd-pop-row"><span>현재 검색 저장</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>S</kbd></span></div>
+              <div class="ba-kbd-pop-group">능력치 필터 단축키</div>
+              <div class="ba-kbd-pop-row"><span>능력치 필터 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>A</kbd></span></div>
+              <div class="ba-kbd-pop-sub">여러 그룹이면 <b>반복해서 전환</b></div>
+              <div class="ba-kbd-pop-row"><span>능력치 그룹 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>G</kbd></span></div>
+              <div class="ba-kbd-pop-foot">확장 아이콘 클릭 → 시세 · 가이드 · 문의</div>
+            </div>
+          </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
         </div>
         <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>

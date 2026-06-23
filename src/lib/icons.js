@@ -11,6 +11,7 @@ const PATHS = {
   trash: '<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6.5 7l1 12.5a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1L18 7"/>',
   refresh: '<path d="M20.5 12a8.5 8.5 0 1 1-2.8-6.3M20.5 4.2v4.3h-4.3"/>',
   grip: '<path stroke-width="2.4" d="M9 5.5v.01M9 12v.01M9 18.5v.01M15 5.5v.01M15 12v.01M15 18.5v.01"/>',
+  keyboard: '<rect x="2.5" y="7" width="19" height="10" rx="1.8"/><path stroke-width="2.2" d="M6 11v.01M9.5 11v.01M13 11v.01M16.5 11v.01"/><path d="M8 14.2h8"/>',
   search: '<path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4.2-4.2"/>',
   chart: '<path d="M3 20.5h18M6.5 20.5v-6M11.5 20.5V8M16.5 20.5v-9"/>',
   chevronDown: '<path d="M6 9.5l6 6 6-6"/>',
