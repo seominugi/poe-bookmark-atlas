@@ -37,10 +37,21 @@ function prependTilde(el) {
 }
 
 export function initFuzzyPrefix() {
-  // 1) 포커스 진입 시 빈 칸이면 "~" 미리 삽입 (클릭=제스처가 있어 바로 반영)
+  // 1) 포커스 처리
+  //    - 페이지 로드 직후(1.2초) "제스처 없는 자동 포커스"는 해제한다 → 새로고침해도
+  //      검색칸에 포커스/드롭다운이 잡히지 않는다. 사이트가 다시 포커스해도 최대 10회만 대응(무한 루프 방지).
+  //    - 사용자가 직접 클릭/탭(제스처)한 빈 칸에는 "~"를 삽입한다. (실제 클릭은 userActivation이 있어 해제되지 않음)
+  const guardUntil = Date.now() + 1200
+  let autoBlurs = 0
   document.addEventListener(
     'focusin',
-    (e) => { if (isTarget(e.target) && e.target.value === '') prependTilde(e.target) },
+    (e) => {
+      const el = e.target
+      if (!isTarget(el)) return
+      const active = !!(navigator.userActivation && navigator.userActivation.isActive)
+      if (!active && Date.now() < guardUntil && autoBlurs < 10) { autoBlurs++; el.blur(); return }
+      if (active && el.value === '') prependTilde(el)
+    },
     true,
   )
 
@@ -82,6 +93,6 @@ export function initFuzzyPrefix() {
     true,
   )
 
-  // 4) 페이지 로드 시 이미 포커스된 빈 칸(자동 포커스) — 제스처가 없으면 첫 입력에서 보강된다
-  if (isTarget(document.activeElement) && document.activeElement.value === '') prependTilde(document.activeElement)
+  // 페이지 로드 시 사이트가 이미 검색칸을 자동 포커스했으면 즉시 해제한다(사용자가 원치 않음).
+  if (isTarget(document.activeElement)) { autoBlurs++; document.activeElement.blur() }
 }
