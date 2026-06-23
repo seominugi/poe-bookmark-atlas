@@ -349,7 +349,7 @@
 
 /* ---- 액션 버튼: 의미색 ---- */
 .ba-star, .ba-del, .ba-over, .ba-rename,
-.ba-folder-save, .ba-folder-rename, .ba-folder-del {
+.ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del {
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0; line-height: 1; color: var(--ba-text-muted);
   background: rgba(255, 255, 255, 0.05); border: 1px solid var(--ba-border);
@@ -357,13 +357,13 @@
   transition: background .15s, border-color .15s, color .15s;
 }
 .ba-star, .ba-del, .ba-over, .ba-rename { width: 29px; height: 29px; font-size: 15px; }
-.ba-folder-save, .ba-folder-rename, .ba-folder-del { width: 24px; height: 24px; font-size: 13px; }
+.ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del { width: 24px; height: 24px; font-size: 13px; }
 
 .ba-star:hover { color: var(--ba-warn); background: var(--ba-warn-soft); border-color: var(--ba-warn-line); }
 .ba-over:hover { color: #bae6fd; background: var(--ba-blue-soft); border-color: var(--ba-blue-line); }
 .ba-rename:hover, .ba-folder-rename:hover { color: #ddd6fe; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 .ba-del:hover, .ba-folder-del:hover { color: #fecdd3; background: var(--ba-danger-soft); border-color: var(--ba-danger-line); }
-.ba-folder-save:hover { color: #c4b5fd; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+.ba-folder-save:hover, .ba-folder-export:hover { color: #c4b5fd; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 /* 검색 링크 복사 (선택: .ba-copy 마크업 시) — 시안 */
 .ba-copy {
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
