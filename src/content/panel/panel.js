@@ -1,11 +1,9 @@
 import css from './panel.css?inline'
-import { renderList, highlightBookmark } from './renderList.js'
+import { renderList, highlightBookmark, analystUrl, researcherUrl } from './renderList.js'
 import { listByKind, addBookmark, findBookmark } from '../../store/store.js'
 
-const ECON = {
-  poe1: 'https://seominugi.com/poe1/economy/items',
-  poe2: 'https://seominugi.com/poe2/economy/items',
-}
+const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
+const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
 
 export function mountPanel({ game }) {
   if (document.getElementById('ba-panel-host')) return { toggle() {}, show() {}, hide() {} }
@@ -26,10 +24,18 @@ export function mountPanel({ game }) {
         <span class="ba-title">🔖 북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
         <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">★ 현재 검색 저장</button>
       </div>
-      <a class="ba-econ" href="${ECON[game] || ECON.poe2}" target="_blank" rel="noopener">
-        <span class="ba-econ-ic">📊</span>
-        <span class="ba-econ-tx"><b>아이템 시세 자세히 보기</b><small>seominugi.com 경제 데이터 ↗</small></span>
-      </a>
+      <div class="ba-econ-row">
+        <a class="ba-econ-btn items" href="${ECON_ITEMS[game] || ECON_ITEMS.poe2}" target="_blank" rel="noopener" data-tip="아이템 시세 — 서미누기의 POE 경제 ↗">
+          <span class="ba-econ-glint"></span>
+          <span class="ba-econ-pic"><img src="${analystUrl}" alt=""></span>
+          <span class="ba-econ-lbl"><b>아이템 시세</b></span>
+        </a>
+        <a class="ba-econ-btn trend" href="${ECON_TREND[game] || ECON_TREND.poe2}" target="_blank" rel="noopener" data-tip="시장 동향 — 서미누기의 POE 경제 ↗">
+          <span class="ba-econ-glint"></span>
+          <span class="ba-econ-pic"><img src="${researcherUrl}" alt=""></span>
+          <span class="ba-econ-lbl"><b>시장 동향</b></span>
+        </a>
+      </div>
       <div class="ba-social">
         <a class="ba-soc" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널">▶ 유튜브</a>
         <a class="ba-soc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 — 피드백·버그 제보">💬 디스코드</a>

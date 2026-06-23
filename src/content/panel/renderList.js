@@ -5,11 +5,16 @@ import {
 import { formatPrice } from '../../lib/formatPrice.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
+import analystIcon from '../../icons/mascot-analyst.webp'
+import researcherIcon from '../../icons/mascot-researcher.webp'
 
 // content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
 // import 값은 '/assets/..'(호스트 페이지 기준 절대경로)라 그대로 쓰면 poe.kakaogames.com/assets/.. → 404.
 const divineUrl = chrome.runtime.getURL(divineIcon)
 const exaltedUrl = chrome.runtime.getURL(exaltedIcon)
+// 마스코트(시세/동향 버튼·빈 상태) — panel.js도 재사용하도록 export
+export const analystUrl = chrome.runtime.getURL(analystIcon)
+export const researcherUrl = chrome.runtime.getURL(researcherIcon)
 
 let cleanArmed = 0 // "오래된 항목 정리" 2-클릭 확인 (모듈 레벨 — 재렌더 후에도 유지)
 
@@ -96,7 +101,14 @@ export async function renderList(listEl, root, ui = {}) {
   let html = `<div class="ba-sec-head"><span class="ba-sec-title">🔖 북마크 <span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">+ 폴더</button></span></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const byFolder = (fid) => bookmarks.filter((b) => (b.folderId ?? null) === fid)
-  for (const g of groups) {
+  // 빈 상태 — 북마크도 사용자 폴더도 없을 때 (마스코트 안내)
+  if (bookmarks.length === 0 && folders.length === 0) {
+    html += `<div class="ba-empty-bm">
+      <img src="${analystUrl}" alt="">
+      <b>저장된 북마크가 없어요</b>
+      <small>좋은 검색을 찾으면 상단 <span class="hl">현재 검색 저장</span>으로<br>북마크해 두고 언제든 다시 열어보세요</small>
+    </div>`
+  } else for (const g of groups) {
     const items = byFolder(g.id)
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
