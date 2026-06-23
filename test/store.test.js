@@ -4,7 +4,7 @@ import {
   addHistory, listByKind, promoteToBookmark, rename, remove, HISTORY_CAP,
   addBookmark, overwriteBookmark, moveBookmark,
   listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks, findBookmark,
-  exportBookmarksJSON, importBookmarksJSON, moveFolder,
+  exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -113,6 +113,15 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     await moveFolder(c.id, 1) // 맨 아래에서 아래로 → 변화 없음
     expect((await listFolders('poe2')).map((f) => f.name)).toEqual(['A', 'B', 'C'])
     expect((await listFolders('poe1')).map((f) => f.name)).toEqual(['X'])
+  })
+
+  it('폴더 색상: 자동 팔레트 배정 + setFolderColor 변경', async () => {
+    const a = await addFolder('A', 'poe2')
+    const b = await addFolder('B', 'poe2')
+    expect(a.color).toBe(FOLDER_PALETTE[0])
+    expect(b.color).toBe(FOLDER_PALETTE[1])
+    await setFolderColor(a.id, '#ffffff')
+    expect((await listFolders('poe2')).find((f) => f.id === a.id).color).toBe('#ffffff')
   })
 
   it('폴더 삭제 시 소속 북마크는 미분류(null)로', async () => {

@@ -221,6 +221,7 @@
 .ba-folder-pick .chip { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 8px; cursor: pointer; color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-border); }
 .ba-folder-pick .chip.active { color: #0b0a16; background: var(--ba-violet-2); border-color: var(--ba-violet-2); }
 .ba-folder-pick .chip.new { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+.ba-folder-pick .ba-newfolder-input { font-size: 11.5px; font-weight: 700; padding: 5px 9px; border-radius: 8px; color: var(--ba-text-strong); background: rgba(255, 255, 255, 0.08); border: 1px solid var(--ba-violet); outline: none; font-family: inherit; width: 130px; }
 
 /* ---- 리스트 컨테이너 ---- */
 .ba-list { overflow-y: auto; flex: 1; padding: 12px 14px 18px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
@@ -280,6 +281,10 @@
 }
 .ba-folder-name { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ba-folder-count { color: var(--ba-text-muted); font-weight: 700; font-size: 10px; }
+.ba-folder-dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; flex-shrink: 0; cursor: pointer; box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.3); transition: transform .12s; }
+.ba-folder-dot:hover { transform: scale(1.25); }
+.ba-folder-dot--none { background: #8b85a8; cursor: default; }
+.ba-folder-dot--none:hover { transform: none; }
 .ba-folder-head > span:last-child { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
 .ba-folder-edit {
   background: rgba(255, 255, 255, 0.08); border: 1px solid var(--ba-violet); border-radius: var(--ba-r-chip);

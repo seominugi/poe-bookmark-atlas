@@ -145,12 +145,25 @@ export async function listFolders(game) {
   return game ? folders.filter((f) => !f.game || f.game === game) : folders
 }
 
-export async function addFolder(name, game) {
+// 폴더 색상 — 새 폴더에 5색 팔레트를 순환 자동 배정(같은 game 스코프 폴더 수 기준)
+export const FOLDER_PALETTE = ['#a78bfa', '#7dd3fc', '#5eead4', '#fbbf24', '#fb7185']
+export async function addFolder(name, game, color) {
   const folders = await readFolders()
-  const folder = { id: uid('f_'), name: name || '새 폴더', game: game ?? null }
+  const scopeCount = folders.filter((f) => (f.game ?? null) === (game ?? null)).length
+  const folder = {
+    id: uid('f_'), name: name || '새 폴더', game: game ?? null,
+    color: color || FOLDER_PALETTE[scopeCount % FOLDER_PALETTE.length],
+  }
   folders.push(folder)
   await writeFolders(folders)
   return folder
+}
+
+/** 폴더 색상 변경 */
+export async function setFolderColor(id, color) {
+  const folders = await readFolders()
+  const f = folders.find((x) => x.id === id)
+  if (f) { f.color = color; await writeFolders(folders) }
 }
 
 export async function renameFolder(id, name) {

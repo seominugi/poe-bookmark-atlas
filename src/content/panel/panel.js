@@ -1,6 +1,6 @@
 import css from './panel.css?inline'
 import { renderList, highlightBookmark, analystUrl, researcherUrl } from './renderList.js'
-import { listByKind, addBookmark, findBookmark } from '../../store/store.js'
+import { listByKind, addBookmark, findBookmark, listFolders, addFolder } from '../../store/store.js'
 
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
@@ -46,6 +46,7 @@ export function mountPanel({ game }) {
         <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
         <button class="ba-name-ok" id="ba-name-ok">저장</button>
         <button class="ba-name-cancel" id="ba-name-cancel">취소</button>
+        <div class="ba-folder-pick" id="ba-folder-pick" hidden></div>
       </div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-toast" id="ba-toast" hidden></div>
@@ -133,7 +134,60 @@ export function mountPanel({ game }) {
     })
   }
 
-  const ui = { showNameInput, toast, game }
+  // 저장 다이얼로그 — 이름 + 폴더 선택(미분류·기존 폴더·+새 폴더). @returns {Promise<{name, folderId}|null>}
+  async function showSaveInput(defaultName, currentFolderId = null) {
+    const folders = await listFolders(game)
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    return new Promise((resolve) => {
+      const bar = $('ba-namebar'); const input = $('ba-name-input')
+      const ok = $('ba-name-ok'); const cancel = $('ba-name-cancel'); const pick = $('ba-folder-pick')
+      let folderId = currentFolderId ?? null
+      let creating = false
+      const cleanup = () => {
+        ok.removeEventListener('click', onOk); cancel.removeEventListener('click', onCancel); input.removeEventListener('keydown', onKey)
+        bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
+      }
+      const onOk = async () => {
+        const name = input.value.trim() || defaultName || ''
+        let fid = folderId
+        if (creating) {
+          const nname = (pick.querySelector('.ba-newfolder-input')?.value || '').trim()
+          fid = nname ? (await addFolder(nname, game)).id : null
+        }
+        cleanup(); resolve({ name, folderId: fid })
+      }
+      const onCancel = () => { cleanup(); resolve(null) }
+      const onKey = (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); onOk() }
+        else if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+      }
+      const render = () => {
+        const chip = (fid, label, extra = '') =>
+          `<span class="chip ${extra} ${!creating && (folderId ?? null) === (fid ?? null) ? 'active' : ''}" data-fid="${fid ?? ''}">${esc(label)}</span>`
+        pick.innerHTML =
+          '<span class="lbl">저장 폴더</span>' +
+          chip(null, '미분류') +
+          folders.map((f) => chip(f.id, f.name)).join('') +
+          `<span class="chip new ${creating ? 'active' : ''}" data-new="1">+ 새 폴더</span>` +
+          (creating ? '<input class="ba-newfolder-input" placeholder="새 폴더 이름" maxlength="40" />' : '')
+        pick.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
+          if (c.dataset.new) {
+            creating = true; render()
+            const ni = pick.querySelector('.ba-newfolder-input')
+            if (ni) { ni.addEventListener('keydown', onKey); ni.focus() }
+            return
+          }
+          creating = false; folderId = c.dataset.fid || null; render()
+        }))
+      }
+      input.value = defaultName || ''
+      pick.hidden = false; render()
+      bar.hidden = false; input.focus(); input.select()
+      ok.addEventListener('click', onOk); cancel.addEventListener('click', onCancel); input.addEventListener('keydown', onKey)
+    })
+  }
+
+  const ui = { showNameInput, showSaveInput, toast, game }
   const refresh = () => renderList($('ba-list'), root, ui)
 
   // 최근(현재) 검색을 북마크로 저장
@@ -142,16 +196,16 @@ export function mountPanel({ game }) {
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
     const dup = await findBookmark(latest.dedupeKey, game)
     if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark($('ba-list'), dup.id); return }
-    const name = await showNameInput(latest.name || latest.title)
-    if (name === null) return
+    const res = await showSaveInput(latest.name || latest.title)
+    if (res === null) return
     await addBookmark(
       {
         game: latest.game, league: latest.league, url: latest.url,
         title: latest.title, itemType: latest.itemType, name: latest.name,
         stats: latest.stats, statGroups: latest.statGroups, priceFilter: latest.priceFilter, snapshot: latest.snapshot,
-        dedupeKey: latest.dedupeKey,
+        dedupeKey: latest.dedupeKey, folderId: res.folderId,
       },
-      name || latest.title,
+      res.name || latest.title,
     )
     refresh()
     toast('북마크에 저장했습니다.')

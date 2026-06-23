@@ -1,7 +1,7 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename, findBookmark,
-  exportBookmarksJSON, importBookmarksJSON, moveFolder,
+  exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import divineIcon from '../../icons/divine.png'
@@ -121,8 +121,13 @@ export async function renderList(listEl, root, ui = {}) {
       g.id !== null
         ? `<span class="ba-folder-up" data-id="${g.id}" data-tip="폴더 위로">▲</span><span class="ba-folder-down" data-id="${g.id}" data-tip="폴더 아래로">▼</span><span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">✎</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">⬇</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">🗑</span>`
         : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">➕</span>`
+    // 폴더 색상 점 — 실폴더는 클릭 시 다음 색으로 순환(미분류는 중립색)
+    const folderColor = g.color || '#8b85a8'
+    const dot = g.id !== null
+      ? `<span class="ba-folder-dot" data-id="${g.id}" data-color="${folderColor}" data-tip="색상 변경" style="background:${folderColor}"></span>`
+      : `<span class="ba-folder-dot ba-folder-dot--none"></span>`
     html += `<div class="ba-folder" data-folder="${g.id ?? ''}">
-      <div class="ba-folder-head"><span class="ba-folder-name">📁 ${escapeHtml(g.name)} <span class="ba-folder-count">${items.length}</span></span><span>${fActions}</span></div>
+      <div class="ba-folder-head"><span class="ba-folder-name">${dot} ${escapeHtml(g.name)} <span class="ba-folder-count">${items.length}</span></span><span>${fActions}</span></div>
       <div class="ba-folder-body" data-folder="${g.id ?? ''}">${items.map((r) => rowHtml(r, 'bookmark')).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
   }
@@ -297,20 +302,30 @@ function bindAll(listEl, ui) {
     e.stopPropagation(); await moveFolder(s.dataset.id, 1); changed()
   }))
 
+  // 폴더 색상 점 클릭 → 다음 팔레트 색으로 순환
+  listEl.querySelectorAll('.ba-folder-dot[data-id]').forEach((d) => d.addEventListener('click', async (e) => {
+    e.stopPropagation()
+    const i = FOLDER_PALETTE.indexOf(d.dataset.color)
+    await setFolderColor(d.dataset.id, FOLDER_PALETTE[(i + 1) % FOLDER_PALETTE.length]); changed()
+  }))
+
   // ➕ 현재(최근) 검색을 이 폴더/미분류에 바로 저장
   listEl.querySelectorAll('.ba-folder-save').forEach((b) => b.addEventListener('click', async () => {
-    const folderId = b.dataset.fid || null
+    const preFolderId = b.dataset.fid || null
     const latest = (await listByKind('history', ui.game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
     const dup = await findBookmark(latest.dedupeKey, ui.game)
     if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark(listEl, dup.id); return }
-    const name = ui.showNameInput ? await ui.showNameInput(latest.name || latest.title) : prompt('북마크 이름', latest.name || latest.title)
-    if (name === null) return
+    // 폴더 선택 다이얼로그(해당 폴더 사전 선택, 변경 가능). showSaveInput 없으면 이름만 prompt 폴백.
+    const res = ui.showSaveInput
+      ? await ui.showSaveInput(latest.name || latest.title, preFolderId)
+      : { name: prompt('북마크 이름', latest.name || latest.title), folderId: preFolderId }
+    if (!res || res.name === null) return
     await addBookmark({
       game: latest.game, league: latest.league, url: latest.url, title: latest.title,
       itemType: latest.itemType, name: latest.name, stats: latest.stats, statGroups: latest.statGroups,
-      priceFilter: latest.priceFilter, snapshot: latest.snapshot, dedupeKey: latest.dedupeKey, folderId,
-    }, name || latest.title)
+      priceFilter: latest.priceFilter, snapshot: latest.snapshot, dedupeKey: latest.dedupeKey, folderId: res.folderId,
+    }, res.name || latest.title)
     changed(); toast('저장했습니다.')
   }))
 
