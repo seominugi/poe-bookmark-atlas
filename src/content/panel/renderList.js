@@ -115,7 +115,7 @@ function rowHtml(r, kind, currentLeague) {
   const dim = stale || otherLeague
   // 리그·갱신 통합 배지(.ba-attn) — 앰버, 클릭=갱신·재검색
   const attn = stale
-    ? `<span class="ba-attn" data-id="${r.id}" data-act="over" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요.\n클릭하면 최근 검색으로 갱신합니다.">${icon('refresh', 10)}갱신 필요</span>`
+    ? `<span class="ba-attn ba-attn--del" data-id="${r.id}" data-act="del" data-tip="14일 넘게 안 쓴 북마크예요.\n거래소 링크가 만료돼 못 열 수 있어요.\n클릭하면 삭제합니다.">${icon('trash', 10)}오래됨</span>`
     : otherLeague
       ? `<span class="ba-attn" data-act="open" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)}\n다른 리그라 열리지 않을 수 있어요.\n클릭해 현재 리그로 다시 검색하세요.">${icon('refresh', 10)}이전 리그</span>`
       : ''
@@ -280,19 +280,12 @@ function bindAll(listEl, ui) {
       changed(); toast('최근 검색으로 갱신했습니다.')
     }))
 
-  // attn 배지 클릭 — 갱신 필요(stale)=최근 검색으로 덮어쓰기, 이전 리그=재검색
+  // attn 배지 클릭 — 오래됨(stale)=삭제(갱신은 거래소 링크 만료로 실패할 수 있어 삭제로), 이전 리그=재검색
   listEl.querySelectorAll('.ba-attn[data-act]').forEach((a) =>
     a.addEventListener('click', async (e) => {
       e.stopPropagation()
       if (a.dataset.act === 'open') { location.href = decodeURIComponent(a.closest('.ba-row').dataset.url); return }
-      const latest = (await listByKind('history', ui.game))[0]
-      if (!latest) { toast('갱신할 최근 검색이 없습니다.'); return }
-      await overwriteBookmark(a.dataset.id, {
-        game: latest.game, league: latest.league, url: latest.url, title: latest.title,
-        itemType: latest.itemType, stats: latest.stats, statGroups: latest.statGroups, priceFilter: latest.priceFilter,
-        snapshot: latest.snapshot, dedupeKey: latest.dedupeKey,
-      })
-      changed(); toast('최근 검색으로 갱신했습니다.')
+      if (a.dataset.act === 'del') { await remove(a.dataset.id); changed(); toast('오래된 북마크를 삭제했습니다.') }
     }))
 
   // + 폴더

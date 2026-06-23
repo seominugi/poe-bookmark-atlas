@@ -536,6 +536,8 @@
 .ba-clean-stale, .ba-add-folder { display: inline-flex; align-items: center; gap: 4px; }
 /* 오래된 정리 무장 상태 (카운트다운 중) — 더 강한 경고색 */
 .ba-clean-stale.armed { background: rgba(244, 63, 94, 0.32); color: #fecdd3; border-color: #f43f5e; font-weight: 800; }
+/* 오래됨(stale) 배지 — 삭제 동작이라 로즈(위험)색 */
+.ba-attn--del { color: #fda4af; background: var(--ba-danger-soft); border-color: var(--ba-danger-line); }
 
 /* 핸들 — 세로 글린트 + 라벨/배지 본문 (.dc.html 구조) */
 .ba-handle-glint { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, rgba(125,211,252,.22), transparent); animation: baGlintV 5.5s ease-in-out infinite; animation-delay: -1.6s; pointer-events: none; z-index: 0; }
