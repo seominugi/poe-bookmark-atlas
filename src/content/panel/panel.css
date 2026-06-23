@@ -528,6 +528,11 @@
 .ba-brand-tx { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
 .ba-brand-tx b { font-size: 14.5px; font-weight: 800; background: linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.02em; }
 .ba-brand-tx small { font-size: 10px; color: #a78bfa; font-weight: 700; letter-spacing: .04em; }
+/* 제작자 칩 — 헤더 타이틀 우측 (푸터에서 이동, 가시성 ↑). 푸터 칩 글린트·글로우 재사용 */
+.ba-brand-credit { margin-left: auto; flex: none; text-decoration: none; cursor: pointer; transition: filter .15s; }
+.ba-brand-credit:hover { filter: brightness(1.08); }
+.ba-brand-credit .ba-foot-chip { padding: 4px 11px; }
+.ba-brand-credit .ba-foot-chip b { font-size: 12.5px; }  /* 타이틀(14.5px)보다 약간 작게 — 종속적으로 */
 .ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
 .ba-econ-row { margin: 9px 16px 7px; }
 /* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */
