@@ -4,6 +4,7 @@ import {
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
+import { suggestName } from '../../lib/suggestName.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
@@ -189,7 +190,7 @@ function bindAll(listEl, ui) {
       const hist = (await listByKind('history', ui.game)).find((r) => r.id === s.dataset.id)
       const dup = hist && (await findBookmark(hist.dedupeKey, ui.game))
       if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark(listEl, dup.id); return }
-      const name = ui.showNameInput ? await ui.showNameInput(s.dataset.name || '') : prompt('북마크 이름', s.dataset.name || '')
+      const name = ui.showNameInput ? await ui.showNameInput(suggestName(hist)) : prompt('북마크 이름', suggestName(hist))
       if (name === null) return
       await promoteToBookmark(s.dataset.id, name || undefined); changed()
     }))
@@ -318,8 +319,8 @@ function bindAll(listEl, ui) {
     if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark(listEl, dup.id); return }
     // 폴더 선택 다이얼로그(해당 폴더 사전 선택, 변경 가능). showSaveInput 없으면 이름만 prompt 폴백.
     const res = ui.showSaveInput
-      ? await ui.showSaveInput(latest.name || latest.title, preFolderId)
-      : { name: prompt('북마크 이름', latest.name || latest.title), folderId: preFolderId }
+      ? await ui.showSaveInput(suggestName(latest), preFolderId)
+      : { name: prompt('북마크 이름', suggestName(latest)), folderId: preFolderId }
     if (!res || res.name === null) return
     await addBookmark({
       game: latest.game, league: latest.league, url: latest.url, title: latest.title,

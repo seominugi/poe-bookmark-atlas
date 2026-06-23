@@ -1,6 +1,7 @@
 import css from './panel.css?inline'
 import { renderList, highlightBookmark, analystUrl, researcherUrl } from './renderList.js'
 import { listByKind, addBookmark, findBookmark, listFolders, addFolder } from '../../store/store.js'
+import { suggestName } from '../../lib/suggestName.js'
 
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
@@ -196,7 +197,7 @@ export function mountPanel({ game }) {
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
     const dup = await findBookmark(latest.dedupeKey, game)
     if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark($('ba-list'), dup.id); return }
-    const res = await showSaveInput(latest.name || latest.title)
+    const res = await showSaveInput(suggestName(latest))
     if (res === null) return
     await addBookmark(
       {
