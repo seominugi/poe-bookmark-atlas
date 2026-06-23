@@ -535,10 +535,11 @@
 .ba-brand-credit .ba-foot-chip b { font-size: 12.5px; }  /* 타이틀(14.5px)보다 약간 작게 — 종속적으로 */
 /* 헤더 단축키 칩 — 호버 시 확장 팝업의 단축키 섹션 디자인(kbd 키캡+그룹)을 팝오버로 차용. margin-left:auto로 '제작' 칩과 함께 우측 정렬 */
 .ba-kbd-wrap { position: relative; margin-left: auto; flex: none; display: inline-flex; }
-.ba-kbd-chip { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; color: var(--ba-violet-2); background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.32); cursor: help; transition: background .15s, border-color .15s, color .15s; }
-.ba-kbd-wrap:hover .ba-kbd-chip { background: rgba(167,139,250,.22); border-color: rgba(167,139,250,.6); color: #ddd6fe; }
-.ba-kbd-pop { position: absolute; top: calc(100% + 9px); right: 0; z-index: 2147483600; width: 248px; display: none; flex-direction: column; gap: 8px; padding: 13px 14px; background: rgba(20,17,34,.99); border: 1px solid var(--ba-violet-line); border-radius: 11px; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
-.ba-kbd-wrap:hover .ba-kbd-pop { display: flex; }
+.ba-kbd-chip { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; color: var(--ba-violet-2); background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.32); cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.ba-kbd-wrap:hover .ba-kbd-chip, .ba-kbd-wrap.pinned .ba-kbd-chip { background: rgba(167,139,250,.22); border-color: rgba(167,139,250,.6); color: #ddd6fe; }
+.ba-kbd-pop { position: fixed; z-index: 2147483600; width: 248px; display: none; flex-direction: column; gap: 8px; padding: 13px 14px; background: rgba(20,17,34,.99); border: 1px solid var(--ba-violet-line); border-radius: 11px; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
+.ba-kbd-pop::before { content: ''; position: absolute; left: 0; right: 0; top: -9px; height: 9px; }  /* 칩↔팝오버 호버 브리지(갭 메움) */
+.ba-kbd-wrap:hover .ba-kbd-pop, .ba-kbd-wrap.pinned .ba-kbd-pop { display: flex; }
 .ba-kbd-pop-group { font-size: 10px; font-weight: 800; letter-spacing: .07em; color: #8b84ab; text-transform: uppercase; }
 .ba-kbd-pop-row + .ba-kbd-pop-group { margin-top: 4px; }
 .ba-kbd-pop-row { display: flex; align-items: center; gap: 10px; }
@@ -547,7 +548,9 @@
 .ba-kbd-pop-sub b { color: var(--ba-violet-2); font-weight: 700; }
 .ba-kbd-keys { display: inline-flex; gap: 4px; flex: none; }
 .ba-kbd-pop kbd { font-family: inherit; font-size: 10.5px; font-weight: 700; color: var(--ba-text); background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; min-width: 20px; text-align: center; }
-.ba-kbd-pop-foot { margin-top: 1px; padding-top: 9px; border-top: 1px solid rgba(167,139,250,.16); font-size: 11px; color: #9b94bd; }
+.ba-kbd-pop-foot { margin-top: 1px; padding-top: 10px; border-top: 1px solid rgba(167,139,250,.16); }
+.ba-kbd-pop-guide { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; font-family: inherit; font-size: 11.5px; font-weight: 700; color: var(--ba-violet-2); background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.3); border-radius: 8px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.ba-kbd-pop-guide:hover { background: rgba(167,139,250,.22); border-color: rgba(167,139,250,.55); color: #ddd6fe; }
 .ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
 .ba-econ-row { margin: 9px 16px 7px; }
 /* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */

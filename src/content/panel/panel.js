@@ -45,7 +45,7 @@ export function mountPanel({ game, league }) {
               <div class="ba-kbd-pop-row"><span>능력치 필터 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>A</kbd></span></div>
               <div class="ba-kbd-pop-sub">여러 그룹이면 <b>반복해서 전환</b></div>
               <div class="ba-kbd-pop-row"><span>능력치 그룹 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>G</kbd></span></div>
-              <div class="ba-kbd-pop-foot">확장 아이콘 클릭 → 시세 · 가이드 · 문의</div>
+              <div class="ba-kbd-pop-foot"><button class="ba-kbd-pop-guide" type="button">${icon('sparkle', 14)}사용법 가이드 다시 보기</button></div>
             </div>
           </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
@@ -340,6 +340,38 @@ export function mountPanel({ game, league }) {
     }
     render()
   }
+
+  // 단축키 칩: 호버/클릭 시 팝오버 표시 + 클릭 고정(핀) + 바깥/페이지 클릭 시 닫힘.
+  // 패널이 overflow:hidden이라 absolute면 잘림 → position:fixed로 띄우고 JS로 칩 아래 배치
+  // (칩 우측에 맞추되 패널 좌우 안쪽으로 클램프). .ba-tip와 동일한 잘림-회피 전략.
+  ;(() => {
+    const wrap = root.querySelector('.ba-kbd-wrap')
+    if (!wrap) return
+    const chip = wrap.querySelector('.ba-kbd-chip')
+    const pop = wrap.querySelector('.ba-kbd-pop')
+    const positionPop = () => {
+      const cr = chip.getBoundingClientRect()
+      const rr = elRoot.getBoundingClientRect()
+      const popW = pop.offsetWidth || 278
+      // 칩 우측에 맞춘 뷰포트 좌표를 패널 좌우 안으로 클램프
+      let leftVp = cr.right - popW
+      const minVp = rr.left + 12
+      const maxVp = rr.right - 12 - popW
+      if (leftVp < minVp) leftVp = minVp
+      if (leftVp > maxVp) leftVp = maxVp
+      // .ba-root에 transform이 있어 position:fixed가 .ba-root 기준 → .ba-root-상대 좌표로 변환
+      pop.style.left = Math.round(leftVp - rr.left) + 'px'
+      pop.style.top = Math.round(cr.bottom - rr.top + 9) + 'px'
+    }
+    wrap.addEventListener('mouseenter', positionPop)
+    chip.addEventListener('click', (e) => { e.stopPropagation(); positionPop(); wrap.classList.toggle('pinned') })
+    const guide = wrap.querySelector('.ba-kbd-pop-guide')
+    if (guide) guide.addEventListener('click', (e) => { e.stopPropagation(); wrap.classList.remove('pinned'); startTour() })
+    document.addEventListener('click', (e) => {
+      const path = e.composedPath ? e.composedPath() : []
+      if (!path.includes(wrap)) wrap.classList.remove('pinned')
+    })
+  })()
 
   document.addEventListener('ba:records-changed', () => { refresh(); updateHandleBadge() })
   refresh()
