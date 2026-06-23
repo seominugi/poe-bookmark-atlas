@@ -303,7 +303,7 @@ export function mountPanel({ game, league }) {
     { sel: '.ba-open', title: '② 한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
     { sel: '.ba-sec-hist', title: '③ 자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
     { sel: '.ba-econ-row', title: '④ 시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
-    { sel: '#ba-handle', title: '⑤ 언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요. 단축키는 Alt+B 입니다. 준비 끝!' },
+    { sel: '#ba-handle', title: '⑤ 단축키로 더 빠르게', body: '우측 핸들 클릭으로 패널을 접고 펼쳐요(Alt+B). 거래소에선 Alt+A로 능력치 필터 추가, Alt+G로 능력치 그룹 추가, Alt+S로 현재 검색 저장! 준비 끝!' },
   ]
   function startTour() {
     setCollapsed(false)

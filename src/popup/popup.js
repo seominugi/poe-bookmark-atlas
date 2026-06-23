@@ -8,11 +8,13 @@ import cafeImg from '../icons/naver_cafe_logo.webp'
 import ytImg from '../icons/yt_icon_rgb.png'
 import discordImg from '../icons/icon_clyde_white_RGB.png'
 
-const SHORTCUTS = [
+const SHORTCUTS_PANEL = [
   { label: '패널 열기 / 접기', keys: ['Alt', 'B'] },
   { label: '현재 검색 저장', keys: ['Alt', 'S'] },
-  { label: '아이템 시세 열기', keys: ['Alt', '1'] },
-  { label: '시장 동향 열기', keys: ['Alt', '2'] },
+]
+const SHORTCUTS_STAT = [
+  { label: '능력치 필터 추가', keys: ['Alt', 'A'] },
+  { label: '능력치 그룹 추가', keys: ['Alt', 'G'] },
 ]
 const ECON = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
@@ -29,11 +31,13 @@ document.getElementById('app').innerHTML = `
     </div>
     <div class="pop-intro"><p>거래소 검색을 <b>자동으로 기록</b>하고, 복잡한 조건은 <span class="hl">북마크</span>로 영구 보관해요. 다시 짤 필요 없이 한 번에 다시 엽니다.</p></div>
     <div class="pop-sc">
-      <div class="pop-sc-label">단축키</div>
-      <div class="pop-sc-list">${SHORTCUTS.map(scRow).join('')}</div>
+      <div class="pop-sc-label">패널 단축키</div>
+      <div class="pop-sc-list">${SHORTCUTS_PANEL.map(scRow).join('')}</div>
+      <div class="pop-sc-label">능력치 필터 단축키</div>
+      <div class="pop-sc-list">${SHORTCUTS_STAT.map(scRow).join('')}</div>
       <button class="pop-sc-edit" id="pop-shortcuts">
         <span class="ic-box">${icon('pencil', 14)}</span>
-        <span class="tx"><b>단축키 직접 변경하기</b><small>chrome://extensions/shortcuts 열기</small></span>
+        <span class="tx"><b>패널 단축키 변경하기</b><small>chrome://extensions/shortcuts 열기</small></span>
         <span class="ext">${icon('external', 14)}</span>
       </button>
     </div>

@@ -13,9 +13,7 @@
   "action": { "default_title": "북마크 아틀라스", "default_popup": "src/popup/popup.html", "default_icon": { "16": "src/icons/icon16.png", "48": "src/icons/icon48.png", "128": "src/icons/icon128.png" } },
   "commands": {
     "toggle-panel": { "suggested_key": { "default": "Alt+B" }, "description": "패널 열기 / 접기" },
-    "save-search": { "suggested_key": { "default": "Alt+S" }, "description": "현재 검색 저장" },
-    "open-econ": { "suggested_key": { "default": "Alt+1" }, "description": "아이템 시세 열기" },
-    "open-trend": { "suggested_key": { "default": "Alt+2" }, "description": "시장 동향 열기" }
+    "save-search": { "suggested_key": { "default": "Alt+S" }, "description": "현재 검색 저장" }
   },
   "content_scripts": [
     {
