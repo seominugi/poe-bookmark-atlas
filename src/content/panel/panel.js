@@ -1,5 +1,6 @@
 import css from './panel.css?inline'
 import { renderList, highlightBookmark, analystUrl, researcherUrl } from './renderList.js'
+import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, findBookmark, listFolders, addFolder } from '../../store/store.js'
 import { suggestName } from '../../lib/suggestName.js'
 
@@ -20,12 +21,12 @@ export function mountPanel({ game, league }) {
   const wrap = document.createElement('div')
   wrap.innerHTML = `
     <div class="ba-root" id="ba-root">
-      <div class="ba-handle" id="ba-handle">🔖 북마크</div>
+      <div class="ba-handle" id="ba-handle">북마크</div>
       <div class="ba-head">
-        <span class="ba-title">🔖 북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
+        <span class="ba-title">북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
         <div class="ba-head-actions">
-          <button class="ba-density" id="ba-density" data-tip="정보 밀도 전환 (여유 ↔ 조밀)">▤</button>
-          <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">★ 현재 검색 저장</button>
+          <button class="ba-density" id="ba-density" data-tip="정보 밀도 전환 (여유 ↔ 조밀)">${icon('layers', 15)}</button>
+          <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">${icon('bookmark', 14)}현재 검색 저장</button>
         </div>
       </div>
       <div class="ba-econ-row">
@@ -41,10 +42,10 @@ export function mountPanel({ game, league }) {
         </a>
       </div>
       <div class="ba-social">
-        <a class="ba-soc" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널">▶ 유튜브</a>
-        <a class="ba-soc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 — 피드백·버그 제보">💬 디스코드</a>
-        <a class="ba-soc" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페">☕ 카페</a>
-        <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="투네이션으로 후원하기 — 감사합니다!">💗 후원</a>
+        <a class="ba-soc" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널">${icon('play', 12)}유튜브</a>
+        <a class="ba-soc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 — 피드백·버그 제보">${icon('chat', 12)}디스코드</a>
+        <a class="ba-soc" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페">${icon('coffee', 12)}카페</a>
+        <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="투네이션으로 후원하기 — 감사합니다!">${icon('heart', 12)}후원</a>
       </div>
       <div class="ba-namebar" id="ba-namebar" hidden>
         <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />

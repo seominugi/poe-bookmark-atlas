@@ -66,6 +66,10 @@
 .ba-root.collapsed { transform: translateX(390px); }
 .ba-root.ba-hidden { display: none; }
 
+/* 라인 SVG 아이콘 (이모지 대체) */
+.ba-ic { display: block; flex: none; }
+.ba-ic-txt { display: inline-flex; align-items: center; gap: 6px; }
+
 /* 전역 포커스 링 + 모션 최소화 대응 */
 .ba-root :focus-visible, .ba-handle:focus-visible { outline: 2px solid var(--ba-violet-2); outline-offset: 2px; border-radius: 8px; }
 @media (prefers-reduced-motion: reduce) {
@@ -449,6 +453,22 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55); pointer-events: none;
 }
 .ba-tip[hidden] { display: none; }
+
+/* ── 아이콘 정렬 (이모지→SVG 마이그레이션) ── */
+.ba-sec-title { display: inline-flex; align-items: center; gap: 6px; }
+.ba-cond { display: inline-flex; align-items: center; gap: 5px; }
+.ba-add-folder, .ba-clean-stale { display: inline-flex; align-items: center; gap: 5px; }
+.ba-save { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.ba-soc, .ba-donate { display: inline-flex; align-items: center; gap: 5px; }
+.ba-density { display: inline-flex; align-items: center; justify-content: center; }
+.ba-row-ic { display: flex; flex: none; color: var(--ba-text-muted); }
+/* 검색창 아이콘 프리픽스 */
+.ba-search-wrap { position: relative; flex: 1; min-width: 0; display: flex; align-items: center; }
+.ba-search-wrap .ba-ic { position: absolute; left: 9px; color: var(--ba-text-muted); pointer-events: none; }
+.ba-search { width: 100%; padding: 6px 10px 6px 30px; }
+/* 폴더 순서 화살표 (chevron 회전) */
+.ba-folder-up .ba-ic { transform: rotate(-90deg); }
+.ba-folder-down .ba-ic { transform: rotate(90deg); }
 
 /* ---- 빈 상태 (선택: renderList 빈 상태 마크업 시) ---- */
 .ba-empty-bm { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 16px 10px; text-align: center; }

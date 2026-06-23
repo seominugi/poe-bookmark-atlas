@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#18152a"/><circle cx="50" cy="50" r="24" fill="none" stroke="#a78bfa" stroke-width="3"/><path d="M50 30a20 20 0 0 1 0 40z" fill="#c4b5fd"/></svg>
+</template>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;background:#0e0b1a;font-family:'Pretendard',system-ui,sans-serif}
+    @keyframes dsGlint{0%{transform:translateX(-150%)}25%{transform:translateX(150%)}100%{transform:translateX(150%)}}
+    @keyframes dsChipGlow{0%,100%{opacity:.22}50%{opacity:.85}}
+    ::-webkit-scrollbar{width:9px;height:9px}
+    ::-webkit-scrollbar-thumb{background:rgba(167,139,250,.3);border-radius:5px}
+  </style>
+</helmet>
+
+<div style="min-height:100vh;background:radial-gradient(900px 500px at 80% -5%,#1a1530,#0e0b1a 60%);color:#e6e3f5;padding:48px 40px 80px;font-size:14px;line-height:1.6">
+  <div style="max-width:1080px;margin:0 auto">
+
+    <!-- HERO -->
+    <div style="display:flex;align-items:center;gap:18px;margin-bottom:10px">
+      <img src="assets/icon128.png" alt="" style="width:54px;height:54px;border-radius:13px;box-shadow:0 0 0 1px rgba(167,139,250,.4),0 0 24px rgba(167,139,250,.35)">
+      <div>
+        <h1 style="margin:0;font-size:30px;font-weight:800;letter-spacing:-.03em;background:linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4);-webkit-background-clip:text;background-clip:text;color:transparent">자수정 글래스 (Amethyst Glass)</h1>
+        <p style="margin:4px 0 0;color:#9b94bd;font-size:13.5px">북마크 아틀라스 · 아틀라스 제품군 디자인 시스템 <b style="color:#c4b5fd">v1.0</b> — 자수정 글래스 + 글린트 · 성능 최우선(blur 미사용)</p>
+      </div>
+    </div>
+    <div style="height:1px;background:linear-gradient(90deg,rgba(167,139,250,.4),transparent);margin:22px 0 40px"></div>
+
+    <!-- COLORS -->
+    <div style="font-size:11px;font-weight:800;letter-spacing:.14em;color:#a78bfa;text-transform:uppercase;margin-bottom:16px">01 · 컬러 토큰</div>
+
+    <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">표면 · 텍스트</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px;margin-bottom:26px">
+      <sc-for list="{{ surfaceSwatches }}" as="s" hint-placeholder-count="5">
+        <div style="border:1px solid rgba(255,255,255,.1);border-radius:11px;overflow:hidden;background:rgba(255,255,255,.02)">
+          <div style="height:54px;background:{{ s.css }};border-bottom:1px solid rgba(255,255,255,.08)"></div>
+          <div style="padding:9px 11px">
+            <div style="font-size:11.5px;font-weight:700;color:#e6e3f5">{{ s.name }}</div>
+            <div style="font-size:10px;color:#7c75a3;font-family:'JetBrains Mono',monospace;margin-top:2px">{{ s.val }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">시맨틱 (기능별 규율)</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:12px;margin-bottom:42px">
+      <sc-for list="{{ semanticSwatches }}" as="s" hint-placeholder-count="6">
+        <div style="border:1px solid rgba(255,255,255,.1);border-radius:11px;overflow:hidden">
+          <div style="height:62px;background:{{ s.css }};display:flex;align-items:flex-end;padding:8px 10px">
+            <span style="font-size:10.5px;font-weight:800;color:{{ s.ink }};background:rgba(255,255,255,.18);border-radius:5px;padding:2px 7px">{{ s.role }}</span>
+          </div>
+          <div style="padding:9px 11px;background:rgba(255,255,255,.02)">
+            <div style="font-size:11.5px;font-weight:700;color:#e6e3f5">{{ s.name }}</div>
+            <div style="font-size:10px;color:#7c75a3;font-family:'JetBrains Mono',monospace;margin-top:2px">{{ s.val }}</div>
+            <div style="font-size:10.5px;color:#9b94bd;margin-top:5px">{{ s.use }}</div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- TYPE -->
+    <div style="font-size:11px;font-weight:800;letter-spacing:.14em;color:#a78bfa;text-transform:uppercase;margin-bottom:16px">02 · 타이포그래피</div>
+    <div style="border:1px solid rgba(255,255,255,.1);border-radius:14px;padding:8px 22px;margin-bottom:42px;background:rgba(255,255,255,.02)">
+      <sc-for list="{{ typeRows }}" as="t" hint-placeholder-count="5">
+        <div style="display:flex;align-items:baseline;gap:18px;padding:14px 0;border-bottom:1px solid rgba(255,255,255,.06)">
+          <span style="width:120px;flex:none;font-size:11px;color:#7c75a3;font-family:'JetBrains Mono',monospace">{{ t.spec }}</span>
+          <span style="flex:1;color:{{ t.color }};font-size:{{ t.size }};font-weight:{{ t.weight }}">{{ t.sample }}</span>
+          <span style="flex:none;font-size:11px;color:#9b94bd">{{ t.role }}</span>
+        </div>
+      </sc-for>
+      <div style="padding:14px 0;color:#9b94bd;font-size:12.5px">폰트: <b style="color:#e6e3f5">Pretendard</b> (한글) · Inter 폴백 · 수치 <b style="color:#e6e3f5;font-family:'JetBrains Mono',monospace">JetBrains Mono</b> · 연령대 고려해 본문 하한을 키움</div>
+    </div>
+
+    <!-- SURFACES / EFFECTS -->
+    <div style="font-size:11px;font-weight:800;letter-spacing:.14em;color:#a78bfa;text-transform:uppercase;margin-bottom:16px">03 · 표면 · 효과</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px;margin-bottom:42px">
+      <!-- glass panel -->
+      <div style="border-radius:14px;padding:18px;background:rgba(24,33,42,.97);border:1px solid #2d3a46;border-top:2px solid rgba(0,210,138,.55);box-shadow:0 15px 40px rgba(0,0,0,.5)">
+        <div style="font-size:12.5px;font-weight:800;color:#f5f3ff;margin-bottom:6px">글래스 패널</div>
+        <div style="font-size:11px;color:#9b94bd;line-height:1.6">단색 불투명 배경(.97) · 자수정 상단 테두리 + 전 모서리 라운딩. 성능 위해 backdrop-filter 미사용.</div>
+      </div>
+      <!-- bevel card -->
+      <div style="border-radius:12px;padding:18px;background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(167,139,250,.03)),rgba(20,18,34,.55);border:2px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.42);border-left-color:rgba(255,255,255,.3);box-shadow:0 8px 28px rgba(0,0,0,.4),inset 0 1px 1px rgba(255,255,255,.24),inset 0 -1px 1px rgba(0,0,0,.22)">
+        <div style="font-size:12.5px;font-weight:800;color:#f5f3ff;margin-bottom:6px">두꺼운 베벨 카드</div>
+        <div style="font-size:11px;color:#9b94bd;line-height:1.6">2px 베벨 + 상/좌 하이라이트 + 인셋 광/음영. "다시 열기" 클릭 영역.</div>
+      </div>
+      <!-- glint -->
+      <div style="position:relative;overflow:hidden;border-radius:12px;padding:18px;background:linear-gradient(135deg,#6aa8ff,#3b6fe0);color:#04183a">
+        <span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:dsGlint 3.4s ease-in-out infinite;pointer-events:none"></span>
+        <div style="font-size:12.5px;font-weight:800;margin-bottom:6px">글린트 (active-glint)</div>
+        <div style="font-size:11px;line-height:1.6;opacity:.9">흰색 .15 풀폭 띠가 빠르게 1회 스윕 후 정지(seominugi 카테고리 글린트와 동일). transform 전용·GPU. 버튼별 딜레이 비동기.</div>
+      </div>
+    </div>
+
+    <!-- COMPONENTS -->
+    <div style="font-size:11px;font-weight:800;letter-spacing:.14em;color:#a78bfa;text-transform:uppercase;margin-bottom:16px">04 · 컴포넌트</div>
+
+    <!-- buttons -->
+    <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">버튼 (의미색)</div>
+    <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:26px">
+      <button style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:800;color:#0b0a16;background:linear-gradient(135deg,#b6a6fb,#8b7cf0);border:1px solid rgba(196,181,253,.5);border-radius:9px;padding:9px 15px;cursor:pointer;font-family:inherit"><span style="width:14px;height:14px"><dc-import name="Icon" n="bookmark" hint-size="14px,14px"></dc-import></span>저장 (primary)</button>
+      <button style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#bae6fd;background:rgba(106,168,255,.14);border:1px solid rgba(106,168,255,.4);border-radius:9px;padding:9px 15px;cursor:pointer;font-family:inherit"><span style="width:14px;height:14px"><dc-import name="Icon" n="refresh" hint-size="14px,14px"></dc-import></span>갱신 (info)</button>
+      <button style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#3ed8e6;background:rgba(62,216,230,.14);border:1px solid rgba(62,216,230,.4);border-radius:9px;padding:9px 15px;cursor:pointer;font-family:inherit"><span style="width:14px;height:14px"><dc-import name="Icon" n="link" hint-size="14px,14px"></dc-import></span>복사 (share)</button>
+      <button style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#fbbf24;background:rgba(251,191,36,.14);border:1px solid rgba(251,191,36,.45);border-radius:9px;padding:9px 15px;cursor:pointer;font-family:inherit"><span style="width:14px;height:14px"><dc-import name="Icon" n="star" hint-size="14px,14px"></dc-import></span>즐겨찾기 (star)</button>
+      <button style="display:inline-flex;align-items:center;gap:6px;font-size:12.5px;font-weight:700;color:#fb7185;background:rgba(251,113,133,.14);border:1px solid rgba(251,113,133,.45);border-radius:9px;padding:9px 15px;cursor:pointer;font-family:inherit"><span style="width:14px;height:14px"><dc-import name="Icon" n="trash" hint-size="14px,14px"></dc-import></span>삭제 (danger)</button>
+    </div>
+
+    <!-- card + chips + toast -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px">
+      <!-- sample bookmark card -->
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">북마크 카드 (이름 칩만 클릭)</div>
+        <div style="background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(167,139,250,.03)),rgba(20,18,34,.55);border:2px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.42);border-left-color:rgba(255,255,255,.3);border-radius:12px;padding:12px 13px;box-shadow:0 8px 28px rgba(0,0,0,.4),inset 0 1px 1px rgba(255,255,255,.24)">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+            <span style="display:inline-flex;align-items:center;gap:5px;min-width:0;padding:3px 9px;border-radius:8px;background:rgba(167,139,250,.16);border:1px solid rgba(167,139,250,.45)"><span style="width:13px;height:13px;color:#c4b5fd;flex:none"><dc-import name="Icon" n="search" hint-size="13px,13px"></dc-import></span><b style="color:#f5f3ff;font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">삼속성 저항 반지</b></span>
+            <span style="display:inline-flex;align-items:center;gap:4px;color:#fde68a;font-weight:800;font-variant-numeric:tabular-nums">0.8<img src="assets/divine.png" style="width:16px;height:16px" alt=""></span>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:5px;margin:9px 0 2px">
+            <span style="font-size:10.5px;color:#b9b2dd;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.22);border-radius:6px;padding:3px 8px">화염 저항 #% (38~)</span>
+            <span style="font-size:10.5px;color:#7dd3fc;background:rgba(125,211,252,.1);border:1px solid rgba(125,211,252,.28);border-radius:6px;padding:3px 8px">+3</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.06)">
+            <span style="color:#9b94bd;font-size:11px">06/22 09:05</span>
+            <span style="margin-left:auto;display:inline-flex;gap:5px">
+              <span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;color:#3ed8e6;background:rgba(62,216,230,.1);border:1px solid rgba(62,216,230,.3);border-radius:7px"><span style="width:13px;height:13px"><dc-import name="Icon" n="link" hint-size="13px,13px"></dc-import></span></span>
+              <span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;color:#6aa8ff;background:rgba(106,168,255,.1);border:1px solid rgba(106,168,255,.3);border-radius:7px"><span style="width:13px;height:13px"><dc-import name="Icon" n="refresh" hint-size="13px,13px"></dc-import></span></span>
+              <span style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;color:#fb7185;background:rgba(251,113,133,.1);border:1px solid rgba(251,113,133,.3);border-radius:7px"><span style="width:13px;height:13px"><dc-import name="Icon" n="trash" hint-size="13px,13px"></dc-import></span></span>
+            </span>
+          </div>
+        </div>
+      </div>
+      <!-- toast + tooltip + chip -->
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">토스트 · 칩 · 입력</div>
+        <div style="display:flex;flex-direction:column;gap:10px">
+          <div style="display:inline-flex;align-items:center;gap:9px;padding:9px 14px;background:rgba(8,7,16,.97);border:1px solid rgba(167,139,250,.4);border-left:3px solid #a78bfa;border-radius:10px;color:#f5f3ff;font-size:12px;font-weight:600"><span style="width:15px;height:15px;color:#c4b5fd"><dc-import name="Icon" n="check" hint-size="15px,15px"></dc-import></span>북마크에 저장했습니다.</div>
+          <div style="display:flex;gap:7px;align-items:center">
+            <span style="font-size:12.5px;font-weight:600;color:#93c5fd;white-space:nowrap;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.32);border-radius:8px;padding:4px 10px">조건 5개</span>
+            <span style="font-size:11px;font-weight:700;color:#0b0a16;white-space:nowrap;background:#c4b5fd;border-radius:8px;padding:5px 11px">미분류</span>
+            <span style="font-size:11px;font-weight:700;color:#c4b5fd;white-space:nowrap;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.4);border-radius:8px;padding:5px 11px">+ 새 폴더</span>
+          </div>
+          <input value="고티어 물리 활" readonly style="background:rgba(255,255,255,.06);border:1px solid rgba(167,139,250,.45);border-radius:9px;padding:9px 11px;color:#f5f3ff;font-size:13px;font-family:inherit;outline:none">
+        </div>
+      </div>
+    </div>
+
+    <!-- econ buttons + empty -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:42px">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">시세 버튼 (마스코트 + 글린트)</div>
+        <div style="display:flex;gap:8px">
+          <span style="flex:1;display:flex;align-items:stretch;border-radius:9px;overflow:hidden;position:relative;color:#04183a;background:linear-gradient(135deg,#6aa8ff,#3b6fe0)"><span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:dsGlint 4.4s ease-in-out infinite;pointer-events:none;z-index:1"></span><span style="width:40px;flex:none;display:flex;align-items:flex-end;justify-content:center;background:rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.22)"><img src="assets/mascot-analyst.webp" alt="" style="width:36px;height:36px;object-fit:contain;object-position:bottom"></span><span style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px 6px"><b style="font-size:12px;font-weight:800">아이템 시세</b></span></span>
+          <span style="flex:1;display:flex;align-items:stretch;border-radius:9px;overflow:hidden;position:relative;color:#042a32;background:linear-gradient(135deg,#3ed8e6,#11a0c4)"><span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:dsGlint 6.7s ease-in-out infinite;animation-delay:-3.5s;pointer-events:none;z-index:1"></span><span style="width:40px;flex:none;display:flex;align-items:flex-end;justify-content:center;background:rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.22)"><img src="assets/mascot-researcher.webp" alt="" style="width:36px;height:36px;object-fit:contain;object-position:bottom"></span><span style="flex:1;display:flex;align-items:center;justify-content:center;padding:10px 6px"><b style="font-size:12px;font-weight:800">시장 동향</b></span></span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">빈 상태</div>
+        <div style="display:flex;flex-direction:column;align-items:center;gap:7px;padding:16px;text-align:center;border:1px dashed rgba(167,139,250,.3);border-radius:12px">
+          <img src="assets/mascot-analyst.webp" alt="" style="width:48px;height:48px;object-fit:contain;opacity:.92">
+          <b style="font-size:12.5px;color:#f5f3ff">저장된 북마크가 없어요</b>
+          <small style="font-size:11px;color:#9b94bd">상단 <span style="color:#c4b5fd;font-weight:700">현재 검색 저장</span>으로 북마크하세요</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- list controls + states -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:26px">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">분절 토글 (정렬 · 밀도)</div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <span style="display:inline-flex;align-items:stretch;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:9px;overflow:hidden;width:max-content;white-space:nowrap;font-size:11px;font-weight:700">
+            <span style="display:inline-flex;align-items:center;padding:6px 10px;background:linear-gradient(180deg,rgba(167,139,250,.34),rgba(167,139,250,.18));color:#f3efff;font-weight:800;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)">순서</span>
+            <span style="display:inline-flex;align-items:center;padding:6px 10px;border-left:1px solid rgba(255,255,255,.12);color:#9b94bd">최근</span>
+            <span style="display:inline-flex;align-items:center;padding:6px 10px;border-left:1px solid rgba(255,255,255,.12);color:#9b94bd">이름</span>
+          </span>
+          <span style="display:inline-flex;align-items:stretch;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;overflow:hidden;width:max-content;white-space:nowrap;font-size:10.5px;font-weight:700">
+            <span style="display:inline-flex;align-items:center;padding:5px 9px;background:linear-gradient(180deg,rgba(167,139,250,.34),rgba(167,139,250,.18));color:#f3efff;font-weight:800;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)">여유</span>
+            <span style="display:inline-flex;align-items:center;padding:5px 9px;border-left:1px solid rgba(255,255,255,.12);color:#9b94bd">조밀</span>
+          </span>
+          <div style="font-size:10.5px;color:#7c75a3;line-height:1.55">활성 칸은 컨테이너 높이에 stretch — 상하 여백 없이 채우고 <code style="font-family:'JetBrains Mono',monospace">overflow:hidden</code>으로 둘레 모서리에 맞춤.</div>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">주의 배지 · 폴더 색상 · 검색</div>
+        <div style="display:flex;flex-direction:column;gap:9px">
+          <span style="display:inline-flex;gap:6px;width:max-content;white-space:nowrap">
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;color:#fbbf24;background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.45);border-radius:6px;padding:3px 8px"><span style="width:10px;height:10px"><dc-import name="Icon" n="refresh" hint-size="10px,10px"></dc-import></span>이전 리그</span>
+            <span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;color:#fbbf24;background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.45);border-radius:6px;padding:3px 8px"><span style="width:10px;height:10px"><dc-import name="Icon" n="refresh" hint-size="10px,10px"></dc-import></span>갱신 필요</span>
+          </span>
+          <span style="display:inline-flex;gap:7px;align-items:center;width:max-content">
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:8px;background:rgba(167,139,250,.07);border-left:3px solid #a78bfa"><span style="width:13px;height:13px;color:#a78bfa"><dc-import name="Icon" n="folder" hint-size="13px,13px"></dc-import></span><b style="font-size:11.5px;color:#e6e3f5">무기</b></span>
+            <span style="display:inline-flex;align-items:center;gap:6px;padding:5px 11px 5px 9px;border-radius:8px;background:rgba(125,211,252,.06);border-left:3px solid #7dd3fc"><span style="width:13px;height:13px;color:#7dd3fc"><dc-import name="Icon" n="folder" hint-size="13px,13px"></dc-import></span><b style="font-size:11.5px;color:#e6e3f5">장신구</b></span>
+          </span>
+          <span style="display:inline-flex;gap:6px;width:max-content"><span style="width:18px;height:18px;border-radius:999px;background:#a78bfa;box-shadow:0 0 0 2px #fff,0 0 0 4px #a78bfa"></span><span style="width:18px;height:18px;border-radius:999px;background:#7dd3fc;opacity:.5"></span><span style="width:18px;height:18px;border-radius:999px;background:#5eead4;opacity:.5"></span><span style="width:18px;height:18px;border-radius:999px;background:#fbbf24;opacity:.5"></span><span style="width:18px;height:18px;border-radius:999px;background:#fb7185;opacity:.5"></span></span>
+        </div>
+      </div>
+    </div>
+
+    <!-- feedback footer + maker chip -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:42px">
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">제작 칩 (글린트 + 호흡 글로우)</div>
+        <div style="display:inline-flex"><span style="position:relative;display:inline-flex">
+          <span style="position:absolute;inset:0;border-radius:999px;box-shadow:0 0 12px 1px rgba(167,139,250,.45);opacity:.25;animation:dsChipGlow 3.6s ease-in-out infinite;pointer-events:none"></span>
+          <span style="position:relative;overflow:hidden;display:inline-flex;align-items:center;padding:6px 14px;border-radius:999px;background:linear-gradient(180deg,rgba(167,139,250,.2),rgba(125,211,252,.09));border:1px solid rgba(167,139,250,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)">
+            <span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:dsGlint 5s ease-in-out infinite;animation-delay:-1.5s;pointer-events:none;z-index:1"></span>
+            <b style="position:relative;z-index:0;font-size:15px;font-weight:800;background:linear-gradient(90deg,#c4b5fd,#7dd3fc);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.01em;white-space:nowrap">서미누기 제작</b>
+          </span>
+        </span></div>
+        <div style="font-size:10.5px;color:#7c75a3;margin-top:9px;line-height:1.55">글로우는 box-shadow 레이어의 opacity만 애니메이션(GPU 합성).</div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:#cfc9e6;margin-bottom:11px">피드백 소셜 (패널 하단 고정)</div>
+        <div style="display:flex;align-items:center;gap:9px;padding:12px 14px;border:1px solid rgba(255,255,255,.08);border-radius:12px;background:rgba(0,0,0,.18)">
+          <span style="display:flex;flex-direction:column;line-height:1.32;flex:1;min-width:0"><b style="font-size:11px;font-weight:800;color:#cfc9e6">피드백 · 문의</b><small style="font-size:10px;color:#7c75a3">버그·건의 환영</small></span>
+          <a href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" title="네이버 카페" style="width:33px;height:33px;display:inline-flex;align-items:center;justify-content:center;background:rgba(3,207,93,.1);border:1px solid rgba(3,207,93,.28);border-radius:9px;text-decoration:none"><img src="assets/naver_cafe_logo.webp" alt="" style="width:20px;height:20px;object-fit:contain;display:block"></a>
+          <a href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" title="유튜브" style="width:33px;height:33px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,0,0,.1);border:1px solid rgba(255,0,0,.26);border-radius:9px;text-decoration:none"><img src="assets/yt_icon_rgb.png" alt="" style="width:23px;height:16px;object-fit:contain;display:block"></a>
+          <a href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" title="디스코드" style="width:33px;height:33px;display:inline-flex;align-items:center;justify-content:center;background:rgba(88,101,242,.14);border:1px solid rgba(88,101,242,.4);border-radius:9px;text-decoration:none"><img src="assets/icon_clyde_white_RGB.png" alt="" style="width:19px;height:19px;object-fit:contain;display:block"></a>
+        </div>
+      </div>
+    </div>
+
+    <!-- RULES -->
+    <div style="font-size:11px;font-weight:800;letter-spacing:.14em;color:#a78bfa;text-transform:uppercase;margin-bottom:16px">05 · 모션 · 접근성 규칙</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px">
+      <sc-for list="{{ rules }}" as="r" hint-placeholder-count="4">
+        <div style="border:1px solid rgba(255,255,255,.1);border-radius:11px;padding:14px;background:rgba(255,255,255,.02)">
+          <div style="display:flex;align-items:center;gap:7px;margin-bottom:7px"><span style="width:15px;height:15px;color:{{ r.color }}"><dc-import name="Icon" n="{{ r.icon }}" hint-size="15px,15px"></dc-import></span><b style="font-size:12.5px;color:#f5f3ff">{{ r.title }}</b></div>
+          <div style="font-size:11px;color:#9b94bd;line-height:1.6">{{ r.body }}</div>
+        </div>
+      </sc-for>
+    </div>
+
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1160,&quot;height&quot;:900}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      surfaceSwatches: [
+        { name: 'panel-bg', val: 'rgba(24,33,42,.97)', css: 'rgba(24,33,42,.97)' },
+        { name: 'surface', val: 'rgba(20,18,34,.55)', css: 'rgba(20,18,34,.55)' },
+        { name: 'surface-hi', val: 'rgba(30,26,52,.78)', css: 'rgba(30,26,52,.78)' },
+        { name: 'text', val: '#e6e3f5', css: '#e6e3f5' },
+        { name: 'text-strong', val: '#f5f3ff', css: '#f5f3ff' },
+        { name: 'text-muted', val: '#9b94bd', css: '#9b94bd' },
+        { name: 'border-hi', val: 'rgba(167,139,250,.55)', css: 'rgba(167,139,250,.55)' },
+        { name: 'gold (가치)', val: '#fde68a', css: '#fde68a' },
+      ],
+      semanticSwatches: [
+        { role: 'primary', name: 'violet', val: '#a78bfa', css: 'linear-gradient(135deg,#b6a6fb,#8b7cf0)', ink: '#0b0a16', use: '생성·저장·이름변경' },
+        { role: 'info', name: 'blue', val: '#6aa8ff', css: 'linear-gradient(135deg,#6aa8ff,#3b6fe0)', ink: '#04183a', use: '갱신·다시열기·아이템 시세' },
+        { role: 'share', name: 'cyan', val: '#3ed8e6', css: 'linear-gradient(135deg,#3ed8e6,#11a0c4)', ink: '#042a32', use: '복사·내보내기·시장 동향' },
+        { role: 'star', name: 'amber', val: '#fbbf24', css: 'linear-gradient(135deg,#fcd34d,#fbbf24)', ink: '#3a2e05', use: '즐겨찾기 (따뜻한 강조)' },
+        { role: 'danger', name: 'rose', val: '#fb7185', css: 'linear-gradient(135deg,#fb7185,#f43f5e)', ink: '#3a0a14', use: '삭제·정리' },
+        { role: 'value', name: 'gold', val: '#fde68a', css: 'linear-gradient(135deg,#fde68a,#f5c451)', ink: '#3a2e05', use: '화폐 가치 (div/ex)' },
+      ],
+      typeRows: [
+        { spec: '30 / 800', sample: '자수정 글래스', size: '24px', weight: 800, color: '#f5f3ff', role: '패널 타이틀' },
+        { spec: '13.5 / 800', sample: '북마크 · 히스토리', size: '15px', weight: 800, color: '#f5f3ff', role: '섹션 헤더' },
+        { spec: '14 / 700', sample: '삼속성 저항 반지', size: '14px', weight: 700, color: '#f5f3ff', role: '카드 제목' },
+        { spec: '12.5 / 700', sample: '0.8 div · 조건 5개 · 06/22', size: '12.5px', weight: 700, color: '#cfc9e6', role: '가격·칩·시간' },
+        { spec: '11 / 600', sample: '서미누기의 POE 경제', size: '11px', weight: 600, color: '#9b94bd', role: '보조·캡션' },
+      ],
+      rules: [
+        { icon: 'sparkle', color: '#c4b5fd', title: '모션', body: '글린트(흰색 .15 띠 1회 스윕 후 정지)만 사용. 오로라(움직이는 그라디언트) 금지. 카드 hover lift, 토스트 in/out, 제작 칩 호흡 글로우.' },
+        { icon: 'chart', color: '#6aa8ff', title: '성능', body: 'transform·opacity만 애니메이션(컴포지터 전용). backdrop-filter 전면 미사용 — 불투명 배경으로 대체(저사양 최적화).' },
+        { icon: 'clock', color: '#7dd3fc', title: '대용량 리스트', body: '모든 카드에 content-visibility:auto로 화면 밖 렌더 생략. 히스토리는 60개만 DOM에 올리고 “더 보기”로 200개씩 확장 + 검색으로 수천 개도 가볍게.' },
+        { icon: 'check', color: '#5eead0', title: '접근성', body: '전역 :focus-visible 자수정 링, aria-label·role, Tab→Enter/Space, prefers-reduced-motion 대응.' },
+        { icon: 'pin', color: '#fbbf24', title: '타깃 크기', body: '카드 액션 24–29px, 핸들 30×116. 연령대 고려해 본문 하한을 키움.' },
+      ],
+    };
+  }
+}
+</script>
+</body>
+</html>

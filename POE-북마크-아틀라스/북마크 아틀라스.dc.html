@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#18152a"/><rect x="30" y="22" width="40" height="56" rx="6" fill="none" stroke="#a78bfa" stroke-width="3"/><path d="M50 22v34l-9-7-9 7" fill="none" stroke="#c4b5fd" stroke-width="3" stroke-linejoin="round"/></svg>
+</template>
+<x-dc>
+<helmet>
+  <link rel="preconnect" href="https://fastly.jsdelivr.net">
+  <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&display=swap">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;height:100%;background:#0b0e14;font-family:'Pretendard',system-ui,sans-serif}
+    @keyframes baToastIn{from{opacity:0;transform:translate(-50%,-10px)}to{opacity:1;transform:translate(-50%,0)}}
+    @keyframes baFlash{0%,100%{box-shadow:0 2px 10px rgba(0,0,0,.3)}30%,70%{box-shadow:0 0 0 2px #fbbf24,0 0 18px rgba(251,191,36,.5)}}
+    @keyframes baFade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+    @keyframes baToastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(16px)}}
+    @keyframes baGlint{0%{transform:translateX(-150%)}25%{transform:translateX(150%)}100%{transform:translateX(150%)}}
+    @keyframes baChipGlow{0%,100%{opacity:.22}50%{opacity:.85}}
+    @keyframes baGlintV{0%{transform:translateY(-150%)}30%{transform:translateY(150%)}100%{transform:translateY(150%)}}
+    ::-webkit-scrollbar{width:7px;height:7px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,.12);border-radius:4px}
+    ::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.24)}
+    :focus-visible{outline:2px solid #c4b5fd;outline-offset:2px;border-radius:8px}
+    @media (prefers-reduced-motion:reduce){*{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important}}
+  </style>
+  <script src="image-slot.js"></script>
+</helmet>
+
+<div ref="{{ rootRef }}" style="position:fixed;inset:0;overflow:hidden;color:#e2e8f0;font-size:13.5px">
+
+  <!-- ===================== BACKDROP : POE2 거래소 목업 ===================== -->
+  <div style="position:absolute;inset:0;background:radial-gradient(1200px 700px at 70% -10%,#161b26,#0b0e14 60%);display:flex;flex-direction:column;padding-right:{{ backdropPad }};transition:padding-right .26s cubic-bezier(.4,0,.2,1);filter:saturate(.92)">
+    <!-- top bar -->
+    <div style="height:54px;flex:none;display:flex;align-items:center;gap:22px;padding:0 26px;border-bottom:1px solid rgba(255,255,255,.07);background:rgba(10,12,18,.7)">
+      <span style="font-weight:800;letter-spacing:.16em;font-size:13px;color:#c9b98f">PATH OF EXILE <span style="color:#7a6a45">2</span></span>
+      <span style="display:flex;gap:20px;font-size:12.5px;color:#8b94a3;font-weight:600">
+        <span style="color:#e2e8f0;border-bottom:2px solid #c9a253;padding-bottom:17px;margin-top:18px">거래</span>
+        <span style="margin-top:18px">대량 거래</span>
+        <span style="margin-top:18px">시장</span>
+      </span>
+      <span style="margin-left:auto;display:flex;align-items:center;gap:14px;font-size:12px;color:#8b94a3">
+        <span style="padding:5px 11px;border:1px solid rgba(255,255,255,.12);border-radius:7px;color:#cbd5e1;font-weight:600">표준 ▾</span>
+        <span style="width:30px;height:30px;border-radius:50%;background:linear-gradient(135deg,#2a3140,#161b26);border:1px solid rgba(255,255,255,.1)"></span>
+      </span>
+    </div>
+    <!-- search body -->
+    <div style="flex:1;overflow:auto;padding:22px 26px 40px">
+      <!-- filter card -->
+      <div style="max-width:980px;background:linear-gradient(180deg,rgba(255,255,255,.025),transparent),rgba(16,20,28,.85);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:18px 20px;margin-bottom:18px">
+        <div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">
+          <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:10.5px;color:#6b7585;font-weight:600;letter-spacing:.02em">카테고리</span><span style="padding:8px 13px;min-width:150px;background:rgba(8,10,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#cbd5e1;font-weight:600">장신구 · 반지 ▾</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:10.5px;color:#6b7585;font-weight:600;letter-spacing:.02em">기반 아이템</span><span style="padding:8px 13px;min-width:180px;background:rgba(8,10,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#9aa4b2">아무거나</span></div>
+          <div style="display:flex;flex-direction:column;gap:5px"><span style="font-size:10.5px;color:#6b7585;font-weight:600;letter-spacing:.02em">가격</span><span style="padding:8px 13px;min-width:170px;background:rgba(8,10,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:7px;color:#9aa4b2">구매 가능 · 신성한 ▾</span></div>
+        </div>
+        <div style="border:1px solid rgba(255,255,255,.08);border-radius:8px;padding:12px 14px;background:rgba(8,10,15,.45)">
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><span style="font-size:11px;font-weight:800;color:#c9a253;background:rgba(201,162,83,.12);border:1px solid rgba(201,162,83,.35);padding:2px 9px;border-radius:6px">및</span><span style="font-size:11.5px;color:#7b8494">스탯 필터 그룹</span></div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:9px"><span style="flex:1;padding:7px 11px;background:rgba(8,10,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#aeb6c2;font-size:12px">+# 최대 생명력</span><span style="width:62px;padding:7px 0;text-align:center;background:rgba(8,10,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#c9a253;font-weight:600">35</span><span style="color:#5a6473">~</span><span style="width:62px;padding:7px 0;text-align:center;background:rgba(8,10,15,.5);border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#5a6473">　</span></div>
+            <div style="display:flex;align-items:center;gap:9px"><span style="flex:1;padding:7px 11px;background:rgba(8,10,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#aeb6c2;font-size:12px">모든 원소 저항 #%</span><span style="width:62px;padding:7px 0;text-align:center;background:rgba(8,10,15,.7);border:1px solid rgba(255,255,255,.1);border-radius:6px;color:#c9a253;font-weight:600">90</span><span style="color:#5a6473">~</span><span style="width:62px;padding:7px 0;text-align:center;background:rgba(8,10,15,.5);border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#5a6473">　</span></div>
+          </div>
+        </div>
+      </div>
+      <!-- results -->
+      <div style="max-width:980px;display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:0 2px"><span style="color:#8b94a3;font-size:12.5px">결과 <b style="color:#cbd5e1">1,284</b></span><span style="color:#6b7585;font-size:12px">가격 ↑ 정렬</span></div>
+      <div style="max-width:980px;display:flex;flex-direction:column;gap:9px">
+        <sc-for list="{{ backdropRows }}" as="r" hint-placeholder-count="4">
+          <div style="display:flex;align-items:center;gap:16px;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent),rgba(16,20,28,.7);border:1px solid rgba(255,255,255,.07);border-radius:9px;padding:13px 16px">
+            <div style="width:46px;height:46px;flex:none;border-radius:7px;background:rgba(8,10,15,.6);border:1px solid rgba(255,255,255,.08)"></div>
+            <div style="flex:1;min-width:0">
+              <div style="font-weight:700;color:{{ r.color }};font-size:13.5px;margin-bottom:4px">{{ r.name }}</div>
+              <div style="color:#7f93b8;font-size:11.5px;line-height:1.6">{{ r.mods }}</div>
+            </div>
+            <div style="text-align:right;flex:none">
+              <div style="display:flex;align-items:center;gap:5px;justify-content:flex-end;color:#e8d9a8;font-weight:700;font-variant-numeric:tabular-nums">{{ r.price }}<sc-if value="{{ r.isDiv }}" hint-placeholder-val="{{ true }}"><img src="assets/divine.png" style="width:18px;height:18px" alt=""></sc-if><sc-if value="{{ r.isEx }}"><img src="assets/exalted.png" style="width:18px;height:18px" alt=""></sc-if></div>
+              <div style="color:#5f6a79;font-size:11px;margin-top:3px">{{ r.seller }} · {{ r.ago }}</div>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+    <!-- dim overlay when panel open -->
+    <sc-if value="{{ panelOpen }}" hint-placeholder-val="{{ true }}"><div style="position:absolute;inset:0;background:radial-gradient(900px 500px at 100% 50%,rgba(0,0,0,.34),transparent 70%);pointer-events:none"></div></sc-if>
+  </div>
+
+
+  <!-- ===================== 핸들 (접힘 토글) ===================== -->
+  <div data-tour="handle" style="position:fixed;top:{{ handleTopStyle }};right:{{ handleRight }};width:30px;height:116px;z-index:55;display:flex;flex-direction:column;align-items:center;color:#7dd3fc;background:rgba(15,23,42,.96);border:1px solid rgba(255,255,255,.12);border-right:none;border-radius:12px 0 0 12px;box-shadow:-6px 0 18px rgba(0,0,0,.34);overflow:hidden;transition:right .26s cubic-bezier(.4,0,.2,1)">
+    <div onPointerDown="{{ onHandleDown }}" onPointerMove="{{ onHandleMove }}" onPointerUp="{{ onHandleUp }}" data-tip="드래그: 핸들 위치 이동" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:100%;display:flex;align-items:center;justify-content:center;padding:9px 0;cursor:ns-resize;touch-action:none;user-select:none;color:#64748b;border-bottom:1px solid rgba(255,255,255,.1);transition:color .15s" style-hover="color:#7dd3fc" style-active="cursor:grabbing"><span style="width:14px;height:14px;flex:none"><dc-import name="Icon" n="grip" hint-size="14px,14px"></dc-import></span></div>
+    <div onClick="{{ onToggleCollapse }}" data-tip="{{ handleTip }}" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="position:relative;flex:1;width:100%;display:flex;align-items:center;justify-content:center;cursor:pointer;color:#7dd3fc;transition:color .15s;overflow:hidden" style-hover="color:#bae6fd"><span style="position:absolute;inset:0;background:linear-gradient(to bottom,transparent,rgba(125,211,252,.22),transparent);animation:baGlintV 5.5s ease-in-out infinite;animation-delay:-1.6s;pointer-events:none;z-index:0"></span><span style="position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;gap:7px"><span style="writing-mode:vertical-rl;letter-spacing:2px;font-weight:700;font-size:11px">북마크</span><sc-if value="{{ showHandleBadge }}" hint-placeholder-val="{{ true }}"><span style="min-width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#0b0a16;background:#c4b5fd;border-radius:999px;padding:0 5px;box-shadow:0 0 10px rgba(196,181,253,.5)">{{ handleBadge }}</span></sc-if></span></div>
+  </div>
+
+  <!-- ===================== 패널 : 자수정 글래스 ===================== -->
+  <div style="position:fixed;top:14px;bottom:14px;right:14px;width:384px;z-index:50;display:flex;flex-direction:column;color:#e6e3f5;letter-spacing:-.01em;background:rgba(24,33,42,.97);border:1px solid #2d3a46;border-top:2px solid rgba(0,210,138,.55);border-radius:14px;overflow:hidden;box-shadow:0 15px 44px rgba(0,0,0,.55),inset 0 1px 1px rgba(255,255,255,.08);transform:{{ panelShift }};transition:transform .26s cubic-bezier(.4,0,.2,1)">
+    <!-- header -->
+    <div style="padding:16px 16px 13px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <img src="assets/icon128.png" style="width:28px;height:28px;border-radius:8px;flex:none;box-shadow:0 0 0 1px rgba(167,139,250,.4),0 0 16px rgba(167,139,250,.3)" alt="">
+        <span style="display:flex;flex-direction:column;line-height:1.15;min-width:0">
+          <b style="font-size:14.5px;font-weight:800;background:linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.02em">북마크 아틀라스</b>
+          <span style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.04em">POE2 TRADE MANAGER</span>
+        </span>
+      </div>
+      <button onClick="{{ onSave }}" data-tour="save" data-tip="현재 거래소 검색을 북마크로 저장" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="margin-top:13px;width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;font-weight:800;color:#0b0a16;background:linear-gradient(135deg,#b6a6fb,#8b7cf0);border:1px solid rgba(196,181,253,.5);border-radius:8px;padding:11px;cursor:pointer;box-shadow:0 3px 12px rgba(124,108,240,.34);font-family:inherit;transition:filter .15s,transform .1s" style-hover="filter:brightness(1.06)" style-active="transform:translateY(1px)"><span style="width:15px;height:15px"><dc-import name="Icon" n="bookmark" hint-size="15px,15px"></dc-import></span>현재 검색 저장</button>
+      <div data-tour="econ" style="display:flex;gap:8px;margin-top:9px">
+        <a href="#" onClick="{{ onEcon }}" data-tip="아이템 시세 — 서미누기의 POE 경제 ↗" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="flex:1;min-width:0;display:flex;align-items:stretch;gap:0;text-decoration:none;color:#04183a;background:linear-gradient(135deg,#6aa8ff,#3b6fe0);border-radius:9px;cursor:pointer;position:relative;overflow:hidden" style-hover="filter:brightness(1.07)"><span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:baGlint 4.4s ease-in-out infinite;animation-delay:-1s;pointer-events:none;z-index:1"></span><span style="width:40px;flex:none;display:flex;align-items:flex-end;justify-content:center;background:rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.22)"><img src="assets/mascot-analyst.webp" alt="" style="width:36px;height:36px;object-fit:contain;object-position:bottom;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"></span><span style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 6px"><b style="font-size:12px;font-weight:800;white-space:nowrap">아이템 시세</b></span></a>
+        <a href="#" onClick="{{ onTrend }}" data-tip="시장 동향 — 서미누기의 POE 경제 ↗" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="flex:1;min-width:0;display:flex;align-items:stretch;gap:0;text-decoration:none;color:#042a32;background:linear-gradient(135deg,#3ed8e6,#11a0c4);border-radius:9px;cursor:pointer;position:relative;overflow:hidden" style-hover="filter:brightness(1.07)"><span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:baGlint 6.7s ease-in-out infinite;animation-delay:-3.5s;pointer-events:none;z-index:1"></span><span style="width:40px;flex:none;display:flex;align-items:flex-end;justify-content:center;background:rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.22)"><img src="assets/mascot-researcher.webp" alt="" style="width:36px;height:36px;object-fit:contain;object-position:bottom;filter:drop-shadow(0 1px 2px rgba(0,0,0,.35))"></span><span style="flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 6px"><b style="font-size:12px;font-weight:800;white-space:nowrap">시장 동향</b></span></a>
+      </div>
+    </div>
+    <div data-tour="bm" style="display:flex;align-items:center;gap:7px;margin:6px 14px 0;padding-bottom:9px;border-bottom:1px solid rgba(167,139,250,.2)"><span style="width:16px;height:16px;color:#c4b5fd;flex:none"><dc-import name="Icon" n="bookmark" hint-size="16px,16px"></dc-import></span><span style="font-weight:800;font-size:13.5px;color:#f5f3ff;white-space:nowrap">북마크</span><span style="font-size:11px;font-weight:800;color:#c4b5fd;background:rgba(167,139,250,.16);border-radius:999px;padding:1px 8px">{{ bmTotal }}</span><span style="margin-left:auto;display:inline-flex;align-items:stretch;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;overflow:hidden;flex:none;font-size:10.5px;font-weight:700"><span onClick="{{ onDensComf }}" data-tip="여유 보기 — 글씨·간격이 큼 (읽기 편함)" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;padding:5px 9px;cursor:pointer;{{ densComfStyle }}">여유</span><span onClick="{{ onDensComp }}" data-tip="조밀 보기 — 한 화면에 더 많이" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;padding:5px 9px;cursor:pointer;border-left:1px solid rgba(255,255,255,.12);{{ densCompStyle }}">조밀</span></span></div>
+    <div data-scroll="1" style="flex:1;overflow-y:auto;padding:10px 14px 18px">
+      <!-- BOOKMARK TAB -->
+      <sc-if value="{{ isBookmarkTab }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;gap:7px;margin-bottom:9px">
+          <span style="flex:1;min-width:0;display:flex;align-items:center;gap:7px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:7px 10px">
+            <span style="width:13px;height:13px;color:#7c75a3;flex:none"><dc-import name="Icon" n="search" hint-size="13px,13px"></dc-import></span>
+            <input value="{{ bmSearch }}" onInput="{{ onSearch }}" placeholder="북마크 검색 (이름·조건)" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:#f5f3ff;font-size:12.5px;font-family:inherit">
+            <sc-if value="{{ hasSearch }}" hint-placeholder-val="{{ true }}"><span onClick="{{ onClearSearch }}" data-tip="검색 지우기" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;cursor:pointer;flex:none" style-hover="color:#fda4af"><dc-import name="Icon" n="x" hint-size="16px,16px"></dc-import></span></sc-if>
+          </span>
+          <span style="display:inline-flex;align-items:stretch;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:9px;overflow:hidden;flex:none;font-size:11px;font-weight:700">
+            <span onClick="{{ onSortManual }}" data-tip="수동 순서 (드래그로 정렬)" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;padding:0 10px;cursor:pointer;{{ sortManualStyle }}">순서</span>
+            <span onClick="{{ onSortRecent }}" data-tip="최근 사용순" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;padding:0 10px;cursor:pointer;border-left:1px solid rgba(255,255,255,.12);{{ sortRecentStyle }}">최근</span>
+            <span onClick="{{ onSortName }}" data-tip="이름순 (가나다)" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;padding:0 10px;cursor:pointer;border-left:1px solid rgba(255,255,255,.12);{{ sortNameStyle }}">이름</span>
+          </span>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:7px;margin-bottom:10px">
+          <sc-if value="{{ hasStale }}" hint-placeholder-val="{{ true }}"><button onClick="{{ onClean }}" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요. 오래된 검색은 거래소 필터·파라미터가 바뀌면서 더 이상 불러오지 못할 수 있거든요." onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#fda4af;background:rgba(244,63,94,.14);border:1px solid rgba(244,63,94,.4);border-radius:8px;padding:5px 9px;cursor:pointer;white-space:nowrap;font-family:inherit"><span style="width:13px;height:13px"><dc-import name="Icon" n="broom" hint-size="13px,13px"></dc-import></span>오래된 {{ staleN }}</button></sc-if>
+          <span onClick="{{ onImport }}" data-tip="JSON에서 북마크 가져오기" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:27px;height:27px;display:inline-flex;align-items:center;justify-content:center;color:#9b94bd;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;cursor:pointer" style-hover="color:#7dd3fc;border-color:rgba(125,211,252,.4)"><span style="width:14px;height:14px"><dc-import name="Icon" n="upload" hint-size="14px,14px"></dc-import></span></span>
+          <span onClick="{{ onExport }}" data-tip="북마크를 JSON으로 내보내기·공유 (오래된 북마크 제외)" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:27px;height:27px;display:inline-flex;align-items:center;justify-content:center;color:#9b94bd;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:8px;cursor:pointer" style-hover="color:#67e8f9;border-color:rgba(34,211,238,.4)"><span style="width:14px;height:14px"><dc-import name="Icon" n="download" hint-size="14px,14px"></dc-import></span></span>
+          <button onClick="{{ onAddFolder }}" data-tip="새 폴더 만들기" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:700;color:#c4b5fd;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.32);border-radius:8px;padding:5px 9px;cursor:pointer;white-space:nowrap;font-family:inherit"><span style="width:13px;height:13px"><dc-import name="Icon" n="folderPlus" hint-size="13px,13px"></dc-import></span>폴더 추가</button>
+        </div>
+        <sc-if value="{{ showFolders }}" hint-placeholder-val="{{ true }}">
+        <sc-for list="{{ foldersView }}" as="folder" hint-placeholder-count="3">
+          <div style="margin-bottom:11px;background:linear-gradient(180deg,rgba(167,139,250,.06),rgba(255,255,255,.012)),rgba(255,255,255,.025);border:1px solid rgba(167,139,250,.22);border-radius:13px;overflow:hidden;box-shadow:inset 0 1px 1px rgba(255,255,255,.06),0 2px 10px rgba(0,0,0,.22)">
+            <div onClick="{{ folder.onToggle }}" data-tip="폴더 접기·펼치기" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;background:rgba(167,139,250,.07);border-bottom:1px solid rgba(167,139,250,.16);border-left:3px solid {{ folder.color }}">
+              <span style="width:13px;height:13px;color:#a78bfa;flex:none;transition:transform .18s;transform:{{ folder.chevron }}"><dc-import name="Icon" n="chevronRight" hint-size="13px,13px"></dc-import></span>
+              <span style="width:15px;height:15px;color:{{ folder.color }};flex:none"><dc-import name="Icon" n="folder" hint-size="15px,15px"></dc-import></span>
+              <span style="flex:1;min-width:0;font-weight:700;font-size:12.5px;color:#e6e3f5;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ folder.name }}</span>
+              <span style="font-size:10px;font-weight:700;color:#8b85a8;background:rgba(255,255,255,.06);border-radius:999px;padding:1px 7px">{{ folder.count }}</span>
+              <span style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;flex:none">
+                <span onClick="{{ folder.onAdd }}" data-tip="이 폴더에 현재 검색 저장" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#c4b5fd"><span style="width:12px;height:12px"><dc-import name="Icon" n="plus" hint-size="12px,12px"></dc-import></span></span>
+                <sc-if value="{{ folder.isFolder }}" hint-placeholder-val="{{ true }}"><span onClick="{{ folder.onExport }}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#67e8f9"><span style="width:12px;height:12px"><dc-import name="Icon" n="download" hint-size="12px,12px"></dc-import></span></span><span onClick="{{ folder.onUp }}" data-tip="폴더 위로" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#c4b5fd"><span style="width:11px;height:11px;transform:rotate(-90deg)"><dc-import name="Icon" n="chevronRight" hint-size="11px,11px"></dc-import></span></span><span onClick="{{ folder.onDown }}" data-tip="폴더 아래로" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#c4b5fd"><span style="width:11px;height:11px;transform:rotate(90deg)"><dc-import name="Icon" n="chevronRight" hint-size="11px,11px"></dc-import></span></span><span onClick="{{ folder.onRename }}" data-tip="폴더 이름 변경" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#c4b5fd"><span style="width:11px;height:11px"><dc-import name="Icon" n="pencil" hint-size="11px,11px"></dc-import></span></span><span onClick="{{ folder.onDel }}" data-tip="폴더 삭제 (북마크는 미분류로)" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#fda4af"><span style="width:11px;height:11px"><dc-import name="Icon" n="trash" hint-size="11px,11px"></dc-import></span></span></sc-if>
+              </span>
+            </div>
+            <sc-if value="{{ folder.expanded }}" hint-placeholder-val="{{ true }}">
+            <div onDragOver="{{ folder.onDragOver }}" onDrop="{{ folder.onDropEmpty }}" style="padding:0 10px 8px">
+              <sc-for list="{{ folder.items }}" as="item" hint-placeholder-count="2">
+                <div onDragOver="{{ item.onDragOver }}" onDrop="{{ item.onDrop }}" style="content-visibility:auto;contain-intrinsic-size:{{ cvSize }};background:linear-gradient(180deg,rgba(255,255,255,.08),rgba(167,139,250,.03)),rgba(20,18,34,.55);border:2px solid rgba(255,255,255,.18);border-top-color:rgba(255,255,255,.42);border-left-color:rgba(255,255,255,.3);border-radius:12px;padding:{{ cardPad }};margin-top:{{ cardMargin }};box-shadow:0 8px 28px rgba(0,0,0,.4),inset 0 1px 1px 0 rgba(255,255,255,.24),inset 0 -1px 1px 0 rgba(0,0,0,.22);transition:border-color .15s,box-shadow .15s,opacity .2s;{{ item.rowDim }};{{ item.rowFx }}">
+                  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px">
+                    <span style="display:flex;align-items:center;gap:6px;min-width:0;flex:1">
+                      <span draggable="true" onDragStart="{{ item.onDragStart }}" onClick="{{ stop }}" data-tip="드래그해 순서·폴더 이동" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:14px;height:17px;color:#6d6790;cursor:grab;flex:none;display:flex;align-items:center" style-hover="color:#c4b5fd"><dc-import name="Icon" n="grip" hint-size="14px,17px"></dc-import></span>
+                      
+                      <span onClick="{{ item.onOpen }}" onKeyDown="{{ item.onKey }}" data-touropen="1" tabIndex="{{ 0 }}" role="button" aria-label="검색 다시 열기" data-tip="클릭하면 거래소에서 다시 검색" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;gap:5px;min-width:0;padding:3px 9px 3px 7px;margin:-3px 0;border-radius:8px;cursor:pointer;background:transparent;border:1px solid transparent;transition:background .16s,border-color .16s,box-shadow .16s" style-hover="background:rgba(167,139,250,.16);border-color:rgba(167,139,250,.45);box-shadow:0 0 14px rgba(167,139,250,.3)"><span style="width:13px;height:13px;color:#8b85a8;flex:none;transition:color .16s,transform .16s"><dc-import name="Icon" n="search" hint-size="13px,13px"></dc-import></span><b style="color:#f5f3ff;font-weight:700;font-size:{{ nameFont }};overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.name }}</b></span>
+                    </span>
+                    <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px 3px 9px;background:rgba(252,211,77,.1);border:1px solid rgba(252,211,77,.28);border-radius:999px;color:#fde68a;font-weight:800;white-space:nowrap;font-size:12.5px;font-variant-numeric:tabular-nums;flex:none">{{ item.priceText }}<sc-if value="{{ item.isDiv }}" hint-placeholder-val="{{ true }}"><img src="assets/divine.png" style="width:16px;height:16px" alt=""></sc-if><sc-if value="{{ item.isEx }}"><img src="assets/exalted.png" style="width:16px;height:16px" alt=""></sc-if></span>
+                  </div>
+                  <div style="display:flex;flex-wrap:wrap;gap:5px;margin:{{ chipMargin }}">
+                    <sc-if value="{{ item.needsAttn }}" hint-placeholder-val="{{ true }}"><span onClick="{{ item.onAttn }}" data-tip="{{ item.attnTip }}" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="display:inline-flex;align-items:center;gap:4px;font-size:10px;font-weight:800;color:#fbbf24;background:rgba(251,191,36,.16);border:1px solid rgba(251,191,36,.45);border-radius:6px;padding:3px 8px;cursor:pointer" style-hover="background:rgba(251,191,36,.28)"><span style="width:10px;height:10px"><dc-import name="Icon" n="refresh" hint-size="10px,10px"></dc-import></span>{{ item.attnText }}</span></sc-if>
+                    <span style="font-size:10.5px;color:#b9b2dd;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.22);border-radius:6px;padding:3px 8px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.chip1 }}</span>
+                    <sc-if value="{{ item.hasChip2 }}" hint-placeholder-val="{{ true }}"><span style="font-size:10.5px;color:#b9b2dd;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.22);border-radius:6px;padding:3px 8px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.chip2 }}</span></sc-if>
+                    <sc-if value="{{ item.hasMore }}" hint-placeholder-val="{{ true }}"><span onClick="{{ stop }}" data-tip="{{ item.condTip }}" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="font-size:10.5px;font-weight:700;color:#7dd3fc;background:rgba(125,211,252,.1);border:1px solid rgba(125,211,252,.28);border-radius:6px;padding:3px 8px;cursor:help">+{{ item.moreCount }}</span></sc-if>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:6px;margin-top:{{ footMargin }};padding-top:{{ footMargin }};border-top:1px solid rgba(255,255,255,.06)">
+                    <span style="display:inline-flex;align-items:center;gap:4px;color:#8b85a8;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums"><span style="width:11px;height:11px"><dc-import name="Icon" n="clock" hint-size="11px,11px"></dc-import></span>{{ item.timeText }}</span>
+                    <span style="margin-left:auto;display:inline-flex;gap:5px">
+                      <span onClick="{{ item.onCopy }}" data-tip="검색 링크 복사" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#67e8f9"><span style="width:13px;height:13px"><dc-import name="Icon" n="link" hint-size="13px,13px"></dc-import></span></span>
+                      <span onClick="{{ item.onOver }}" data-tip="최근 검색으로 갱신" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#7dd3fc"><span style="width:13px;height:13px"><dc-import name="Icon" n="refresh" hint-size="13px,13px"></dc-import></span></span>
+                      <span onClick="{{ item.onRename }}" data-tip="이름 변경" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#c4b5fd"><span style="width:12px;height:12px"><dc-import name="Icon" n="pencil" hint-size="12px,12px"></dc-import></span></span>
+                      <span onClick="{{ item.onDel }}" data-tip="삭제" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#fda4af"><span style="width:12px;height:12px"><dc-import name="Icon" n="trash" hint-size="12px,12px"></dc-import></span></span>
+                    </span>
+                  </div>
+                </div>
+              </sc-for>
+              <sc-if value="{{ folder.empty }}" hint-placeholder-val="{{ true }}"><div style="padding:12px;margin-top:8px;text-align:center;color:#6d6790;font-size:11px;border:1px dashed rgba(255,255,255,.12);border-radius:9px">여기로 드래그</div></sc-if>
+            </div>
+            </sc-if>
+          </div>
+        </sc-for>
+        </sc-if>
+        <sc-if value="{{ searchEmpty }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:22px 16px;text-align:center"><span style="width:26px;height:26px;color:#4a4566"><dc-import name="Icon" n="search" hint-size="26px,26px"></dc-import></span><b style="font-size:12.5px;color:#9b94bd;font-weight:700">검색 결과가 없어요</b><small style="font-size:11px;color:#6d6790">다른 이름이나 조건으로 검색해 보세요</small></div></sc-if>
+        <sc-if value="{{ showBmEmpty }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:22px 16px 10px;text-align:center"><img src="assets/mascot-analyst.webp" alt="" style="width:60px;height:60px;object-fit:contain;opacity:.92;filter:drop-shadow(0 2px 6px rgba(0,0,0,.4))"><b style="font-size:13px;color:#e6e3f5;font-weight:800">저장된 북마크가 없어요</b><small style="font-size:11.5px;color:#9b94bd;line-height:1.6">좋은 검색을 찾으면 상단 <span style="color:#c4b5fd;font-weight:700">현재 검색 저장</span>으로<br>북마크해 두고 언제든 다시 열어보세요</small></div></sc-if>
+      </sc-if>
+      <div data-tour="hist" style="display:flex;align-items:center;gap:7px;margin:22px 0 10px;padding-bottom:9px;border-bottom:1px solid rgba(167,139,250,.2)"><span style="width:16px;height:16px;color:#9b94bd;flex:none"><dc-import name="Icon" n="clock" hint-size="16px,16px"></dc-import></span><span style="font-weight:800;font-size:13.5px;color:#f5f3ff;white-space:nowrap">히스토리</span><span style="font-size:11px;font-weight:800;color:#9b94bd;background:rgba(255,255,255,.08);border-radius:999px;padding:1px 8px">{{ histShownText }}</span></div>
+      <!-- HISTORY -->
+      <sc-if value="{{ isHistoryTab }}" hint-placeholder-val="{{ true }}">
+        <div style="display:flex;align-items:center;gap:7px;margin-bottom:10px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:7px 10px">
+          <span style="width:13px;height:13px;color:#7c75a3;flex:none"><dc-import name="Icon" n="search" hint-size="13px,13px"></dc-import></span>
+          <input value="{{ histSearch }}" onInput="{{ onHistSearch }}" placeholder="히스토리 검색 (이름·조건)" style="flex:1;min-width:0;background:transparent;border:none;outline:none;color:#f5f3ff;font-size:12.5px;font-family:inherit">
+          <sc-if value="{{ histHasSearch }}" hint-placeholder-val="{{ true }}"><span onClick="{{ onHistClearSearch }}" data-tip="검색 지우기" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:16px;height:16px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;cursor:pointer;flex:none" style-hover="color:#fda4af"><dc-import name="Icon" n="x" hint-size="16px,16px"></dc-import></span></sc-if>
+        </div>
+        <sc-for list="{{ hist }}" as="item" hint-placeholder-count="4">
+          <div onClick="{{ item.onOpen }}" onKeyDown="{{ item.onKey }}" tabIndex="{{ 0 }}" role="button" aria-label="검색 다시 열기" data-tip="클릭하면 거래소에서 이 검색을 다시 엽니다" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="content-visibility:auto;contain-intrinsic-size:0 92px;background:linear-gradient(180deg,rgba(255,255,255,.055),rgba(255,255,255,.012)),rgba(20,18,34,.5);border:2px solid rgba(255,255,255,.12);border-top-color:rgba(255,255,255,.3);border-left-color:rgba(255,255,255,.2);border-radius:12px;padding:11px 12px;margin-bottom:9px;cursor:pointer;box-shadow:0 6px 22px rgba(0,0,0,.34),inset 0 1px 1px 0 rgba(255,255,255,.16);transition:border-color .15s,box-shadow .15s,transform .15s" style-hover="border-top-color:rgba(196,181,253,.7);box-shadow:0 8px 24px rgba(0,0,0,.4),0 0 14px rgba(167,139,250,.22),inset 0 1px 1px 0 rgba(255,255,255,.22);transform:translateY(-2px)">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+              <span style="display:flex;align-items:center;gap:6px;min-width:0;flex:1"><span style="width:13px;height:13px;color:#6d6790;flex:none"><dc-import name="Icon" n="clock" hint-size="13px,13px"></dc-import></span><b style="color:#e6e3f5;font-weight:700;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ item.name }}</b></span>
+              <span style="display:inline-flex;align-items:center;gap:4px;color:#fde68a;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums;flex:none">{{ item.priceText }}<sc-if value="{{ item.isDiv }}" hint-placeholder-val="{{ true }}"><img src="assets/divine.png" style="width:16px;height:16px" alt=""></sc-if><sc-if value="{{ item.isEx }}"><img src="assets/exalted.png" style="width:16px;height:16px" alt=""></sc-if></span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;margin-top:9px">
+              <span onClick="{{ item.onStar }}" data-tip="북마크로 저장" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:27px;height:27px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#fbbf24;background:rgba(251,191,36,.14)"><span style="width:14px;height:14px"><dc-import name="Icon" n="star" hint-size="14px,14px"></dc-import></span></span>
+              <span onClick="{{ item.onCopy }}" data-tip="검색 링크 복사" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:27px;height:27px;display:inline-flex;align-items:center;justify-content:center;color:#8b85a8;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:7px;cursor:pointer" style-hover="color:#67e8f9;background:rgba(34,211,238,.14)"><span style="width:14px;height:14px"><dc-import name="Icon" n="link" hint-size="14px,14px"></dc-import></span></span>
+              <span style="display:inline-flex;align-items:center;gap:4px;color:#8b85a8;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums"><span style="width:11px;height:11px"><dc-import name="Icon" n="clock" hint-size="11px,11px"></dc-import></span>{{ item.timeText }}</span>
+              <span onClick="{{ stop }}" data-tip="{{ item.condTip }}" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="margin-left:auto;display:inline-flex;align-items:center;gap:5px;cursor:help;font-size:11px;font-weight:600;color:#c4b5fd;background:rgba(167,139,250,.12);border:1px solid rgba(167,139,250,.28);border-radius:7px;padding:4px 9px;white-space:nowrap"><span style="width:12px;height:12px"><dc-import name="Icon" n="search" hint-size="12px,12px"></dc-import></span>조건 {{ item.condCount }}개</span>
+            </div>
+          </div>
+        </sc-for>
+        <sc-if value="{{ histHasMore }}" hint-placeholder-val="{{ true }}"><button onClick="{{ onHistMore }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:800;color:#c4b5fd;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.28);border-radius:9px;padding:10px;margin:2px 0 4px;cursor:pointer;font-family:inherit" style-hover="background:rgba(167,139,250,.18)"><span style="width:13px;height:13px"><dc-import name="Icon" n="clock" hint-size="13px,13px"></dc-import></span>{{ histMoreLabel }}</button></sc-if>
+        <sc-if value="{{ histSearchEmpty }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:22px 16px;text-align:center"><span style="width:26px;height:26px;color:#4a4566"><dc-import name="Icon" n="search" hint-size="26px,26px"></dc-import></span><b style="font-size:12.5px;color:#9b94bd;font-weight:700">검색 결과가 없어요</b><small style="font-size:11px;color:#6d6790">다른 이름이나 조건으로 검색해 보세요</small></div></sc-if>
+        <sc-if value="{{ histEmpty }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-direction:column;align-items:center;gap:6px;padding:26px 16px;text-align:center"><span style="width:30px;height:30px;color:#4a4566;margin-bottom:2px"><dc-import name="Icon" n="clock" hint-size="30px,30px"></dc-import></span><b style="font-size:12.5px;color:#9b94bd;font-weight:700">아직 검색 기록이 없어요</b><small style="font-size:11px;color:#6d6790;line-height:1.5">거래소에서 검색하면 여기에 자동으로 기록됩니다</small></div></sc-if>
+      </sc-if>
+    </div>
+    <!-- feedback footer -->
+    <div style="flex:none;display:flex;align-items:center;gap:9px;padding:12px 14px 14px;border-top:1px solid rgba(167,139,250,.16);background:rgba(0,0,0,.18)">
+      <span style="display:flex;flex-direction:column;align-items:flex-start;gap:6px;line-height:1.3;flex:1;min-width:0">
+        <span style="position:relative;display:inline-flex">
+          <span style="position:absolute;inset:0;border-radius:999px;box-shadow:0 0 12px 1px rgba(167,139,250,.45);opacity:.25;animation:baChipGlow 3.6s ease-in-out infinite;pointer-events:none"></span>
+          <span style="position:relative;overflow:hidden;display:inline-flex;align-items:center;padding:5px 13px;border-radius:999px;background:linear-gradient(180deg,rgba(167,139,250,.2),rgba(125,211,252,.09));border:1px solid rgba(167,139,250,.45);box-shadow:inset 0 1px 0 rgba(255,255,255,.1)">
+            <span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:baGlint 5s ease-in-out infinite;animation-delay:-1.5s;pointer-events:none;z-index:1"></span>
+            <b style="position:relative;z-index:0;font-size:14px;font-weight:800;background:linear-gradient(90deg,#c4b5fd,#7dd3fc);-webkit-background-clip:text;background-clip:text;color:transparent;letter-spacing:-.01em;white-space:nowrap">서미누기 제작</b>
+          </span>
+        </span>
+        <small style="font-size:11.5px;color:#9b94bd;font-weight:600;letter-spacing:-.01em">피드백 · 문의 — 버그·건의 환영</small>
+      </span>
+      <a href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" aria-label="네이버 카페" data-tip="네이버 카페에서 문의하기" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:33px;height:33px;display:inline-flex;align-items:center;justify-content:center;background:rgba(3,207,93,.1);border:1px solid rgba(3,207,93,.28);border-radius:9px;text-decoration:none;transition:background .15s,border-color .15s,transform .1s" style-hover="background:rgba(3,207,93,.22);border-color:rgba(3,207,93,.6);transform:translateY(-1px)"><img src="assets/naver_cafe_logo.webp" alt="" style="width:20px;height:20px;object-fit:contain;display:block"></a>
+      <a href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" aria-label="유튜브" data-tip="유튜브 채널 바로가기" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:33px;height:33px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,0,0,.1);border:1px solid rgba(255,0,0,.26);border-radius:9px;text-decoration:none;transition:background .15s,border-color .15s,transform .1s" style-hover="background:rgba(255,0,0,.2);border-color:rgba(255,0,0,.55);transform:translateY(-1px)"><img src="assets/yt_icon_rgb.png" alt="" style="width:23px;height:16px;object-fit:contain;display:block"></a>
+      <a href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" aria-label="디스코드" data-tip="디스코드 서버 참여" onMouseEnter="{{ tipEnter }}" onMouseLeave="{{ tipLeave }}" style="width:33px;height:33px;display:inline-flex;align-items:center;justify-content:center;background:rgba(88,101,242,.14);border:1px solid rgba(88,101,242,.4);border-radius:9px;text-decoration:none;transition:background .15s,border-color .15s,transform .1s" style-hover="background:rgba(88,101,242,.28);border-color:rgba(88,101,242,.7);transform:translateY(-1px)"><img src="assets/icon_clyde_white_RGB.png" alt="" style="width:19px;height:19px;object-fit:contain;display:block"></a>
+    </div>
+  </div>
+
+
+  <!-- ===================== 공용 오버레이 : 이름 입력 / 토스트 / 툴팁 ===================== -->
+  <sc-if value="{{ isNaming }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed;top:92px;right:14px;width:362px;z-index:80;display:flex;flex-direction:column;gap:8px;padding:13px 14px;background:rgba(8,11,18,.98);border:1px solid rgba(56,189,248,.4);border-radius:12px;box-shadow:0 16px 40px rgba(0,0,0,.6);animation:baFade .18s ease">
+      <span style="font-size:11px;font-weight:700;color:#7dd3fc;letter-spacing:.02em">{{ nameLabel }}</span>
+      <input value="{{ nameVal }}" onInput="{{ onNameInput }}" onKeyDown="{{ onNameKey }}" placeholder="{{ namePlaceholder }}" maxlength="60" autoFocus="{{ true }}" style="background:rgba(255,255,255,.06);border:1px solid rgba(56,189,248,.4);border-radius:8px;padding:9px 11px;color:#f8fafc;font-size:13px;font-family:inherit;outline:none"><sc-if value="{{ showFolderPick }}" hint-placeholder-val="{{ true }}"><div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center"><span style="font-size:10.5px;font-weight:700;color:#7dd3fc;width:100%;margin-bottom:1px">저장 폴더 선택</span><sc-for list="{{ namingFolders }}" as="f" hint-placeholder-count="3"><span onClick="{{ f.onPick }}" style="font-size:11px;font-weight:700;padding:5px 11px;border-radius:8px;cursor:pointer;{{ f.chipStyle }}">{{ f.name }}</span></sc-for><span onClick="{{ onPickNewFolder }}" style="font-size:11px;font-weight:700;padding:5px 11px;border-radius:8px;cursor:pointer;{{ newFolderChipStyle }}">+ 새 폴더</span></div><sc-if value="{{ newFolderMode }}" hint-placeholder-val="{{ true }}"><input value="{{ newFolderName }}" onInput="{{ onNewFolderInput }}" placeholder="새 폴더 이름" maxlength="40" style="margin-top:7px;width:100%;box-sizing:border-box;background:rgba(255,255,255,.06);border:1px solid rgba(0,210,138,.45);border-radius:8px;padding:8px 10px;color:#f8fafc;font-size:12px;font-family:inherit;outline:none"></sc-if></sc-if>
+      <sc-if value="{{ showColorPick }}" hint-placeholder-val="{{ true }}"><div style="display:flex;align-items:center;gap:8px"><span style="font-size:10.5px;font-weight:700;color:#7dd3fc">폴더 색상</span><span style="display:inline-flex;gap:7px"><sc-for list="{{ folderColorChoices }}" as="c" hint-placeholder-count="5"><span onClick="{{ c.onPick }}" style="width:18px;height:18px;border-radius:999px;cursor:pointer;transition:transform .1s;{{ c.style }}" style-hover="transform:scale(1.15)"></span></sc-for></span></div></sc-if>
+      <div style="display:flex;gap:7px;justify-content:flex-end">
+        <button onClick="{{ onNameCancel }}" style="font-size:11.5px;font-weight:700;color:#cbd5e1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:7px 14px;cursor:pointer;font-family:inherit">취소</button>
+        <button onClick="{{ onNameCommit }}" style="display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:800;color:#0b0a16;background:linear-gradient(135deg,#b6a6fb,#8b7cf0);border:none;border-radius:8px;padding:7px 14px;cursor:pointer;font-family:inherit"><span style="width:13px;height:13px"><dc-import name="Icon" n="check" hint-size="13px,13px"></dc-import></span>저장</button>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ tourActive }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed;inset:0;z-index:84;pointer-events:auto"></div>
+    <sc-if value="{{ tourHasRect }}" hint-placeholder-val="{{ true }}">
+      <div style="position:fixed;z-index:85;border-radius:10px;pointer-events:none;box-shadow:0 0 0 9999px rgba(8,7,16,.72),0 0 0 2px #c4b5fd,0 0 22px rgba(167,139,250,.6);transition:top .25s cubic-bezier(.4,0,.2,1),left .25s cubic-bezier(.4,0,.2,1),width .25s cubic-bezier(.4,0,.2,1),height .25s cubic-bezier(.4,0,.2,1);{{ tourRingStyle }}"></div>
+    </sc-if>
+    <div style="position:fixed;z-index:86;background:rgba(20,18,34,.99);border:1px solid rgba(167,139,250,.4);border-top:2px solid rgba(167,139,250,.7);border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.6),0 0 26px rgba(167,139,250,.22);padding:16px 16px 14px;transition:top .25s cubic-bezier(.4,0,.2,1),right .25s cubic-bezier(.4,0,.2,1),bottom .25s cubic-bezier(.4,0,.2,1);{{ tourBubbleStyle }}">
+      <div style="display:flex;align-items:center;gap:9px;margin-bottom:10px">
+        <img src="assets/icon128.png" alt="" style="width:26px;height:26px;border-radius:7px;flex:none">
+        <span style="font-size:10.5px;font-weight:800;letter-spacing:.04em;color:#a78bfa;flex:1">사용법 가이드</span>
+        <span style="font-size:11px;font-weight:700;color:#7c75a3;font-variant-numeric:tabular-nums">{{ tourIndexText }}</span>
+      </div>
+      <b style="display:block;font-size:14.5px;font-weight:800;color:#f5f3ff;margin-bottom:6px">{{ tourStep.title }}</b>
+      <p style="margin:0 0 14px;font-size:12.5px;line-height:1.65;color:#cfc9e6">{{ tourStep.body }}</p>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button onClick="{{ onTourSkip }}" style="font-size:12px;font-weight:700;white-space:nowrap;color:#9b94bd;background:transparent;border:1px solid rgba(255,255,255,.14);border-radius:8px;padding:8px 14px;cursor:pointer;font-family:inherit" style-hover="color:#e6e3f5">건너뛰기</button>
+        <span style="flex:1"></span>
+        <sc-if value="{{ tourIsLast }}" hint-placeholder-val="{{ true }}"><button onClick="{{ onTourNext }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#0b0a16;background:linear-gradient(135deg,#b6a6fb,#8b7cf0);border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit" style-hover="filter:brightness(1.06)"><span style="width:13px;height:13px"><dc-import name="Icon" n="check" hint-size="13px,13px"></dc-import></span>시작하기</button></sc-if>
+        <sc-if value="{{ tourStep.notLast }}" hint-placeholder-val="{{ true }}"><button onClick="{{ onTourNext }}" style="display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;color:#0b0a16;background:linear-gradient(135deg,#b6a6fb,#8b7cf0);border:none;border-radius:8px;padding:8px 16px;cursor:pointer;font-family:inherit" style-hover="filter:brightness(1.06)">다음<span style="width:13px;height:13px"><dc-import name="Icon" n="chevronRight" hint-size="13px,13px"></dc-import></span></button></sc-if>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasToast }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed;top:14px;right:14px;width:362px;z-index:90;display:flex;align-items:center;gap:9px;padding:11px 14px;background:rgba(8,11,18,.98);border:1px solid rgba(56,189,248,.4);border-left:3px solid #38bdf8;border-radius:10px;color:#f8fafc;font-size:12px;font-weight:600;box-shadow:0 12px 32px rgba(0,0,0,.5);animation:{{ toastAnim }}">
+      <span style="width:15px;height:15px;color:#7dd3fc;flex:none"><dc-import name="Icon" n="check" hint-size="15px,15px"></dc-import></span>{{ toast }}
+    </div>
+  </sc-if>
+
+  <sc-if value="{{ hasTip }}" hint-placeholder-val="{{ true }}">
+    <div style="position:fixed;z-index:95;max-width:300px;top:{{ tipTop }};bottom:{{ tipBottom }};right:{{ tipRight }};background:rgba(6,9,15,.98);color:#dbe4ee;border:1px solid rgba(56,189,248,.35);border-radius:8px;padding:8px 12px;font-size:11px;line-height:1.62;white-space:pre-line;word-break:keep-all;overflow-wrap:break-word;text-wrap:pretty;box-shadow:0 8px 24px rgba(0,0,0,.55);pointer-events:none;font-variant-numeric:tabular-nums">{{ tipText }}</div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    const G = (label, ...filters) => ({ label, filters });
+    this.state = {
+      collapsed: false,
+      bmSearch: '',
+      histSearch: '',
+      histLimit: 60,
+      bmSort: 'manual',
+      density: 'comfortable',
+      currentLeague: '여명의 사냥꾼',
+      folderColor: '#a78bfa',
+      handleTop: null,
+      tab: 'bookmark',
+      toast: null,
+      toastOut: false,
+      tour: 0,
+      tourActive: true,
+      tourRect: null,
+      naming: null,        // { mode, id }
+      nameVal: '',
+      flashId: null,
+      dragId: null,
+      dragOverId: null,
+      tip: null,           // { text, top, right }
+      collapsedFolders: {}, // id -> true means collapsed (v2)
+      counter: 200,
+      folders: [
+        { id: 'f1', name: '무기', color: '#a78bfa' },
+        { id: 'f2', name: '장신구', color: '#7dd3fc' },
+      ],
+      bookmarks: [
+        { id: 'b1', name: '고티어 물리 활', folderId: 'f1', price: { amt: '12.5', cur: 'ex' }, timeText: '06/22 13:40', rarity: '#f0c040', league: '여명의 사냥꾼',
+          statGroups: [ G('및', '물리 피해 증가 #% (220~)', '공격 속도 #% (24~)', '+# 활 숙련 레벨 (3~)') ] },
+        { id: 'b2', name: '혼돈 지팡이 +스킬', folderId: 'f1', price: { amt: '3.2', cur: 'div' }, timeText: '06/21 22:10', rarity: '#f0c040', league: '여명의 사냥꾼',
+          statGroups: [ G('및', '혼돈 피해 증가 #% (140~)', '+# 모든 주문 스킬 레벨 (5~)', '시전 속도 #% (20~)') ] },
+        { id: 'b3', name: '삼속성 저항 반지', folderId: 'f2', price: { amt: '0.8', cur: 'div' }, timeText: '06/22 09:05', rarity: '#f0c040', league: '여명의 사냥꾼',
+          statGroups: [ G('및', '화염 저항 #% (38~)', '냉기 저항 #% (38~)', '번개 저항 #% (38~)'), G('가중 합계', '총 원소 저항 (110~)') ] },
+        { id: 'b4', name: '최대 생명력 부적', folderId: 'f2', price: { amt: '45', cur: 'ex' }, timeText: '06/20 18:30', rarity: '#8888ff', league: '난파선',
+          statGroups: [ G('및', '+# 최대 생명력 (60~)', '+# 모든 능력치 (15~)') ] },
+        { id: 'b5', name: '쐐기 마법사 부츠', folderId: null, price: { amt: '18', cur: 'ex' }, timeText: '06/22 11:50', rarity: '#f0c040', league: '여명의 사냥꾼',
+          statGroups: [ G('및', '이동 속도 #% (30~)', '+# 최대 정신력 (80~)', '번개 저항 #% (25~)') ] },
+        { id: 'b6', name: '코러스의 손길 (유니크)', folderId: null, price: { amt: '1.1', cur: 'div' }, timeText: '06/05 14:00', rarity: '#cf6a32', stale: true, league: '난파선',
+          statGroups: [ G('및', '유니크: 코러스의 손길') ] },
+      ],
+      history: [
+        { id: 'h1', name: '물리 피해 활 글러브', price: { amt: '6', cur: 'ex' }, timeText: '06/22 14:31', rarity: '#f0c040',
+          statGroups: [ G('및', '물리 피해 증가 #% (180~)', '공격 속도 #% (18~)') ] },
+        { id: 'h2', name: '혼돈저항 생명 반지', price: { amt: '0.9', cur: 'div' }, timeText: '06/22 14:18', rarity: '#f0c040',
+          statGroups: [ G('및', '+# 최대 생명력 (40~)', '혼돈 저항 #% (20~)') ] },
+        { id: 'h3', name: '공격속도 양손검', price: { amt: '22', cur: 'ex' }, timeText: '06/22 13:02', rarity: '#f0c040',
+          statGroups: [ G('및', '공격 속도 #% (25~)', '물리 피해 증가 #% (200~)', '+# 근접 숙련 레벨 (2~)') ] },
+        { id: 'h4', name: '정신력 재생 투구', price: { amt: '4', cur: 'ex' }, timeText: '06/22 11:20', rarity: '#8888ff',
+          statGroups: [ G('및', '정신력 재생 #% (40~)', '+# 최대 정신력 (60~)') ] },
+        { id: 'h5', name: '+숙련 레벨 활', price: { amt: '2.4', cur: 'div' }, timeText: '06/21 20:45', rarity: '#f0c040',
+          statGroups: [ G('및', '+# 활 숙련 레벨 (4~)', '공격 속도 #% (20~)') ] },
+      ],
+      backdropRows: [
+        { name: '강타자의 사파이어 반지', color: '#f0c040', mods: '+42 최대 생명력 · 모든 원소 저항 +94% · +18 지능', price: '0.8', curImg: 'assets/divine.png', seller: 'xKakaoTrader', ago: '2분 전' },
+        { name: '현자의 토파즈 반지', color: '#f0c040', mods: '+38 최대 생명력 · 모든 원소 저항 +91% · 정신력 재생 28%', price: '0.9', curImg: 'assets/divine.png', seller: 'PoeMaster_KR', ago: '5분 전' },
+        { name: '맹독의 루비 반지', color: '#f0c040', mods: '+45 최대 생명력 · 모든 원소 저항 +96% · +22 민첩', price: '1.2', curImg: 'assets/divine.png', seller: '심연사냥꾼', ago: '11분 전' },
+        { name: '코러스의 손길', color: '#cf6a32', mods: '유니크 부적 · 봉인된 군중 · 정신력 누출 적용', price: '14', curImg: 'assets/exalted.png', seller: 'AbyssalKing', ago: '23분 전' },
+      ],
+    };
+    this.toastTimer = null;
+    this.toastOutTimer = null;
+    this.flashTimer = null;
+    this.cleanArmed = 0;
+  }
+
+  // ---- utils ----
+  uid() { const n = this.state.counter + 1; this.setState({ counter: n }); return 'x' + n; }
+  flat(r) { return r.statGroups.reduce((a, g) => a.concat(g.filters), []); }
+  total(r) { return r.statGroups.reduce((a, g) => a + g.filters.length, 0); }
+  tipOf(r) { return r.statGroups.map(g => '[' + g.label + ']\n' + g.filters.map(f => '  ' + f).join('\n')).join('\n'); }
+  keyOf(r) { return this.flat(r).join('|'); }
+  latest() { return this.state.history[0]; }
+  shortStat(f) {
+    const u = f.match(/유니크:\s*(.+)/); if (u) return u[1].trim();
+    return f.replace(/\s*\([^)]*\)\s*$/, '').replace(/[+#%]/g, '').replace(/\s+/g, ' ').trim();
+  }
+  nameFromConditions(r) {
+    if (!r || !r.statGroups) return '';
+    const fl = this.flat(r);
+    const u = fl.find(f => /유니크:/.test(f));
+    if (u) return this.shortStat(u);
+    return fl.slice(0, 2).map(f => this.shortStat(f)).filter(Boolean).join(' · ');
+  }
+  suggestName(r) { return this.nameFromConditions(r) || (r && r.name) || ''; }
+  researchLeague(id) {
+    this.setState(s => ({ bookmarks: s.bookmarks.map(b => b.id === id ? { ...b, league: s.currentLeague, stale: false } : b) }));
+    this.showToast('현재 리그로 다시 검색합니다 · 북마크를 갱신했어요.');
+    this.flash(id);
+  }
+  revive(id) {
+    this.setState(s => ({ bookmarks: s.bookmarks.map(b => b.id === id ? { ...b, stale: false, league: s.currentLeague, timeText: (this.latest() || {}).timeText || b.timeText } : b) }));
+    this.showToast('최근 검색으로 갱신했어요.');
+    this.flash(id);
+  }
+  revealDup(dup) {
+    const k = dup.folderId == null ? '__none' : dup.folderId;
+    this.setState(s => ({ collapsedFolders: { ...s.collapsedFolders, [k]: false }, bmSearch: '' }));
+    this.flash(dup.id);
+  }
+  showToast(msg) {
+    this.setState({ toast: msg, toastOut: false });
+    clearTimeout(this.toastTimer);
+    clearTimeout(this.toastOutTimer);
+    this.toastOutTimer = setTimeout(() => this.setState({ toastOut: true }), 2200);
+    this.toastTimer = setTimeout(() => this.setState({ toast: null, toastOut: false }), 2500);
+  }
+  flash(id) {
+    this.setState({ flashId: id });
+    clearTimeout(this.flashTimer);
+    this.flashTimer = setTimeout(() => this.setState({ flashId: null }), 1700);
+  }
+
+  // ---- record actions ----
+  open(r) { this.showToast('거래소에서 검색을 다시 엽니다 · ' + r.name); }
+  over(id) {
+    const l = this.latest();
+    if (!l) { this.showToast('갱신할 최근 검색이 없습니다.'); return; }
+    this.setState(s => ({
+      bookmarks: s.bookmarks.map(b => b.id === id
+        ? { ...b, price: { ...l.price }, statGroups: l.statGroups, timeText: l.timeText, stale: false } : b),
+    }));
+    this.showToast('최근 검색으로 갱신했습니다.');
+  }
+  del(id) { this.setState(s => ({ bookmarks: s.bookmarks.filter(b => b.id !== id) })); this.showToast('북마크를 삭제했습니다.'); }
+  star(r) {
+    const dup = this.state.bookmarks.find(b => this.keyOf(b) === this.keyOf(r));
+    if (dup) { this.showToast('이미 저장된 검색이에요 — 해당 북마크로 이동합니다.'); this.revealDup(dup); return; }
+    this.openNaming('promote', r.id, this.suggestName(r));
+  }
+  delFolder(id) {
+    this.setState(s => ({
+      folders: s.folders.filter(f => f.id !== id),
+      bookmarks: s.bookmarks.map(b => b.folderId === id ? { ...b, folderId: null } : b),
+    }));
+    this.showToast('폴더를 삭제했습니다. (북마크는 미분류로)');
+  }
+  moveFolder(id, dir) {
+    const arr = this.state.folders.slice();
+    const i = arr.findIndex(f => f.id === id);
+    const j = i + dir;
+    if (i < 0 || j < 0 || j >= arr.length) return;
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    this.setState({ folders: arr });
+  }
+  resolveFolder() {
+    if (this.state.newFolderMode) {
+      const nf = (this.state.newFolderName || '').trim();
+      if (!nf) return null;
+      const id = this.uid();
+      this.setState(s => ({ folders: [...s.folders, { id, name: nf, color: this.state.folderColor }] }));
+      return id;
+    }
+    return this.state.nameFolder || null;
+  }
+  // ---- copy / export / import ----
+  searchUrl(r) {
+    const slug = encodeURIComponent((r.name || 'search').slice(0, 24));
+    return 'https://poe.kakaogames.com/trade2/search/' + (r.id || slug);
+  }
+  copyLink(r) {
+    const url = this.searchUrl(r);
+    const done = () => this.showToast('검색 링크를 복사했습니다.');
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(url).then(done, () => this.fallbackCopy(url, done)); }
+      else this.fallbackCopy(url, done);
+    } catch (_) { this.fallbackCopy(url, done); }
+  }
+  fallbackCopy(text, done) {
+    try { const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0'; document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t); done(); }
+    catch (_) { this.showToast('복사에 실패했습니다.'); }
+  }
+  exportBookmarks(folderId, folderName) {
+    const scoped = folderId !== undefined;
+    let bms = scoped ? this.state.bookmarks.filter(b => (b.folderId ?? null) === folderId) : this.state.bookmarks.slice();
+    const totalInScope = bms.length;
+    bms = bms.filter(b => !b.stale);
+    const removed = totalInScope - bms.length;
+    if (!bms.length) { this.showToast(removed > 0 ? '내보낼 북마크가 없습니다 (모두 오래됨).' : '내보낼 북마크가 없습니다.'); return; }
+    const folders = scoped ? this.state.folders.filter(f => f.id === folderId) : this.state.folders;
+    const data = { app: 'poe-bookmark-atlas', version: 1, exportedAt: new Date().toISOString(), scope: scoped ? (folderName || '폴더') : 'all', staleExcluded: removed, folders, bookmarks: bms };
+    const json = JSON.stringify(data, null, 2);
+    const note = removed > 0 ? ' (오래된 ' + removed + '개 제외)' : '';
+    const label = scoped ? ('"' + (folderName || '폴더') + '" ') : '';
+    try {
+      const blob = new Blob([json], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      const slug = scoped ? '-' + encodeURIComponent((folderName || 'folder').slice(0, 16)) : '';
+      a.download = 'bookmark-atlas' + slug + '-' + new Date().toISOString().slice(0, 10) + '.json';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      this.showToast(label + '북마크 ' + bms.length + '개를 내보냈습니다' + note + '.');
+    } catch (_) {
+      if (navigator.clipboard) navigator.clipboard.writeText(json);
+      this.showToast(label + 'JSON을 클립보드에 복사했습니다' + note + '.');
+    }
+  }
+  importBookmarks() {
+    try {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = 'application/json,.json';
+      inp.onchange = () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        const rd = new FileReader();
+        rd.onload = () => {
+          try {
+            const d = JSON.parse(rd.result);
+            const inB = Array.isArray(d.bookmarks) ? d.bookmarks : [];
+            const inF = Array.isArray(d.folders) ? d.folders : [];
+            if (!inB.length && !inF.length) { this.showToast('가져올 북마크가 없습니다.'); return; }
+            const existingKeys = new Set(this.state.bookmarks.map(b => this.keyOf(b)));
+            let added = 0;
+            const newFolders = inF.filter(f => f && f.id && !this.state.folders.some(x => x.id === f.id));
+            const newBms = inB.filter(b => b && b.statGroups && !existingKeys.has(this.keyOf(b))).map(b => { added++; return { ...b, id: this.uid() }; });
+            this.setState(s => ({ folders: [...s.folders, ...newFolders], bookmarks: [...s.bookmarks, ...newBms] }));
+            this.showToast(added > 0 ? (added + '개 북마크를 가져왔습니다.') : '중복을 제외하니 추가할 북마크가 없습니다.');
+          } catch (_) { this.showToast('JSON 형식이 올바르지 않습니다.'); }
+        };
+        rd.readAsText(f);
+      };
+      inp.click();
+    } catch (_) { this.showToast('가져오기를 지원하지 않는 환경입니다.'); }
+  }
+  tourSteps() {
+    return [
+      { sel: '[data-tour="save"]', place: 'below', title: '① 좋은 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 좋은 검색은 “현재 검색 저장”으로 영구 보관하고, 저장 시 폴더도 바로 고를 수 있어요.' },
+      { sel: '[data-touropen="1"]', place: 'below', title: '② 한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
+      { sel: '[data-tour="hist"]', place: 'below', title: '③ 자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
+      { sel: '[data-tour="econ"]', place: 'below', title: '④ 시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
+      { sel: '[data-tour="handle"]', place: 'left', title: '⑤ 언제든 접기', body: '우측 핸들을 클릭해 접고 펼치고, 드래그로 높이도 조절할 수 있어요. 준비 끝!' },
+    ];
+  }
+
+  scheduleMeasure() {
+    if (this._measureScheduled) return;
+    this._measureScheduled = true;
+    setTimeout(() => {
+      this._measureScheduled = false;
+      try { this.measureTour(); } catch (_) {}
+    }, 30);
+  }
+  measureTour() {
+    if (!this.state.tourActive) return;
+    const step = this.tourSteps()[this.state.tour];
+    if (!step) return;
+    const root = this._root || document;
+    const el = root.querySelector(step.sel);
+    if (!el) { if (this.state.tourRect) this.setState({ tourRect: null }); return; }
+    // 타겟이 스크롤 영역 밖이면 패널 안으로 가져오기 (scrollIntoView 미사용)
+    const scroller = el.closest('[data-scroll]');
+    if (scroller) {
+      const sr = scroller.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+      if (er.top < sr.top + 16 || er.bottom > sr.bottom - 16) {
+        scroller.scrollTop += (er.top - sr.top) - (sr.height / 2) + (er.height / 2);
+      }
+    }
+    const r = el.getBoundingClientRect();
+    const rect = { top: r.top, left: r.left, width: r.width, height: r.height, bottom: r.bottom, right: r.right };
+    const prev = this.state.tourRect;
+    if (!prev || prev.top !== rect.top || prev.left !== rect.left || prev.width !== rect.width || prev.height !== rect.height) {
+      this.setState({ tourRect: rect });
+    }
+  }
+  componentDidMount() {
+    if (super.componentDidMount) super.componentDidMount();
+    this._onResize = () => { try { this.measureTour(); } catch (_) {} };
+    window.addEventListener('resize', this._onResize);
+    this.scheduleMeasure();
+  }
+  componentDidUpdate(prevProps, prevState) {
+    if (super.componentDidUpdate) super.componentDidUpdate(prevProps, prevState);
+  }
+  componentWillUnmount() {
+    if (super.componentWillUnmount) super.componentWillUnmount();
+    cancelAnimationFrame(this._tourRAF);
+    if (this._onResize) window.removeEventListener('resize', this._onResize);
+  }
+
+  tourBubbleStyle(r, place) {
+    const W = 300;
+    if (!r) return `left:50%;top:50%;transform:translate(-50%,-50%);width:${W}px`;
+    if (place === 'left') {
+      const right = Math.round(window.innerWidth - r.left + 14);
+      let top = Math.round(r.top + r.height / 2);
+      top = Math.max(90, Math.min(window.innerHeight - 90, top));
+      return `right:${right}px;top:${top}px;transform:translateY(-50%);width:${W}px`;
+    }
+    // below (default) / above — anchor horizontally to the panel column
+    const right = 24;
+    if (place === 'above') {
+      const bottom = Math.round(window.innerHeight - r.top + 12);
+      return `right:${right}px;bottom:${bottom}px;width:${W}px`;
+    }
+    let top = Math.round(r.bottom + 12);
+    if (top > window.innerHeight - 180) top = Math.max(70, Math.round(r.top - 12 - 150));
+    return `right:${right}px;top:${top}px;width:${W}px`;
+  }
+
+  cleanStale() {
+    if (Date.now() - this.cleanArmed < 4000) {
+      this.cleanArmed = 0;
+      const n = this.state.bookmarks.filter(b => b.stale).length;
+      this.setState(s => ({ bookmarks: s.bookmarks.filter(b => !b.stale) }));
+      this.showToast('오래된 북마크 ' + n + '개를 정리했습니다.');
+    } else {
+      this.cleanArmed = Date.now();
+      this.showToast('한 번 더 누르면 오래된 북마크를 삭제합니다.');
+    }
+  }
+  toggleFolder(id) {
+    const k = id == null ? '__none' : id;
+    this.setState(s => ({ collapsedFolders: { ...s.collapsedFolders, [k]: !s.collapsedFolders[k] } }));
+  }
+
+  // ---- naming flow ----
+  openNaming(mode, id, def) { this.setState({ naming: { mode, id }, nameVal: def || '', nameFolder: mode === 'folderSave' ? id : null, newFolderMode: false, newFolderName: '' }); }
+  cancelName() { this.setState({ naming: null, nameVal: '', newFolderMode: false, newFolderName: '' }); }
+  commitName() {
+    const { naming, nameVal } = this.state;
+    if (!naming) return;
+    const v = (nameVal || '').trim();
+    const { mode, id } = naming;
+    if (mode === 'addFolder') {
+      this.setState(s => ({ folders: [...s.folders, { id: this.uid(), name: v || '새 폴더', color: s.folderColor }] }));
+      this.showToast('폴더를 만들었습니다.');
+    } else if (mode === 'renameFolder') {
+      this.setState(s => ({ folders: s.folders.map(f => f.id === id ? { ...f, name: v || f.name } : f) }));
+    } else if (mode === 'rename') {
+      this.setState(s => ({ bookmarks: s.bookmarks.map(b => b.id === id ? { ...b, name: v || b.name } : b) }));
+    } else if (mode === 'promote') {
+      const h = this.state.history.find(x => x.id === id);
+      if (h) this.addBookmark(h, v || h.name, this.resolveFolder());
+      this.showToast('북마크에 저장했습니다.');
+    } else if (mode === 'save' || mode === 'folderSave') {
+      const l = this.latest();
+      if (!l) { this.showToast('먼저 거래소에서 검색을 실행하세요.'); this.cancelName(); return; }
+      const fid = this.resolveFolder();
+      const dup = this.state.bookmarks.find(b => this.keyOf(b) === this.keyOf(l));
+      if (dup) { this.showToast('이미 저장된 검색이에요 — 해당 북마크로 이동합니다.'); this.revealDup(dup); this.cancelName(); return; }
+      this.addBookmark(l, v || l.name, fid);
+      this.showToast('북마크에 저장했습니다.');
+    }
+    this.setState({ naming: null, nameVal: '' });
+  }
+  addBookmark(src, name, folderId) {
+    const nb = { id: this.uid(), name, folderId: folderId || null, price: { ...src.price }, timeText: src.timeText, statGroups: src.statGroups, rarity: src.rarity || '#f0c040', league: this.state.currentLeague };
+    this.setState(s => ({ bookmarks: [...s.bookmarks, nb] }));
+  }
+
+  // ---- drag/drop ----
+  drop(targetId) {
+    const { dragId, bookmarks } = this.state;
+    if (!dragId || dragId === targetId) { this.setState({ dragId: null, dragOverId: null }); return; }
+    const arr = bookmarks.slice();
+    const fi = arr.findIndex(b => b.id === dragId);
+    if (fi < 0) return;
+    const dragged = arr.splice(fi, 1)[0];
+    const ti = arr.findIndex(b => b.id === targetId);
+    dragged.folderId = arr[ti] ? arr[ti].folderId : null;
+    arr.splice(ti, 0, dragged);
+    this.setState({ bookmarks: arr, dragId: null, dragOverId: null });
+  }
+  dropFolder(fid) {
+    const { dragId, bookmarks } = this.state;
+    if (!dragId) return;
+    const arr = bookmarks.slice();
+    const fi = arr.findIndex(b => b.id === dragId);
+    if (fi < 0) return;
+    const dragged = arr.splice(fi, 1)[0];
+    dragged.folderId = fid;
+    arr.push(dragged);
+    this.setState({ bookmarks: arr, dragId: null, dragOverId: null });
+  }
+
+  // ---- tooltip ----
+  tipEnter(e) {
+    const el = e.currentTarget;
+    const raw = el.getAttribute('data-tip');
+    if (!raw) return;
+    // 긴 설명은 문장 끝(. ? !)에서 줄바꿈해 가독성을 높임
+    const txt = raw.length > 24 ? raw.replace(/([.?!])\s+/g, '$1\n') : raw;
+    const r = el.getBoundingClientRect();
+    if (r.bottom > window.innerHeight - 150) {
+      // 화면 하단 근처(푸터 아이콘 등): 요소 바로 위에, 오른쪽 끝을 맞춰 붙임
+      const right = Math.round(window.innerWidth - r.right - 4);
+      const bottom = Math.round(window.innerHeight - r.top + 10);
+      this.setState({ tip: { text: txt, bottom: bottom + 'px', right: right + 'px', top: 'auto' } });
+    } else {
+      const right = Math.round(window.innerWidth - r.left + 12);
+      let top = Math.round(r.top);
+      if (top < 8) top = 8;
+      this.setState({ tip: { text: txt, top: top + 'px', right: right + 'px', bottom: 'auto' } });
+    }
+  }
+  tipLeave() { if (this.state.tip) this.setState({ tip: null }); }
+
+  // ---- handle: 세로 드래그로 위치 이동 / 클릭으로 접기 ----
+  onHandleDown(e) {
+    this._hDrag = true; this._hMoved = false;
+    this._hStartY = e.clientY;
+    this._hStartTop = e.currentTarget.getBoundingClientRect().top;
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch (_) {}
+  }
+  onHandleMove(e) {
+    if (!this._hDrag) return;
+    const dy = e.clientY - this._hStartY;
+    if (Math.abs(dy) > 4) this._hMoved = true;
+    const hH = 116;
+    const top = Math.max(8, Math.min(window.innerHeight - hH - 8, this._hStartTop + dy));
+    this.setState({ handleTop: top });
+  }
+  onHandleUp() { this._hDrag = false; }
+
+  rowFx(id) {
+    if (this.state.dragOverId === id) return 'border-color:#38bdf8;box-shadow:inset 0 2px 0 #38bdf8';
+    if (this.state.flashId === id) return 'border-color:#fbbf24;box-shadow:0 0 0 2px #fbbf24,0 0 18px rgba(251,191,36,.5)';
+    return '';
+  }
+
+  mapRec(r, kind) {
+    const total = this.total(r);
+    const flat = this.flat(r);
+    return {
+      id: r.id, name: r.name, timeText: r.timeText, kind,
+      priceText: r.price.amt, isDiv: r.price.cur === 'div', isEx: r.price.cur !== 'div',
+      stale: !!r.stale, rarity: r.rarity || '#f0c040',
+      needsAttn: kind === 'bookmark' && (!!r.stale || (!!r.league && r.league !== this.state.currentLeague)),
+      attnText: r.stale ? '갱신 필요' : '이전 리그',
+      attnTip: r.stale ? '14일 넘게 안 쓴 북마크예요. 거래소 파라미터가 바뀌어 안 열릴 수 있어요. 클릭하면 최근 검색으로 갱신합니다.' : ('저장 당시 리그(' + (r.league || '') + ')가 현재 리그와 달라요. 클릭하면 현재 리그로 다시 검색합니다.'),
+      rowDim: (kind === 'bookmark' && (!!r.stale || (!!r.league && r.league !== this.state.currentLeague))) ? 'opacity:.6' : '',
+      onAttn: (e) => { e.stopPropagation(); if (r.stale) this.revive(r.id); else this.researchLeague(r.id); },
+      condCount: total, condTip: this.tipOf(r),
+      chip1: flat[0] || '', chip2: flat[1] || '', hasChip2: flat.length > 1,
+      hasMore: total > 2, moreCount: Math.max(0, total - 2),
+      rowFx: this.rowFx(r.id),
+      onOpen: () => this.open(r),
+      onKey: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); this.open(r); } },
+      onStar: (e) => { e.stopPropagation(); this.star(r); },
+      onOver: (e) => { e.stopPropagation(); this.over(r.id); },
+      onRename: (e) => { e.stopPropagation(); this.openNaming('rename', r.id, r.name); },
+      onDel: (e) => { e.stopPropagation(); this.del(r.id); },
+      onCopy: (e) => { e.stopPropagation(); this.copyLink(r); },
+      onDragStart: (e) => { e.stopPropagation(); this.setState({ dragId: r.id }); },
+      onDragOver: (e) => { e.preventDefault(); if (this.state.dragOverId !== r.id) this.setState({ dragOverId: r.id }); },
+      onDrop: (e) => { e.preventDefault(); e.stopPropagation(); this.drop(r.id); },
+    };
+  }
+
+  renderVals() {
+    const s = this.state;
+    const folders = [{ id: null, name: '미분류', sys: true }, ...s.folders];
+    const q = (s.bmSearch || '').trim().toLowerCase();
+    const matchB = (b) => !q || (b.name + ' ' + this.flat(b).join(' ')).toLowerCase().includes(q);
+    let pool = s.bookmarks.filter(matchB);
+    if (s.bmSort === 'name') pool = pool.slice().sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    else if (s.bmSort === 'recent') pool = pool.slice().sort((a, b) => (b.timeText || '').localeCompare(a.timeText || ''));
+    let foldersView = folders.map(f => {
+      const items = pool.filter(b => (b.folderId ?? null) === f.id).map(b => this.mapRec(b, 'bookmark'));
+      const k = f.id == null ? '__none' : f.id;
+      const expanded = q ? items.length > 0 : !s.collapsedFolders[k];
+      return {
+        id: f.id, name: f.name, count: items.length, items, color: f.color || '#8b85a8',
+        isFolder: f.id !== null, empty: items.length === 0, hidden: !!q && items.length === 0,
+        expanded, chevron: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+        onAdd: (e) => { e.stopPropagation(); this.openNaming('folderSave', f.id, this.suggestName(this.latest())); },
+        onRename: (e) => { e.stopPropagation(); this.openNaming('renameFolder', f.id, f.name); },
+        onDel: (e) => { e.stopPropagation(); this.delFolder(f.id); },
+        onToggle: () => this.toggleFolder(f.id),
+        onUp: (e) => { e.stopPropagation(); this.moveFolder(f.id, -1); },
+        onDown: (e) => { e.stopPropagation(); this.moveFolder(f.id, 1); },
+        onExport: (e) => { e.stopPropagation(); this.exportBookmarks(f.id, f.name); },
+        onDragOver: (e) => e.preventDefault(),
+        onDropEmpty: (e) => { e.preventDefault(); this.dropFolder(f.id); },
+      };
+    });
+    if (q) foldersView = foldersView.filter(f => !f.hidden);
+    const hq = (s.histSearch || '').trim().toLowerCase();
+    const histAll = hq ? s.history.filter(h => (h.name + ' ' + this.flat(h).join(' ')).toLowerCase().includes(hq)) : s.history;
+    const histTotal = histAll.length;
+    const histLim = s.histLimit;
+    const hist = histAll.slice(0, histLim).map(h => this.mapRec(h, 'history'));
+    const histMore = Math.max(0, histTotal - histLim);
+    const staleN = s.bookmarks.filter(b => b.stale).length;
+
+    const cz = s.density === 'compact';
+    const swDenA = 'background:linear-gradient(180deg,rgba(167,139,250,.34),rgba(167,139,250,.18));color:#f3efff;font-weight:800;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)';
+    const swDenI = 'color:#9b94bd;font-weight:700;background:transparent';
+    const swSortA = 'background:linear-gradient(180deg,rgba(167,139,250,.34),rgba(167,139,250,.18));color:#f3efff;font-weight:800;box-shadow:inset 0 1px 0 rgba(255,255,255,.12)';
+    const swSortI = 'color:#9b94bd;font-weight:700'.concat(';background:transparent');
+    const tabActive = 'background:linear-gradient(135deg,#c4b5fd,#5eead4);color:#0b0a16;box-shadow:0 3px 12px rgba(124,140,250,.3)';
+    const tabIdle = 'background:transparent;color:#8b85a8';
+
+    const labelMap = { save: '북마크 이름', promote: '북마크 이름', folderSave: '북마크 이름', rename: '북마크 이름 변경', addFolder: '새 폴더 이름', renameFolder: '폴더 이름 변경' };
+    const phMap = { addFolder: '폴더 이름', renameFolder: '폴더 이름' };
+
+    return {
+      collapsed: s.collapsed, panelOpen: !s.collapsed,
+      panelShift: s.collapsed ? 'translateX(132%)' : 'translateX(0)',
+      handleRight: s.collapsed ? '0px' : '402px',
+      handleTopStyle: s.handleTop == null ? 'calc(50% - 58px)' : (s.handleTop + 'px'),
+      handleBadge: s.bookmarks.length,
+      handleTip: s.collapsed ? (s.bookmarks.length > 0 ? ('저장한 북마크 ' + s.bookmarks.length + '개 · 클릭하면 패널 펼치기') : '저장한 북마크가 없어요 · 클릭하면 패널 펼치기') : '클릭하면 패널 접기',
+      showHandleBadge: s.collapsed && s.bookmarks.length > 0,
+      onHandleDown: (e) => this.onHandleDown(e),
+      onHandleMove: (e) => this.onHandleMove(e),
+      onHandleUp: () => this.onHandleUp(),
+      backdropPad: s.collapsed ? '0px' : '418px',
+      tab: s.tab, isBookmarkTab: true, isHistoryTab: true,
+      tabBmStyle: s.tab === 'bookmark' ? tabActive : tabIdle,
+      tabHistStyle: s.tab === 'history' ? tabActive : tabIdle,
+      foldersView, hist,
+      bmTotal: s.bookmarks.length, histCount: s.history.length,
+      histShownText: hq ? (histTotal + '개 검색됨') : (s.history.length + '개'),
+      histSearch: s.histSearch, histHasSearch: !!hq,
+      onHistSearch: (e) => this.setState({ histSearch: e.target.value, histLimit: 60 }),
+      onHistClearSearch: () => this.setState({ histSearch: '', histLimit: 60 }),
+      histSearchEmpty: !!hq && histTotal === 0,
+      histHasMore: histMore > 0,
+      histMoreCount: histMore > 200 ? 200 : histMore,
+      histMoreLabel: (histMore > 200 ? 200 : histMore) + '개 더 보기 (남은 ' + histMore + '개)',
+      onHistMore: () => this.setState(st => ({ histLimit: st.histLimit + 200 })),
+      bmEmpty: s.bookmarks.length === 0, histEmpty: s.history.length === 0,
+      showFolders: s.bookmarks.length > 0 || s.folders.length > 0,
+      showBmEmpty: s.bookmarks.length === 0 && s.folders.length === 0,
+      staleN, hasStale: staleN > 0,
+      backdropRows: s.backdropRows.map(r => ({ ...r, isDiv: r.curImg.indexOf('divine') >= 0, isEx: r.curImg.indexOf('divine') < 0 })),
+      toast: s.toast, hasToast: !!s.toast,
+      toastAnim: s.toastOut ? 'baToastOut .3s ease forwards' : 'baFade .2s ease',
+      rootRef: (el) => { this._root = el; },
+      tourActive: (() => { if (s.tourActive && s.tour < this.tourSteps().length) { this.scheduleMeasure(); return true; } return false; })(),
+      tourStep: { ...(this.tourSteps()[s.tour] || {}), notLast: s.tour < this.tourSteps().length - 1 },
+      tourHasRect: !!s.tourRect,
+      tourRingStyle: s.tourRect
+        ? `top:${s.tourRect.top - 6}px;left:${s.tourRect.left - 6}px;width:${s.tourRect.width + 12}px;height:${s.tourRect.height + 12}px`
+        : 'top:-9999px;left:-9999px;width:0;height:0',
+      tourBubbleStyle: this.tourBubbleStyle(s.tourRect, (this.tourSteps()[s.tour] || {}).place),
+      tourIndexText: (s.tour + 1) + ' / ' + this.tourSteps().length,
+      tourIsLast: s.tour === this.tourSteps().length - 1,
+      onTourNext: () => { if (this.state.tour >= this.tourSteps().length - 1) this.setState({ tourActive: false }); else this.setState({ tour: this.state.tour + 1 }); },
+      onTourSkip: () => this.setState({ tourActive: false }),
+      onTourRestart: () => this.setState({ tour: 0, tourActive: true }),
+      isNaming: !!s.naming, nameVal: s.nameVal,
+      nameLabel: s.naming ? (labelMap[s.naming.mode] || '이름') : '',
+      namePlaceholder: s.naming ? (phMap[s.naming.mode] || '북마크 이름') : '',
+      showFolderPick: !!s.naming && (s.naming.mode === 'save' || s.naming.mode === 'promote' || s.naming.mode === 'folderSave'),
+      namingFolders: [{ id: null, name: '미분류' }, ...s.folders].map(f => ({ name: f.name, onPick: () => this.setState({ nameFolder: f.id, newFolderMode: false }), chipStyle: (!s.newFolderMode && (s.nameFolder ?? null) === f.id) ? 'color:#0b0a16;background:#7dd3fc;border:1px solid #7dd3fc' : 'color:#cbd5e1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14)' })),
+      newFolderMode: !!s.newFolderMode,
+      newFolderName: s.newFolderName || '',
+      newFolderChipStyle: s.newFolderMode ? 'color:#0b0a16;background:#c4b5fd;border:1px solid #c4b5fd' : 'color:#c4b5fd;background:rgba(167,139,250,.14);border:1px solid rgba(167,139,250,.4)',
+      onPickNewFolder: () => this.setState({ newFolderMode: true }),
+      onNewFolderInput: (e) => this.setState({ newFolderName: e.target.value }),
+      tip: s.tip, hasTip: !!s.tip,
+      tipText: s.tip ? s.tip.text : '', tipTop: s.tip ? (s.tip.top || 'auto') : 'auto', tipRight: s.tip ? s.tip.right : '0px', tipBottom: s.tip ? (s.tip.bottom || 'auto') : 'auto',
+      // global handlers
+      onToggleCollapse: () => this.setState({ collapsed: !s.collapsed }),
+      onSave: () => this.openNaming('save', null, this.suggestName(this.latest())),
+      onAddFolder: () => this.openNaming('addFolder', null, '새 폴더'),
+      onClean: () => this.cleanStale(),
+      onEcon: (e) => { e.preventDefault(); this.showToast('아이템 시세 — 서미누기의 POE 경제로 이동합니다.'); },
+      onTrend: (e) => { e.preventDefault(); this.showToast('시장 동향 — 서미누기의 POE 경제로 이동합니다.'); },
+      onExport: () => this.exportBookmarks(),
+      onImport: () => this.importBookmarks(),
+      bmSearch: s.bmSearch, hasSearch: !!(s.bmSearch || '').trim(),
+      searchEmpty: !!q && foldersView.length === 0,
+      onSearch: (e) => this.setState({ bmSearch: e.target.value }),
+      onClearSearch: () => this.setState({ bmSearch: '' }),
+      cardPad: cz ? '8px 11px' : '11px 12px',
+      cardMargin: cz ? '6px' : '9px',
+      nameFont: cz ? '13px' : '14.5px',
+      chipMargin: cz ? '6px 0 2px' : '9px 0 2px',
+      footMargin: cz ? '6px' : '8px',
+      cvSize: cz ? '0 84px' : '0 104px',
+      densComfStyle: s.density === 'comfortable' ? swDenA : swDenI,
+      densCompStyle: s.density === 'compact' ? swDenA : swDenI,
+      onDensComf: () => this.setState({ density: 'comfortable' }),
+      onDensComp: () => this.setState({ density: 'compact' }),
+      sortManualStyle: s.bmSort === 'manual' ? swSortA : swSortI,
+      sortRecentStyle: s.bmSort === 'recent' ? swSortA : swSortI,
+      sortNameStyle: s.bmSort === 'name' ? swSortA : swSortI,
+      onSortManual: () => this.setState({ bmSort: 'manual' }),
+      onSortRecent: () => this.setState({ bmSort: 'recent' }),
+      onSortName: () => this.setState({ bmSort: 'name' }),
+      folderColorChoices: ['#a78bfa', '#7dd3fc', '#5eead4', '#fbbf24', '#fb7185'].map(c => ({ onPick: () => this.setState({ folderColor: c }), style: 'background:' + c + (s.folderColor === c ? ';box-shadow:0 0 0 2px #fff,0 0 0 4px ' + c : ';opacity:.5') })),
+      showColorPick: !!s.naming && (s.naming.mode === 'addFolder' || !!s.newFolderMode),
+      onNoop: (e) => { e.preventDefault(); },
+      onNameInput: (e) => this.setState({ nameVal: e.target.value }),
+      onNameKey: (e) => { if (e.key === 'Enter') { e.preventDefault(); this.commitName(); } else if (e.key === 'Escape') { e.preventDefault(); this.cancelName(); } },
+      onNameCommit: () => this.commitName(),
+      onNameCancel: () => this.cancelName(),
+      setTabBm: () => this.setState({ tab: 'bookmark' }),
+      setTabHist: () => this.setState({ tab: 'history' }),
+      tipEnter: (e) => this.tipEnter(e),
+      tipLeave: () => this.tipLeave(),
+      stop: (e) => e.stopPropagation(),
+    };
+  }
+}
+</script>
+</body>
+</html>

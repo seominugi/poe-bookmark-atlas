@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<template id="__bundler_thumbnail"><svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg"><rect width="100" height="100" rx="18" fill="#16121f"/><rect x="30" y="24" width="40" height="52" rx="7" fill="#241b38" stroke="#a78bfa" stroke-width="2"/><circle cx="50" cy="40" r="7" fill="#c4b5fd"/><rect x="38" y="54" width="24" height="4" rx="2" fill="#7dd3fc"/><rect x="41" y="63" width="18" height="4" rx="2" fill="#5eead4"/></svg></template>
+<helmet>
+  <link rel="stylesheet" href="https://fastly.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+  <style>
+    *{box-sizing:border-box}
+    html,body{margin:0;padding:0;font-family:'Pretendard',system-ui,sans-serif}
+    @keyframes baGlint{0%{transform:translateX(-150%)}25%{transform:translateX(150%)}100%{transform:translateX(150%)}}
+    :focus-visible{outline:2px solid #c4b5fd;outline-offset:2px;border-radius:8px}
+  </style>
+</helmet>
+<div style="width:360px;background:rgba(17,15,30,.98);color:#e6e3f5;font-size:13px;letter-spacing:-.01em;border:1px solid rgba(167,139,250,.25);border-top:2px solid rgba(167,139,250,.55);overflow:hidden">
+  <!-- header -->
+  <div style="display:flex;align-items:center;gap:11px;padding:16px 16px 13px;border-bottom:1px solid rgba(167,139,250,.18);background:linear-gradient(180deg,rgba(167,139,250,.08),transparent)">
+    <img src="assets/icon128.png" alt="" style="width:34px;height:34px;border-radius:9px;flex:none;box-shadow:0 0 0 1px rgba(167,139,250,.4),0 0 16px rgba(167,139,250,.3)">
+    <span style="display:flex;flex-direction:column;line-height:1.2;flex:1;min-width:0">
+      <b style="font-size:15px;font-weight:800;background:linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4);-webkit-background-clip:text;background-clip:text;color:transparent">북마크 아틀라스</b>
+      <span style="font-size:10px;color:#a78bfa;font-weight:700;letter-spacing:.04em">POE2 TRADE MANAGER · v0.1.0</span>
+    </span>
+  </div>
+  <!-- intro -->
+  <div style="padding:13px 16px 4px">
+    <p style="margin:0;font-size:12.5px;line-height:1.65;color:#cfc9e6">거래소 검색을 <b style="color:#fff">자동으로 기록</b>하고, 복잡한 조건은 <b style="color:#c4b5fd">북마크</b>로 영구 보관해요. 다시 짤 필요 없이 한 번에 다시 엽니다.</p>
+  </div>
+  <!-- shortcuts -->
+  <div style="padding:12px 16px 4px">
+    <div style="font-size:10.5px;font-weight:800;letter-spacing:.08em;color:#7c75a3;text-transform:uppercase;margin-bottom:9px">단축키</div>
+    <div style="display:flex;flex-direction:column;gap:7px">
+      <sc-for list="{{ shortcuts }}" as="s" hint-placeholder-count="4">
+        <div style="display:flex;align-items:center;gap:10px">
+          <span style="flex:1;min-width:0;font-size:12.5px;color:#d8d3ee">{{ s.label }}</span>
+          <span style="display:inline-flex;gap:4px;flex:none">
+            <sc-for list="{{ s.keys }}" as="k" hint-placeholder-count="2">
+              <kbd style="font-family:inherit;font-size:11px;font-weight:700;color:#e6e3f5;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);border-bottom-width:2px;border-radius:6px;padding:3px 8px;min-width:22px;text-align:center">{{ k }}</kbd>
+            </sc-for>
+          </span>
+        </div>
+      </sc-for>
+    </div>
+    <button onClick="{{ onOpenShortcuts }}" aria-label="크롬 단축키 설정 열기" style="margin-top:11px;width:100%;display:flex;align-items:center;gap:8px;background:rgba(125,211,252,.08);border:1px solid rgba(125,211,252,.28);border-radius:9px;padding:9px 11px;cursor:pointer;font-family:inherit;text-align:left;transition:background .15s,border-color .15s" style-hover="background:rgba(125,211,252,.16);border-color:rgba(125,211,252,.5)"><span style="width:26px;height:26px;flex:none;display:flex;align-items:center;justify-content:center;color:#7dd3fc;background:rgba(125,211,252,.14);border-radius:7px"><span style="width:14px;height:14px"><dc-import name="Icon" n="pencil" hint-size="14px,14px"></dc-import></span></span><span style="flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.35"><b style="font-size:11.5px;font-weight:700;color:#bae6fd">단축키 직접 변경하기</b><small style="font-size:10px;color:#6d6790">chrome://extensions/shortcuts 열기</small></span><span style="width:14px;height:14px;flex:none;color:#7dd3fc"><dc-import name="Icon" n="external" hint-size="14px,14px"></dc-import></span></button>
+  </div>
+  <!-- CTAs -->
+  <div style="padding:13px 16px 16px;display:flex;flex-direction:column;gap:8px">
+    <button onClick="{{ onToggle }}" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;font-size:13px;font-weight:800;color:#0b0a16;background:linear-gradient(135deg,#b6a6fb,#8b7cf0);border:none;border-radius:10px;padding:11px;cursor:pointer;box-shadow:0 3px 12px rgba(124,108,240,.34);font-family:inherit;transition:filter .15s,transform .1s" style-hover="filter:brightness(1.06)" style-active="transform:translateY(1px)"><span style="width:15px;height:15px"><dc-import name="Icon" n="bookmark" hint-size="15px,15px"></dc-import></span>패널 열기 / 접기</button>
+    <button onClick="{{ onRestartTour }}" aria-label="사용법 가이드 다시 보기" style="width:100%;display:flex;align-items:center;justify-content:center;gap:7px;font-size:12px;font-weight:700;color:#c4b5fd;background:rgba(167,139,250,.1);border:1px solid rgba(167,139,250,.3);border-radius:10px;padding:10px;cursor:pointer;font-family:inherit;transition:background .15s,border-color .15s" style-hover="background:rgba(167,139,250,.2);border-color:rgba(167,139,250,.55)"><span style="width:14px;height:14px"><dc-import name="Icon" n="sparkle" hint-size="14px,14px"></dc-import></span>사용법 가이드 다시 보기</button>
+    <div style="display:flex;gap:8px">
+      <a href="#" onClick="{{ onEcon }}" style="flex:1;display:flex;align-items:stretch;text-decoration:none;color:#04183a;background:linear-gradient(135deg,#6aa8ff,#3b6fe0);border-radius:9px;overflow:hidden;position:relative;cursor:pointer" style-hover="filter:brightness(1.07)"><span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:baGlint 4.4s ease-in-out infinite;animation-delay:-1s;pointer-events:none;z-index:1"></span><span style="width:38px;flex:none;display:flex;align-items:flex-end;justify-content:center;background:rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.22)"><img src="assets/mascot-analyst.webp" alt="" style="width:34px;height:34px;object-fit:contain;object-position:bottom"></span><span style="flex:1;display:flex;align-items:center;justify-content:center;padding:9px 4px"><b style="font-size:11.5px;font-weight:800;white-space:nowrap">아이템 시세</b></span></a>
+      <a href="#" onClick="{{ onTrend }}" style="flex:1;display:flex;align-items:stretch;text-decoration:none;color:#042a32;background:linear-gradient(135deg,#3ed8e6,#11a0c4);border-radius:9px;overflow:hidden;position:relative;cursor:pointer" style-hover="filter:brightness(1.07)"><span style="position:absolute;inset:0;background:linear-gradient(to right,transparent,rgba(255,255,255,.15),transparent);animation:baGlint 6.7s ease-in-out infinite;animation-delay:-3.5s;pointer-events:none;z-index:1"></span><span style="width:38px;flex:none;display:flex;align-items:flex-end;justify-content:center;background:rgba(255,255,255,.16);border-right:1px solid rgba(255,255,255,.22)"><img src="assets/mascot-researcher.webp" alt="" style="width:34px;height:34px;object-fit:contain;object-position:bottom"></span><span style="flex:1;display:flex;align-items:center;justify-content:center;padding:9px 4px"><b style="font-size:11.5px;font-weight:800;white-space:nowrap">시장 동향</b></span></a>
+    </div>
+  </div>
+  <!-- footer social -->
+  <div style="display:flex;align-items:center;gap:8px;padding:11px 14px 12px;border-top:1px solid rgba(255,255,255,.07);background:rgba(0,0,0,.2)">
+    <span style="display:flex;flex-direction:column;line-height:1.3;flex:1;min-width:0">
+      <b style="font-size:11px;font-weight:800;color:#cfc9e6;letter-spacing:.01em">피드백 · 문의</b>
+      <small style="font-size:9.5px;color:#6d6790">버그 제보·건의는 커뮤니티로</small>
+    </span>
+    <a href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" aria-label="네이버 카페" title="네이버 카페에서 문의하기" style="width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;background:rgba(3,207,93,.1);border:1px solid rgba(3,207,93,.28);border-radius:8px;text-decoration:none;transition:background .15s,border-color .15s,transform .1s" style-hover="background:rgba(3,207,93,.22);border-color:rgba(3,207,93,.6);transform:translateY(-1px)"><img src="assets/naver_cafe_logo.webp" alt="" style="width:18px;height:18px;object-fit:contain;display:block"></a>
+    <a href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" aria-label="유튜브" title="유튜브 채널" style="width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;background:rgba(255,0,0,.1);border:1px solid rgba(255,0,0,.26);border-radius:8px;text-decoration:none;transition:background .15s,border-color .15s,transform .1s" style-hover="background:rgba(255,0,0,.2);border-color:rgba(255,0,0,.55);transform:translateY(-1px)"><img src="assets/yt_icon_rgb.png" alt="" style="width:20px;height:14px;object-fit:contain;display:block"></a>
+    <a href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" aria-label="디스코드" title="디스코드 서버 참여" style="width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;background:rgba(88,101,242,.14);border:1px solid rgba(88,101,242,.4);border-radius:8px;text-decoration:none;transition:background .15s,border-color .15s,transform .1s" style-hover="background:rgba(88,101,242,.28);border-color:rgba(88,101,242,.7);transform:translateY(-1px)"><img src="assets/icon_clyde_white_RGB.png" alt="" style="width:17px;height:17px;object-fit:contain;display:block"></a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:360,&quot;height&quot;:520}}">
+class Component extends DCLogic {
+  renderVals() {
+    return {
+      shortcuts: [
+        { label: '패널 열기 / 접기', keys: ['Alt', 'B'] },
+        { label: '현재 검색 저장', keys: ['Alt', 'S'] },
+        { label: '아이템 시세 열기', keys: ['Alt', '1'] },
+        { label: '시장 동향 열기', keys: ['Alt', '2'] },
+      ],
+      onToggle: () => {},
+      onRestartTour: () => {},
+      onOpenShortcuts: () => {},
+      onEcon: (e) => e.preventDefault(),
+      onTrend: (e) => e.preventDefault(),
+      onNoop: (e) => e.preventDefault(),
+    };
+  }
+}
+</script>
+</body>
+</html>

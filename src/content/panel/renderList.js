@@ -4,6 +4,7 @@ import {
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
+import { icon } from '../../lib/icons.js'
 import { suggestName } from '../../lib/suggestName.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
@@ -97,7 +98,7 @@ function rowHtml(r, kind, currentLeague) {
   const statItems = r.stats || []
   // 카드엔 조건 개수만 가볍게, 상세는 hover 툴팁(그룹 타입별 줄바꿈)으로
   const condSummary = statItems.length
-    ? `<span class="ba-cond" data-tip="${escapeHtml(condTipText(r))}">🔎 조건 ${statItems.length}개</span>`
+    ? `<span class="ba-cond" data-tip="${escapeHtml(condTipText(r))}">${icon('search', 12)}조건 ${statItems.length}개</span>`
     : ''
   const when = r.lastUsedAt || r.updatedAt
   const stale = kind === 'bookmark' && Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
@@ -107,18 +108,19 @@ function rowHtml(r, kind, currentLeague) {
   const badges =
     (stale ? '<span class="ba-badge ba-badge--stale" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요. 열어서 결과가 뜨면 자동 갱신됩니다.">갱신 필요</span>' : '') +
     (otherLeague ? `<span class="ba-badge ba-badge--league" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요">이전 리그</span>` : '')
-  const copyBtn = `<span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">🔗</span>`
+  const copyBtn = `<span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 15)}</span>`
   const actions =
     kind === 'history'
-      ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">☆</span>${copyBtn}`
-      : `<span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">🔄</span><span class="ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">✎</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">🗑</span>${copyBtn}`
+      ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">${icon('star', 15)}</span>${copyBtn}`
+      : `<span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 15)}</span><span class="ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 15)}</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 15)}</span>${copyBtn}`
   const grip = kind === 'bookmark'
-    ? `<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해서 순서·폴더 이동">⠿</span>`
+    ? `<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해서 순서·폴더 이동">${icon('grip', 17)}</span>`
     : ''
   // 북마크는 이름 칩(.ba-open)만 재검색 트리거 → 오클릭 방지. 히스토리는 카드 전체 클릭 유지.
+  const titleIc = `<span class="ba-row-ic">${icon(kind === 'bookmark' ? 'bookmark' : 'clock', 13)}</span>`
   const titleHtml = kind === 'bookmark'
-    ? `🔖 <span class="ba-open" data-tip="검색 다시 열기"><b>${title}</b></span>`
-    : `🔖 <b>${title}</b>`
+    ? `${titleIc}<span class="ba-open" data-tip="검색 다시 열기"><b>${title}</b></span>`
+    : `${titleIc}<b>${title}</b>`
   const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${(r.stats || []).join(' ')}`.toLowerCase())
   return `<div class="ba-row${dim ? ' ba-row--dim' : ''}" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
     <div class="ba-line1"><span class="ba-l1l">${grip}${titleHtml}${badges}</span><span class="ba-price">${price}</span></div>
@@ -138,11 +140,11 @@ export async function renderList(listEl, root, ui = {}) {
   const now = Date.now()
   const staleN = bookmarks.filter((b) => now - (b.lastUsedAt || b.createdAt || b.updatedAt || 0) > STALE_MS).length
   const cleanupBtn = staleN > 0
-    ? `<button class="ba-clean-stale" data-tip="14일 이상 미사용 북마크 ${staleN}개를 일괄 삭제">🧹 오래된 항목 ${staleN}</button>`
+    ? `<button class="ba-clean-stale" data-tip="14일 이상 미사용 북마크 ${staleN}개를 일괄 삭제">${icon('broom', 13)}오래된 항목 ${staleN}</button>`
     : ''
-  let html = `<div class="ba-sec-head"><span class="ba-sec-title">🔖 북마크 <span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">+ 폴더</button><span class="ba-import" data-tip="JSON에서 북마크 가져오기">⬆</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">⬇</span></span></div>`
+  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더</button><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span></div>`
   html += `<div class="ba-filter-bar">
-    <input class="ba-search" data-scope="bm" placeholder="🔍 북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" />
+    <span class="ba-search-wrap">${icon('search', 13)}<input class="ba-search" data-scope="bm" placeholder="북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span>
     <span class="ba-sort">
       <button class="ba-sort-seg ${bmSort === 'order' ? 'active' : ''}" data-sort="order" data-tip="수동 순서">순서</button>
       <button class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</button>
@@ -168,8 +170,8 @@ export async function renderList(listEl, root, ui = {}) {
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
       g.id !== null
-        ? `<span class="ba-folder-up" data-id="${g.id}" data-tip="폴더 위로">▲</span><span class="ba-folder-down" data-id="${g.id}" data-tip="폴더 아래로">▼</span><span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">✎</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">⬇</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">🗑</span>`
-        : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">➕</span>`
+        ? `<span class="ba-folder-up" data-id="${g.id}" data-tip="폴더 위로">${icon('chevronRight', 11)}</span><span class="ba-folder-down" data-id="${g.id}" data-tip="폴더 아래로">${icon('chevronRight', 11)}</span><span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">${icon('plus', 13)}</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
+        : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">${icon('plus', 13)}</span>`
     // 폴더 색상 점 — 실폴더는 클릭 시 다음 색으로 순환(미분류는 중립색)
     const folderColor = g.color || '#8b85a8'
     const dot = g.id !== null
@@ -182,9 +184,9 @@ export async function renderList(listEl, root, ui = {}) {
   }
 
   // ── 히스토리 섹션 (점진 렌더) ──
-  html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">🕘 히스토리 <span class="ba-sec-count">${history.length}</span></span></div>`
+  html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 15)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span></div>`
   if (history.length) {
-    html += `<div class="ba-filter-bar"><input class="ba-search" data-scope="hs" placeholder="🔍 히스토리 검색 (이름·조건)" value="${escapeHtml(hsSearch)}" /></div>`
+    html += `<div class="ba-filter-bar"><span class="ba-search-wrap">${icon('search', 13)}<input class="ba-search" data-scope="hs" placeholder="히스토리 검색 (이름·조건)" value="${escapeHtml(hsSearch)}" /></span></div>`
     html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history')).join('')
     if (history.length > historyLimit) {
       html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>`
