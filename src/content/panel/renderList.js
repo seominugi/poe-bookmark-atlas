@@ -101,14 +101,12 @@ function rowHtml(r, kind, currentLeague) {
     : ''
   const when = r.lastUsedAt || r.updatedAt
   const stale = kind === 'bookmark' && Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
-  const warn = stale
-    ? `<span class="ba-stale" data-tip="오래된 북마크 — 거래소 저장 링크가 만료됐을 수 있어요. 클릭해 결과가 뜨면 자동 갱신됩니다.">⚠</span> `
-    : ''
-  // 저장 당시 리그와 현재 리그가 다르면 흐림 + "이전 리그" 배지 (다른 리그라 안 열릴 수 있음)
+  // soft-stale(삭제 대신 흐림+배지) + 리그 불일치 — 동일 UI로 통합. 열어서 결과가 뜨면 자동 갱신(markUsedByUrl).
   const otherLeague = kind === 'bookmark' && currentLeague && r.league && r.league !== currentLeague
-  const leagueBadge = otherLeague
-    ? `<span class="ba-badge ba-badge--league" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요">이전 리그</span>`
-    : ''
+  const dim = stale || otherLeague
+  const badges =
+    (stale ? '<span class="ba-badge ba-badge--stale" data-tip="14일 이상 미사용 — 저장 링크가 만료됐을 수 있어요. 열어서 결과가 뜨면 자동 갱신됩니다.">갱신 필요</span>' : '') +
+    (otherLeague ? `<span class="ba-badge ba-badge--league" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)} — 다른 리그라 열리지 않을 수 있어요">이전 리그</span>` : '')
   const copyBtn = `<span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">🔗</span>`
   const actions =
     kind === 'history'
@@ -122,8 +120,8 @@ function rowHtml(r, kind, currentLeague) {
     ? `🔖 <span class="ba-open" data-tip="검색 다시 열기"><b>${title}</b></span>`
     : `🔖 <b>${title}</b>`
   const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${(r.stats || []).join(' ')}`.toLowerCase())
-  return `<div class="ba-row${otherLeague ? ' ba-row--dim' : ''}" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-    <div class="ba-line1"><span class="ba-l1l">${grip}${warn}${titleHtml}${leagueBadge}</span><span class="ba-price">${price}</span></div>
+  return `<div class="ba-row${dim ? ' ba-row--dim' : ''}" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
+    <div class="ba-line1"><span class="ba-l1l">${grip}${titleHtml}${badges}</span><span class="ba-price">${price}</span></div>
     <div class="ba-meta">${actions}<span class="ba-time">${fmtTime(when)}</span>${condSummary}</div>
   </div>`
 }
