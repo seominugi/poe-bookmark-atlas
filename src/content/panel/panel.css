@@ -486,6 +486,16 @@
 .ba-tour-next:hover { filter: brightness(1.06); }
 .ba-tour-hl { outline: 2px solid var(--ba-violet); outline-offset: 2px; border-radius: 8px; }
 
+/* 접이식 폴더 + 색 띠 */
+.ba-folder-head { border-left: 3px solid var(--ba-border); cursor: pointer; }
+.ba-folder-chevron { display: flex; flex: none; color: var(--ba-violet); }
+.ba-folder-chevron .ba-ic { transition: transform 0.18s; transform: rotate(90deg); } /* 펼침 = 아래 */
+.ba-folder--collapsed .ba-folder-chevron .ba-ic { transform: rotate(0deg); }       /* 접힘 = 오른쪽 */
+.ba-folder-ic { display: flex; flex: none; }
+.ba-folder-ic[data-id] { cursor: pointer; }
+.ba-folder-actions { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+.ba-folder--collapsed .ba-folder-body { display: none; }
+
 /* ---- 빈 상태 (선택: renderList 빈 상태 마크업 시) ---- */
 .ba-empty-bm { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 16px 10px; text-align: center; }
 .ba-empty-bm img { width: 60px; height: 60px; object-fit: contain; opacity: .92; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }

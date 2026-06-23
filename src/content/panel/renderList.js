@@ -24,6 +24,7 @@ let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보�
 let bmSearch = '' // 북마크 빠른 검색어 (모듈 레벨 — 재렌더 후에도 유지)
 let hsSearch = '' // 히스토리 빠른 검색어
 let bmSort = 'order' // 북마크 정렬: order(수동 순) | recent(최근) | name(이름)
+const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
 
 /** 같은 조건의 기존 북마크 행을 스크롤·강조 — 중복 저장 차단 시 위치를 안내 */
 export function highlightBookmark(container, id) {
@@ -172,14 +173,17 @@ export async function renderList(listEl, root, ui = {}) {
       g.id !== null
         ? `<span class="ba-folder-up" data-id="${g.id}" data-tip="폴더 위로">${icon('chevronRight', 11)}</span><span class="ba-folder-down" data-id="${g.id}" data-tip="폴더 아래로">${icon('chevronRight', 11)}</span><span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">${icon('plus', 13)}</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
         : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">${icon('plus', 13)}</span>`
-    // 폴더 색상 점 — 실폴더는 클릭 시 다음 색으로 순환(미분류는 중립색)
+    // 폴더 색 — 좌측 띠 + 컬러 폴더 아이콘(실폴더는 클릭 시 색 순환). 헤더 클릭 = 접기/펼치기.
     const folderColor = g.color || '#8b85a8'
-    const dot = g.id !== null
-      ? `<span class="ba-folder-dot" data-id="${g.id}" data-color="${folderColor}" data-tip="색상 변경" style="background:${folderColor}"></span>`
-      : `<span class="ba-folder-dot ba-folder-dot--none"></span>`
-    html += `<div class="ba-folder" data-folder="${g.id ?? ''}">
-      <div class="ba-folder-head"><span class="ba-folder-name">${dot} ${escapeHtml(g.name)} <span class="ba-folder-count">${items.length}</span></span><span>${fActions}</span></div>
-      <div class="ba-folder-body" data-folder="${g.id ?? ''}">${items.map((r) => rowHtml(r, 'bookmark', ui.league)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
+    const fkey = g.id ?? ''
+    const collapsed = collapsedFolders.has(fkey)
+    const chevron = `<span class="ba-folder-chevron">${icon('chevronRight', 13)}</span>`
+    const folderIc = g.id !== null
+      ? `<span class="ba-folder-ic" data-id="${g.id}" data-color="${folderColor}" data-tip="색상 변경" style="color:${folderColor}">${icon('folder', 15)}</span>`
+      : `<span class="ba-folder-ic" style="color:${folderColor}">${icon('folder', 15)}</span>`
+    html += `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}" data-folder="${fkey}">
+      <div class="ba-folder-head" data-id="${fkey}" style="border-left-color:${folderColor}">${chevron}${folderIc}<span class="ba-folder-name">${escapeHtml(g.name)}</span><span class="ba-folder-count">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
+      <div class="ba-folder-body" data-folder="${fkey}">${items.map((r) => rowHtml(r, 'bookmark', ui.league)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
   }
 
@@ -373,11 +377,20 @@ function bindAll(listEl, ui) {
     e.stopPropagation(); await moveFolder(s.dataset.id, 1); changed()
   }))
 
-  // 폴더 색상 점 클릭 → 다음 팔레트 색으로 순환
-  listEl.querySelectorAll('.ba-folder-dot[data-id]').forEach((d) => d.addEventListener('click', async (e) => {
+  // 폴더 색 아이콘 클릭 → 다음 팔레트 색으로 순환
+  listEl.querySelectorAll('.ba-folder-ic[data-id]').forEach((d) => d.addEventListener('click', async (e) => {
     e.stopPropagation()
     const i = FOLDER_PALETTE.indexOf(d.dataset.color)
     await setFolderColor(d.dataset.id, FOLDER_PALETTE[(i + 1) % FOLDER_PALETTE.length]); changed()
+  }))
+
+  // 폴더 헤더 클릭 → 접기/펼치기 (액션·색·이름편집 클릭은 제외)
+  listEl.querySelectorAll('.ba-folder-head').forEach((head) => head.addEventListener('click', (e) => {
+    if (e.target.closest('.ba-folder-actions, .ba-folder-ic, .ba-folder-edit')) return
+    const folder = head.closest('.ba-folder')
+    const key = head.dataset.id || ''
+    if (folder.classList.toggle('ba-folder--collapsed')) collapsedFolders.add(key)
+    else collapsedFolders.delete(key)
   }))
 
   // ➕ 현재(최근) 검색을 이 폴더/미분류에 바로 저장
