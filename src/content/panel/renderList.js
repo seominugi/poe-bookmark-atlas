@@ -1,6 +1,7 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename, findBookmark,
+  exportBookmarksJSON, importBookmarksJSON, moveFolder,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import divineIcon from '../../icons/divine.png'
@@ -103,7 +104,7 @@ export async function renderList(listEl, root, ui = {}) {
   const cleanupBtn = staleN > 0
     ? `<button class="ba-clean-stale" data-tip="14일 이상 미사용 북마크 ${staleN}개를 일괄 삭제">🧹 오래된 항목 ${staleN}</button>`
     : ''
-  let html = `<div class="ba-sec-head"><span class="ba-sec-title">🔖 북마크 <span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">+ 폴더</button></span></div>`
+  let html = `<div class="ba-sec-head"><span class="ba-sec-title">🔖 북마크 <span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">+ 폴더</button><span class="ba-import" data-tip="JSON에서 북마크 가져오기">⬆</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">⬇</span></span></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const byFolder = (fid) => bookmarks.filter((b) => (b.folderId ?? null) === fid)
   // 빈 상태 — 북마크도 사용자 폴더도 없을 때 (마스코트 안내)
@@ -118,7 +119,7 @@ export async function renderList(listEl, root, ui = {}) {
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
       g.id !== null
-        ? `<span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">✎</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">🗑</span>`
+        ? `<span class="ba-folder-up" data-id="${g.id}" data-tip="폴더 위로">▲</span><span class="ba-folder-down" data-id="${g.id}" data-tip="폴더 아래로">▼</span><span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">➕</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">✎</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">⬇</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">🗑</span>`
         : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">➕</span>`
     html += `<div class="ba-folder" data-folder="${g.id ?? ''}">
       <div class="ba-folder-head"><span class="ba-folder-name">📁 ${escapeHtml(g.name)} <span class="ba-folder-count">${items.length}</span></span><span>${fActions}</span></div>
@@ -209,6 +210,46 @@ function bindAll(listEl, ui) {
     await addFolder(name || '새 폴더', ui.game); changed()
   })
 
+  // ⬆⬇ JSON 가져오기 / 내보내기 (전체 + 폴더 단위, stale 14일↑ 제외)
+  const downloadJSON = (obj, name) => {
+    const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' })
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+    a.download = name; document.body.appendChild(a); a.click(); document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000)
+  }
+  const today = () => new Date().toISOString().slice(0, 10)
+  const exportBtn = listEl.querySelector('.ba-export')
+  if (exportBtn) exportBtn.addEventListener('click', async () => {
+    const { json, count, staleExcluded } = await exportBookmarksJSON(ui.game)
+    if (!count) { toast(staleExcluded ? '내보낼 북마크가 없습니다 (모두 오래됨).' : '내보낼 북마크가 없습니다.'); return }
+    downloadJSON(json, `bookmark-atlas-${today()}.json`)
+    toast(`북마크 ${count}개를 내보냈습니다${staleExcluded ? ` (오래된 ${staleExcluded}개 제외)` : ''}.`)
+  })
+  listEl.querySelectorAll('.ba-folder-export').forEach((b) => b.addEventListener('click', async (e) => {
+    e.stopPropagation()
+    const { json, count, staleExcluded } = await exportBookmarksJSON(ui.game, b.dataset.id)
+    if (!count) { toast('내보낼 북마크가 없습니다.'); return }
+    downloadJSON(json, `bookmark-atlas-${b.dataset.name}-${today()}.json`)
+    toast(`"${b.dataset.name}" 북마크 ${count}개를 내보냈습니다${staleExcluded ? ` (오래된 ${staleExcluded}개 제외)` : ''}.`)
+  }))
+  const importBtn = listEl.querySelector('.ba-import')
+  if (importBtn) importBtn.addEventListener('click', () => {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json'
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0]; if (!f) return
+      const rd = new FileReader()
+      rd.onload = async () => {
+        try {
+          const { added, skipped } = await importBookmarksJSON(ui.game, JSON.parse(rd.result))
+          changed()
+          toast(added ? `${added}개 북마크를 가져왔습니다${skipped ? ` (중복 ${skipped}개 제외)` : ''}.` : '추가할 새 북마크가 없습니다.')
+        } catch (_) { toast('JSON 형식이 올바르지 않습니다.') }
+      }
+      rd.readAsText(f)
+    }
+    inp.click()
+  })
+
   // 🧹 오래된 북마크 일괄 정리 (2-클릭 확인 — 네이티브 다이얼로그 없이 토스트로)
   const cleanBtn = listEl.querySelector('.ba-clean-stale')
   if (cleanBtn) cleanBtn.addEventListener('click', async () => {
@@ -246,6 +287,14 @@ function bindAll(listEl, ui) {
   }))
   listEl.querySelectorAll('.ba-folder-del').forEach((s) => s.addEventListener('click', async () => {
     await deleteFolder(s.dataset.id); changed()
+  }))
+
+  // ▲▼ 폴더 순서 이동
+  listEl.querySelectorAll('.ba-folder-up').forEach((s) => s.addEventListener('click', async (e) => {
+    e.stopPropagation(); await moveFolder(s.dataset.id, -1); changed()
+  }))
+  listEl.querySelectorAll('.ba-folder-down').forEach((s) => s.addEventListener('click', async (e) => {
+    e.stopPropagation(); await moveFolder(s.dataset.id, 1); changed()
   }))
 
   // ➕ 현재(최근) 검색을 이 폴더/미분류에 바로 저장

@@ -4,6 +4,7 @@ import {
   addHistory, listByKind, promoteToBookmark, rename, remove, HISTORY_CAP,
   addBookmark, overwriteBookmark, moveBookmark,
   listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks, findBookmark,
+  exportBookmarksJSON, importBookmarksJSON, moveFolder,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -97,6 +98,23 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     expect(await listFolders()).toHaveLength(0)
   })
 
+  it('moveFolder: 같은 game 스코프에서 위/아래 순서 스왑', async () => {
+    const a = await addFolder('A', 'poe2')
+    const b = await addFolder('B', 'poe2')
+    const c = await addFolder('C', 'poe2')
+    await addFolder('X', 'poe1') // 다른 게임 — 영향 없어야
+    expect((await listFolders('poe2')).map((f) => f.name)).toEqual(['A', 'B', 'C'])
+    await moveFolder(b.id, -1) // B 위로
+    expect((await listFolders('poe2')).map((f) => f.name)).toEqual(['B', 'A', 'C'])
+    await moveFolder(b.id, 1) // B 아래로 (원위치)
+    expect((await listFolders('poe2')).map((f) => f.name)).toEqual(['A', 'B', 'C'])
+    await moveFolder(a.id, -1) // 맨 위에서 위로 → 변화 없음
+    expect((await listFolders('poe2')).map((f) => f.name)).toEqual(['A', 'B', 'C'])
+    await moveFolder(c.id, 1) // 맨 아래에서 아래로 → 변화 없음
+    expect((await listFolders('poe2')).map((f) => f.name)).toEqual(['A', 'B', 'C'])
+    expect((await listFolders('poe1')).map((f) => f.name)).toEqual(['X'])
+  })
+
   it('폴더 삭제 시 소속 북마크는 미분류(null)로', async () => {
     const f = await addFolder('갑옷')
     const a = await addBookmark(rec(), 'A')
@@ -150,5 +168,53 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     expect(n).toBe(1)
     expect((await listByKind('bookmark', 'poe2')).map((x) => x.title)).toEqual(['fresh'])
     expect((await listByKind('bookmark', 'poe1')).map((x) => x.title)).toEqual(['p1'])
+  })
+})
+
+describe('store v1.2 (JSON 내보내기/가져오기)', () => {
+  it('exportBookmarksJSON: 전체 내보내기 + stale(14일↑) 제외', async () => {
+    const now = 2_000_000_000_000
+    const day = 24 * 60 * 60 * 1000
+    const fresh = await addBookmark(rec({ title: 'fresh' }), 'fresh')
+    const old = await addBookmark(rec({ title: 'old', dedupeKey: 'k2' }), 'old')
+    const { records } = await chrome.storage.local.get('records')
+    records.find((r) => r.id === fresh.id).lastUsedAt = now - day
+    records.find((r) => r.id === old.id).lastUsedAt = now - 20 * day
+    await chrome.storage.local.set({ records })
+    const { json, count, staleExcluded } = await exportBookmarksJSON('poe2', undefined, now)
+    expect(count).toBe(1)
+    expect(staleExcluded).toBe(1)
+    expect(json.bookmarks.map((b) => b.title)).toEqual(['fresh'])
+    expect(json.app).toBe('poe-bookmark-atlas')
+  })
+
+  it('exportBookmarksJSON: 폴더 스코프', async () => {
+    const f = await addFolder('갑옷', 'poe2')
+    const a = await addBookmark(rec({ title: 'A' }), 'A')
+    await moveBookmark(a.id, { folderId: f.id })
+    await addBookmark(rec({ title: 'B', dedupeKey: 'k2' }), 'B') // 미분류
+    const { count, json } = await exportBookmarksJSON('poe2', f.id)
+    expect(count).toBe(1)
+    expect(json.bookmarks[0].title).toBe('A')
+    expect(json.folders.map((x) => x.name)).toEqual(['갑옷'])
+  })
+
+  it('importBookmarksJSON: 중복(dedupeKey) 제외 + 없는 폴더 생성·id 매핑', async () => {
+    await addBookmark(rec({ dedupeKey: 'dup' }), '이미있음')
+    const data = {
+      folders: [{ id: 'oldF', name: '신규폴더', game: 'poe2' }],
+      bookmarks: [
+        { dedupeKey: 'dup', name: '중복', title: 't', folderId: 'oldF' }, // 건너뜀
+        { dedupeKey: 'new1', name: '새북마크', title: 't', folderId: 'oldF' }, // 추가 + 폴더 매핑
+      ],
+    }
+    const { added, skipped, foldersAdded } = await importBookmarksJSON('poe2', data)
+    expect(added).toBe(1)
+    expect(skipped).toBe(1)
+    expect(foldersAdded).toBe(1)
+    const nf = (await listFolders('poe2')).find((f) => f.name === '신규폴더')
+    expect(nf).toBeTruthy()
+    const imported = (await listByKind('bookmark', 'poe2')).find((b) => b.dedupeKey === 'new1')
+    expect(imported.folderId).toBe(nf.id) // 새 폴더 id로 remap
   })
 })

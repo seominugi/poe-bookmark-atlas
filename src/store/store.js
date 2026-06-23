@@ -159,6 +159,21 @@ export async function renameFolder(id, name) {
   if (f) { f.name = name; await writeFolders(folders) }
 }
 
+/** 폴더 순서 이동 — folders 배열에서 같은 game 스코프의 인접 폴더와 스왑. dir<0 위로, dir>0 아래로. */
+export async function moveFolder(id, dir) {
+  const folders = await readFolders()
+  const idx = folders.findIndex((f) => f.id === id)
+  if (idx < 0) return
+  const scope = folders[idx].game ?? null
+  const sameScope = (f) => (f.game ?? null) === scope
+  let swapIdx = -1
+  if (dir < 0) { for (let i = idx - 1; i >= 0; i--) if (sameScope(folders[i])) { swapIdx = i; break } }
+  else { for (let i = idx + 1; i < folders.length; i++) if (sameScope(folders[i])) { swapIdx = i; break } }
+  if (swapIdx < 0) return
+  const tmp = folders[idx]; folders[idx] = folders[swapIdx]; folders[swapIdx] = tmp
+  await writeFolders(folders)
+}
+
 /** 폴더 삭제 — 해당 폴더의 북마크는 미분류(folderId=null)로 */
 export async function deleteFolder(id) {
   await writeFolders((await readFolders()).filter((f) => f.id !== id))
@@ -166,4 +181,64 @@ export async function deleteFolder(id) {
   let changed = false
   for (const r of all) if (r.kind === 'bookmark' && r.folderId === id) { r.folderId = null; changed = true }
   if (changed) await writeAll(all)
+}
+
+// ── JSON 내보내기 / 가져오기 ──
+const EXPORT_STALE_MS = 14 * 24 * 60 * 60 * 1000 // 오래된(14일↑ 미사용) 북마크는 내보내기에서 제외
+
+/**
+ * 북마크를 JSON으로 내보낼 데이터 생성. folderId === undefined → 전체, null → 미분류, 'fid' → 특정 폴더.
+ * stale(14일↑ 미사용) 북마크는 항상 제외하고 제외 개수를 함께 반환.
+ * @returns {Promise<{json: object, count: number, staleExcluded: number}>}
+ */
+export async function exportBookmarksJSON(game, folderId, now = Date.now()) {
+  const all = await listByKind('bookmark', game)
+  let scoped = folderId === undefined ? all : all.filter((b) => (b.folderId ?? null) === folderId)
+  const total = scoped.length
+  scoped = scoped.filter((b) => now - (b.lastUsedAt || b.createdAt || b.updatedAt || 0) <= EXPORT_STALE_MS)
+  const folders =
+    folderId === undefined
+      ? await listFolders(game)
+      : (await listFolders(game)).filter((f) => f.id === folderId)
+  const staleExcluded = total - scoped.length
+  return {
+    json: {
+      app: 'poe-bookmark-atlas', version: 1, exportedAt: new Date(now).toISOString(),
+      game: game ?? null, scope: folderId === undefined ? 'all' : (folderId || 'uncategorized'),
+      staleExcluded, folders, bookmarks: scoped,
+    },
+    count: scoped.length,
+    staleExcluded,
+  }
+}
+
+/**
+ * JSON에서 북마크를 가져오기. 같은 dedupeKey 중복은 건너뛰고, 없는 폴더만 이름 기준으로 생성(id 매핑),
+ * 북마크는 새 id·order를 발급한다.
+ * @returns {Promise<{added: number, skipped: number, foldersAdded: number}>}
+ */
+export async function importBookmarksJSON(game, data) {
+  const inB = Array.isArray(data && data.bookmarks) ? data.bookmarks : []
+  const inF = Array.isArray(data && data.folders) ? data.folders : []
+  const existing = await listFolders(game)
+  const idMap = {} // 가져온 폴더 id → 현재 폴더 id
+  let foldersAdded = 0
+  for (const f of inF) {
+    if (!f || !f.name) continue
+    const match = existing.find((x) => x.name === f.name)
+    if (match) { idMap[f.id] = match.id }
+    else { const created = await addFolder(f.name, game); idMap[f.id] = created.id; existing.push(created); foldersAdded++ }
+  }
+  let added = 0
+  let skipped = 0
+  for (const b of inB) {
+    if (!b) continue
+    if (b.dedupeKey && (await findBookmark(b.dedupeKey, game))) { skipped++; continue }
+    const folderId = b.folderId != null ? (idMap[b.folderId] ?? null) : null
+    // 기존 메타(id·kind·order·시간)는 버리고 addBookmark가 새로 발급하도록 한다
+    const { id, kind, order, createdAt, updatedAt, lastUsedAt, ...rest } = b
+    await addBookmark({ ...rest, game, folderId }, b.name || b.title)
+    added++
+  }
+  return { added, skipped, foldersAdded }
 }
