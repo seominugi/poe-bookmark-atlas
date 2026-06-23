@@ -35,7 +35,7 @@ export function mountPanel({ game, league }) {
         <div class="ba-brand">
           <img class="ba-brand-logo" src="${logoUrl}" alt="" />
           <span class="ba-brand-tx"><b>북마크 아틀라스</b><small>${game === 'poe2' ? 'POE2' : 'POE1'} TRADE MANAGER</small></span>
-          <a class="ba-foot-chip-wrap ba-brand-credit" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 카페에서 피드백·문의 환영"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
+          <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
         </div>
         <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>
       </div>
@@ -60,7 +60,7 @@ export function mountPanel({ game, league }) {
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-foot">
         <div class="ba-foot-tx">
-          <small>💜 피드백·문의는 언제든 — 버그·건의 환영해요</small>
+          <small>💜 피드백·문의는 언제든 오른쪽 유튜브·네이버 카페·디스코드로!</small>
         </div>
         <a class="ba-foot-soc ba-foot-soc--cafe" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페에서 문의하기"><img src="${cafeUrl}" alt="네이버 카페"></a>
         <a class="ba-foot-soc ba-foot-soc--yt" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널 바로가기"><img src="${ytUrl}" alt="유튜브"></a>
