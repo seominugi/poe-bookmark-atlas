@@ -527,3 +527,47 @@
 .ba-brand-tx small { font-size: 10px; color: #a78bfa; font-weight: 700; letter-spacing: .04em; }
 .ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
 .ba-econ-row { margin: 9px 16px 7px; }
+
+/* 핸들 — 세로 글린트 + 라벨/배지 본문 (.dc.html 구조) */
+.ba-handle-glint { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, rgba(125,211,252,.22), transparent); animation: baGlintV 5.5s ease-in-out infinite; animation-delay: -1.6s; pointer-events: none; z-index: 0; }
+.ba-handle-body { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; gap: 7px; }
+.ba-handle-label { writing-mode: vertical-rl; letter-spacing: 2px; font-weight: 700; font-size: 11px; }
+@keyframes baGlintV { 0% { transform: translateY(-120%); } 55%, 100% { transform: translateY(120%); } }
+
+/* 피드백 푸터 — 서미누기 제작 칩(글린트·글로우) + 소셜 (.dc.html) */
+.ba-foot { flex: none; display: flex; align-items: center; gap: 9px; padding: 12px 14px 14px; border-top: 1px solid rgba(167,139,250,.16); background: rgba(0,0,0,.18); }
+.ba-foot-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; line-height: 1.3; flex: 1; min-width: 0; }
+.ba-foot-chip-wrap { position: relative; display: inline-flex; }
+.ba-foot-glow { position: absolute; inset: 0; border-radius: 999px; box-shadow: 0 0 12px 1px rgba(167,139,250,.45); opacity: .25; animation: baChipGlow 3.6s ease-in-out infinite; pointer-events: none; }
+.ba-foot-chip { position: relative; overflow: hidden; display: inline-flex; align-items: center; padding: 5px 13px; border-radius: 999px; background: linear-gradient(180deg, rgba(167,139,250,.2), rgba(125,211,252,.09)); border: 1px solid rgba(167,139,250,.45); box-shadow: inset 0 1px 0 rgba(255,255,255,.1); }
+.ba-foot-glint { position: absolute; inset: 0; background: linear-gradient(to right, transparent, rgba(255,255,255,.15), transparent); animation: ba-glint 5s ease-in-out infinite; animation-delay: -1.5s; pointer-events: none; z-index: 1; }
+.ba-foot-chip b { position: relative; z-index: 0; font-size: 14px; font-weight: 800; background: linear-gradient(90deg, #c4b5fd, #7dd3fc); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.01em; white-space: nowrap; }
+.ba-foot-tx small { font-size: 11.5px; color: #9b94bd; font-weight: 600; letter-spacing: -.01em; }
+.ba-foot-soc { width: 33px; height: 33px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; text-decoration: none; flex: none; transition: background .15s, border-color .15s, transform .1s; }
+.ba-foot-soc img { object-fit: contain; display: block; }
+.ba-foot-soc--cafe { background: rgba(3,207,93,.1); border: 1px solid rgba(3,207,93,.28); }
+.ba-foot-soc--cafe:hover { background: rgba(3,207,93,.22); border-color: rgba(3,207,93,.6); transform: translateY(-1px); }
+.ba-foot-soc--cafe img { width: 20px; height: 20px; }
+.ba-foot-soc--yt { background: rgba(255,0,0,.1); border: 1px solid rgba(255,0,0,.26); }
+.ba-foot-soc--yt:hover { background: rgba(255,0,0,.2); border-color: rgba(255,0,0,.55); transform: translateY(-1px); }
+.ba-foot-soc--yt img { width: 23px; height: 16px; }
+.ba-foot-soc--dc { background: rgba(88,101,242,.14); border: 1px solid rgba(88,101,242,.4); }
+.ba-foot-soc--dc:hover { background: rgba(88,101,242,.28); border-color: rgba(88,101,242,.7); transform: translateY(-1px); }
+.ba-foot-soc--dc img { width: 19px; height: 19px; }
+@keyframes baChipGlow { 0%, 100% { opacity: .18; } 50% { opacity: .5; } }
+
+/* 정보 밀도 — data-density(패널 루트) 기반 조밀 모드 */
+.ba-root[data-density="compact"] .ba-row { padding: 8px 11px; margin-bottom: 7px; }
+.ba-root[data-density="compact"] .ba-open b, .ba-root[data-density="compact"] .ba-line1 b { font-size: 13px; }
+.ba-root[data-density="compact"] .ba-rowfoot { margin-top: 7px; padding-top: 7px; }
+.ba-root[data-density="compact"] .ba-chips { margin-top: 6px; }
+
+/* 가이드 투어 코치마크 */
+.ba-tour-card { position: fixed; right: 420px; width: 300px; z-index: 2147483550; background: rgba(16,14,30,.98); border: 1px solid var(--ba-violet-line); border-radius: 12px; padding: 14px 16px; box-shadow: 0 18px 48px rgba(0,0,0,.6); animation: ba-toast-in .2s var(--ba-ease); }
+.ba-tour-step { font-size: 10.5px; font-weight: 800; color: var(--ba-violet-2); letter-spacing: .04em; }
+.ba-tour-title { font-size: 14px; font-weight: 800; color: var(--ba-text-strong); margin: 4px 0 6px; }
+.ba-tour-card p { font-size: 12px; line-height: 1.6; color: var(--ba-text); margin: 0; }
+.ba-tour-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
+.ba-tour-skip { font-size: 11.5px; font-weight: 700; color: var(--ba-text-muted); background: rgba(255,255,255,.06); border: 1px solid var(--ba-border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+.ba-tour-next { font-size: 11.5px; font-weight: 800; color: #0b0a16; background: linear-gradient(135deg, #b6a6fb, #8b7cf0); border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-family: inherit; }
+.ba-tour-hl { outline: 2px solid var(--ba-violet); outline-offset: 2px; border-radius: 8px; }
