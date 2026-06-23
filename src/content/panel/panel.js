@@ -207,8 +207,8 @@ export function mountPanel({ game, league }) {
   const ui = { showNameInput, showSaveInput, toast, game, league }
   const refresh = () => renderList($('ba-list'), root, ui)
 
-  // 최근(현재) 검색을 북마크로 저장
-  $('ba-save').onclick = async () => {
+  // 최근(현재) 검색을 북마크로 저장 (버튼 + 단축키/팝업 공용)
+  const doSave = async () => {
     const latest = (await listByKind('history', game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
     const dup = await findBookmark(latest.dedupeKey, game)
@@ -227,13 +227,54 @@ export function mountPanel({ game, league }) {
     refresh()
     toast('북마크에 저장했습니다.')
   }
+  $('ba-save').onclick = doSave
+
+  // ── 사용법 가이드 코치마크 (4스텝) ──
+  const TOUR = [
+    { sel: '#ba-save', text: '거래소에서 검색하면 자동으로 기록돼요. 마음에 드는 검색은 여기서 북마크로 저장하세요.' },
+    { sel: '.ba-sec-head', text: '북마크는 폴더로 정리하고, 손잡이를 잡아 드래그로 순서·폴더를 옮길 수 있어요.' },
+    { sel: '.ba-list', text: '북마크 이름을 클릭하면 그 검색을 그대로 다시 열어요. 링크 복사·JSON 내보내기도 됩니다.' },
+    { sel: '#ba-handle', text: '이 손잡이로 패널을 접고 펼 수 있어요. 단축키는 Alt+B 입니다.' },
+  ]
+  function startTour() {
+    setCollapsed(false)
+    let i = 0
+    let prev = null
+    const card = document.createElement('div')
+    card.className = 'ba-tour-card'
+    root.appendChild(card)
+    const clearHL = () => { if (prev) prev.classList.remove('ba-tour-hl') }
+    const finish = () => { clearHL(); card.remove(); try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const render = () => {
+      const step = TOUR[i]
+      const target = root.querySelector(step.sel)
+      clearHL()
+      if (target) { target.classList.add('ba-tour-hl'); prev = target; target.scrollIntoView({ block: 'nearest' }) }
+      card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><p>${step.text}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button><button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div>`
+      const rect = target ? target.getBoundingClientRect() : null
+      card.style.top = (rect ? Math.min(window.innerHeight - 170, Math.max(8, rect.bottom + 8)) : 80) + 'px'
+      card.querySelector('.ba-tour-next').onclick = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
+      card.querySelector('.ba-tour-skip').onclick = finish
+    }
+    render()
+  }
 
   document.addEventListener('ba:records-changed', refresh)
   refresh()
+
+  // 첫 실행 가이드(1회, tourDone) + 팝업 "다시 보기"(baTourRestart) 재실행
+  try {
+    chrome.storage.local.get(['tourDone', 'baTourRestart']).then((r) => {
+      if (r && r.baTourRestart) { chrome.storage.local.remove('baTourRestart'); setTimeout(startTour, 600) }
+      else if (!r || !r.tourDone) setTimeout(startTour, 1200)
+    })
+  } catch (_) {}
 
   return {
     toggle: () => setCollapsed(!isCollapsed()),
     show: () => setCollapsed(false),
     hide: () => setCollapsed(true),
+    save: doSave,
+    startTour,
   }
 }

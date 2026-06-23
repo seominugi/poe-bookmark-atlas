@@ -97,4 +97,12 @@ window.addEventListener('message', async (e) => {
 })
 
 initFuzzyPrefix()
-mountPanel({ game, league: leagueFromUrl() })
+const panel = mountPanel({ game, league: leagueFromUrl() })
+
+// 팝업·단축키 명령 수신 (toggle/save/tour)
+chrome.runtime.onMessage.addListener((msg) => {
+  if (!msg || msg.type !== 'ba-command') return
+  if (msg.cmd === 'toggle') panel.toggle()
+  else if (msg.cmd === 'save') { panel.show(); panel.save() }
+  else if (msg.cmd === 'tour') { panel.show(); panel.startTour() }
+})

@@ -470,6 +470,22 @@
 .ba-folder-up .ba-ic { transform: rotate(-90deg); }
 .ba-folder-down .ba-ic { transform: rotate(90deg); }
 
+/* 사용법 가이드 코치마크 */
+.ba-tour-card {
+  position: fixed; right: 14px; width: 300px; max-width: calc(100% - 28px); z-index: 2147483500;
+  background: rgba(8, 7, 16, 0.98); border: 1px solid var(--ba-violet-line); border-left: 3px solid var(--ba-violet);
+  border-radius: 12px; padding: 14px 16px; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
+  animation: ba-toast-in 0.22s var(--ba-ease);
+}
+.ba-tour-card .ba-tour-step { font-size: 10px; font-weight: 800; color: var(--ba-violet-2); letter-spacing: 0.06em; }
+.ba-tour-card p { margin: 6px 0 12px; font-size: 12.5px; line-height: 1.6; color: var(--ba-text); }
+.ba-tour-btns { display: flex; justify-content: flex-end; gap: 8px; }
+.ba-tour-skip { font-size: 11px; font-weight: 700; color: var(--ba-text-muted); background: transparent; border: none; cursor: pointer; padding: 6px 10px; font-family: inherit; }
+.ba-tour-skip:hover { color: var(--ba-text); }
+.ba-tour-next { font-size: 11.5px; font-weight: 800; color: #0b0a16; background: linear-gradient(135deg, #b6a6fb, #8b7cf0); border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-family: inherit; }
+.ba-tour-next:hover { filter: brightness(1.06); }
+.ba-tour-hl { outline: 2px solid var(--ba-violet); outline-offset: 2px; border-radius: 8px; }
+
 /* ---- 빈 상태 (선택: renderList 빈 상태 마크업 시) ---- */
 .ba-empty-bm { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 16px 10px; text-align: center; }
 .ba-empty-bm img { width: 60px; height: 60px; object-fit: contain; opacity: .92; filter: drop-shadow(0 2px 6px rgba(0,0,0,0.4)); }
