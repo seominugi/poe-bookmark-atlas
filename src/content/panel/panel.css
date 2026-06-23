@@ -107,6 +107,19 @@
 .ba-save:hover { filter: brightness(1.06); }
 .ba-save:active { transform: translateY(1px); }
 .ba-head-actions { display: flex; align-items: center; gap: 8px; }
+.ba-density {
+  font-size: 13px; line-height: 1; color: var(--ba-text-muted); cursor: pointer;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid var(--ba-border); border-radius: var(--ba-r-box);
+  padding: 6px 8px; transition: color .15s, border-color .15s;
+}
+.ba-density:hover { color: var(--ba-violet-2); border-color: var(--ba-violet-line); }
+/* 조밀 모드 — 카드 패딩·간격·글자 축소 */
+.ba-root[data-density="compact"] .ba-row { padding: 7px 11px; margin-bottom: 6px; }
+.ba-root[data-density="compact"] .ba-line1 b { font-size: 13px; }
+.ba-root[data-density="compact"] .ba-meta { margin-top: 6px; gap: 6px; }
+.ba-root[data-density="compact"] .ba-time, .ba-root[data-density="compact"] .ba-cond { font-size: 11px; }
+.ba-root[data-density="compact"] .ba-list { padding: 10px 12px 14px; }
+.ba-root[data-density="compact"] .ba-folder-body { padding: 6px 8px; }
 .ba-close {
   background: transparent; border: none; color: var(--ba-text-muted);
   font-size: 14px; line-height: 1; cursor: pointer; padding: 2px 5px; border-radius: 6px;

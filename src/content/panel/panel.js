@@ -23,7 +23,10 @@ export function mountPanel({ game, league }) {
       <div class="ba-handle" id="ba-handle">🔖 북마크</div>
       <div class="ba-head">
         <span class="ba-title">🔖 북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
-        <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">★ 현재 검색 저장</button>
+        <div class="ba-head-actions">
+          <button class="ba-density" id="ba-density" data-tip="정보 밀도 전환 (여유 ↔ 조밀)">▤</button>
+          <button class="ba-save" id="ba-save" data-tip="최근 검색을 북마크로 저장">★ 현재 검색 저장</button>
+        </div>
       </div>
       <div class="ba-econ-row">
         <a class="ba-econ-btn items" href="${ECON_ITEMS[game] || ECON_ITEMS.poe2}" target="_blank" rel="noopener" data-tip="아이템 시세 — 서미누기의 POE 경제 ↗">
@@ -86,6 +89,18 @@ export function mountPanel({ game, league }) {
   const toast = (msg) => {
     const t = $('ba-toast'); t.textContent = msg; t.hidden = false
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, 2200)
+  }
+
+  // 정보 밀도 (여유/조밀) — 노안 배려 기본은 여유. chrome.storage 영속화.
+  let density = 'comfortable'
+  const applyDensity = (d) => { density = d; elRoot.setAttribute('data-density', d) }
+  applyDensity(density)
+  try { chrome.storage.local.get('uiDensity').then((r) => { if (r && r.uiDensity) applyDensity(r.uiDensity) }) } catch (_) {}
+  $('ba-density').onclick = () => {
+    const next = density === 'comfortable' ? 'compact' : 'comfortable'
+    applyDensity(next)
+    try { chrome.storage.local.set({ uiDensity: next }) } catch (_) {}
+    toast(next === 'compact' ? '조밀 모드' : '여유 모드')
   }
 
   // 커스텀 툴팁 — 네이티브 title 대신 패널 안(Shadow DOM)에서 렌더. 우측 도킹이라 요소 왼쪽에 표시.
