@@ -71,15 +71,20 @@ function rowHtml(r, kind) {
   const warn = stale
     ? `<span class="ba-stale" data-tip="오래된 북마크 — 거래소 저장 링크가 만료됐을 수 있어요. 클릭해 결과가 뜨면 자동 갱신됩니다.">⚠</span> `
     : ''
+  const copyBtn = `<span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">🔗</span>`
   const actions =
     kind === 'history'
-      ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">☆</span>`
-      : `<span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">🔄</span><span class="ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">✎</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">🗑</span>`
+      ? `<span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">☆</span>${copyBtn}`
+      : `<span class="ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">🔄</span><span class="ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">✎</span><span class="ba-del" data-id="${r.id}" data-tip="삭제">🗑</span>${copyBtn}`
   const grip = kind === 'bookmark'
     ? `<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해서 순서·폴더 이동">⠿</span>`
     : ''
-  return `<div class="ba-row" data-id="${r.id}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-url="${encodeURIComponent(r.url)}">
-    <div class="ba-line1"><span class="ba-l1l">${grip}${warn}🔖 <b>${title}</b></span><span class="ba-price">${price}</span></div>
+  // 북마크는 이름 칩(.ba-open)만 재검색 트리거 → 오클릭 방지. 히스토리는 카드 전체 클릭 유지.
+  const titleHtml = kind === 'bookmark'
+    ? `🔖 <span class="ba-open" data-tip="검색 다시 열기"><b>${title}</b></span>`
+    : `🔖 <b>${title}</b>`
+  return `<div class="ba-row" data-id="${r.id}" data-kind="${kind}" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-url="${encodeURIComponent(r.url)}">
+    <div class="ba-line1"><span class="ba-l1l">${grip}${warn}${titleHtml}</span><span class="ba-price">${price}</span></div>
     <div class="ba-meta">${actions}<span class="ba-time">${fmtTime(when)}</span>${condSummary}</div>
   </div>`
 }
@@ -134,13 +139,31 @@ export async function renderList(listEl, root, ui = {}) {
 function bindAll(listEl, ui) {
   const toast = ui.toast || (() => {})
 
-  // 행 열기 (그립·액션 클릭은 제외)
+  // 행 열기 — 히스토리는 카드 전체 클릭, 북마크는 이름 칩(.ba-open)만 (오클릭 방지)
   listEl.querySelectorAll('.ba-row').forEach((row) => {
+    if (row.dataset.kind !== 'history') return
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.ba-star,.ba-over,.ba-rename,.ba-del,.ba-grip,.ba-stale')) return
+      if (e.target.closest('.ba-star,.ba-copy,.ba-cond,.ba-stale')) return
       location.href = decodeURIComponent(row.dataset.url)
     })
   })
+
+  // 북마크 이름 칩 클릭 → 재검색
+  listEl.querySelectorAll('.ba-open').forEach((s) =>
+    s.addEventListener('click', (e) => { e.stopPropagation(); location.href = decodeURIComponent(s.closest('.ba-row').dataset.url) }))
+
+  // 🔗 검색 링크 복사 (북마크·히스토리 공통)
+  listEl.querySelectorAll('.ba-copy').forEach((c) =>
+    c.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const url = decodeURIComponent(c.dataset.url)
+      try { await navigator.clipboard.writeText(url); toast('검색 링크를 복사했습니다.') }
+      catch (_) {
+        const t = document.createElement('textarea'); t.value = url; t.style.position = 'fixed'; t.style.opacity = '0'
+        document.body.appendChild(t); t.select(); document.execCommand('copy'); document.body.removeChild(t)
+        toast('검색 링크를 복사했습니다.')
+      }
+    }))
 
   // 🗑 삭제 (북마크 행)
   listEl.querySelectorAll('.ba-del').forEach((d) =>
