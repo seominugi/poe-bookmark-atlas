@@ -149,11 +149,11 @@ export async function renderList(listEl, root, ui = {}) {
   const now = Date.now()
   const staleN = bookmarks.filter((b) => now - (b.lastUsedAt || b.createdAt || b.updatedAt || 0) > STALE_MS).length
   const cleanupBtn = staleN > 0
-    ? `<button class="ba-clean-stale" data-tip="14일 이상 미사용 북마크 ${staleN}개를 일괄 삭제">${icon('broom', 13)}오래된 항목 ${staleN}</button>`
+    ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요. 오래된 검색은 거래소 필터·파라미터가 바뀌면 더 못 불러올 수 있어요.">${icon('broom', 13)}오래된 ${staleN}</button>`
     : ''
   const dens = ui.getDensity ? ui.getDensity() : 'comfortable'
   const densToggle = `<span class="ba-seg"><span class="ba-dens-seg ${dens === 'comfortable' ? 'active' : ''}" data-dens="comfortable" data-tip="여유 보기 — 글씨·간격이 큼 (읽기 편함)">여유</span><span class="ba-dens-seg ${dens === 'compact' ? 'active' : ''}" data-dens="compact" data-tip="조밀 보기 — 한 화면에 더 많이">조밀</span></span>`
-  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${densToggle}${cleanupBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더</button><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span></div>`
+  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${densToggle}</span></div>`
   html += `<div class="ba-search-row">
     <span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span>
     <span class="ba-seg">
@@ -162,6 +162,8 @@ export async function renderList(listEl, root, ui = {}) {
       <span class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</span>
     </span>
   </div>`
+  // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 폴더 추가 (우측 정렬)
+  html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span><button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const byFolder = (fid) => bookmarks.filter((b) => (b.folderId ?? null) === fid)
   const sortItems = (arr) => {

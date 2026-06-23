@@ -530,6 +530,9 @@
 .ba-brand-tx small { font-size: 10px; color: #a78bfa; font-weight: 700; letter-spacing: .04em; }
 .ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
 .ba-econ-row { margin: 9px 16px 7px; }
+/* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */
+.ba-action-row { display: flex; justify-content: flex-end; align-items: center; gap: 7px; margin: 0 2px 10px; }
+.ba-action-row .ba-add-folder, .ba-action-row .ba-clean-stale { gap: 4px; }
 
 /* 핸들 — 세로 글린트 + 라벨/배지 본문 (.dc.html 구조) */
 .ba-handle-glint { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent, rgba(125,211,252,.22), transparent); animation: baGlintV 5.5s ease-in-out infinite; animation-delay: -1.6s; pointer-events: none; z-index: 0; }

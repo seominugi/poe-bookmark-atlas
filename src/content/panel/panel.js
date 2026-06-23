@@ -111,6 +111,24 @@ export function mountPanel({ game, league }) {
   } catch (_) {}
   updateHandleBadge()
 
+  // 핸들 테두리를 패널 그라데이션의 '그 위치 색'으로 동적 일치
+  // (panel.css의 fixed border-box 그라데이션이 콘텐츠 스크립트 컨텍스트에서 불안정 → JS로 계산해 inline 적용)
+  const HGRAD = ['#fbbf24', '#fb7185', '#c084fc', '#818cf8', '#a78bfa'] // 패널 그라데이션 5스톱(앰버→바이올렛)
+  const hpx = (h, i) => parseInt(h.slice(i, i + 2), 16)
+  const lerpHex = (a, b, t) => '#' + [1, 3, 5].map((i) => Math.round(hpx(a, i) + (hpx(b, i) - hpx(a, i)) * t).toString(16).padStart(2, '0')).join('')
+  const gradColorAt = (frac) => {
+    const f = Math.max(0, Math.min(1, frac)) * (HGRAD.length - 1)
+    const i = Math.min(HGRAD.length - 2, Math.floor(f))
+    return lerpHex(HGRAD[i], HGRAD[i + 1], f - i)
+  }
+  const updateHandleGrad = () => {
+    const el = $('ba-handle'); if (!el) return
+    const r = el.getBoundingClientRect()
+    const H = window.innerHeight || 1
+    const c1 = gradColorAt(r.top / H); const c2 = gradColorAt(r.bottom / H)
+    el.style.background = `linear-gradient(rgba(24,21,42,.96),rgba(24,21,42,.96)) padding-box, linear-gradient(180deg, ${c1}, ${c2}) border-box`
+  }
+
   // 핸들: 하단 토글(접기/펼치기) + 상단 그립 드래그(상하 위치 이동)
   $('ba-handle-toggle').onclick = () => setCollapsed(!isCollapsed())
   ;(() => {
@@ -129,11 +147,14 @@ export function mountPanel({ game, league }) {
       const top = Math.max(8, Math.min(window.innerHeight - 124, startTop + (e.clientY - startY)))
       handleEl.style.top = top + 'px'
       handleEl.style.marginTop = '0'
+      updateHandleGrad() // 드래그하며 그라데이션 색 갱신
     })
     const endDrag = (e) => { if (!dragging) return; dragging = false; try { grip.releasePointerCapture(e.pointerId) } catch (_) {} }
     grip.addEventListener('pointerup', endDrag)
     grip.addEventListener('pointercancel', endDrag)
   })()
+  updateHandleGrad() // 초기 1회
+  window.addEventListener('resize', updateHandleGrad)
 
   let toastTimer = null
   const toast = (msg) => {
