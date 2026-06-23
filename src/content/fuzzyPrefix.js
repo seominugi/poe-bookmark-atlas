@@ -44,9 +44,20 @@ export function initFuzzyPrefix() {
     true,
   )
 
-  // 2) 입력 후 "~"가 없으면 보강 — 첫 글자 입력·붙여넣기·전체삭제 모두 복구 (안전망)
+  // 2) 입력 후 "~"가 없으면 보강 — 붙여넣기·전체삭제·영문 첫 입력 복구 (안전망)
+  //    한글 IME 조합(isComposing) 중에는 execCommand 호출 금지 → 재귀 호출 경고 발생.
+  //    조합 입력은 compositionend에서 보강한다.
   document.addEventListener(
     'input',
+    (e) => {
+      if (busy || e.isComposing || !isTarget(e.target)) return
+      if (!e.target.value.startsWith(PREFIX)) prependTilde(e.target)
+    },
+    true,
+  )
+  // 한글 등 IME 조합 종료 후 보강 (조합 중 execCommand 재귀 회피)
+  document.addEventListener(
+    'compositionend',
     (e) => {
       if (busy || !isTarget(e.target)) return
       if (!e.target.value.startsWith(PREFIX)) prependTilde(e.target)
