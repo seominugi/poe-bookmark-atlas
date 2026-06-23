@@ -78,17 +78,18 @@
 
 /* 접힘 핸들 */
 .ba-handle {
-  position: absolute; left: -30px; top: 50%; margin-top: -52px; width: 30px; height: 104px;
-  display: flex; align-items: center; justify-content: center;
-  writing-mode: vertical-rl; letter-spacing: 2px;
-  background: var(--ba-panel-bg);
-  color: var(--ba-violet-2); font-weight: 700; font-size: 11px;
+  position: fixed; right: 402px; top: 50%; margin-top: -58px; width: 30px; height: 116px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: var(--ba-panel-bg); color: #7dd3fc;
   border: 1px solid var(--ba-border); border-right: none;
   border-radius: 12px 0 0 12px;
   box-shadow: -6px 0 18px rgba(0, 0, 0, 0.34);
-  cursor: pointer; transition: color .15s, background .15s;
+  cursor: pointer; z-index: 2147483050;
+  transition: right 0.26s var(--ba-ease), color 0.15s;
 }
-.ba-handle:hover { color: #ddd6fe; }
+.ba-root.collapsed ~ .ba-handle { right: 0; }   /* 접힘 시 핸들을 화면 우측 끝으로 */
+.ba-handle:hover { color: #bae6fd; }
+.ba-handle-ic { display: flex; }
 
 /* ---- 헤더 ---- */
 .ba-head {
@@ -472,12 +473,13 @@
 
 /* 사용법 가이드 코치마크 */
 .ba-tour-card {
-  position: fixed; right: 14px; width: 300px; max-width: calc(100% - 28px); z-index: 2147483500;
+  position: fixed; right: 404px; width: 300px; max-width: calc(100vw - 420px); z-index: 2147483500;
   background: rgba(8, 7, 16, 0.98); border: 1px solid var(--ba-violet-line); border-left: 3px solid var(--ba-violet);
   border-radius: 12px; padding: 14px 16px; box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6);
   animation: ba-toast-in 0.22s var(--ba-ease);
 }
 .ba-tour-card .ba-tour-step { font-size: 10px; font-weight: 800; color: var(--ba-violet-2); letter-spacing: 0.06em; }
+.ba-tour-card .ba-tour-title { font-size: 13.5px; font-weight: 800; color: var(--ba-text-strong); margin: 5px 0 2px; }
 .ba-tour-card p { margin: 6px 0 12px; font-size: 12.5px; line-height: 1.6; color: var(--ba-text); }
 .ba-tour-btns { display: flex; justify-content: flex-end; gap: 8px; }
 .ba-tour-skip { font-size: 11px; font-weight: 700; color: var(--ba-text-muted); background: transparent; border: none; cursor: pointer; padding: 6px 10px; font-family: inherit; }
@@ -495,6 +497,25 @@
 .ba-folder-ic[data-id] { cursor: pointer; }
 .ba-folder-actions { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .ba-folder--collapsed .ba-folder-body { display: none; }
+
+/* 피드백 푸터 (하단 소셜) */
+.ba-foot { flex: none; display: flex; align-items: center; gap: 9px; padding: 12px 14px 14px; border-top: 1px solid var(--ba-violet-soft); background: rgba(0, 0, 0, 0.18); }
+.ba-foot-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; line-height: 1.3; flex: 1; min-width: 0; }
+.ba-foot-chip { display: inline-flex; padding: 5px 13px; border-radius: 999px; background: linear-gradient(180deg, rgba(167, 139, 250, 0.2), rgba(125, 211, 252, 0.09)); border: 1px solid var(--ba-violet-line); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1); }
+.ba-foot-chip b { font-size: 13.5px; font-weight: 800; background: linear-gradient(90deg, #c4b5fd, #7dd3fc); -webkit-background-clip: text; background-clip: text; color: transparent; white-space: nowrap; letter-spacing: -0.01em; }
+.ba-foot-tx small { font-size: 11px; color: var(--ba-text-muted); font-weight: 600; }
+.ba-foot-soc { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 9px; text-decoration: none; flex: none; transition: background 0.15s, border-color 0.15s, transform 0.1s; }
+.ba-foot-soc:hover { transform: translateY(-1px); }
+.ba-foot-soc--cafe { background: rgba(3, 207, 93, 0.1); border: 1px solid rgba(3, 207, 93, 0.28); }
+.ba-foot-soc--cafe:hover { background: rgba(3, 207, 93, 0.22); border-color: rgba(3, 207, 93, 0.6); }
+.ba-foot-soc--yt { background: rgba(255, 0, 0, 0.1); border: 1px solid rgba(255, 0, 0, 0.26); }
+.ba-foot-soc--yt:hover { background: rgba(255, 0, 0, 0.2); border-color: rgba(255, 0, 0, 0.55); }
+.ba-foot-soc--dc { background: rgba(88, 101, 242, 0.14); border: 1px solid rgba(88, 101, 242, 0.4); }
+.ba-foot-soc--dc:hover { background: rgba(88, 101, 242, 0.28); border-color: rgba(88, 101, 242, 0.7); }
+.ba-foot-soc img { object-fit: contain; display: block; }
+.ba-foot-soc--cafe img { width: 19px; height: 19px; }
+.ba-foot-soc--yt img { width: 22px; height: 15px; }
+.ba-foot-soc--dc img { width: 18px; height: 18px; }
 
 /* ---- 빈 상태 (선택: renderList 빈 상태 마크업 시) ---- */
 .ba-empty-bm { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 16px 10px; text-align: center; }

@@ -3,6 +3,14 @@ import { renderList, highlightBookmark, analystUrl, researcherUrl } from './rend
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, findBookmark, listFolders, addFolder } from '../../store/store.js'
 import { suggestName } from '../../lib/suggestName.js'
+import cafeIcon from '../../icons/naver_cafe_logo.webp'
+import ytIcon from '../../icons/yt_icon_rgb.png'
+import discordIcon from '../../icons/icon_clyde_white_RGB.png'
+
+// 소셜 로고 — content script(ISOLATED)라 확장 URL로 해석
+const cafeUrl = chrome.runtime.getURL(cafeIcon)
+const ytUrl = chrome.runtime.getURL(ytIcon)
+const discordUrl = chrome.runtime.getURL(discordIcon)
 
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
@@ -21,7 +29,6 @@ export function mountPanel({ game, league }) {
   const wrap = document.createElement('div')
   wrap.innerHTML = `
     <div class="ba-root" id="ba-root">
-      <div class="ba-handle" id="ba-handle">북마크</div>
       <div class="ba-head">
         <span class="ba-title">북마크 아틀라스 · ${game === 'poe2' ? 'POE2' : 'POE1'}</span>
         <div class="ba-head-actions">
@@ -41,12 +48,6 @@ export function mountPanel({ game, league }) {
           <span class="ba-econ-lbl"><b>시장 동향</b></span>
         </a>
       </div>
-      <div class="ba-social">
-        <a class="ba-soc" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널">${icon('play', 12)}유튜브</a>
-        <a class="ba-soc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 — 피드백·버그 제보">${icon('chat', 12)}디스코드</a>
-        <a class="ba-soc" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페">${icon('coffee', 12)}카페</a>
-        <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="투네이션으로 후원하기 — 감사합니다!">${icon('heart', 12)}후원</a>
-      </div>
       <div class="ba-namebar" id="ba-namebar" hidden>
         <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
         <button class="ba-name-ok" id="ba-name-ok">저장</button>
@@ -54,8 +55,18 @@ export function mountPanel({ game, league }) {
         <div class="ba-folder-pick" id="ba-folder-pick" hidden></div>
       </div>
       <div class="ba-list" id="ba-list"></div>
+      <div class="ba-foot">
+        <div class="ba-foot-tx">
+          <span class="ba-foot-chip"><b>서미누기 제작</b></span>
+          <small>피드백 · 문의 — 버그·건의 환영</small>
+        </div>
+        <a class="ba-foot-soc ba-foot-soc--cafe" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페에서 문의하기"><img src="${cafeUrl}" alt="네이버 카페"></a>
+        <a class="ba-foot-soc ba-foot-soc--yt" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널 바로가기"><img src="${ytUrl}" alt="유튜브"></a>
+        <a class="ba-foot-soc ba-foot-soc--dc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 서버 참여"><img src="${discordUrl}" alt="디스코드"></a>
+      </div>
       <div class="ba-toast" id="ba-toast" hidden></div>
     </div>
+    <div class="ba-handle" id="ba-handle" data-tip="패널 접기 / 펼치기"><span class="ba-handle-ic">${icon('bookmark', 18)}</span></div>
     <div class="ba-tip" id="ba-tip" hidden></div>`
   root.appendChild(wrap)
 
@@ -231,10 +242,11 @@ export function mountPanel({ game, league }) {
 
   // ── 사용법 가이드 코치마크 (4스텝) ──
   const TOUR = [
-    { sel: '#ba-save', text: '거래소에서 검색하면 자동으로 기록돼요. 마음에 드는 검색은 여기서 북마크로 저장하세요.' },
-    { sel: '.ba-sec-head', text: '북마크는 폴더로 정리하고, 손잡이를 잡아 드래그로 순서·폴더를 옮길 수 있어요.' },
-    { sel: '.ba-list', text: '북마크 이름을 클릭하면 그 검색을 그대로 다시 열어요. 링크 복사·JSON 내보내기도 됩니다.' },
-    { sel: '#ba-handle', text: '이 손잡이로 패널을 접고 펼 수 있어요. 단축키는 Alt+B 입니다.' },
+    { sel: '#ba-save', title: '① 좋은 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 좋은 검색은 "현재 검색 저장"으로 영구 보관하고, 저장 시 폴더도 바로 고를 수 있어요.' },
+    { sel: '.ba-open', title: '② 한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
+    { sel: '.ba-sec-hist', title: '③ 자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
+    { sel: '.ba-econ-row', title: '④ 시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
+    { sel: '#ba-handle', title: '⑤ 언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요. 단축키는 Alt+B 입니다. 준비 끝!' },
   ]
   function startTour() {
     setCollapsed(false)
@@ -250,7 +262,7 @@ export function mountPanel({ game, league }) {
       const target = root.querySelector(step.sel)
       clearHL()
       if (target) { target.classList.add('ba-tour-hl'); prev = target; target.scrollIntoView({ block: 'nearest' }) }
-      card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><p>${step.text}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button><button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div>`
+      card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button><button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div>`
       const rect = target ? target.getBoundingClientRect() : null
       card.style.top = (rect ? Math.min(window.innerHeight - 170, Math.max(8, rect.bottom + 8)) : 80) + 'px'
       card.querySelector('.ba-tour-next').onclick = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
