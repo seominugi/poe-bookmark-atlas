@@ -45,7 +45,7 @@ export function mountPanel({ game, league }) {
               <div class="ba-kbd-pop-row"><span>능력치 필터 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>A</kbd></span></div>
               <div class="ba-kbd-pop-sub">여러 그룹이면 <b>반복해서 전환</b></div>
               <div class="ba-kbd-pop-row"><span>능력치 그룹 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>G</kbd></span></div>
-              <div class="ba-kbd-pop-foot"><button class="ba-kbd-pop-guide" type="button">${icon('sparkle', 14)}사용법 가이드 다시 보기</button></div>
+              <div class="ba-kbd-pop-foot">확장 아이콘 클릭 → 시세 · 가이드 · 문의</div>
             </div>
           </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
@@ -72,6 +72,7 @@ export function mountPanel({ game, league }) {
       </div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-foot">
+        <button class="ba-foot-guide" id="ba-foot-guide">${icon('sparkle', 13)}사용법 가이드 다시 보기</button>
         <div class="ba-foot-tx">
           <small>💜 피드백·문의는 언제든 오른쪽<br>유튜브·네이버 카페·디스코드로!</small>
         </div>
@@ -309,6 +310,7 @@ export function mountPanel({ game, league }) {
     toast('북마크에 저장했습니다.')
   }
   $('ba-save').onclick = doSave
+  $('ba-foot-guide').onclick = () => startTour()
 
   // ── 사용법 가이드 코치마크 (4스텝) ──
   const TOUR = [
@@ -363,8 +365,6 @@ export function mountPanel({ game, league }) {
       pop.style.top = Math.round(cr.bottom - rr.top + 9) + 'px'
     }
     wrap.addEventListener('mouseenter', positionPop)
-    const guide = wrap.querySelector('.ba-kbd-pop-guide')
-    if (guide) guide.addEventListener('click', () => startTour())
   })()
 
   document.addEventListener('ba:records-changed', () => { refresh(); updateHandleBadge() })

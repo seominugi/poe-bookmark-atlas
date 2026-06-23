@@ -548,9 +548,7 @@
 .ba-kbd-pop-sub b { color: var(--ba-violet-2); font-weight: 700; }
 .ba-kbd-keys { display: inline-flex; gap: 4px; flex: none; }
 .ba-kbd-pop kbd { font-family: inherit; font-size: 10.5px; font-weight: 700; color: var(--ba-text); background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; min-width: 20px; text-align: center; }
-.ba-kbd-pop-foot { margin-top: 1px; padding-top: 10px; border-top: 1px solid rgba(167,139,250,.16); }
-.ba-kbd-pop-guide { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; font-family: inherit; font-size: 11.5px; font-weight: 700; color: var(--ba-violet-2); background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.3); border-radius: 8px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
-.ba-kbd-pop-guide:hover { background: rgba(167,139,250,.22); border-color: rgba(167,139,250,.55); color: #ddd6fe; }
+.ba-kbd-pop-foot { margin-top: 1px; padding-top: 9px; border-top: 1px solid rgba(167,139,250,.16); font-size: 11px; color: #9b94bd; }
 .ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
 .ba-econ-row { margin: 9px 16px 7px; }
 /* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */
@@ -573,7 +571,9 @@
 @keyframes baGlintV { 0% { transform: translateY(-120%); } 55%, 100% { transform: translateY(120%); } }
 
 /* 피드백 푸터 — 서미누기 제작 칩(글린트·글로우) + 소셜 (.dc.html) */
-.ba-foot { flex: none; display: flex; align-items: center; gap: 9px; padding: 12px 14px 14px; border-top: 1px solid rgba(167,139,250,.16); background: rgba(0,0,0,.18); }
+.ba-foot { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 12px 14px 14px; border-top: 1px solid rgba(167,139,250,.16); background: rgba(0,0,0,.18); }
+.ba-foot-guide { flex: 0 0 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ba-violet-2); background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.28); border-radius: 9px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.ba-foot-guide:hover { background: rgba(167,139,250,.2); border-color: rgba(167,139,250,.5); color: #ddd6fe; }
 .ba-foot-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; line-height: 1.3; flex: 1; min-width: 0; }
 .ba-foot-chip-wrap { position: relative; display: inline-flex; }
 .ba-foot-glow { position: absolute; inset: 0; border-radius: 999px; box-shadow: 0 0 12px 1px rgba(167,139,250,.45); opacity: .25; animation: baChipGlow 3.6s ease-in-out infinite; pointer-events: none; }
