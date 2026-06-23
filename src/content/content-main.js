@@ -106,3 +106,30 @@ chrome.runtime.onMessage.addListener((msg) => {
   else if (msg.cmd === 'save') { panel.show(); panel.save() }
   else if (msg.cmd === 'tour') { panel.show(); panel.startTour() }
 })
+
+// [테스트 시드] localStorage.__baSeedStale='1' 후 새로고침 → 히스토리 2개로 오래된(stale) 북마크 생성(1회).
+// 1개는 14일↑ 미사용(갱신 필요), 1개는 리그 불일치(이전 리그)까지. 검증용 — 필요 없으면 제거.
+if (localStorage.getItem('__baSeedStale')) {
+  localStorage.removeItem('__baSeedStale')
+  ;(async () => {
+    const KEY = 'records'
+    const all = (await chrome.storage.local.get(KEY))[KEY] || []
+    const hist = all.filter((r) => r.kind === 'history' && r.game === game).sort((a, b) => b.updatedAt - a.updatedAt).slice(0, 2)
+    if (!hist.length) { LOG('[테스트 시드] 히스토리가 없어 생성 못 함'); return }
+    const old = Date.now() - 20 * 24 * 60 * 60 * 1000 // 20일 전 → stale(14일↑)
+    const maxOrder = all.reduce((m, r) => (r.kind === 'bookmark' ? Math.max(m, r.order ?? 0) : m), 0)
+    hist.forEach((h, i) => {
+      all.push({
+        ...h, id: 'seed_' + Date.now() + '_' + i, kind: 'bookmark',
+        name: (h.name || h.title || '검색') + ' (테스트·오래됨)',
+        folderId: null, order: maxOrder + 1 + i,
+        dedupeKey: 'seedstale_' + i + '_' + (h.dedupeKey || ''),
+        createdAt: old, updatedAt: old, lastUsedAt: old,
+        league: i === 1 ? '난파선_테스트' : h.league, // 두 번째는 리그 불일치도 함께
+      })
+    })
+    await chrome.storage.local.set({ [KEY]: all })
+    document.dispatchEvent(new CustomEvent('ba:records-changed'))
+    LOG('[테스트 시드] 오래된 북마크', hist.length, '개 생성됨')
+  })()
+}
