@@ -38,6 +38,7 @@ export function mountPanel({ game, league }) {
           <span class="ba-kbd-wrap">
             <span class="ba-kbd-chip">${icon('keyboard', 15)}</span>
             <div class="ba-kbd-pop">
+              <button class="ba-kbd-pin" type="button" aria-label="고정 해제">${icon('pin', 13)}</button>
               <div class="ba-kbd-pop-group">패널 단축키</div>
               <div class="ba-kbd-pop-row"><span>패널 열기 / 접기</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>B</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>현재 검색 저장</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>S</kbd></span></div>
@@ -316,7 +317,8 @@ export function mountPanel({ game, league }) {
     { sel: '.ba-open', title: '② 한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
     { sel: '.ba-sec-hist', title: '③ 자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
     { sel: '.ba-econ-row', title: '④ 시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
-    { sel: '#ba-handle', title: '⑤ 단축키로 더 빠르게', body: '우측 핸들 클릭으로 패널을 접고 펼쳐요(Alt+B). 거래소에선 Alt+A로 능력치 필터 추가, Alt+G로 능력치 그룹 추가, Alt+S로 현재 검색 저장! 준비 끝!' },
+    { sel: '#ba-handle', title: '⑤ 언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
+    { sel: '.ba-kbd-chip', title: '⑥ 단축키 모음 & 변경', body: '⌨ 칩에 올리거나 클릭하면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
   ]
   function startTour() {
     setCollapsed(false)
@@ -367,6 +369,8 @@ export function mountPanel({ game, league }) {
     chip.addEventListener('click', (e) => { e.stopPropagation(); positionPop(); wrap.classList.toggle('pinned') })
     const guide = wrap.querySelector('.ba-kbd-pop-guide')
     if (guide) guide.addEventListener('click', (e) => { e.stopPropagation(); wrap.classList.remove('pinned'); startTour() })
+    const pin = wrap.querySelector('.ba-kbd-pin')
+    if (pin) pin.addEventListener('click', (e) => { e.stopPropagation(); wrap.classList.remove('pinned') })
     document.addEventListener('click', (e) => {
       const path = e.composedPath ? e.composedPath() : []
       if (!path.includes(wrap)) wrap.classList.remove('pinned')

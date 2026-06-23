@@ -551,6 +551,10 @@
 .ba-kbd-pop-foot { margin-top: 1px; padding-top: 10px; border-top: 1px solid rgba(167,139,250,.16); }
 .ba-kbd-pop-guide { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; font-family: inherit; font-size: 11.5px; font-weight: 700; color: var(--ba-violet-2); background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.3); border-radius: 8px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
 .ba-kbd-pop-guide:hover { background: rgba(167,139,250,.22); border-color: rgba(167,139,250,.55); color: #ddd6fe; }
+/* 고정(핀) 상태 표시 — 핀일 때만 우상단에 핀 아이콘(클릭 시 고정 해제) */
+.ba-kbd-pin { position: absolute; top: 9px; right: 9px; display: none; align-items: center; justify-content: center; width: 22px; height: 22px; padding: 0; border: 1px solid rgba(167,139,250,.4); border-radius: 7px; background: rgba(167,139,250,.18); color: var(--ba-violet-2); cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+.ba-kbd-wrap.pinned .ba-kbd-pin { display: inline-flex; }
+.ba-kbd-pin:hover { background: rgba(167,139,250,.32); border-color: rgba(167,139,250,.7); color: #ddd6fe; }
 .ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
 .ba-econ-row { margin: 9px 16px 7px; }
 /* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */
