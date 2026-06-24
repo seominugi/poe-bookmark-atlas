@@ -17,7 +17,7 @@ const discordUrl = chrome.runtime.getURL(discordIcon)
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
 
-export function mountPanel({ game, league }) {
+export function mountPanel({ game, league, getCurrentSearch }) {
   if (document.getElementById('ba-panel-host')) return { toggle() {}, show() {}, hide() {} }
   const host = document.createElement('div')
   host.id = 'ba-panel-host'
@@ -64,6 +64,9 @@ export function mountPanel({ game, league }) {
           <span class="ba-econ-lbl"><b>시장 동향</b></span>
         </a>
       </div>
+      ${game === 'poe1' ? `<div class="ba-convert-row">
+        <button class="ba-convert" id="ba-convert" data-tip="현재 검색 조건 그대로 영문 거래소(pathofexile.com · PoE1)에서 열어요">${icon('external', 14)}영문 거래소로 전환</button>
+      </div>` : ''}
       <div class="ba-namebar" id="ba-namebar" hidden>
         <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
         <button class="ba-name-ok" id="ba-name-ok">저장</button>
@@ -311,6 +314,17 @@ export function mountPanel({ game, league }) {
   }
   $('ba-save').onclick = doSave
   $('ba-foot-guide').onclick = () => startTour()
+  const convertBtn = $('ba-convert')
+  if (convertBtn) convertBtn.onclick = async () => {
+    const cur = getCurrentSearch && getCurrentSearch()
+    if (!cur) { toast('먼저 거래소에서 검색을 한 번 실행해 주세요.'); return }
+    toast('영문 거래소를 여는 중…')
+    try {
+      const r = await chrome.runtime.sendMessage({ type: 'ba-convert', game, query: cur.query, league: cur.league })
+      if (r && r.reason === 'no-permission') toast('확장 팝업에서 "영문 거래소 전환"을 먼저 켜주세요.')
+      else if (!r || !r.ok) toast('전환에 실패했어요. 다시 시도해 주세요.')
+    } catch (_) { toast('전환에 실패했어요.') }
+  }
 
   // ── 사용법 가이드 코치마크 (4스텝) ──
   const TOUR = [

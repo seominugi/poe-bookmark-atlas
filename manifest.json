@@ -9,6 +9,7 @@
     "https://poe.kakaogames.com/*",
     "https://seominugi.com/*"
   ],
+  "optional_host_permissions": ["https://www.pathofexile.com/*"],
   "background": { "service_worker": "src/background/service-worker.js", "type": "module" },
   "action": { "default_title": "북마크 아틀라스", "default_popup": "src/popup/popup.html", "default_icon": { "16": "src/icons/icon16.png", "48": "src/icons/icon48.png", "128": "src/icons/icon128.png" } },
   "commands": {
@@ -32,6 +33,11 @@
       "js": ["src/content/stat-shortcut.js"],
       "run_at": "document_idle",
       "world": "MAIN"
+    },
+    {
+      "matches": ["https://www.pathofexile.com/trade/*", "https://www.pathofexile.com/trade2/*"],
+      "js": ["src/content/cross-site-receiver.js"],
+      "run_at": "document_idle"
     }
   ]
 }

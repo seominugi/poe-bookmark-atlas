@@ -558,6 +558,10 @@
 .ba-kbd-pop-foot { margin-top: 1px; padding-top: 9px; border-top: 1px solid rgba(167,139,250,.16); font-size: 11px; color: #9b94bd; }
 .ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
 .ba-econ-row { margin: 9px 16px 7px; }
+/* 한↔영 거래소 전환 버튼 (PoE1 한정, econ-row 아래) */
+.ba-convert-row { margin: 0 16px 10px; }
+.ba-convert { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 12px; font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); border-radius: 10px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.ba-convert:hover { background: rgba(167,139,250,.22); border-color: rgba(167,139,250,.55); color: #ddd6fe; }
 /* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */
 .ba-action-row { display: flex; justify-content: flex-end; align-items: center; gap: 7px; margin: 0 2px 10px; }
 /* 아이콘(SVG block) + 텍스트 가로 정렬 — 없으면 아이콘이 윗줄로 줄바꿈돼 버튼이 어긋남 */

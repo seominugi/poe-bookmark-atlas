@@ -44,6 +44,7 @@ document.getElementById('app').innerHTML = `
     <div class="pop-cta">
       <button class="pop-btn pop-btn--primary" id="pop-toggle">${icon('bookmark', 15)}패널 열기 / 접기</button>
       <button class="pop-btn pop-btn--ghost" id="pop-tour">${icon('sparkle', 14)}사용법 가이드 다시 보기</button>
+      <button class="pop-btn pop-btn--ghost" id="pop-cross">${icon('external', 14)}<span id="pop-cross-tx">영문 거래소 전환 켜기 (PoE1)</span></button>
       <div class="pop-econ-row">
         <button class="pop-econ pop-econ--items" id="pop-econ"><span class="glint"></span><span class="pic"><img src="${analystImg}" alt="" /></span><span class="lbl">아이템 시세</span></button>
         <button class="pop-econ pop-econ--trend" id="pop-trend"><span class="glint"></span><span class="pic"><img src="${researcherImg}" alt="" /></span><span class="lbl">시장 동향</span></button>
@@ -83,3 +84,21 @@ $('pop-tour').onclick = async () => {
 $('pop-econ').onclick = async () => { const t = await activeTab(); chrome.tabs.create({ url: ECON[gameOf(t && t.url)] }); window.close() }
 $('pop-trend').onclick = async () => { const t = await activeTab(); chrome.tabs.create({ url: TREND[gameOf(t && t.url)] }); window.close() }
 $('pop-shortcuts').onclick = () => { chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }); window.close() }
+
+// 영문 거래소 전환(PoE1) — pathofexile.com optional 권한 토글 (권한 요청은 확장 페이지에서만 가능)
+const CROSS_ORIGINS = ['https://www.pathofexile.com/*']
+async function refreshCross() {
+  let granted = false
+  try { granted = await chrome.permissions.contains({ origins: CROSS_ORIGINS }) } catch (_) {}
+  $('pop-cross-tx').textContent = granted ? '영문 거래소 전환(PoE1): 켜짐 ✓' : '영문 거래소 전환 켜기 (PoE1)'
+}
+$('pop-cross').onclick = async () => {
+  let granted = false
+  try { granted = await chrome.permissions.contains({ origins: CROSS_ORIGINS }) } catch (_) {}
+  try {
+    if (granted) await chrome.permissions.remove({ origins: CROSS_ORIGINS })
+    else await chrome.permissions.request({ origins: CROSS_ORIGINS })
+  } catch (_) {}
+  refreshCross()
+}
+refreshCross()
