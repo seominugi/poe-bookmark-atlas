@@ -72,13 +72,13 @@ export function mountPanel({ game, league }) {
       </div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-foot">
-        <button class="ba-foot-guide" id="ba-foot-guide">${icon('sparkle', 13)}사용법 가이드 다시 보기</button>
         <div class="ba-foot-tx">
           <small>💜 피드백·문의는 언제든 오른쪽<br>유튜브·네이버 카페·디스코드로!</small>
         </div>
         <a class="ba-foot-soc ba-foot-soc--cafe" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페에서 문의하기"><img src="${cafeUrl}" alt="네이버 카페"></a>
         <a class="ba-foot-soc ba-foot-soc--yt" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널 바로가기"><img src="${ytUrl}" alt="유튜브"></a>
         <a class="ba-foot-soc ba-foot-soc--dc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 서버 참여"><img src="${discordUrl}" alt="디스코드"></a>
+        <button class="ba-foot-guide" id="ba-foot-guide">${icon('sparkle', 13)}사용법 가이드 다시 보기</button>
       </div>
       <div class="ba-toast" id="ba-toast" hidden></div>
     </div>
