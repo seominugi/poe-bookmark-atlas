@@ -65,6 +65,14 @@ const fmtTime = (t) => {
   const yy = String(d.getFullYear()).slice(2)
   return `${yy}/${p(d.getMonth() + 1)}/${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
 }
+// 상대 시간(가격 나이 표시용)
+const ago = (t) => {
+  const s = Math.max(0, Date.now() - t) / 1000
+  if (s < 60) return '방금'
+  if (s < 3600) return `${Math.floor(s / 60)}분 전`
+  if (s < 86400) return `${Math.floor(s / 3600)}시간 전`
+  return `${Math.floor(s / 86400)}일 전`
+}
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
@@ -160,7 +168,7 @@ function rowHtml(r, kind, currentLeague) {
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
     <div class="ba-line1">
       <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span><span class="ba-open" data-tip="클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
-      <span class="ba-price-pill">${price}</span>
+      <span class="ba-price-pill"${price && r.snapshotAt ? ` data-tip="이 가격은 ${ago(r.snapshotAt)} 기준이에요. 북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>
     </div>
     ${chipsRow}
     <div class="ba-rowfoot">

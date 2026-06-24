@@ -66,9 +66,6 @@ window.addEventListener('message', async (e) => {
       .filter(Boolean)
       .map((p) => ({ amount: p.amount, currency: p.currency }))
 
-    // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt 갱신
-    if (listings.length > 0) markUsedByUrl(location.href)
-
     let snapshot = null
     try {
       const rr = await send({ type: 'fetchRates', game, league: pending.league })
@@ -76,6 +73,9 @@ window.addEventListener('message', async (e) => {
       snapshot = priceSnapshot(listings, { exaltedPerDivine: epd })
       LOG('snapshot:', snapshot, '| listings', listings.length, '| epd', epd)
     } catch (err) { LOG('환율/스냅샷 오류', String(err)) }
+
+    // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt + 가격 스냅샷 자동 갱신
+    if (listings.length > 0) markUsedByUrl(location.href, snapshot || undefined)
 
     const parsed = parseSearchQuery(pending.query, statMap)
     const rec = await addHistory({

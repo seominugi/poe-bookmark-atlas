@@ -88,13 +88,6 @@ export async function addBookmark(rec, name) {
   return record
 }
 
-/** 스냅샷 갱신(수동 "가격 갱신") */
-export async function updateSnapshot(id, snapshot) {
-  const all = await readAll()
-  const r = all.find((x) => x.id === id)
-  if (r) { r.snapshot = snapshot; r.updatedAt = Date.now(); await writeAll(all) }
-}
-
 /** 북마크를 새 검색(source)으로 덮어쓰기 — name·folderId·order·id·createdAt 유지 */
 export async function overwriteBookmark(id, source) {
   const all = await readAll()
@@ -126,11 +119,16 @@ export async function moveBookmark(id, patch) {
 }
 
 /** 저장된 검색을 열어 결과가 실제 로드되면 호출 — 해당 URL 북마크의 lastUsedAt 갱신(만료 경고 해제) */
-export async function markUsedByUrl(url) {
+export async function markUsedByUrl(url, snapshot) {
   const all = await readAll()
+  const now = Date.now()
   let changed = false
   for (const r of all) {
-    if (r.kind === 'bookmark' && r.url === url) { r.lastUsedAt = Date.now(); changed = true }
+    if (r.kind === 'bookmark' && r.url === url) {
+      r.lastUsedAt = now
+      if (snapshot) { r.snapshot = snapshot; r.snapshotAt = now } // 북마크를 열어 결과가 뜨면 가격 스냅샷 자동 갱신
+      changed = true
+    }
   }
   if (changed) await writeAll(all)
 }
