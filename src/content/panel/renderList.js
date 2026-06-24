@@ -38,6 +38,30 @@ async function hydrateUiState() {
 }
 const saveCollapsed = () => { try { chrome.storage.local.set({ uiCollapsedFolders: [...collapsedFolders] }) } catch (_) {} }
 const saveSort = () => { try { chrome.storage.local.set({ uiBmSort: bmSort }) } catch (_) {} }
+let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
+
+// 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-del, .ba-star, .ba-hist-del, .ba-note-btn, .ba-note, .ba-open, .ba-attn[data-act], .ba-folder-up, .ba-folder-down, .ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-dens-seg, .ba-sort-seg, .ba-import, .ba-export'
+function applyA11y(listEl) {
+  listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
+    if (el.matches('button, a, input')) return
+    el.setAttribute('role', 'button')
+    if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0')
+    if (!el.hasAttribute('aria-label') && !(el.textContent || '').trim()) { // 아이콘 전용 → data-tip 첫 줄을 라벨로
+      const t = (el.getAttribute('data-tip') || '').split('\n')[0].trim()
+      if (t) el.setAttribute('aria-label', t)
+    }
+  })
+  if (!listEl.__a11yKeys) {
+    listEl.__a11yKeys = true
+    listEl.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return
+      const el = e.target
+      if (!el || !el.matches || el.matches('input, textarea')) return
+      if (el.getAttribute('role') === 'button') { e.preventDefault(); el.click() }
+    })
+  }
+}
 
 /** 같은 조건의 기존 북마크 행을 스크롤·강조 — 중복 저장 차단 시 위치를 안내 */
 export function highlightBookmark(container, id) {
@@ -257,6 +281,11 @@ export async function renderList(listEl, root, ui = {}) {
   listEl.innerHTML = html
   bindAll(listEl, ui)
   applyFilters(listEl) // 재렌더 후 현재 검색어로 필터 재적용
+  if (focusGripId) { // 키보드 재정렬 후 포커스 복원 (연속 이동 가능)
+    const g = listEl.querySelector(`.ba-grip[data-id="${CSS.escape(focusGripId)}"]`)
+    focusGripId = null
+    if (g) g.focus()
+  }
 }
 
 function bindAll(listEl, ui) {
@@ -513,6 +542,7 @@ function bindAll(listEl, ui) {
   }))
 
   bindDnD(listEl)
+  applyA11y(listEl)
 }
 
 function bindDnD(listEl) {
@@ -524,6 +554,25 @@ function bindDnD(listEl) {
     const gripRow = grip.closest('.ba-row')
     grip.addEventListener('dragstart', (e) => { dragId = grip.dataset.id; e.dataTransfer.effectAllowed = 'move'; gripRow.classList.add('ba-dragging') })
     grip.addEventListener('dragend', () => { gripRow.classList.remove('ba-dragging'); dragId = null; clearOver() })
+    // 키보드 재정렬: Alt+↑/↓ (드래그 대안) + 포커스·라벨
+    grip.setAttribute('tabindex', '0')
+    grip.setAttribute('role', 'button')
+    grip.setAttribute('aria-label', '순서 이동 — 드래그 또는 Alt+위/아래')
+    grip.addEventListener('keydown', async (e) => {
+      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
+      e.preventDefault()
+      const row = grip.closest('.ba-row')
+      const body = row.closest('.ba-folder-body'); if (!body) return
+      const rows = [...body.querySelectorAll('.ba-row')]
+      const i = rows.indexOf(row)
+      const dir = e.key === 'ArrowUp' ? -1 : 1
+      const target = rows[i + dir]; if (!target) return
+      const targetOrder = parseFloat(target.dataset.order)
+      const beyond = rows[i + 2 * dir]
+      const newOrder = beyond ? (targetOrder + parseFloat(beyond.dataset.order)) / 2 : targetOrder + dir
+      focusGripId = row.dataset.id
+      await moveBookmark(row.dataset.id, { folderId: row.dataset.folder || null, order: newOrder }); changed()
+    })
   })
 
   // 북마크 행만 드롭 타깃 (히스토리 행은 그립이 없어 제외)
