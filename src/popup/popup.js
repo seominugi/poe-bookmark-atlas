@@ -13,6 +13,7 @@ const SHORTCUTS_PANEL = [
   { label: '현재 검색 저장', keys: ['Alt', 'S'] },
 ]
 const SHORTCUTS_STAT = [
+  { label: '아이템 검색 포커스', keys: ['Alt', 'F'] },
   { label: '능력치 필터 추가', keys: ['Alt', 'A'] },
   { label: '능력치 그룹 추가', keys: ['Alt', 'G'] },
 ]
@@ -33,7 +34,7 @@ document.getElementById('app').innerHTML = `
     <div class="pop-sc">
       <div class="pop-sc-label">패널 단축키</div>
       <div class="pop-sc-list">${SHORTCUTS_PANEL.map(scRow).join('')}</div>
-      <div class="pop-sc-label">능력치 필터 단축키</div>
+      <div class="pop-sc-label">검색 단축키</div>
       <div class="pop-sc-list">${SHORTCUTS_STAT.map(scRow).join('')}</div>
       <button class="pop-sc-edit" id="pop-shortcuts">
         <span class="ic-box">${icon('pencil', 14)}</span>

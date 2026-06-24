@@ -1,5 +1,5 @@
 // stat-shortcut.js (MAIN world)
-// 거래소 능력치 필터 단축키 — Alt+A: '능력치 필터 추가', Alt+G: '능력치 그룹 추가'.
+// 거래소 단축키 — Alt+A: '능력치 필터 추가', Alt+G: '능력치 그룹 추가', Alt+F: '아이템 검색' 포커스.
 // 카카오(한글)·pathofexile(영문) 양쪽 거래소의 placeholder를 모두 지원한다.
 // 능력치 그룹이 여럿이면, 드롭다운이 열린 상태에서 Alt+A를 다시 눌러 그룹별 '필터 추가'를 순환 전환한다.
 //
@@ -12,6 +12,7 @@
   const MAP = [
     { code: 'KeyA', ph: ['능력치 필터 추가', 'Add Stat Filter'] },
     { code: 'KeyG', ph: ['능력치 그룹 추가', 'Add Stat Group'] },
+    { code: 'KeyF', ph: ['아이템 검색', 'Search Items'] }, // 상단 아이템 검색 입력 포커스(단일 입력이라 순환 무관)
   ]
   const SECTION_TITLES = ['능력치 필터', 'Stat Filters'] // 접힌 섹션 펼치기용(한/영)
   const lastIdx = {} // code별 마지막 대상 인덱스 (그룹 여럿일 때 순환/재개용)
@@ -75,5 +76,5 @@
       const iv = setInterval(() => { if (activateOrCycle(m) || ++k > 12) clearInterval(iv) }, 30)
     }
   }, true)
-  console.log('[BA] stat-shortcut loaded (Alt+A 필터 추가/순환 · Alt+G 그룹 추가 · 한/영 지원)')
+  console.log('[BA] stat-shortcut loaded (Alt+A 필터 추가/순환 · Alt+G 그룹 추가 · Alt+F 아이템 검색 · 한/영)')
 })()

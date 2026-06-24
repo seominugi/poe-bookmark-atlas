@@ -41,7 +41,8 @@ export function mountPanel({ game, league, getCurrentSearch }) {
               <div class="ba-kbd-pop-group">패널 단축키</div>
               <div class="ba-kbd-pop-row"><span>패널 열기 / 접기</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>B</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>현재 검색 저장</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>S</kbd></span></div>
-              <div class="ba-kbd-pop-group">능력치 필터 단축키</div>
+              <div class="ba-kbd-pop-group">검색 단축키</div>
+              <div class="ba-kbd-pop-row"><span>아이템 검색</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>F</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>능력치 필터 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>A</kbd></span></div>
               <div class="ba-kbd-pop-sub">여러 그룹이면 <b>반복해서 전환</b></div>
               <div class="ba-kbd-pop-row"><span>능력치 그룹 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>G</kbd></span></div>
