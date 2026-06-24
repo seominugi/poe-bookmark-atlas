@@ -70,10 +70,12 @@ const escapeHtml = (s) =>
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
 const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능성 경고
 
-// 허용 도메인(거래소) 링크만 연다 — 가져온 데이터의 피싱·javascript: URL 차단
-function openTradeUrl(url, toast) {
-  if (isAllowedTradeUrl(url)) { location.href = url; return }
-  ;(toast || (() => {}))('허용되지 않은 링크예요. poe.kakaogames.com 거래소 링크만 열 수 있어요.')
+// 허용 도메인(거래소) 링크만 연다 — 가져온 데이터의 피싱·javascript: URL 차단.
+// Ctrl/⌘ 클릭은 새 탭으로 열어 현재 검색을 유지한다.
+function openTradeUrl(url, toast, e) {
+  if (!isAllowedTradeUrl(url)) { (toast || (() => {}))('허용되지 않은 링크예요. poe.kakaogames.com 거래소 링크만 열 수 있어요.'); return }
+  if (e && (e.ctrlKey || e.metaKey)) window.open(url, '_blank', 'noopener')
+  else location.href = url
 }
 
 // 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 모듈 상태(bmSearch/hsSearch) 기준.
@@ -134,7 +136,7 @@ function rowHtml(r, kind, currentLeague) {
     const condChip = stats.length ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${stats.length}개</span>` : ''
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
       <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}<b>${title}</b></span><span class="ba-price">${price}</span></div>
-      <div class="ba-meta"><span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">${icon('star', 14)}</span><span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 14)}</span><span class="ba-time">${icon('clock', 11)}${fmtTime(when)}</span>${condChip}</div>
+      <div class="ba-meta"><span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">${icon('star', 14)}</span><span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 14)}</span><span class="ba-hist-del" data-id="${r.id}" data-tip="이 기록 삭제">${icon('trash', 14)}</span><span class="ba-time">${icon('clock', 11)}${fmtTime(when)}</span>${condChip}</div>
     </div>`
   }
 
@@ -255,14 +257,14 @@ function bindAll(listEl, ui) {
   listEl.querySelectorAll('.ba-row').forEach((row) => {
     if (row.dataset.kind !== 'history') return
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.ba-star,.ba-copy,.ba-cond,.ba-stale')) return
-      openTradeUrl(decodeURIComponent(row.dataset.url), toast)
+      if (e.target.closest('.ba-star,.ba-copy,.ba-cond,.ba-stale,.ba-hist-del')) return
+      openTradeUrl(decodeURIComponent(row.dataset.url), toast, e)
     })
   })
 
   // 북마크 이름 칩 클릭 → 재검색
   listEl.querySelectorAll('.ba-open').forEach((s) =>
-    s.addEventListener('click', (e) => { e.stopPropagation(); openTradeUrl(decodeURIComponent(s.closest('.ba-row').dataset.url), toast) }))
+    s.addEventListener('click', (e) => { e.stopPropagation(); openTradeUrl(decodeURIComponent(s.closest('.ba-row').dataset.url), toast, e) }))
 
   // 🔗 검색 링크 복사 (북마크·히스토리 공통)
   listEl.querySelectorAll('.ba-copy').forEach((c) =>
@@ -281,6 +283,10 @@ function bindAll(listEl, ui) {
   // 🗑 삭제 (북마크 행)
   listEl.querySelectorAll('.ba-del').forEach((d) =>
     d.addEventListener('click', async () => { await remove(d.dataset.id); changed() }))
+
+  // 🗑 삭제 (히스토리 행 — 단일 기록 제거)
+  listEl.querySelectorAll('.ba-hist-del').forEach((d) =>
+    d.addEventListener('click', async (e) => { e.stopPropagation(); await remove(d.dataset.id); changed() }))
 
   // ✎ 북마크 이름 변경
   listEl.querySelectorAll('.ba-rename').forEach((s) =>
@@ -318,7 +324,7 @@ function bindAll(listEl, ui) {
   listEl.querySelectorAll('.ba-attn[data-act]').forEach((a) =>
     a.addEventListener('click', async (e) => {
       e.stopPropagation()
-      if (a.dataset.act === 'open') { openTradeUrl(decodeURIComponent(a.closest('.ba-row').dataset.url), toast); return }
+      if (a.dataset.act === 'open') { openTradeUrl(decodeURIComponent(a.closest('.ba-row').dataset.url), toast, e); return }
       if (a.dataset.act === 'del') { await remove(a.dataset.id); changed(); toast('오래된 북마크를 삭제했습니다.') }
     }))
 

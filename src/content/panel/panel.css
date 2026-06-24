@@ -348,7 +348,7 @@
 .ba-cond:hover { background: rgba(167, 139, 250, 0.24); color: #ddd6fe; }
 
 /* ---- 액션 버튼: 의미색 ---- */
-.ba-star, .ba-del, .ba-over, .ba-rename,
+.ba-star, .ba-del, .ba-over, .ba-rename, .ba-hist-del,
 .ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del {
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0; line-height: 1; color: var(--ba-text-muted);
@@ -362,7 +362,7 @@
 .ba-star:hover { color: var(--ba-warn); background: var(--ba-warn-soft); border-color: var(--ba-warn-line); }
 .ba-over:hover { color: #bae6fd; background: var(--ba-blue-soft); border-color: var(--ba-blue-line); }
 .ba-rename:hover, .ba-folder-rename:hover { color: #ddd6fe; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
-.ba-del:hover, .ba-folder-del:hover { color: #fecdd3; background: var(--ba-danger-soft); border-color: var(--ba-danger-line); }
+.ba-del:hover, .ba-folder-del:hover, .ba-hist-del:hover { color: #fecdd3; background: var(--ba-danger-soft); border-color: var(--ba-danger-line); }
 .ba-folder-save:hover, .ba-folder-export:hover { color: #c4b5fd; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 /* 검색 링크 복사 (선택: .ba-copy 마크업 시) — 시안 */
 .ba-copy {
@@ -489,7 +489,7 @@
 .ba-sec-title { display: inline-flex; align-items: center; gap: 6px; }
 .ba-time { display: inline-flex; align-items: center; gap: 4px; }
 .ba-cond { display: inline-flex; align-items: center; gap: 5px; }
-.ba-meta .ba-star, .ba-meta .ba-copy { width: 27px; height: 27px; }
+.ba-meta .ba-star, .ba-meta .ba-copy, .ba-meta .ba-hist-del { width: 27px; height: 27px; }
 .ba-l1l { flex: 1; }                 /* .dc.html: 이름 영역이 공간 차지 → 긴 이름 말줄임 */
 .ba-chips { margin-top: 8px; }       /* .dc.html: line1과 조건칩 사이 간격 */
 .ba-grip { padding: 0; font-size: 0; }  /* SVG 그립(14px) — 이모지용 패딩 제거 */
