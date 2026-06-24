@@ -25,6 +25,20 @@ let hsSearch = '' // 히스토리 빠른 검색어
 let bmSort = 'order' // 북마크 정렬: order(수동 순) | recent(최근) | name(이름)
 const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
 
+// 정렬·접힌 폴더 선호는 chrome.storage에 영속(재로드 후 유지). 검색어는 의도적으로 휘발(매 세션 초기화).
+let uiHydrated = false
+async function hydrateUiState() {
+  if (uiHydrated) return
+  uiHydrated = true
+  try {
+    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders'])
+    if (r.uiBmSort) bmSort = r.uiBmSort
+    if (Array.isArray(r.uiCollapsedFolders)) { collapsedFolders.clear(); r.uiCollapsedFolders.forEach((k) => collapsedFolders.add(k)) }
+  } catch (_) {}
+}
+const saveCollapsed = () => { try { chrome.storage.local.set({ uiCollapsedFolders: [...collapsedFolders] }) } catch (_) {} }
+const saveSort = () => { try { chrome.storage.local.set({ uiBmSort: bmSort }) } catch (_) {} }
+
 /** 같은 조건의 기존 북마크 행을 스크롤·강조 — 중복 저장 차단 시 위치를 안내 */
 export function highlightBookmark(container, id) {
   const row = container && container.querySelector(`.ba-row[data-id="${CSS.escape(id)}"]`)
@@ -67,9 +81,18 @@ function applyFilters(listEl) {
   const norm = (s) => (s || '').trim().toLowerCase()
   const bm = norm(bmSearch)
   const hs = norm(hsSearch)
+  let hsVisible = 0
   listEl.querySelectorAll('.ba-row[data-kind="history"]').forEach((row) => {
-    row.style.display = !hs || (row.dataset.search || '').includes(hs) ? '' : 'none'
+    const show = !hs || (row.dataset.search || '').includes(hs)
+    row.style.display = show ? '' : 'none'
+    if (show) hsVisible++
   })
+  const hsBar = listEl.querySelector('.ba-search-input[data-scope="hs"]')
+  let hsNoRes = listEl.querySelector('.ba-no-result-hs')
+  if (hs && hsVisible === 0) {
+    if (!hsNoRes && hsBar) { hsNoRes = document.createElement('div'); hsNoRes.className = 'ba-no-result ba-no-result-hs'; hsBar.closest('.ba-search-row').after(hsNoRes) }
+    if (hsNoRes) { hsNoRes.textContent = `"${hsSearch.trim()}"에 해당하는 히스토리가 없습니다.`; hsNoRes.hidden = false }
+  } else if (hsNoRes) { hsNoRes.hidden = true }
   let bmVisible = 0
   listEl.querySelectorAll('.ba-folder').forEach((folder) => {
     let inFolder = 0
@@ -147,6 +170,7 @@ function rowHtml(r, kind, currentLeague) {
 
 // 북마크 + 히스토리를 한 스크롤에 통합 렌더 (탭 없음 → 패널 전체 높이 활용)
 export async function renderList(listEl, root, ui = {}) {
+  await hydrateUiState()
   const [bookmarks, folders, history] = await Promise.all([
     listByKind('bookmark', ui.game),
     listFolders(ui.game),
@@ -384,7 +408,7 @@ function bindAll(listEl, ui) {
     applyFilters(listEl)
   }))
   // 정렬 토글 — 재렌더
-  listEl.querySelectorAll('.ba-sort-seg').forEach((b) => b.addEventListener('click', () => { bmSort = b.dataset.sort; changed() }))
+  listEl.querySelectorAll('.ba-sort-seg').forEach((b) => b.addEventListener('click', () => { bmSort = b.dataset.sort; saveSort(); changed() }))
   // 정보 밀도 토글 (여유/조밀)
   listEl.querySelectorAll('.ba-dens-seg').forEach((b) => b.addEventListener('click', () => { if (ui.setDensity) ui.setDensity(b.dataset.dens) }))
 
@@ -436,6 +460,7 @@ function bindAll(listEl, ui) {
     const key = head.dataset.id || ''
     if (folder.classList.toggle('ba-folder--collapsed')) collapsedFolders.add(key)
     else collapsedFolders.delete(key)
+    saveCollapsed()
   }))
 
   // ➕ 현재(최근) 검색을 이 폴더/미분류에 바로 저장

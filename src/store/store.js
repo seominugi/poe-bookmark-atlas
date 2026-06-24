@@ -1,7 +1,7 @@
 // src/store/store.js
 const KEY = 'records'
 const FOLDERS_KEY = 'folders'
-export const HISTORY_CAP = 50
+export const HISTORY_CAP = 200 // 히스토리 보관 상한. renderList "더 보기"(60+200)가 실제로 동작하도록 상향
 
 function uid(prefix) { return (prefix || 'r_') + Math.random().toString(36).slice(2) + Date.now().toString(36) }
 async function readAll() { return (await chrome.storage.local.get(KEY))[KEY] ?? [] }
