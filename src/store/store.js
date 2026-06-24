@@ -9,6 +9,16 @@ async function writeAll(records) { await chrome.storage.local.set({ [KEY]: recor
 async function readFolders() { return (await chrome.storage.local.get(FOLDERS_KEY))[FOLDERS_KEY] ?? [] }
 async function writeFolders(folders) { await chrome.storage.local.set({ [FOLDERS_KEY]: folders }) }
 
+// ── URL 안전성: 거래소(허용 도메인) 링크만 열기·복사·가져오기·내보내기 허용 (피싱·javascript: 차단) ──
+const ALLOWED_HOSTS = ['poe.kakaogames.com']
+export function isAllowedTradeUrl(url) {
+  try {
+    const u = new URL(String(url))
+    return u.protocol === 'https:' && ALLOWED_HOSTS.includes(u.hostname) &&
+      (u.pathname.startsWith('/trade2/') || u.pathname.startsWith('/trade/'))
+  } catch (_) { return false }
+}
+
 const maxBookmarkOrder = (all) => all.reduce((m, r) => (r.kind === 'bookmark' ? Math.max(m, r.order ?? 0) : m), 0)
 
 /** 히스토리 추가(동일 dedupeKey 갱신, 50개 캡). @returns {Promise<object>} */
@@ -209,19 +219,22 @@ export async function exportBookmarksJSON(game, folderId, now = Date.now()) {
   let scoped = folderId === undefined ? all : all.filter((b) => (b.folderId ?? null) === folderId)
   const total = scoped.length
   scoped = scoped.filter((b) => now - (b.lastUsedAt || b.createdAt || b.updatedAt || 0) <= EXPORT_STALE_MS)
+  const staleExcluded = total - scoped.length
+  scoped = scoped.filter((b) => isAllowedTradeUrl(b.url)) // 허용 도메인 외 URL은 내보내지 않음(피싱 전파 차단)
+  const unsafeExcluded = total - staleExcluded - scoped.length
   const folders =
     folderId === undefined
       ? await listFolders(game)
       : (await listFolders(game)).filter((f) => f.id === folderId)
-  const staleExcluded = total - scoped.length
   return {
     json: {
       app: 'poe-bookmark-atlas', version: 1, exportedAt: new Date(now).toISOString(),
       game: game ?? null, scope: folderId === undefined ? 'all' : (folderId || 'uncategorized'),
-      staleExcluded, folders, bookmarks: scoped,
+      staleExcluded, unsafeExcluded, folders, bookmarks: scoped,
     },
     count: scoped.length,
     staleExcluded,
+    unsafeExcluded,
   }
 }
 
@@ -244,8 +257,10 @@ export async function importBookmarksJSON(game, data) {
   }
   let added = 0
   let skipped = 0
+  let blocked = 0
   for (const b of inB) {
     if (!b) continue
+    if (!isAllowedTradeUrl(b.url)) { blocked++; continue } // 허용 도메인 외 URL은 가져오지 않음(피싱 차단)
     if (b.dedupeKey && (await findBookmark(b.dedupeKey, game))) { skipped++; continue }
     const folderId = b.folderId != null ? (idMap[b.folderId] ?? null) : null
     // 기존 메타(id·kind·order·시간)는 버리고 addBookmark가 새로 발급하도록 한다
@@ -253,5 +268,5 @@ export async function importBookmarksJSON(game, data) {
     await addBookmark({ ...rest, game, folderId }, b.name || b.title)
     added++
   }
-  return { added, skipped, foldersAdded }
+  return { added, skipped, foldersAdded, blocked }
 }

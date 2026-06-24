@@ -1,7 +1,7 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename, findBookmark,
-  exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
+  exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
@@ -55,6 +55,12 @@ const escapeHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
 const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능성 경고
+
+// 허용 도메인(거래소) 링크만 연다 — 가져온 데이터의 피싱·javascript: URL 차단
+function openTradeUrl(url, toast) {
+  if (isAllowedTradeUrl(url)) { location.href = url; return }
+  ;(toast || (() => {}))('허용되지 않은 링크예요. poe.kakaogames.com 거래소 링크만 열 수 있어요.')
+}
 
 // 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 모듈 상태(bmSearch/hsSearch) 기준.
 function applyFilters(listEl) {
@@ -112,13 +118,16 @@ function rowHtml(r, kind, currentLeague) {
   // ── 북마크: 이름 칩(.ba-open)만 재검색 → 오클릭 방지 ──
   const stale = Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
   const otherLeague = currentLeague && r.league && r.league !== currentLeague
-  const dim = stale || otherLeague
-  // 리그·갱신 통합 배지(.ba-attn) — 앰버, 클릭=갱신·재검색
-  const attn = stale
-    ? `<span class="ba-attn ba-attn--del" data-id="${r.id}" data-act="del" data-tip="14일 넘게 안 쓴 북마크예요.\n거래소 링크가 만료돼 못 열 수 있어요.\n클릭하면 삭제합니다.">${icon('trash', 10)}오래됨</span>`
-    : otherLeague
-      ? `<span class="ba-attn" data-act="open" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)}\n다른 리그라 열리지 않을 수 있어요.\n클릭해 현재 리그로 다시 검색하세요.">${icon('refresh', 10)}이전 리그</span>`
-      : ''
+  const unsafe = !isAllowedTradeUrl(r.url)
+  const dim = stale || otherLeague || unsafe
+  // 통합 주의 배지(.ba-attn) — 안전하지 않은 링크 최우선, 그다음 만료·리그
+  const attn = unsafe
+    ? `<span class="ba-attn ba-attn--del" data-id="${r.id}" data-act="del" data-tip="허용되지 않은(거래소 외) 링크예요.\n피싱일 수 있어 열기·복사가 차단됩니다.\n클릭하면 삭제합니다.">${icon('alert', 10)}차단된 링크</span>`
+    : stale
+      ? `<span class="ba-attn ba-attn--del" data-id="${r.id}" data-act="del" data-tip="14일 넘게 안 쓴 북마크예요.\n거래소 링크가 만료돼 못 열 수 있어요.\n클릭하면 삭제합니다.">${icon('trash', 10)}오래됨</span>`
+      : otherLeague
+        ? `<span class="ba-attn" data-act="open" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)}\n다른 리그라 열리지 않을 수 있어요.\n클릭해 현재 리그로 다시 검색하세요.">${icon('refresh', 10)}이전 리그</span>`
+        : ''
   const chips = stats.slice(0, 2).map((s) => `<span class="ba-chip">${escapeHtml(s)}</span>`).join('')
   const moreN = stats.length - 2
   const more = moreN > 0 ? `<span class="ba-chip-more" data-tip="${condTip}">+${moreN}</span>` : ''
@@ -223,19 +232,20 @@ function bindAll(listEl, ui) {
     if (row.dataset.kind !== 'history') return
     row.addEventListener('click', (e) => {
       if (e.target.closest('.ba-star,.ba-copy,.ba-cond,.ba-stale')) return
-      location.href = decodeURIComponent(row.dataset.url)
+      openTradeUrl(decodeURIComponent(row.dataset.url), toast)
     })
   })
 
   // 북마크 이름 칩 클릭 → 재검색
   listEl.querySelectorAll('.ba-open').forEach((s) =>
-    s.addEventListener('click', (e) => { e.stopPropagation(); location.href = decodeURIComponent(s.closest('.ba-row').dataset.url) }))
+    s.addEventListener('click', (e) => { e.stopPropagation(); openTradeUrl(decodeURIComponent(s.closest('.ba-row').dataset.url), toast) }))
 
   // 🔗 검색 링크 복사 (북마크·히스토리 공통)
   listEl.querySelectorAll('.ba-copy').forEach((c) =>
     c.addEventListener('click', async (e) => {
       e.stopPropagation()
       const url = decodeURIComponent(c.dataset.url)
+      if (!isAllowedTradeUrl(url)) { toast('허용되지 않은 링크는 복사할 수 없어요.'); return }
       try { await navigator.clipboard.writeText(url); toast('검색 링크를 복사했습니다.') }
       catch (_) {
         const t = document.createElement('textarea'); t.value = url; t.style.position = 'fixed'; t.style.opacity = '0'
@@ -284,7 +294,7 @@ function bindAll(listEl, ui) {
   listEl.querySelectorAll('.ba-attn[data-act]').forEach((a) =>
     a.addEventListener('click', async (e) => {
       e.stopPropagation()
-      if (a.dataset.act === 'open') { location.href = decodeURIComponent(a.closest('.ba-row').dataset.url); return }
+      if (a.dataset.act === 'open') { openTradeUrl(decodeURIComponent(a.closest('.ba-row').dataset.url), toast); return }
       if (a.dataset.act === 'del') { await remove(a.dataset.id); changed(); toast('오래된 북마크를 삭제했습니다.') }
     }))
 
@@ -306,17 +316,19 @@ function bindAll(listEl, ui) {
   const today = () => new Date().toISOString().slice(0, 10)
   const exportBtn = listEl.querySelector('.ba-export')
   if (exportBtn) exportBtn.addEventListener('click', async () => {
-    const { json, count, staleExcluded } = await exportBookmarksJSON(ui.game)
-    if (!count) { toast(staleExcluded ? '내보낼 북마크가 없습니다 (모두 오래됨).' : '내보낼 북마크가 없습니다.'); return }
+    const { json, count, staleExcluded, unsafeExcluded } = await exportBookmarksJSON(ui.game)
+    if (!count) { toast(staleExcluded || unsafeExcluded ? '내보낼 북마크가 없습니다 (오래됨·차단 제외).' : '내보낼 북마크가 없습니다.'); return }
     downloadJSON(json, `bookmark-atlas-${today()}.json`)
-    toast(`북마크 ${count}개를 내보냈습니다${staleExcluded ? ` (오래된 ${staleExcluded}개 제외)` : ''}.`)
+    const ex = [staleExcluded ? `오래된 ${staleExcluded}개` : '', unsafeExcluded ? `안전하지 않은 ${unsafeExcluded}개` : ''].filter(Boolean).join(', ')
+    toast(`북마크 ${count}개를 내보냈습니다${ex ? ` (${ex} 제외)` : ''}.`)
   })
   listEl.querySelectorAll('.ba-folder-export').forEach((b) => b.addEventListener('click', async (e) => {
     e.stopPropagation()
-    const { json, count, staleExcluded } = await exportBookmarksJSON(ui.game, b.dataset.id)
+    const { json, count, staleExcluded, unsafeExcluded } = await exportBookmarksJSON(ui.game, b.dataset.id)
     if (!count) { toast('내보낼 북마크가 없습니다.'); return }
     downloadJSON(json, `bookmark-atlas-${b.dataset.name}-${today()}.json`)
-    toast(`"${b.dataset.name}" 북마크 ${count}개를 내보냈습니다${staleExcluded ? ` (오래된 ${staleExcluded}개 제외)` : ''}.`)
+    const ex = [staleExcluded ? `오래된 ${staleExcluded}개` : '', unsafeExcluded ? `안전하지 않은 ${unsafeExcluded}개` : ''].filter(Boolean).join(', ')
+    toast(`"${b.dataset.name}" 북마크 ${count}개를 내보냈습니다${ex ? ` (${ex} 제외)` : ''}.`)
   }))
   const importBtn = listEl.querySelector('.ba-import')
   if (importBtn) importBtn.addEventListener('click', () => {
@@ -326,9 +338,10 @@ function bindAll(listEl, ui) {
       const rd = new FileReader()
       rd.onload = async () => {
         try {
-          const { added, skipped } = await importBookmarksJSON(ui.game, JSON.parse(rd.result))
+          const { added, skipped, blocked } = await importBookmarksJSON(ui.game, JSON.parse(rd.result))
           changed()
-          toast(added ? `${added}개 북마크를 가져왔습니다${skipped ? ` (중복 ${skipped}개 제외)` : ''}.` : '추가할 새 북마크가 없습니다.')
+          const ex = [skipped ? `중복 ${skipped}개` : '', blocked ? `차단 ${blocked}개(허용 도메인 외)` : ''].filter(Boolean).join(', ')
+          toast(added ? `${added}개 북마크를 가져왔습니다${ex ? ` (${ex} 제외)` : ''}.` : (blocked ? `허용 도메인 외 링크 ${blocked}개를 차단했습니다.` : '추가할 새 북마크가 없습니다.'))
         } catch (_) { toast('JSON 형식이 올바르지 않습니다.') }
       }
       rd.readAsText(f)
