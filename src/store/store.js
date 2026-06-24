@@ -10,7 +10,7 @@ async function readFolders() { return (await chrome.storage.local.get(FOLDERS_KE
 async function writeFolders(folders) { await chrome.storage.local.set({ [FOLDERS_KEY]: folders }) }
 
 // ── URL 안전성: 거래소(허용 도메인) 링크만 열기·복사·가져오기·내보내기 허용 (피싱·javascript: 차단) ──
-const ALLOWED_HOSTS = ['poe.kakaogames.com']
+const ALLOWED_HOSTS = ['poe.kakaogames.com', 'www.pathofexile.com']
 export function isAllowedTradeUrl(url) {
   try {
     const u = new URL(String(url))

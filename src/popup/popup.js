@@ -44,7 +44,7 @@ document.getElementById('app').innerHTML = `
     <div class="pop-cta">
       <button class="pop-btn pop-btn--primary" id="pop-toggle">${icon('bookmark', 15)}패널 열기 / 접기</button>
       <button class="pop-btn pop-btn--ghost" id="pop-tour">${icon('sparkle', 14)}사용법 가이드 다시 보기</button>
-      <button class="pop-btn pop-btn--ghost" id="pop-cross">${icon('external', 14)}<span id="pop-cross-tx">영문 거래소 전환 켜기 (PoE1)</span></button>
+      <button class="pop-btn pop-btn--ghost" id="pop-cross">${icon('external', 14)}<span id="pop-cross-tx">PoE1 영문 거래소 연동 켜기</span></button>
       <div class="pop-econ-row">
         <button class="pop-econ pop-econ--items" id="pop-econ"><span class="glint"></span><span class="pic"><img src="${analystImg}" alt="" /></span><span class="lbl">아이템 시세</span></button>
         <button class="pop-econ pop-econ--trend" id="pop-trend"><span class="glint"></span><span class="pic"><img src="${researcherImg}" alt="" /></span><span class="lbl">시장 동향</span></button>
@@ -90,7 +90,7 @@ const CROSS_ORIGINS = ['https://www.pathofexile.com/*']
 async function refreshCross() {
   let granted = false
   try { granted = await chrome.permissions.contains({ origins: CROSS_ORIGINS }) } catch (_) {}
-  $('pop-cross-tx').textContent = granted ? '영문 거래소 전환(PoE1): 켜짐 ✓' : '영문 거래소 전환 켜기 (PoE1)'
+  $('pop-cross-tx').textContent = granted ? 'PoE1 영문 거래소 연동: 켜짐 ✓ (패널·전환)' : 'PoE1 영문 거래소 연동 켜기'
 }
 $('pop-cross').onclick = async () => {
   let granted = false
