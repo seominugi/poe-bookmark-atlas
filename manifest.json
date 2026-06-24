@@ -18,18 +18,18 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*", "https://www.pathofexile.com/trade/*"],
+      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*", "https://www.pathofexile.com/trade/*", "https://www.pathofexile.com/trade2/*"],
       "js": ["src/content/page-bridge.js"],
       "run_at": "document_start",
       "world": "MAIN"
     },
     {
-      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*", "https://www.pathofexile.com/trade/*"],
+      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*", "https://www.pathofexile.com/trade/*", "https://www.pathofexile.com/trade2/*"],
       "js": ["src/content/content-main.js"],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*", "https://www.pathofexile.com/trade/*"],
+      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*", "https://www.pathofexile.com/trade/*", "https://www.pathofexile.com/trade2/*"],
       "js": ["src/content/stat-shortcut.js"],
       "run_at": "document_idle",
       "world": "MAIN"

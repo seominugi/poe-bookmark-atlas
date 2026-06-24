@@ -64,8 +64,8 @@ export function mountPanel({ game, league, getCurrentSearch }) {
           <span class="ba-econ-lbl"><b>시장 동향</b></span>
         </a>
       </div>
-      ${game === 'poe1' && /kakaogames/.test(location.hostname) ? `<div class="ba-convert-row">
-        <button class="ba-convert" id="ba-convert" data-tip="현재 검색 조건 그대로 영문 거래소(pathofexile.com · PoE1)에서 열어요">${icon('external', 14)}영문 거래소로 전환</button>
+      ${/kakaogames/.test(location.hostname) ? `<div class="ba-convert-row">
+        <button class="ba-convert" id="ba-convert" data-tip="현재 검색 조건 그대로 영문 거래소(pathofexile.com)에서 열어요">${icon('external', 14)}영문 거래소로 전환</button>
       </div>` : ''}
       <div class="ba-namebar" id="ba-namebar" hidden>
         <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
