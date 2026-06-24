@@ -18,23 +18,11 @@ async function fetchStats(game) {
   return res.json()
 }
 
-// 한↔영 거래소 전환 — 현재 검색 조건을 영문 거래소(pathofexile)에서 재생성하도록 핸드오프.
-// optional 권한 허용 시에만 동작. 실제 재생성은 타겟의 cross-site-receiver.js가 same-origin으로 수행.
-async function handleConvert(msg) {
-  const origins = ['https://www.pathofexile.com/*']
-  const granted = await chrome.permissions.contains({ origins })
-  if (!granted) return { ok: false, reason: 'no-permission' }
-  await chrome.storage.local.set({ baCrossSite: { target: 'pathofexile', query: msg.query, league: msg.league, ts: Date.now() } })
-  await chrome.tabs.create({ url: `https://www.pathofexile.com/trade2/search/poe2/${encodeURIComponent(msg.league)}` })
-  return { ok: true }
-}
-
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     try {
       if (msg && msg.type === 'fetchRates') sendResponse({ ok: true, data: await fetchRates(msg.game, msg.league) })
       else if (msg && msg.type === 'fetchStats') sendResponse({ ok: true, data: await fetchStats(msg.game) })
-      else if (msg && msg.type === 'ba-convert') sendResponse(await handleConvert(msg))
       else sendResponse({ ok: false, error: 'unknown message' })
     } catch (e) {
       sendResponse({ ok: false, error: String(e) })
