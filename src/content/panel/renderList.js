@@ -1,6 +1,6 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
-  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename, findBookmark,
+  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename, setNote, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
@@ -136,7 +136,7 @@ function rowHtml(r, kind, currentLeague) {
   const title = escapeHtml(r.name || r.title)
   const stats = r.stats || []
   const when = r.lastUsedAt || r.updatedAt
-  const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${stats.join(' ')}`.toLowerCase())
+  const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${r.note || ''} ${stats.join(' ')}`.toLowerCase())
   const condTip = escapeHtml(condTipText(r))
 
   // ── 히스토리: 카드 전체 클릭으로 재검색 (디자인: 가벼운 글래스 카드) ──
@@ -171,9 +171,10 @@ function rowHtml(r, kind, currentLeague) {
       <span class="ba-price-pill"${price && r.snapshotAt ? ` data-tip="이 가격은 ${ago(r.snapshotAt)} 기준이에요. 북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>
     </div>
     ${chipsRow}
+    <div class="ba-note-slot" data-id="${r.id}" data-note="${escapeHtml(r.note || '')}">${r.note ? `<span class="ba-note" data-tip="클릭해 메모 편집">${icon('chat', 11)}<span>${escapeHtml(r.note)}</span></span>` : ''}</div>
     <div class="ba-rowfoot">
       <span class="time">${icon('clock', 11)}${fmtTime(when)}</span>
-      <span class="acts"><span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-act over ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-act del ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
+      <span class="acts"><span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-act over ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-act note ba-note-btn${r.note ? ' has' : ''}" data-id="${r.id}" data-tip="메모 ${r.note ? '편집' : '추가'}">${icon('chat', 12)}</span><span class="ba-act del ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
     </div>
   </div>`
 }
@@ -303,6 +304,20 @@ function bindAll(listEl, ui) {
       if (name === null) return
       await rename(s.dataset.id, name || s.dataset.name || ''); changed()
     }))
+
+  // 📝 메모 편집 (인라인) — 메모 줄·메모 버튼 공통
+  const startNoteEdit = (slot) => {
+    if (!slot || slot.querySelector('.ba-note-edit')) return
+    const id = slot.dataset.id
+    slot.innerHTML = `<input class="ba-note-edit" value="${escapeHtml(slot.dataset.note || '')}" placeholder="메모 (위치·빌드·용도 등)" maxlength="120" />`
+    const inp = slot.querySelector('.ba-note-edit'); inp.focus(); inp.select()
+    let done = false
+    const commit = async (save) => { if (done) return; done = true; if (save) await setNote(id, inp.value.trim()); changed() }
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(true) } else if (e.key === 'Escape') { e.preventDefault(); commit(false) } })
+    inp.addEventListener('blur', () => commit(true))
+  }
+  listEl.querySelectorAll('.ba-note').forEach((n) => n.addEventListener('click', (e) => { e.stopPropagation(); startNoteEdit(n.closest('.ba-note-slot')) }))
+  listEl.querySelectorAll('.ba-note-btn').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); startNoteEdit(b.closest('.ba-row').querySelector('.ba-note-slot')) }))
 
   // ☆ 히스토리 → 북마크 승격 (같은 조건 북마크가 있으면 중복 저장 방지)
   listEl.querySelectorAll('.ba-star').forEach((s) =>

@@ -71,6 +71,13 @@ export async function rename(id, name) {
   if (r) { r.name = name; r.updatedAt = Date.now(); await writeAll(all) }
 }
 
+/** 북마크 메모 설정 — 빈 문자열이면 제거 */
+export async function setNote(id, note) {
+  const all = await readAll()
+  const r = all.find((x) => x.id === id)
+  if (r) { r.note = note || undefined; r.updatedAt = Date.now(); await writeAll(all) }
+}
+
 export async function remove(id) {
   await writeAll((await readAll()).filter((r) => r.id !== id))
 }
