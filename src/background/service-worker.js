@@ -49,7 +49,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
 })
 
 // ── 키보드 단축키 (manifest commands) ──
-const isTrade = (url) => /poe\.kakaogames\.com\/trade2?\//i.test(url || '')
+const isTrade = (url) => /(poe\.kakaogames\.com|www\.pathofexile\.com)\/trade2?\//i.test(url || '')
 
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'toggle-panel' && command !== 'save-search') return

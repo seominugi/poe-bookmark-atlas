@@ -61,7 +61,7 @@ document.getElementById('app').innerHTML = `
 // ── 핸들러 ──
 const $ = (id) => document.getElementById(id)
 const gameOf = (url) => (/\/trade2|poe2/i.test(url || '') ? 'poe2' : 'poe1')
-const isTrade = (url) => /poe\.kakaogames\.com\/trade2?\//i.test(url || '')
+const isTrade = (url) => /(poe\.kakaogames\.com|www\.pathofexile\.com)\/trade2?\//i.test(url || '')
 async function activeTab() { const [t] = await chrome.tabs.query({ active: true, currentWindow: true }); return t }
 
 // content script에 명령 전달. 거래소 탭이 아니면 false.
