@@ -153,6 +153,15 @@ export async function removeStaleBookmarks(game, staleMs, now = Date.now()) {
   return removed
 }
 
+/** 히스토리 전체 삭제 (game 스코프). 북마크는 보존. @returns {Promise<number>} 삭제 개수 */
+export async function clearHistory(game) {
+  const all = await readAll()
+  const kept = all.filter((r) => !(r.kind === 'history' && (!game || r.game === game)))
+  const removed = all.length - kept.length
+  if (removed > 0) await writeAll(kept)
+  return removed
+}
+
 // ── 폴더 (game 스코프) ──
 /** game 지정 시 해당 게임 폴더 + 게임 미지정(레거시) 폴더. */
 export async function listFolders(game) {

@@ -1,6 +1,6 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
-  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, rename, setNote, findBookmark,
+  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, setNote, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
@@ -267,7 +267,7 @@ export async function renderList(listEl, root, ui = {}) {
   }
 
   // ── 히스토리 섹션 (점진 렌더) ──
-  html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 15)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span></div>`
+  html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 15)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span>${history.length ? `<span class="ba-sec-actions"><button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button></span>` : ''}</div>`
   if (history.length) {
     html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="hs" placeholder="히스토리 검색 (이름·조건)" value="${escapeHtml(hsSearch)}" /></span></div>`
     html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history')).join('')
@@ -452,6 +452,21 @@ function bindAll(listEl, ui) {
         if (sec <= 0) resetClean()
         else cleanBtn.innerHTML = `${icon('trash', 13)}한 번 더! (${sec})`
       }, 1000)
+    })
+  }
+
+  // 🧹 히스토리 전체 삭제 — 2클릭 확인 + 카운트다운(3초)
+  const clearHistBtn = listEl.querySelector('.ba-clear-hist')
+  if (clearHistBtn) {
+    const orig = clearHistBtn.innerHTML
+    let cdTimer = null
+    const reset = () => { clearInterval(cdTimer); cdTimer = null; clearHistBtn.innerHTML = orig; clearHistBtn.classList.remove('armed') }
+    clearHistBtn.addEventListener('click', async () => {
+      if (cdTimer) { reset(); const n = await clearHistory(ui.game); changed(); toast(`히스토리 ${n}개를 모두 삭제했습니다.`); return }
+      let sec = 3
+      clearHistBtn.classList.add('armed')
+      clearHistBtn.innerHTML = `${icon('trash', 12)}한 번 더! (${sec})`
+      cdTimer = setInterval(() => { sec -= 1; if (sec <= 0) reset(); else clearHistBtn.innerHTML = `${icon('trash', 12)}한 번 더! (${sec})` }, 1000)
     })
   }
 

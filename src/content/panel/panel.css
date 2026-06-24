@@ -568,6 +568,10 @@
 .ba-clean-stale, .ba-add-folder { display: inline-flex; align-items: center; gap: 4px; }
 /* 오래된 정리 무장 상태 (카운트다운 중) — 더 강한 경고색 */
 .ba-clean-stale.armed { background: rgba(244, 63, 94, 0.32); color: #fecdd3; border-color: #f43f5e; font-weight: 800; }
+/* 히스토리 전체 삭제 버튼 (히스토리 섹션 헤더 우측) */
+.ba-clear-hist { display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: 11px; font-weight: 700; color: #fda4af; background: var(--ba-danger-soft); border: 1px solid var(--ba-danger-line); border-radius: 7px; padding: 5px 9px; cursor: pointer; transition: background .15s, color .15s; }
+.ba-clear-hist:hover { background: rgba(251,113,133,0.24); color: #fecdd3; }
+.ba-clear-hist.armed { background: rgba(244,63,94,0.32); color: #fecdd3; border-color: #f43f5e; font-weight: 800; }
 /* 오래됨(stale) 배지 — 삭제 동작이라 로즈(위험)색 */
 .ba-attn--del { color: #fda4af; background: var(--ba-danger-soft); border-color: var(--ba-danger-line); }
 
