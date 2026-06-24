@@ -39,6 +39,8 @@ function ensureStatMap() {
 ensureStatMap()
 
 let pending = null // { queryId, query, league, url, done }
+let lastQuery = null // 최근 검색 raw query (한↔영 전환용)
+let lastQueryLeague = null
 const queryIdFromUrl = (url) => { const m = /[?&]query=([^&]+)/.exec(url); return m ? m[1] : null }
 const dedupeKey = (query) => game + '|' + searchIdentity(query)
 
@@ -51,6 +53,7 @@ window.addEventListener('message', async (e) => {
   if (d.kind === 'search') {
     // pending을 동기적으로 먼저 설정 (await 전에) — fetch 메시지 레이스 방지
     pending = { queryId: (d.data && d.data.id) || null, query: d.query, league: leagueFromUrl(), url: location.href, done: false }
+    lastQuery = d.query; lastQueryLeague = pending.league // 전환 버튼용 최근 query 보관
     LOG('pending 설정:', { queryId: pending.queryId, league: pending.league })
     return
   }
@@ -97,7 +100,11 @@ window.addEventListener('message', async (e) => {
 })
 
 initFuzzyPrefix()
-const panel = mountPanel({ game, league: leagueFromUrl() })
+const panel = mountPanel({
+  game,
+  league: leagueFromUrl(),
+  getCurrentSearch: () => (lastQuery ? { query: lastQuery, league: lastQueryLeague || leagueFromUrl() } : null),
+})
 
 // 팝업·단축키 명령 수신 (toggle/save/tour)
 chrome.runtime.onMessage.addListener((msg) => {
