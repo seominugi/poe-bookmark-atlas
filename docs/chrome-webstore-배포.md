@@ -1,6 +1,6 @@
 # 크롬 웹스토어 배포 체크리스트 (오픈 베타 v0.1.0)
 
-POE 북마크 아틀라스 확장의 Chrome Web Store 등록 가이드. 업로드·심사는 개발자가 직접 진행한다.
+POE POE 북마크 아틀라스 확장의 Chrome Web Store 등록 가이드. 업로드·심사는 개발자가 직접 진행한다.
 
 ## 1. 패키지(zip) 만들기
 
@@ -12,7 +12,7 @@ npm run build   # dist/ 갱신 (이미 완료)
 
 zip 생성 방법(이 환경은 PowerShell이 deny라 자동화 불가):
 - **탐색기**: `dist` 폴더 안으로 들어가 → 내용물 전체(`assets`, `manifest.json`, `service-worker-loader.js`, `src`) 선택 → 우클릭 → "압축(zip)"
-- **PowerShell**(직접 실행): `Compress-Archive -Path dist\* -DestinationPath bookmark-atlas-0.1.0.zip -Force`
+- **PowerShell**(직접 실행): `Compress-Archive -Path dist\* -DestinationPath poe-bookmark-atlas-0.1.0.zip -Force`
 
 확인: 압축 파일을 열었을 때 최상위에 `manifest.json`이 보이면 정상.
 
@@ -25,7 +25,7 @@ zip 생성 방법(이 환경은 PowerShell이 deny라 자동화 불가):
 
 | 항목 | 값 |
 |---|---|
-| 이름 | 북마크 아틀라스 (오픈 베타) |
+| 이름 | POE 북마크 아틀라스 (오픈 베타) |
 | 요약 | POE2 거래소 검색을 북마크·히스토리로 저장하고 시세를 보여주는 거래 보조 도구 |
 | 카테고리 | 도구(Tools) 또는 생산성 |
 | 언어 | 한국어 |
@@ -57,10 +57,10 @@ zip 생성 방법(이 환경은 PowerShell이 deny라 자동화 불가):
 
 ### 개인정보 처리방침 초안 (URL 게시 필요)
 
-> 북마크 아틀라스는 사용자의 Path of Exile 거래소 검색을 브라우저 로컬 저장소(chrome.storage.local)에만 저장합니다. 어떤 개인정보도 외부 서버로 전송하거나 제3자와 공유하지 않습니다. 가격 환산을 위한 환율 정보(seominugi.com)와 능력치 메타데이터(거래소 API)를 요청하지만, 사용자 식별 정보나 검색 내용은 전송하지 않습니다. 저장된 데이터는 확장 삭제 시 함께 제거됩니다.
+> POE 북마크 아틀라스는 사용자의 Path of Exile 거래소 검색을 브라우저 로컬 저장소(chrome.storage.local)에만 저장합니다. 어떤 개인정보도 외부 서버로 전송하거나 제3자와 공유하지 않습니다. 가격 환산을 위한 환율 정보(seominugi.com)와 능력치 메타데이터(거래소 API)를 요청하지만, 사용자 식별 정보나 검색 내용은 전송하지 않습니다. 저장된 데이터는 확장 삭제 시 함께 제거됩니다.
 
 **게시 완료 URL (웹스토어 처리방침 URL로 사용)**: https://github.com/seominugi/smng-poe-privacy
-— 서미누기 POE 확장 공용 repo이며 "북마크 아틀라스" 섹션 포함. 나랏말서미누기는 추후 `#나랏말서미누기-poe` 섹션으로 교체 예정.
+— 서미누기 POE 확장 공용 repo이며 "POE 북마크 아틀라스" 섹션 포함. 나랏말서미누기는 추후 `#나랏말서미누기-poe` 섹션으로 교체 예정.
 
 ## 7. 심사 참고
 

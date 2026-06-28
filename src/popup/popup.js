@@ -1,4 +1,4 @@
-// 북마크 아틀라스 — 확장 팝업 (확장 팝업.dc.html 재현)
+// POE 북마크 아틀라스 — 확장 팝업 (확장 팝업.dc.html 재현)
 import './popup.css'
 import { icon } from '../lib/icons.js'
 import icon128 from '../icons/icon128.png'
@@ -29,7 +29,7 @@ document.getElementById('app').innerHTML = `
   <div class="pop">
     <div class="pop-head">
       <img src="${icon128}" alt="" />
-      <span class="pop-title"><b>북마크 아틀라스</b><small>POE TRADE MANAGER · v${version}</small></span>
+      <span class="pop-title"><b>POE 북마크 아틀라스</b><small>POE TRADE MANAGER · v${version}</small></span>
     </div>
     <div class="pop-intro"><p>거래소 검색을 <b>자동으로 기록</b>하고, 복잡한 조건은 <span class="hl">북마크</span>로 영구 보관해요. 다시 짤 필요 없이 한 번에 다시 엽니다.</p></div>
     <div class="pop-sc">
