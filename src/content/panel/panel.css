@@ -214,12 +214,15 @@
 .ba-donate:hover { filter: brightness(1.08); }
 
 /* ---- 인라인 이름 입력바 ---- */
-.ba-namebar { display: flex; gap: 6px; padding: 9px 14px; border-bottom: 1px solid var(--ba-border); flex-wrap: wrap; }
+.ba-namebar { position: absolute; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center; padding: 18px; background: rgba(7, 6, 15, 0.62); }
 .ba-namebar[hidden] { display: none; }
+.ba-modal-card { width: 100%; max-width: 330px; display: flex; flex-direction: column; gap: 11px; background: var(--ba-panel-bg); border: 1px solid var(--ba-violet-line); border-radius: 14px; padding: 15px 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55); }
+.ba-modal-title { font-size: 13px; font-weight: 800; color: var(--ba-violet-2); }
+.ba-modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px; }
 .ba-name-input {
-  flex: 1; min-width: 0; background: rgba(255, 255, 255, 0.06);
+  width: 100%; box-sizing: border-box; background: rgba(255, 255, 255, 0.06);
   border: 1px solid var(--ba-violet-line); border-radius: var(--ba-r-box);
-  padding: 7px 11px; color: var(--ba-text-strong); font-size: 13px; font-family: inherit; outline: none;
+  padding: 8px 11px; color: var(--ba-text-strong); font-size: 13px; font-family: inherit; outline: none;
   transition: border-color .15s;
 }
 .ba-name-input:focus { border-color: var(--ba-violet); }
@@ -348,6 +351,7 @@
 .ba-line1 { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .ba-line1 b { color: var(--ba-text-strong); font-weight: 700; font-size: 14px; }
 .ba-l1l { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.ba-thumb { width: 28px; height: 28px; flex: none; box-sizing: border-box; padding: 2px; border-radius: 6px; object-fit: contain; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--ba-border); }
 .ba-price { color: var(--ba-gold); font-weight: 800; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
 .ba-cur { width: 17px; height: 17px; vertical-align: middle; flex-shrink: 0; }
 .ba-stale { color: var(--ba-warn); cursor: help; }
@@ -464,9 +468,8 @@
 .ba-row.ba-attn-dim { opacity: .6; }
 
 /* 조건 칩 (스탯 요약) + "+N" 더보기 */
-.ba-chip { font-size: 10.5px; color: #b9b2dd; background: rgba(167,139,250,0.10); border: 1px solid rgba(167,139,250,0.22); border-radius: 6px; padding: 3px 8px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ba-chip-more { font-size: 10.5px; font-weight: 700; color: #7dd3fc; background: rgba(125,211,252,0.10); border: 1px solid rgba(125,211,252,0.28); border-radius: 6px; padding: 3px 8px; cursor: help; }
-.ba-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.ba-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; }
+.ba-chips .ba-cond { margin-left: 0; }   /* 칩 행에서는 좌측 정렬(히스토리 .ba-meta의 우측 정렬 override) */
 
 /* 이름 = 클릭 칩(다시 열기) — 북마크는 이 칩만 재검색 트리거 */
 .ba-open { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 3px 9px 3px 7px; margin: -3px 0; border-radius: 8px; cursor: pointer; background: transparent; border: 1px solid transparent; transition: background .16s, border-color .16s, box-shadow .16s; }
@@ -492,6 +495,7 @@
 .ba-note { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; color: #9b94bd; cursor: pointer; max-width: 100%; }
 .ba-note .ba-ic { flex: none; color: #7c75a3; }
 .ba-note > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ba-note--auto { opacity: .78; }   /* 빈 메모 자동 요약 폴백 — 수동 메모보다 옅게 */
 .ba-note-edit { width: 100%; box-sizing: border-box; margin-top: 8px; font-family: inherit; font-size: 11.5px; color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-violet-line); border-radius: 7px; padding: 5px 8px; outline: none; }
 
 /* 폴더 색 구분 — 헤더 좌측 3px 띠 (color는 마크업에서 인라인으로 주입) */

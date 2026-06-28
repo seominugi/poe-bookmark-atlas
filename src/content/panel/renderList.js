@@ -1,11 +1,12 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, setNote, findBookmark,
-  exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl,
+  exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
 import { suggestName } from '../../lib/suggestName.js'
+import { buildAutoNote } from '../../lib/autoNote.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
@@ -39,6 +40,7 @@ async function hydrateUiState() {
 const saveCollapsed = () => { try { chrome.storage.local.set({ uiCollapsedFolders: [...collapsedFolders] }) } catch (_) {} }
 const saveSort = () => { try { chrome.storage.local.set({ uiBmSort: bmSort }) } catch (_) {} }
 let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
+let focusBookmarkId = null // 저장·승격 후 스크롤·강조 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
 const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-note-btn, .ba-note, .ba-open, .ba-attn[data-act], .ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-dens-seg, .ba-sort-seg, .ba-import, .ba-export'
@@ -207,17 +209,19 @@ function rowHtml(r, kind, currentLeague) {
       : otherLeague
         ? `<span class="ba-attn" data-act="open" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)}\n다른 리그라 열리지 않을 수 있어요.\n클릭해 현재 리그로 다시 검색하세요.">${icon('refresh', 10)}이전 리그</span>`
         : ''
-  const chips = stats.slice(0, 2).map((s) => `<span class="ba-chip">${escapeHtml(s)}</span>`).join('')
-  const moreN = stats.length - 2
-  const more = moreN > 0 ? `<span class="ba-chip-more" data-tip="${condTip}">+${moreN}</span>` : ''
-  const chipsRow = (attn || stats.length) ? `<div class="ba-chips">${attn}${chips}${more}</div>` : ''
+  // 능력치 미리보기 칩은 텍스트 길이에 따라 줄바꿈돼 호버(+n) 위치가 흔들림 →
+  // 고정 폭 '조건 N개' 단일 칩(호버 시 전체 상세) + 상시 메모로 대체.
+  const condChip = stats.length ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${stats.length}개</span>` : ''
+  const chipsRow = (attn || stats.length) ? `<div class="ba-chips">${attn}${condChip}</div>` : ''
+  const thumb = r.icon && isAllowedIconUrl(r.icon) ? `<img class="ba-thumb" src="${escapeHtml(r.icon)}" alt="" loading="lazy" />` : ''
+  const noteText = r.note || buildAutoNote(r) // 빈 메모면 조건 요약을 렌더 시점에 폴백 표시(저장 X, 편집하면 그때 저장)
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
     <div class="ba-line1">
-      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span><span class="ba-open" data-tip="클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
       <span class="ba-price-pill"${price && r.snapshotAt ? ` data-tip="이 가격은 ${ago(r.snapshotAt)} 기준이에요. 북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>
     </div>
     ${chipsRow}
-    <div class="ba-note-slot" data-id="${r.id}" data-note="${escapeHtml(r.note || '')}">${r.note ? `<span class="ba-note" data-tip="클릭해 메모 편집">${icon('chat', 11)}<span>${escapeHtml(r.note)}</span></span>` : ''}</div>
+    <div class="ba-note-slot" data-id="${r.id}" data-note="${escapeHtml(noteText)}">${noteText ? `<span class="ba-note${r.note ? '' : ' ba-note--auto'}" data-tip="${r.note ? '클릭해 메모 편집' : '검색 조건 자동 요약 — 클릭해 메모로 저장·편집'}">${icon('chat', 11)}<span>${escapeHtml(noteText)}</span></span>` : ''}</div>
     <div class="ba-rowfoot">
       <span class="time">${icon('clock', 11)}${fmtTime(when)}</span>
       <span class="acts"><span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-act over ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-act move ba-move" data-id="${r.id}" data-folder="${r.folderId ?? ''}" data-tip="다른 폴더로 이동">${icon('folder', 12)}</span><span class="ba-act note ba-note-btn${r.note ? ' has' : ''}" data-id="${r.id}" data-tip="메모 ${r.note ? '편집' : '추가'}">${icon('chat', 12)}</span><span class="ba-act del ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
@@ -321,6 +325,11 @@ export async function renderList(listEl, root, ui = {}) {
     focusGripId = null
     if (g) g.focus()
   }
+  if (focusBookmarkId) { // 저장·승격 후 해당 북마크로 스크롤·강조
+    const id = focusBookmarkId
+    focusBookmarkId = null
+    highlightBookmark(listEl, id)
+  }
 }
 
 function bindAll(listEl, ui) {
@@ -404,8 +413,9 @@ function bindAll(listEl, ui) {
       const hist = (await listByKind('history', ui.game)).find((r) => r.id === s.dataset.id)
       const dup = hist && (await findBookmark(hist.dedupeKey, ui.game))
       if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark(listEl, dup.id); return }
-      const name = ui.showNameInput ? await ui.showNameInput(suggestName(hist)) : prompt('북마크 이름', suggestName(hist))
+      const name = ui.showNameInput ? await ui.showNameInput(suggestName(hist), '북마크 이름') : prompt('북마크 이름', suggestName(hist))
       if (name === null) return
+      focusBookmarkId = s.dataset.id
       await promoteToBookmark(s.dataset.id, name || undefined); changed()
     }))
 
@@ -417,7 +427,7 @@ function bindAll(listEl, ui) {
       await overwriteBookmark(o.dataset.id, {
         game: latest.game, league: latest.league, url: latest.url, title: latest.title,
         itemType: latest.itemType, stats: latest.stats, statGroups: latest.statGroups,
-        otherFilters: latest.otherFilters, priceFilter: latest.priceFilter,
+        otherFilters: latest.otherFilters, priceFilter: latest.priceFilter, icon: latest.icon,
         snapshot: latest.snapshot, dedupeKey: latest.dedupeKey,
       })
       changed(); toast('최근 검색으로 갱신했습니다.')
@@ -444,7 +454,7 @@ function bindAll(listEl, ui) {
   // + 폴더
   const addBtn = listEl.querySelector('.ba-add-folder')
   if (addBtn) addBtn.addEventListener('click', async () => {
-    const name = ui.showNameInput ? await ui.showNameInput('새 폴더') : prompt('폴더 이름', '새 폴더')
+    const name = ui.showNameInput ? await ui.showNameInput('새 폴더', '새 폴더 이름') : prompt('폴더 이름', '새 폴더')
     if (name === null) return
     await addFolder(name || '새 폴더', ui.game); changed()
   })
@@ -614,12 +624,13 @@ function bindAll(listEl, ui) {
       ? await ui.showSaveInput(suggestName(latest), preFolderId)
       : { name: prompt('북마크 이름', suggestName(latest)), folderId: preFolderId }
     if (!res || res.name === null) return
-    await addBookmark({
+    const saved = await addBookmark({
       game: latest.game, league: latest.league, url: latest.url, title: latest.title,
       itemType: latest.itemType, name: latest.name, stats: latest.stats, statGroups: latest.statGroups,
-      otherFilters: latest.otherFilters, priceFilter: latest.priceFilter,
+      otherFilters: latest.otherFilters, priceFilter: latest.priceFilter, icon: latest.icon,
       snapshot: latest.snapshot, dedupeKey: latest.dedupeKey, folderId: res.folderId,
     }, res.name || latest.title)
+    focusBookmarkId = saved.id
     changed(); toast('저장했습니다.')
   }))
 

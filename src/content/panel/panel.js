@@ -41,6 +41,7 @@ export function mountPanel({ game, league, getCurrentSearch }) {
               <div class="ba-kbd-pop-group">패널 단축키</div>
               <div class="ba-kbd-pop-row"><span>패널 열기 / 접기</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>B</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>현재 검색 저장</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>S</kbd></span></div>
+              <div class="ba-kbd-pop-row"><span>북마크 검색</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>K</kbd></span></div>
               <div class="ba-kbd-pop-group">검색 단축키</div>
               <div class="ba-kbd-pop-row"><span>아이템 검색</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>F</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>능력치 필터 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>A</kbd></span></div>
@@ -69,10 +70,15 @@ export function mountPanel({ game, league, getCurrentSearch }) {
         <button class="ba-convert" id="ba-convert" data-tip="현재 검색 조건 그대로 영문 거래소(pathofexile.com)에서 열어요">${icon('external', 14)}영문 거래소로 전환</button>
       </div>` : ''}
       <div class="ba-namebar" id="ba-namebar" hidden>
-        <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
-        <button class="ba-name-ok" id="ba-name-ok">저장</button>
-        <button class="ba-name-cancel" id="ba-name-cancel">취소</button>
-        <div class="ba-folder-pick" id="ba-folder-pick" hidden></div>
+        <div class="ba-modal-card" id="ba-modal-card">
+          <div class="ba-modal-title" id="ba-modal-title">북마크 이름</div>
+          <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
+          <div class="ba-folder-pick" id="ba-folder-pick" hidden></div>
+          <div class="ba-modal-btns">
+            <button class="ba-name-cancel" id="ba-name-cancel">취소</button>
+            <button class="ba-name-ok" id="ba-name-ok">저장</button>
+          </div>
+        </div>
       </div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-foot">
@@ -180,6 +186,15 @@ export function mountPanel({ game, league, getCurrentSearch }) {
     clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, 2200)
   }
 
+  // 패널 내 북마크 검색창 포커스 단축키 (Alt+K) — 접혀 있으면 펼친 뒤 포커스
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat || !e.altKey || e.ctrlKey || e.metaKey || e.code !== 'KeyK') return
+    e.preventDefault()
+    if (isCollapsed()) setCollapsed(false)
+    const inp = root.querySelector('.ba-search-input[data-scope="bm"]')
+    if (inp) { inp.focus(); inp.select() }
+  }, true)
+
   // 정보 밀도 (여유/조밀) — 북마크 섹션 헤더의 토글로 제어. chrome.storage 영속화.
   let density = 'comfortable'
   const applyDensity = (d) => { density = d; elRoot.setAttribute('data-density', d) }
@@ -207,10 +222,13 @@ export function mountPanel({ game, league, getCurrentSearch }) {
   })
 
   // 패널 내부 인라인 이름 입력 (네이티브 prompt 대체). @returns {Promise<string|null>}
-  function showNameInput(defaultName) {
+  function showNameInput(defaultName, title = '이름 변경') {
     return new Promise((resolve) => {
       const bar = $('ba-namebar'); const input = $('ba-name-input')
-      const ok = $('ba-name-ok'); const cancel = $('ba-name-cancel')
+      const ok = $('ba-name-ok'); const cancel = $('ba-name-cancel'); const pick = $('ba-folder-pick')
+      $('ba-modal-title').textContent = title
+      pick.hidden = true; pick.innerHTML = '' // 폴더 피커는 이 모달에서 미사용
+      input.hidden = false; ok.textContent = '저장'
       input.value = defaultName || ''
       bar.hidden = false
       input.focus(); input.select()
@@ -219,10 +237,12 @@ export function mountPanel({ game, league, getCurrentSearch }) {
         ok.removeEventListener('click', onOk)
         cancel.removeEventListener('click', onCancel)
         input.removeEventListener('keydown', onKey)
+        bar.removeEventListener('click', onOverlay)
         resolve(val)
       }
       const onOk = () => finish(input.value.trim() || defaultName || '')
       const onCancel = () => finish(null)
+      const onOverlay = (e) => { if (e.target === bar) onCancel() } // 어두운 배경 클릭 = 취소
       const onKey = (e) => {
         if (e.key === 'Enter') { e.preventDefault(); onOk() }
         else if (e.key === 'Escape') { e.preventDefault(); onCancel() }
@@ -230,11 +250,12 @@ export function mountPanel({ game, league, getCurrentSearch }) {
       ok.addEventListener('click', onOk)
       cancel.addEventListener('click', onCancel)
       input.addEventListener('keydown', onKey)
+      bar.addEventListener('click', onOverlay)
     })
   }
 
   // 저장 다이얼로그 — 이름 + 폴더 선택(미분류·기존 폴더·+새 폴더). @returns {Promise<{name, folderId}|null>}
-  async function showSaveInput(defaultName, currentFolderId = null) {
+  async function showSaveInput(defaultName, currentFolderId = null, title = '북마크 저장') {
     const folders = await listFolders(game)
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     return new Promise((resolve) => {
@@ -244,6 +265,7 @@ export function mountPanel({ game, league, getCurrentSearch }) {
       let creating = false
       const cleanup = () => {
         ok.removeEventListener('click', onOk); cancel.removeEventListener('click', onCancel); input.removeEventListener('keydown', onKey)
+        bar.removeEventListener('click', onOverlay)
         bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
       }
       const onOk = async () => {
@@ -256,6 +278,7 @@ export function mountPanel({ game, league, getCurrentSearch }) {
         cleanup(); resolve({ name, folderId: fid })
       }
       const onCancel = () => { cleanup(); resolve(null) }
+      const onOverlay = (e) => { if (e.target === bar) onCancel() } // 어두운 배경 클릭 = 취소
       const onKey = (e) => {
         if (e.key === 'Enter') { e.preventDefault(); onOk() }
         else if (e.key === 'Escape') { e.preventDefault(); onCancel() }
@@ -279,16 +302,19 @@ export function mountPanel({ game, league, getCurrentSearch }) {
           creating = false; folderId = c.dataset.fid || null; render()
         }))
       }
+      $('ba-modal-title').textContent = title
+      input.hidden = false; ok.textContent = '저장'
       input.value = defaultName || ''
       pick.hidden = false; render()
       bar.hidden = false; input.focus(); input.select()
       ok.addEventListener('click', onOk); cancel.addEventListener('click', onCancel); input.addEventListener('keydown', onKey)
+      bar.addEventListener('click', onOverlay)
     })
   }
 
   // 이동 다이얼로그 — 폴더만 선택(이름 입력 없음). showSaveInput의 폴더 피커 UI 재사용.
   // @returns {Promise<string|null|false>} 폴더 id | null(미분류) | false(취소). null과 취소를 구분해야 미분류로 이동 가능.
-  async function showFolderPick(currentFolderId = null) {
+  async function showFolderPick(currentFolderId = null, title = '다른 폴더로 이동') {
     const folders = await listFolders(game)
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     return new Promise((resolve) => {
@@ -298,6 +324,7 @@ export function mountPanel({ game, league, getCurrentSearch }) {
       let creating = false
       const cleanup = () => {
         ok.removeEventListener('click', onOk); cancel.removeEventListener('click', onCancel)
+        bar.removeEventListener('click', onOverlay)
         bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
         input.hidden = false; ok.textContent = '저장' // 다른 다이얼로그를 위해 namebar 원복
       }
@@ -310,6 +337,7 @@ export function mountPanel({ game, league, getCurrentSearch }) {
         cleanup(); resolve(fid)
       }
       const onCancel = () => { cleanup(); resolve(false) }
+      const onOverlay = (e) => { if (e.target === bar) onCancel() } // 어두운 배경 클릭 = 취소
       const render = () => {
         const chip = (fid, label, extra = '') =>
           `<span class="chip ${extra} ${!creating && (folderId ?? null) === (fid ?? null) ? 'active' : ''}" data-fid="${fid ?? ''}">${esc(label)}</span>`
@@ -329,10 +357,12 @@ export function mountPanel({ game, league, getCurrentSearch }) {
           creating = false; folderId = c.dataset.fid || null; render()
         }))
       }
+      $('ba-modal-title').textContent = title
       input.hidden = true; ok.textContent = '이동' // 이동 모드: 이름 입력 숨김, 버튼 라벨 변경
       pick.hidden = false; render()
       bar.hidden = false
       ok.addEventListener('click', onOk); cancel.addEventListener('click', onCancel)
+      bar.addEventListener('click', onOverlay)
     })
   }
 
@@ -351,17 +381,18 @@ export function mountPanel({ game, league, getCurrentSearch }) {
     if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark($('ba-list'), dup.id); return }
     const res = await showSaveInput(suggestName(latest))
     if (res === null) return
-    await addBookmark(
+    const saved = await addBookmark(
       {
         game: latest.game, league: latest.league, url: latest.url,
         title: latest.title, itemType: latest.itemType, name: latest.name,
         stats: latest.stats, statGroups: latest.statGroups,
-        otherFilters: latest.otherFilters, priceFilter: latest.priceFilter, snapshot: latest.snapshot,
+        otherFilters: latest.otherFilters, priceFilter: latest.priceFilter, icon: latest.icon, snapshot: latest.snapshot,
         dedupeKey: latest.dedupeKey, folderId: res.folderId,
       },
       res.name || latest.title,
     )
-    refresh()
+    await refresh()
+    highlightBookmark($('ba-list'), saved.id)
     toast('북마크에 저장했습니다.')
   }
   $('ba-save').onclick = doSave

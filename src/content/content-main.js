@@ -4,6 +4,7 @@ import { parseSearchQuery, searchIdentity } from '../lib/searchParser.js'
 import { buildStatMap } from '../lib/statMap.js'
 import { buildFilterMap } from '../lib/filterMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
+import { topIcon } from '../lib/topIcon.js'
 import { parseExaltedPerDivine } from '../lib/currencyRates.js'
 import { addHistory, markUsedByUrl } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
@@ -79,10 +80,13 @@ window.addEventListener('message', async (e) => {
     pending.done = true
     await Promise.all([ensureStatMap(), ensureFilterMap()])
 
-    const listings = ((d.data && d.data.result) || [])
+    const results = (d.data && d.data.result) || []
+    const listings = results
       .map((r) => r && r.listing && r.listing.price)
       .filter(Boolean)
       .map((p) => ({ amount: p.amount, currency: p.currency }))
+    // 결과 아이템 이미지 중 가장 많이 나온(최빈) 아이콘을 대표 썸네일로
+    const icon = topIcon(results.map((r) => r && r.item && r.item.icon))
 
     let snapshot = null
     try {
@@ -93,7 +97,7 @@ window.addEventListener('message', async (e) => {
     } catch (err) { LOG('환율/스냅샷 오류', String(err)) }
 
     // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt + 가격 스냅샷 자동 갱신
-    if (listings.length > 0) markUsedByUrl(location.href, snapshot || undefined)
+    if (listings.length > 0) markUsedByUrl(location.href, snapshot || undefined, icon || undefined)
 
     const parsed = parseSearchQuery(pending.query, statMap, filterMap)
     const rec = await addHistory({
@@ -107,6 +111,7 @@ window.addEventListener('message', async (e) => {
       statGroups: parsed.statGroups,
       otherFilters: parsed.otherFilters,
       priceFilter: parsed.priceFilter,
+      icon: icon || undefined,
       snapshot: snapshot || undefined,
       dedupeKey: dedupeKey(pending.query),
     })

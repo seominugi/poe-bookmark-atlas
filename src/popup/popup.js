@@ -11,6 +11,7 @@ import discordImg from '../icons/icon_clyde_white_RGB.png'
 const SHORTCUTS_PANEL = [
   { label: '패널 열기 / 접기', keys: ['Alt', 'B'] },
   { label: '현재 검색 저장', keys: ['Alt', 'S'] },
+  { label: '북마크 검색', keys: ['Alt', 'K'] },
 ]
 const SHORTCUTS_STAT = [
   { label: '아이템 검색 포커스', keys: ['Alt', 'F'] },

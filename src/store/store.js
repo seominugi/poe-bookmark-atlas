@@ -1,4 +1,6 @@
 // src/store/store.js
+import { buildAutoNote } from '../lib/autoNote.js'
+
 const KEY = 'records'
 const FOLDERS_KEY = 'folders'
 export const HISTORY_CAP = 200 // 히스토리 보관 상한. renderList "더 보기"(60+200)가 실제로 동작하도록 상향
@@ -17,6 +19,12 @@ export function isAllowedTradeUrl(url) {
     return u.protocol === 'https:' && ALLOWED_HOSTS.includes(u.hostname) &&
       (u.pathname.startsWith('/trade2/') || u.pathname.startsWith('/trade/'))
   } catch (_) { return false }
+}
+
+// 아이템 썸네일 이미지: POE 공식 CDN(web.poecdn.com, https)만 허용 — 가져온 북마크의 악성·트래킹 이미지 차단.
+const ALLOWED_ICON_HOSTS = ['web.poecdn.com']
+export function isAllowedIconUrl(url) {
+  try { const u = new URL(String(url)); return u.protocol === 'https:' && ALLOWED_ICON_HOSTS.includes(u.hostname) } catch (_) { return false }
 }
 
 const maxBookmarkOrder = (all) => all.reduce((m, r) => (r.kind === 'bookmark' ? Math.max(m, r.order ?? 0) : m), 0)
@@ -61,6 +69,7 @@ export async function promoteToBookmark(id, name) {
   r.name = name ?? r.name ?? r.title
   r.folderId = r.folderId ?? null
   r.order = maxBookmarkOrder(all) + 1
+  if (!r.note) r.note = buildAutoNote(r) || undefined // 빈 메모면 검색 조건 요약 자동 채움
   r.updatedAt = Date.now()
   await writeAll(all)
 }
@@ -89,6 +98,7 @@ export async function addBookmark(rec, name) {
   const record = {
     ...rec, id: uid(), kind: 'bookmark', name: name ?? rec.title,
     folderId: rec.folderId ?? null, order: maxBookmarkOrder(all) + 1,
+    note: rec.note || buildAutoNote(rec) || undefined, // 빈 메모면 검색 조건 요약 자동 채움
     createdAt: now, updatedAt: now,
   }
   await writeAll([...all, record])
@@ -109,6 +119,7 @@ export async function overwriteBookmark(id, source) {
   r.statGroups = source.statGroups
   r.otherFilters = source.otherFilters
   r.priceFilter = source.priceFilter
+  if (source.icon !== undefined) r.icon = source.icon
   r.snapshot = source.snapshot
   r.dedupeKey = source.dedupeKey
   r.updatedAt = Date.now()
@@ -127,7 +138,7 @@ export async function moveBookmark(id, patch) {
 }
 
 /** 저장된 검색을 열어 결과가 실제 로드되면 호출 — 해당 URL 북마크의 lastUsedAt 갱신(만료 경고 해제) */
-export async function markUsedByUrl(url, snapshot) {
+export async function markUsedByUrl(url, snapshot, icon) {
   const all = await readAll()
   const now = Date.now()
   let changed = false
@@ -135,6 +146,7 @@ export async function markUsedByUrl(url, snapshot) {
     if (r.kind === 'bookmark' && r.url === url) {
       r.lastUsedAt = now
       if (snapshot) { r.snapshot = snapshot; r.snapshotAt = now } // 북마크를 열어 결과가 뜨면 가격 스냅샷 자동 갱신
+      if (icon) r.icon = icon // 결과 대표 이미지도 최신 최빈으로 갱신
       changed = true
     }
   }
@@ -299,6 +311,7 @@ export async function importBookmarksJSON(game, data) {
     const folderId = b.folderId != null ? (idMap[b.folderId] ?? null) : null
     // 기존 메타(id·kind·order·시간)는 버리고 addBookmark가 새로 발급하도록 한다
     const { id, kind, order, createdAt, updatedAt, lastUsedAt, ...rest } = b
+    if (rest.icon && !isAllowedIconUrl(rest.icon)) delete rest.icon // 허용 CDN 외 이미지는 제거(북마크 자체는 유지)
     await addBookmark({ ...rest, game, folderId }, b.name || b.title)
     added++
   }
