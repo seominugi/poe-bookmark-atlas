@@ -107,6 +107,7 @@ export async function overwriteBookmark(id, source) {
   r.itemType = source.itemType
   r.stats = source.stats
   r.statGroups = source.statGroups
+  r.otherFilters = source.otherFilters
   r.priceFilter = source.priceFilter
   r.snapshot = source.snapshot
   r.dedupeKey = source.dedupeKey
@@ -169,8 +170,10 @@ export async function listFolders(game) {
   return game ? folders.filter((f) => !f.game || f.game === game) : folders
 }
 
-// 폴더 색상 — 새 폴더에 5색 팔레트를 순환 자동 배정(같은 game 스코프 폴더 수 기준)
-export const FOLDER_PALETTE = ['#a78bfa', '#7dd3fc', '#5eead4', '#fbbf24', '#fb7185']
+// 폴더 색상 — 자수정(시그니처 바이올렛) 기준 유사색·보색 10색 큐레이트 팔레트.
+// 다크 보라 글래스에 어울리도록 선별(무지개 나열 X): 유사색(자수정·인디고·퍼플·푸시아·핑크)
+// → 따뜻 대비(로즈·코랄·골드) → 시원 보색(민트·스카이). 새 폴더에 순환 자동 배정.
+export const FOLDER_PALETTE = ['#a78bfa', '#818cf8', '#c084fc', '#e879f9', '#f472b6', '#fb7185', '#fb923c', '#fbbf24', '#5eead4', '#38bdf8']
 export async function addFolder(name, game, color) {
   const folders = await readFolders()
   const scopeCount = folders.filter((f) => (f.game ?? null) === (game ?? null)).length
@@ -208,6 +211,23 @@ export async function moveFolder(id, dir) {
   else { for (let i = idx + 1; i < folders.length; i++) if (sameScope(folders[i])) { swapIdx = i; break } }
   if (swapIdx < 0) return
   const tmp = folders[idx]; folders[idx] = folders[swapIdx]; folders[swapIdx] = tmp
+  await writeFolders(folders)
+}
+
+/**
+ * 폴더를 드래그로 임의 위치에 재배치(인접뿐 아니라 원거리도). moveFolder(±1 스왑)와 별개.
+ * beforeId: '' → 맨 앞(미분류 자리), 폴더 id → 그 폴더 바로 앞, null/미발견 → 맨 뒤.
+ */
+export async function reorderFolder(id, beforeId) {
+  if (id === beforeId) return
+  const folders = await readFolders()
+  const idx = folders.findIndex((f) => f.id === id)
+  if (idx < 0) return
+  const [moved] = folders.splice(idx, 1)
+  const bIdx = beforeId ? folders.findIndex((f) => f.id === beforeId) : -1
+  if (beforeId === '') folders.unshift(moved)
+  else if (beforeId == null || bIdx < 0) folders.push(moved)
+  else folders.splice(bIdx, 0, moved)
   await writeFolders(folders)
 }
 

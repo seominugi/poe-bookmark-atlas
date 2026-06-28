@@ -9,7 +9,7 @@ import {
 
 beforeEach(() => globalThis.__resetChromeMock())
 
-const rec = (over = {}) => ({ game: 'poe2', league: 'Standard', url: 'u', title: 't', stats: [], dedupeKey: 'k1', ...over })
+const rec = (over = {}) => ({ game: 'poe2', league: 'Standard', url: 'https://poe.kakaogames.com/trade2/search/poe2/u', title: 't', stats: [], dedupeKey: 'k1', ...over })
 
 describe('store', () => {
   it('히스토리 추가/조회', async () => {
@@ -213,8 +213,8 @@ describe('store v1.2 (JSON 내보내기/가져오기)', () => {
     const data = {
       folders: [{ id: 'oldF', name: '신규폴더', game: 'poe2' }],
       bookmarks: [
-        { dedupeKey: 'dup', name: '중복', title: 't', folderId: 'oldF' }, // 건너뜀
-        { dedupeKey: 'new1', name: '새북마크', title: 't', folderId: 'oldF' }, // 추가 + 폴더 매핑
+        { dedupeKey: 'dup', name: '중복', title: 't', folderId: 'oldF', url: 'https://poe.kakaogames.com/trade2/search/poe2/dup' }, // 건너뜀
+        { dedupeKey: 'new1', name: '새북마크', title: 't', folderId: 'oldF', url: 'https://poe.kakaogames.com/trade2/search/poe2/new1' }, // 추가 + 폴더 매핑
       ],
     }
     const { added, skipped, foldersAdded } = await importBookmarksJSON('poe2', data)

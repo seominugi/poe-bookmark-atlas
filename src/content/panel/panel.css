@@ -263,13 +263,15 @@
 .ba-empty { padding: 28px 16px; text-align: center; color: var(--ba-text-muted); }
 
 /* 보조 버튼 — 의미색 */
-.ba-clean-stale, .ba-add-folder {
+.ba-clean-stale, .ba-add-folder, .ba-collapse-all {
   font-size: 11px; font-weight: 700; white-space: nowrap; cursor: pointer;
   border-radius: var(--ba-r-chip); padding: 5px 9px;
   transition: color .15s, border-color .15s, background .15s;
 }
 .ba-add-folder { color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); }
 .ba-add-folder:hover { background: rgba(167, 139, 250, 0.22); }
+.ba-collapse-all { color: var(--ba-text); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); }
+.ba-collapse-all:hover { background: rgba(255,255,255,0.1); color: var(--ba-text-strong); }
 .ba-clean-stale { color: #fda4af; background: var(--ba-danger-soft); border: 1px solid var(--ba-danger-line); }
 .ba-clean-stale:hover { background: rgba(251, 113, 133, 0.24); color: #fecdd3; }
 /* export / import (선택: .ba-export / .ba-import 마크업 시) */
@@ -289,30 +291,44 @@
   box-shadow: inset 0 1px 1px rgba(255,255,255,0.06), 0 2px 10px rgba(0,0,0,0.22);
 }
 .ba-folder-head {
-  display: flex; justify-content: space-between; align-items: center; gap: 8px;
-  padding: 10px 12px;
-  color: var(--ba-text); font-weight: 700; font-size: 12.5px;
+  display: flex; justify-content: space-between; align-items: center; gap: 7px;
+  padding: 11px 12px;
+  color: var(--ba-text-strong); font-weight: 700; font-size: 13.5px; letter-spacing: .2px;
   background: rgba(167, 139, 250, 0.07); border-bottom: 1px solid var(--ba-violet-soft);
 }
+.ba-folder-grip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; cursor: grab; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; transition: background .15s, border-color .15s; }
+.ba-folder-grip:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); }
+.ba-folder-grip:active { cursor: grabbing; }
 .ba-folder-name { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ba-folder-count { color: var(--ba-text-muted); font-weight: 700; font-size: 10px; }
+.ba-folder-count { font-weight: 700; font-size: 10.5px; padding: 1px 8px; border-radius: 9px; }
 .ba-folder-head > span:last-child { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
 .ba-folder-edit {
   background: rgba(255, 255, 255, 0.08); border: 1px solid var(--ba-violet); border-radius: var(--ba-r-chip);
   color: var(--ba-text-strong); font-size: 12px; font-weight: 700; padding: 3px 8px; outline: none;
   width: 150px; max-width: 60%; font-family: inherit;
 }
-.ba-folder-body { min-height: 8px; padding: 8px 10px; }
+.ba-folder-body { min-height: 8px; padding: 9px 10px 9px 13px; border-left: 4px solid transparent; }
 .ba-folder-empty {
   padding: 12px; text-align: center; color: #6d6790; font-size: 11px;
   border: 1px dashed var(--ba-border); border-radius: var(--ba-r-chip);
 }
-/* 폴더 순서 이동 (선택: .ba-folder-up / .ba-folder-down 마크업 시) */
-.ba-folder-up, .ba-folder-down {
-  width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;
-  color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); border-radius: 7px;
+/* 폴더 색 선택 그리드 (색 아이콘 클릭 시 헤더 아래 토글) */
+.ba-color-grid {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 7px;
+  padding: 10px 12px; background: rgba(255,255,255,0.022); border-bottom: 1px solid var(--ba-violet-soft);
 }
-.ba-folder-up:hover, .ba-folder-down:hover { color: var(--ba-violet-2); }
+.ba-color-chip { height: 24px; border-radius: 6px; cursor: pointer; border: 1px solid rgba(255,255,255,0.14); transition: transform .12s; }
+.ba-color-chip:hover { transform: scale(1.09); }
+.ba-color-chip.active { outline: 2px solid #fff; outline-offset: 1px; }
+
+/* 드래그앤드롭 영역 — border로 명확히 표시 */
+.ba-folder.ba-folder-dragging { opacity: .5; }
+.ba-folder.ba-folder-drop { border-color: var(--ba-violet); box-shadow: 0 0 0 2px var(--ba-violet); }
+.ba-folder-body.ba-body-dragover { outline: 2px dashed var(--ba-violet); outline-offset: -3px; background: var(--ba-violet-soft); border-radius: 0 0 11px 11px; }
+.ba-folder-body.ba-body-dragover .ba-folder-empty { border-color: var(--ba-violet); color: var(--ba-violet-2); background: transparent; }
+
+/* 다른 폴더로 이동 버튼 */
+.ba-act.move:hover { color: var(--ba-violet-2); }
 
 /* ---- 행 (북마크·히스토리 카드) — 두꺼운 베벨 글래스 ---- */
 .ba-row {
@@ -374,8 +390,8 @@
 .ba-copy:hover { color: var(--ba-cyan); background: var(--ba-cyan-soft); border-color: var(--ba-cyan-line); }
 
 /* 드래그 그립 */
-.ba-grip { cursor: grab; color: #6d6790; opacity: .9; font-size: 18px; user-select: none; flex-shrink: 0; padding: 4px 6px; margin: -2px 0; border-radius: 7px; line-height: 1; }
-.ba-grip:hover { opacity: 1; color: var(--ba-violet-2); background: rgba(255, 255, 255, 0.08); }
+.ba-grip { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; cursor: grab; color: #6d6790; user-select: none; flex-shrink: 0; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.12); border-radius: 6px; line-height: 1; transition: background .15s, border-color .15s, color .15s; }
+.ba-grip:hover { color: var(--ba-violet-2); background: rgba(255, 255, 255, 0.12); border-color: rgba(255,255,255,0.24); }
 .ba-grip:active { cursor: grabbing; }
 .ba-row.ba-dragging { opacity: .45; }
 .ba-row.ba-dragover { border-color: var(--ba-violet); box-shadow: inset 0 2px 0 var(--ba-violet); }
@@ -479,7 +495,7 @@
 .ba-note-edit { width: 100%; box-sizing: border-box; margin-top: 8px; font-family: inherit; font-size: 11.5px; color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-violet-line); border-radius: 7px; padding: 5px 8px; outline: none; }
 
 /* 폴더 색 구분 — 헤더 좌측 3px 띠 (color는 마크업에서 인라인으로 주입) */
-.ba-folder-head { border-left: 3px solid var(--ba-violet); }   /* 기본값; 폴더별 color로 덮어쓰기 */
+.ba-folder-head { border-left: 4px solid var(--ba-violet); }   /* 기본값; 폴더별 color로 덮어쓰기 */
 
 /* 대용량 리스트 — 화면 밖 카드 레이아웃·페인트 생략 (드래그/이벤트 영향 없음) */
 .ba-row { content-visibility: auto; contain-intrinsic-size: 96px; }
@@ -524,6 +540,8 @@
 .ba-folder-chevron { display: inline-flex; flex: none; color: var(--ba-text-muted); transform: rotate(90deg); transition: transform .18s; }
 .ba-folder--collapsed .ba-folder-chevron { transform: rotate(0deg); }
 .ba-folder-ic { display: inline-flex; flex: none; cursor: pointer; }
+.ba-folder-ic[data-id] { width: 24px; height: 24px; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; transition: background .15s, border-color .15s; }
+.ba-folder-ic[data-id]:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); }
 .ba-folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ba-folder-actions { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .ba-folder--collapsed .ba-folder-body { display: none; }
@@ -565,7 +583,7 @@
 /* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */
 .ba-action-row { display: flex; justify-content: flex-end; align-items: center; gap: 7px; margin: 0 2px 10px; }
 /* 아이콘(SVG block) + 텍스트 가로 정렬 — 없으면 아이콘이 윗줄로 줄바꿈돼 버튼이 어긋남 */
-.ba-clean-stale, .ba-add-folder { display: inline-flex; align-items: center; gap: 4px; }
+.ba-clean-stale, .ba-add-folder, .ba-collapse-all { display: inline-flex; align-items: center; gap: 4px; }
 /* 오래된 정리 무장 상태 (카운트다운 중) — 더 강한 경고색 */
 .ba-clean-stale.armed { background: rgba(244, 63, 94, 0.32); color: #fecdd3; border-color: #f43f5e; font-weight: 800; }
 /* 히스토리 전체 삭제 버튼 (히스토리 섹션 헤더 우측) */

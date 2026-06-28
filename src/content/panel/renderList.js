@@ -1,7 +1,7 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, setNote, findBookmark,
-  exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl,
+  exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
@@ -41,7 +41,7 @@ const saveSort = () => { try { chrome.storage.local.set({ uiBmSort: bmSort }) } 
 let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
-const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-del, .ba-star, .ba-hist-del, .ba-note-btn, .ba-note, .ba-open, .ba-attn[data-act], .ba-folder-up, .ba-folder-down, .ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-dens-seg, .ba-sort-seg, .ba-import, .ba-export'
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-note-btn, .ba-note, .ba-open, .ba-attn[data-act], .ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-dens-seg, .ba-sort-seg, .ba-import, .ba-export'
 function applyA11y(listEl) {
   listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
     if (el.matches('button, a, input')) return
@@ -99,6 +99,13 @@ const ago = (t) => {
 }
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+// 폴더 색(#rrggbb)을 헤더 틴트·레일·배지용 rgba로. 잘못된 값이면 입력 그대로(폴백).
+const hexToRgba = (hex, a) => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || ''))
+  if (!m) return hex
+  const n = parseInt(m[1], 16)
+  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`
+}
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
 const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능성 경고
 
@@ -148,11 +155,26 @@ function applyFilters(listEl) {
 
 // 조건 상세 툴팁 텍스트 — 그룹 타입(및·제외·숫자·가중 합계…)별로 묶어 표시, 구 레코드는 평탄 폴백
 function condTipText(r) {
+  const lines = []
+  const of = r.otherFilters
+  if (Array.isArray(of) && of.length) {
+    lines.push('[필터]')
+    for (const f of of) lines.push(`  ${f.label}: ${f.value}`)
+  }
   const groups = r.statGroups
   if (Array.isArray(groups) && groups.length) {
-    return groups.map((g) => `[${g.label}]\n${g.filters.map((f) => `  ${f}`).join('\n')}`).join('\n')
+    if (lines.length) lines.push('')
+    lines.push('[능력치 필터]')
+    for (const g of groups) {
+      lines.push(`  · ${g.label}`)
+      for (const f of g.filters) lines.push(`    ${f}`)
+    }
+  } else if (r.stats && r.stats.length) {
+    if (lines.length) lines.push('')
+    lines.push('[능력치 필터]')
+    for (const s of r.stats) lines.push(`  ${s}`)
   }
-  return (r.stats || []).join('\n')
+  return lines.join('\n')
 }
 
 function rowHtml(r, kind, currentLeague) {
@@ -198,7 +220,7 @@ function rowHtml(r, kind, currentLeague) {
     <div class="ba-note-slot" data-id="${r.id}" data-note="${escapeHtml(r.note || '')}">${r.note ? `<span class="ba-note" data-tip="클릭해 메모 편집">${icon('chat', 11)}<span>${escapeHtml(r.note)}</span></span>` : ''}</div>
     <div class="ba-rowfoot">
       <span class="time">${icon('clock', 11)}${fmtTime(when)}</span>
-      <span class="acts"><span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-act over ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-act note ba-note-btn${r.note ? ' has' : ''}" data-id="${r.id}" data-tip="메모 ${r.note ? '편집' : '추가'}">${icon('chat', 12)}</span><span class="ba-act del ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
+      <span class="acts"><span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-act over ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-act move ba-move" data-id="${r.id}" data-folder="${r.folderId ?? ''}" data-tip="다른 폴더로 이동">${icon('folder', 12)}</span><span class="ba-act note ba-note-btn${r.note ? ' has' : ''}" data-id="${r.id}" data-tip="메모 ${r.note ? '편집' : '추가'}">${icon('chat', 12)}</span><span class="ba-act del ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
     </div>
   </div>`
 }
@@ -229,8 +251,14 @@ export async function renderList(listEl, root, ui = {}) {
       <span class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</span>
     </span>
   </div>`
-  // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 폴더 추가 (우측 정렬)
-  html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span><button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
+  // 모든 폴더 접기/펼치기 토글 — 실폴더가 있을 때만(미분류 포함 2개 이상). 라벨은 현재 접힘 상태로 결정.
+  const allKeys = ['', ...folders.map((f) => f.id)]
+  const allCollapsed = allKeys.every((k) => collapsedFolders.has(k))
+  const collapseAllBtn = folders.length >= 1
+    ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}${allCollapsed ? '모두 펼치기' : '모두 접기'}</button>`
+    : ''
+  // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
+  html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const byFolder = (fid) => bookmarks.filter((b) => (b.folderId ?? null) === fid)
   const sortItems = (arr) => {
@@ -250,19 +278,26 @@ export async function renderList(listEl, root, ui = {}) {
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
       g.id !== null
-        ? `<span class="ba-folder-up" data-id="${g.id}" data-tip="폴더 위로">${icon('chevronRight', 11)}</span><span class="ba-folder-down" data-id="${g.id}" data-tip="폴더 아래로">${icon('chevronRight', 11)}</span><span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">${icon('plus', 13)}</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
+        ? `<span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">${icon('plus', 13)}</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
         : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">${icon('plus', 13)}</span>`
-    // 폴더 색 — 좌측 띠 + 컬러 폴더 아이콘(실폴더는 클릭 시 색 순환). 헤더 클릭 = 접기/펼치기.
-    const folderColor = g.color || '#8b85a8'
+    // 폴더 색 — 헤더 틴트 + 좌측 띠 + 컬러 폴더 아이콘(클릭 시 색 그리드) + 본문 색 레일. 헤더 클릭 = 접기/펼치기.
+    // 미분류는 특수 폴더(고정·색변경 불가) — 시그니처 자수정으로 표시.
+    const folderColor = g.color || (g.id === null ? '#a78bfa' : '#8b85a8')
     const fkey = g.id ?? ''
     const collapsed = collapsedFolders.has(fkey)
+    // 실폴더만 드래그 그립(미분류는 항상 맨 위 고정)
+    const fgrip = g.id !== null
+      ? `<span class="ba-folder-grip" draggable="true" data-id="${g.id}" data-tip="드래그해 폴더 순서 이동" style="color:${folderColor}">${icon('grip', 14)}</span>`
+      : ''
     const chevron = `<span class="ba-folder-chevron">${icon('chevronRight', 13)}</span>`
     const folderIc = g.id !== null
-      ? `<span class="ba-folder-ic" data-id="${g.id}" data-color="${folderColor}" data-tip="색상 변경" style="color:${folderColor}">${icon('folder', 15)}</span>`
+      ? `<span class="ba-folder-ic" data-id="${g.id}" data-color="${folderColor}" data-tip="폴더 색상 변경" style="color:${folderColor}">${icon('folder', 15)}</span>`
       : `<span class="ba-folder-ic" style="color:${folderColor}">${icon('folder', 15)}</span>`
+    const headStyle = `background:${hexToRgba(folderColor, g.id === null ? 0.1 : 0.15)};border-left-color:${folderColor}`
+    const countStyle = `color:${folderColor};background:${hexToRgba(folderColor, 0.16)}`
     html += `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}" data-folder="${fkey}">
-      <div class="ba-folder-head" data-id="${fkey}" style="border-left-color:${folderColor}">${chevron}${folderIc}<span class="ba-folder-name">${escapeHtml(g.name)}</span><span class="ba-folder-count">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
-      <div class="ba-folder-body" data-folder="${fkey}">${items.map((r) => rowHtml(r, 'bookmark', ui.league)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
+      <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
+      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${items.map((r) => rowHtml(r, 'bookmark', ui.league)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
   }
 
@@ -334,6 +369,21 @@ function bindAll(listEl, ui) {
       await rename(s.dataset.id, name || s.dataset.name || ''); changed()
     }))
 
+  // 📁 다른 폴더로 이동 — 폴더를 선택해 이동(원거리 이동도 드래그 없이)
+  listEl.querySelectorAll('.ba-move').forEach((m) =>
+    m.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      if (!ui.showFolderPick) return // 패널 컨텍스트에서만 동작
+      const curFolder = m.dataset.folder || null
+      const fid = await ui.showFolderPick(curFolder)
+      if (fid === false) return // 취소
+      if ((curFolder || null) === (fid || null)) { toast('이미 그 폴더에 있어요.'); return }
+      // 대상 폴더 맨 뒤로 (order = 해당 폴더 최대 order + 1)
+      const inTarget = (await listByKind('bookmark', ui.game)).filter((b) => (b.folderId ?? null) === (fid ?? null))
+      const maxOrder = inTarget.reduce((mx, b) => Math.max(mx, b.order ?? 0), 0)
+      await moveBookmark(m.dataset.id, { folderId: fid ?? null, order: maxOrder + 1 }); changed(); toast('이동했습니다.')
+    }))
+
   // 📝 메모 편집 (인라인) — 메모 줄·메모 버튼 공통
   const startNoteEdit = (slot) => {
     if (!slot || slot.querySelector('.ba-note-edit')) return
@@ -366,7 +416,8 @@ function bindAll(listEl, ui) {
       if (!latest) { toast('갱신할 최근 검색이 없습니다.'); return }
       await overwriteBookmark(o.dataset.id, {
         game: latest.game, league: latest.league, url: latest.url, title: latest.title,
-        itemType: latest.itemType, stats: latest.stats, statGroups: latest.statGroups, priceFilter: latest.priceFilter,
+        itemType: latest.itemType, stats: latest.stats, statGroups: latest.statGroups,
+        otherFilters: latest.otherFilters, priceFilter: latest.priceFilter,
         snapshot: latest.snapshot, dedupeKey: latest.dedupeKey,
       })
       changed(); toast('최근 검색으로 갱신했습니다.')
@@ -379,6 +430,16 @@ function bindAll(listEl, ui) {
       if (a.dataset.act === 'open') { openTradeUrl(decodeURIComponent(a.closest('.ba-row').dataset.url), toast, e); return }
       if (a.dataset.act === 'del') { await remove(a.dataset.id); changed(); toast('오래된 북마크를 삭제했습니다.') }
     }))
+
+  // ⊟ 모든 폴더 접기/펼치기 토글 — 하나라도 펼쳐져 있으면 모두 접기, 모두 접혀 있으면 모두 펼치기
+  const collapseAllBtn = listEl.querySelector('.ba-collapse-all')
+  if (collapseAllBtn) collapseAllBtn.addEventListener('click', () => {
+    const keys = [...listEl.querySelectorAll('.ba-folder')].map((f) => f.dataset.folder)
+    const allCollapsed = keys.length > 0 && keys.every((k) => collapsedFolders.has(k))
+    if (allCollapsed) keys.forEach((k) => collapsedFolders.delete(k))
+    else keys.forEach((k) => collapsedFolders.add(k))
+    saveCollapsed(); changed()
+  })
 
   // + 폴더
   const addBtn = listEl.querySelector('.ba-add-folder')
@@ -511,24 +572,29 @@ function bindAll(listEl, ui) {
     await deleteFolder(s.dataset.id); changed()
   }))
 
-  // ▲▼ 폴더 순서 이동
-  listEl.querySelectorAll('.ba-folder-up').forEach((s) => s.addEventListener('click', async (e) => {
-    e.stopPropagation(); await moveFolder(s.dataset.id, -1); changed()
-  }))
-  listEl.querySelectorAll('.ba-folder-down').forEach((s) => s.addEventListener('click', async (e) => {
-    e.stopPropagation(); await moveFolder(s.dataset.id, 1); changed()
-  }))
-
-  // 폴더 색 아이콘 클릭 → 다음 팔레트 색으로 순환
-  listEl.querySelectorAll('.ba-folder-ic[data-id]').forEach((d) => d.addEventListener('click', async (e) => {
+  // 폴더 색 아이콘 클릭 → 헤더 아래 색 그리드 토글(프리셋 10색 중 선택)
+  listEl.querySelectorAll('.ba-folder-ic[data-id]').forEach((d) => d.addEventListener('click', (e) => {
     e.stopPropagation()
-    const i = FOLDER_PALETTE.indexOf(d.dataset.color)
-    await setFolderColor(d.dataset.id, FOLDER_PALETTE[(i + 1) % FOLDER_PALETTE.length]); changed()
+    const folder = d.closest('.ba-folder')
+    const head = d.closest('.ba-folder-head')
+    const existing = folder.querySelector('.ba-color-grid')
+    if (existing) { existing.remove(); return } // 다시 클릭 → 닫기
+    const grid = document.createElement('div')
+    grid.className = 'ba-color-grid'
+    grid.innerHTML = FOLDER_PALETTE
+      .map((c) => `<span class="ba-color-chip${c === d.dataset.color ? ' active' : ''}" data-color="${c}" style="background:${c}" role="button" tabindex="0" aria-label="폴더 색상 ${c}"></span>`)
+      .join('')
+    head.after(grid)
+    const pick = async (c) => { await setFolderColor(d.dataset.id, c); changed() }
+    grid.querySelectorAll('.ba-color-chip').forEach((chip) => {
+      chip.addEventListener('click', (ev) => { ev.stopPropagation(); pick(chip.dataset.color) })
+      chip.addEventListener('keydown', (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(chip.dataset.color) } })
+    })
   }))
 
   // 폴더 헤더 클릭 → 접기/펼치기 (액션·색·이름편집 클릭은 제외)
   listEl.querySelectorAll('.ba-folder-head').forEach((head) => head.addEventListener('click', (e) => {
-    if (e.target.closest('.ba-folder-actions, .ba-folder-ic, .ba-folder-edit')) return
+    if (e.target.closest('.ba-folder-actions, .ba-folder-ic, .ba-folder-edit, .ba-folder-grip')) return
     const folder = head.closest('.ba-folder')
     const key = head.dataset.id || ''
     if (folder.classList.toggle('ba-folder--collapsed')) collapsedFolders.add(key)
@@ -551,7 +617,8 @@ function bindAll(listEl, ui) {
     await addBookmark({
       game: latest.game, league: latest.league, url: latest.url, title: latest.title,
       itemType: latest.itemType, name: latest.name, stats: latest.stats, statGroups: latest.statGroups,
-      priceFilter: latest.priceFilter, snapshot: latest.snapshot, dedupeKey: latest.dedupeKey, folderId: res.folderId,
+      otherFilters: latest.otherFilters, priceFilter: latest.priceFilter,
+      snapshot: latest.snapshot, dedupeKey: latest.dedupeKey, folderId: res.folderId,
     }, res.name || latest.title)
     changed(); toast('저장했습니다.')
   }))
@@ -562,7 +629,7 @@ function bindAll(listEl, ui) {
 
 function bindDnD(listEl) {
   let dragId = null
-  const clearOver = () => listEl.querySelectorAll('.ba-dragover').forEach((x) => x.classList.remove('ba-dragover'))
+  const clearOver = () => listEl.querySelectorAll('.ba-dragover, .ba-body-dragover').forEach((x) => x.classList.remove('ba-dragover', 'ba-body-dragover'))
 
   // 드래그는 전용 그립(⠿)에서만 시작 — 행 클릭(열기)과 분리
   listEl.querySelectorAll('.ba-grip').forEach((grip) => {
@@ -593,7 +660,7 @@ function bindDnD(listEl) {
   // 북마크 행만 드롭 타깃 (히스토리 행은 그립이 없어 제외)
   listEl.querySelectorAll('.ba-row').forEach((row) => {
     if (!row.querySelector('.ba-grip')) return
-    row.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; clearOver(); row.classList.add('ba-dragover') })
+    row.addEventListener('dragover', (e) => { if (!dragId) return; e.preventDefault(); e.dataTransfer.dropEffect = 'move'; clearOver(); row.classList.add('ba-dragover') })
     row.addEventListener('drop', async (e) => {
       e.preventDefault(); e.stopPropagation(); clearOver()
       if (!dragId || dragId === row.dataset.id) return
@@ -608,13 +675,58 @@ function bindDnD(listEl) {
 
   // 폴더 빈 공간으로 드롭 → 해당 폴더 맨 뒤로 이동
   listEl.querySelectorAll('.ba-folder-body').forEach((body) => {
-    body.addEventListener('dragover', (e) => { e.preventDefault() })
+    body.addEventListener('dragover', (e) => {
+      if (!dragId) return
+      e.preventDefault()
+      if (e.target.closest('.ba-row')) return // 행 위면 행 핸들러가 삽입 위치를 강조
+      clearOver(); body.classList.add('ba-body-dragover')
+    })
     body.addEventListener('drop', async (e) => {
       e.preventDefault()
+      clearOver()
       if (!dragId) return
       const folderId = body.dataset.folder || null
       const maxOrder = [...body.querySelectorAll('.ba-row')].reduce((m, r) => Math.max(m, parseFloat(r.dataset.order) || 0), 0)
       await moveBookmark(dragId, { folderId, order: maxOrder + 1 }); changed()
+    })
+  })
+
+  // ── 폴더 순서 드래그 재배치 (헤더 그립) — 인접뿐 아니라 원거리도 ──
+  let folderDragId = null
+  const clearFolderDrop = () => listEl.querySelectorAll('.ba-folder-drop').forEach((x) => x.classList.remove('ba-folder-drop'))
+  listEl.querySelectorAll('.ba-folder-grip').forEach((grip) => {
+    const folderEl = grip.closest('.ba-folder')
+    grip.addEventListener('dragstart', (e) => { folderDragId = grip.dataset.id; e.dataTransfer.effectAllowed = 'move'; folderEl.classList.add('ba-folder-dragging') })
+    grip.addEventListener('dragend', () => { folderEl.classList.remove('ba-folder-dragging'); folderDragId = null; clearFolderDrop() })
+    // 키보드 폴더 이동 (드래그 대안 — Alt+위/아래로 한 칸씩)
+    grip.setAttribute('tabindex', '0')
+    grip.setAttribute('role', 'button')
+    grip.setAttribute('aria-label', '폴더 순서 이동 — 드래그 또는 Alt+위/아래')
+    grip.addEventListener('keydown', async (e) => {
+      if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return
+      e.preventDefault()
+      await moveFolder(grip.dataset.id, e.key === 'ArrowUp' ? -1 : 1); changed()
+    })
+  })
+  listEl.querySelectorAll('.ba-folder').forEach((folderEl) => {
+    folderEl.addEventListener('dragover', (e) => {
+      if (folderDragId == null) return // 북마크 드래그는 기존 핸들러가 처리
+      e.preventDefault(); clearFolderDrop(); folderEl.classList.add('ba-folder-drop')
+    })
+    folderEl.addEventListener('drop', async (e) => {
+      if (folderDragId == null) return
+      e.preventDefault(); e.stopPropagation(); clearFolderDrop()
+      const rect = folderEl.getBoundingClientRect()
+      const after = e.clientY - rect.top > rect.height / 2 // 폴더 하단 절반에 놓으면 그 '뒤'로
+      let beforeId
+      if (after) {
+        const next = folderEl.nextElementSibling
+        beforeId = next && next.classList.contains('ba-folder') ? next.dataset.folder : null // ''(미분류)·id·null(맨뒤)
+      } else {
+        beforeId = folderEl.dataset.folder // ''(미분류=맨앞)·id(그 앞)
+      }
+      if (folderDragId === beforeId) return
+      await reorderFolder(folderDragId, beforeId); changed()
     })
   })
 }

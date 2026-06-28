@@ -18,6 +18,13 @@ async function fetchStats(game) {
   return res.json()
 }
 
+async function fetchFilters(game) {
+  const path = game === 'poe2' ? 'trade2' : 'trade'
+  const res = await fetch(`https://poe.kakaogames.com/api/${path}/data/filters`)
+  if (!res.ok) throw new Error('filters ' + res.status)
+  return res.json()
+}
+
 // 한↔영 거래소 전환 — 현재 검색 조건을 영문 거래소(pathofexile)에서 재생성하도록 핸드오프.
 // optional 권한 허용 시에만 동작. 실제 재생성은 타겟의 cross-site-receiver.js가 same-origin으로 수행.
 // PoE1(/trade/)만 한국에서 접근 가능 — 패널 버튼이 poe1에서만 노출되므로 사실상 poe1만 옴(game-aware 유지).
@@ -39,6 +46,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
     try {
       if (msg && msg.type === 'fetchRates') sendResponse({ ok: true, data: await fetchRates(msg.game, msg.league) })
       else if (msg && msg.type === 'fetchStats') sendResponse({ ok: true, data: await fetchStats(msg.game) })
+      else if (msg && msg.type === 'fetchFilters') sendResponse({ ok: true, data: await fetchFilters(msg.game) })
       else if (msg && msg.type === 'ba-convert') sendResponse(await handleConvert(msg))
       else sendResponse({ ok: false, error: 'unknown message' })
     } catch (e) {

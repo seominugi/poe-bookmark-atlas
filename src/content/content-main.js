@@ -2,6 +2,7 @@
 // page-bridge가 가로챈 search·fetch 이벤트를 받아 기록을 만들고 저장한다.
 import { parseSearchQuery, searchIdentity } from '../lib/searchParser.js'
 import { buildStatMap } from '../lib/statMap.js'
+import { buildFilterMap } from '../lib/filterMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { parseExaltedPerDivine } from '../lib/currencyRates.js'
 import { addHistory, markUsedByUrl } from '../store/store.js'
@@ -38,6 +39,20 @@ function ensureStatMap() {
 }
 ensureStatMap()
 
+// filterMap도 1회 로드 — 검색 조건 툴팁에 모든 필터(유형·희귀도·레벨·가격 등)를 한글로 표시
+let filterMap = { label: {}, options: {} }
+let filterMapLoading = null
+function ensureFilterMap() {
+  if (Object.keys(filterMap.label).length) return Promise.resolve()
+  if (!filterMapLoading) {
+    filterMapLoading = send({ type: 'fetchFilters', game })
+      .then((r) => { if (r && r.ok) filterMap = buildFilterMap(r.data); LOG('filterMap', Object.keys(filterMap.label).length, '필터') })
+      .catch((e) => LOG('filterMap 오류', String(e)))
+  }
+  return filterMapLoading
+}
+ensureFilterMap()
+
 let pending = null // { queryId, query, league, url, done }
 let lastQuery = null // 최근 검색 raw query (한↔영 전환용)
 let lastQueryLeague = null
@@ -62,7 +77,7 @@ window.addEventListener('message', async (e) => {
     const qid = queryIdFromUrl(d.url)
     if (pending.queryId && qid && qid !== pending.queryId) { LOG('fetch qid 불일치, 스킵', qid, pending.queryId); return }
     pending.done = true
-    await ensureStatMap()
+    await Promise.all([ensureStatMap(), ensureFilterMap()])
 
     const listings = ((d.data && d.data.result) || [])
       .map((r) => r && r.listing && r.listing.price)
@@ -80,7 +95,7 @@ window.addEventListener('message', async (e) => {
     // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt + 가격 스냅샷 자동 갱신
     if (listings.length > 0) markUsedByUrl(location.href, snapshot || undefined)
 
-    const parsed = parseSearchQuery(pending.query, statMap)
+    const parsed = parseSearchQuery(pending.query, statMap, filterMap)
     const rec = await addHistory({
       game,
       league: pending.league,
@@ -90,6 +105,7 @@ window.addEventListener('message', async (e) => {
       name: parsed.name,
       stats: parsed.stats,
       statGroups: parsed.statGroups,
+      otherFilters: parsed.otherFilters,
       priceFilter: parsed.priceFilter,
       snapshot: snapshot || undefined,
       dedupeKey: dedupeKey(pending.query),

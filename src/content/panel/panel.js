@@ -286,8 +286,58 @@ export function mountPanel({ game, league, getCurrentSearch }) {
     })
   }
 
+  // 이동 다이얼로그 — 폴더만 선택(이름 입력 없음). showSaveInput의 폴더 피커 UI 재사용.
+  // @returns {Promise<string|null|false>} 폴더 id | null(미분류) | false(취소). null과 취소를 구분해야 미분류로 이동 가능.
+  async function showFolderPick(currentFolderId = null) {
+    const folders = await listFolders(game)
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    return new Promise((resolve) => {
+      const bar = $('ba-namebar'); const input = $('ba-name-input')
+      const ok = $('ba-name-ok'); const cancel = $('ba-name-cancel'); const pick = $('ba-folder-pick')
+      let folderId = currentFolderId ?? null
+      let creating = false
+      const cleanup = () => {
+        ok.removeEventListener('click', onOk); cancel.removeEventListener('click', onCancel)
+        bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
+        input.hidden = false; ok.textContent = '저장' // 다른 다이얼로그를 위해 namebar 원복
+      }
+      const onOk = async () => {
+        let fid = folderId
+        if (creating) {
+          const nname = (pick.querySelector('.ba-newfolder-input')?.value || '').trim()
+          fid = nname ? (await addFolder(nname, game)).id : null
+        }
+        cleanup(); resolve(fid)
+      }
+      const onCancel = () => { cleanup(); resolve(false) }
+      const render = () => {
+        const chip = (fid, label, extra = '') =>
+          `<span class="chip ${extra} ${!creating && (folderId ?? null) === (fid ?? null) ? 'active' : ''}" data-fid="${fid ?? ''}">${esc(label)}</span>`
+        pick.innerHTML =
+          '<span class="lbl">이동할 폴더</span>' +
+          chip(null, '미분류') +
+          folders.map((f) => chip(f.id, f.name)).join('') +
+          `<span class="chip new ${creating ? 'active' : ''}" data-new="1">+ 새 폴더</span>` +
+          (creating ? '<input class="ba-newfolder-input" placeholder="새 폴더 이름" maxlength="40" />' : '')
+        pick.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
+          if (c.dataset.new) {
+            creating = true; render()
+            const ni = pick.querySelector('.ba-newfolder-input')
+            if (ni) { ni.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); onOk() } else if (e.key === 'Escape') { e.preventDefault(); onCancel() } }); ni.focus() }
+            return
+          }
+          creating = false; folderId = c.dataset.fid || null; render()
+        }))
+      }
+      input.hidden = true; ok.textContent = '이동' // 이동 모드: 이름 입력 숨김, 버튼 라벨 변경
+      pick.hidden = false; render()
+      bar.hidden = false
+      ok.addEventListener('click', onOk); cancel.addEventListener('click', onCancel)
+    })
+  }
+
   const ui = {
-    showNameInput, showSaveInput, toast, game, league,
+    showNameInput, showSaveInput, showFolderPick, toast, game, league,
     getDensity: () => density,
     setDensity: (d) => { applyDensity(d); try { chrome.storage.local.set({ uiDensity: d }) } catch (_) {} refresh() },
   }
@@ -305,7 +355,8 @@ export function mountPanel({ game, league, getCurrentSearch }) {
       {
         game: latest.game, league: latest.league, url: latest.url,
         title: latest.title, itemType: latest.itemType, name: latest.name,
-        stats: latest.stats, statGroups: latest.statGroups, priceFilter: latest.priceFilter, snapshot: latest.snapshot,
+        stats: latest.stats, statGroups: latest.statGroups,
+        otherFilters: latest.otherFilters, priceFilter: latest.priceFilter, snapshot: latest.snapshot,
         dedupeKey: latest.dedupeKey, folderId: res.folderId,
       },
       res.name || latest.title,
