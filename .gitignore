@@ -6,6 +6,11 @@ dist/
 build/
 *.zip
 
+# 웹스토어 배포용 스크린샷 (로컬 — git 제외)
+*.jpg
+store-screenshot-*.png
+montage-check.png
+
 # Brainstorm artifacts (visual companion — local only)
 .superpowers/
 
