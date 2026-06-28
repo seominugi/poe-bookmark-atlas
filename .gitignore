@@ -6,10 +6,9 @@ dist/
 build/
 *.zip
 
-# 웹스토어 배포용 스크린샷 (로컬 — git 제외)
+# 배포 산출물 (zip·스크린샷 — 로컬 deploy 폴더에서 관리, git 제외)
+deploy/
 *.jpg
-store-screenshot-*.png
-montage-check.png
 
 # Brainstorm artifacts (visual companion — local only)
 .superpowers/
