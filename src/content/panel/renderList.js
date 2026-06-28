@@ -21,10 +21,10 @@ export const analystUrl = chrome.runtime.getURL(analystIcon)
 export const researcherUrl = chrome.runtime.getURL(researcherIcon)
 
 let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보기"로 +200씩 (모듈 레벨 유지)
-let bmSearch = '' // 북마크 빠른 검색어 (모듈 레벨 — 재렌더 후에도 유지)
-let hsSearch = '' // 히스토리 빠른 검색어
+let bmSearch = '' // 통합 빠른 검색어 (북마크·히스토리 동시 필터, 모듈 레벨 — 재렌더 후에도 유지)
 let bmSort = 'order' // 북마크 정렬: order(수동 순) | recent(최근) | name(이름)
 const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
+const collapsedLeagues = new Set() // 리그 기본 접힘(현재 펼침/지난 접힘)에서 토글한 키('L:'+league)
 
 // 정렬·접힌 폴더 선호는 chrome.storage에 영속(재로드 후 유지). 검색어는 의도적으로 휘발(매 세션 초기화).
 let uiHydrated = false
@@ -125,37 +125,38 @@ function openTradeUrl(url, toast, e) {
   else location.href = url
 }
 
-// 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 모듈 상태(bmSearch/hsSearch) 기준.
+// 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 통합 검색어(bmSearch) 기준.
 function applyFilters(listEl) {
-  const norm = (s) => (s || '').trim().toLowerCase()
-  const bm = norm(bmSearch)
-  const hs = norm(hsSearch)
+  // 통합 검색어 하나로 북마크·히스토리를 동시에 필터
+  const term = (bmSearch || '').trim().toLowerCase()
+  // 히스토리
   let hsVisible = 0
   listEl.querySelectorAll('.ba-row[data-kind="history"]').forEach((row) => {
-    const show = !hs || (row.dataset.search || '').includes(hs)
+    const show = !term || (row.dataset.search || '').includes(term)
     row.style.display = show ? '' : 'none'
     if (show) hsVisible++
   })
-  const hsBar = listEl.querySelector('.ba-search-input[data-scope="hs"]')
+  const hsHead = listEl.querySelector('.ba-sec-hist')
   let hsNoRes = listEl.querySelector('.ba-no-result-hs')
-  if (hs && hsVisible === 0) {
-    if (!hsNoRes && hsBar) { hsNoRes = document.createElement('div'); hsNoRes.className = 'ba-no-result ba-no-result-hs'; hsBar.closest('.ba-search-row').after(hsNoRes) }
-    if (hsNoRes) { hsNoRes.textContent = `"${hsSearch.trim()}"에 해당하는 히스토리가 없습니다.`; hsNoRes.hidden = false }
+  if (term && hsVisible === 0 && hsHead) {
+    if (!hsNoRes) { hsNoRes = document.createElement('div'); hsNoRes.className = 'ba-no-result ba-no-result-hs'; hsHead.after(hsNoRes) }
+    hsNoRes.textContent = `"${bmSearch.trim()}"에 해당하는 히스토리가 없습니다.`; hsNoRes.hidden = false
   } else if (hsNoRes) { hsNoRes.hidden = true }
+  // 북마크
   let bmVisible = 0
   listEl.querySelectorAll('.ba-folder').forEach((folder) => {
     let inFolder = 0
     folder.querySelectorAll('.ba-row[data-kind="bookmark"]').forEach((row) => {
-      const show = !bm || (row.dataset.search || '').includes(bm)
+      const show = !term || (row.dataset.search || '').includes(term)
       row.style.display = show ? '' : 'none'
       if (show) { inFolder++; bmVisible++ }
     })
     // 검색 중 보이는 행 없는 폴더는 숨김 (검색 아닐 땐 항상 표시 — 미분류 드롭 타깃 유지)
-    folder.style.display = bm && inFolder === 0 ? 'none' : ''
+    folder.style.display = term && inFolder === 0 ? 'none' : ''
   })
   const bmBar = listEl.querySelector('.ba-search-input[data-scope="bm"]')
-  let noRes = listEl.querySelector('.ba-no-result')
-  if (bm && bmVisible === 0) {
+  let noRes = listEl.querySelector('.ba-no-result:not(.ba-no-result-hs)')
+  if (term && bmVisible === 0) {
     if (!noRes && bmBar) { noRes = document.createElement('div'); noRes.className = 'ba-no-result'; bmBar.closest('.ba-search-row').after(noRes) }
     if (noRes) { noRes.textContent = `"${bmSearch.trim()}"에 해당하는 북마크가 없습니다.`; noRes.hidden = false }
   } else if (noRes) { noRes.hidden = true }
@@ -204,17 +205,14 @@ function rowHtml(r, kind, currentLeague) {
 
   // ── 북마크: 이름 칩(.ba-open)만 재검색 → 오클릭 방지 ──
   const stale = Date.now() - (r.lastUsedAt || r.createdAt || r.updatedAt || 0) > STALE_MS
-  const otherLeague = currentLeague && r.league && r.league !== currentLeague
   const unsafe = !isAllowedTradeUrl(r.url)
-  const dim = stale || otherLeague || unsafe
-  // 통합 주의 배지(.ba-attn) — 안전하지 않은 링크 최우선, 그다음 만료·리그
+  const dim = stale || unsafe
+  // 통합 주의 배지(.ba-attn) — 안전하지 않은 링크 최우선, 그다음 만료. (지난 리그는 거래소가 현재 리그로 리다이렉트하므로 경고 없음)
   const attn = unsafe
     ? `<span class="ba-attn ba-attn--del" data-id="${r.id}" data-act="del" data-tip="허용되지 않은(거래소 외) 링크예요.\n피싱일 수 있어 열기·복사가 차단됩니다.\n클릭하면 삭제합니다.">${icon('alert', 10)}차단된 링크</span>`
     : stale
       ? `<span class="ba-attn ba-attn--del" data-id="${r.id}" data-act="del" data-tip="14일 넘게 안 쓴 북마크예요.\n거래소 링크가 만료돼 못 열 수 있어요.\n클릭하면 삭제합니다.">${icon('trash', 10)}오래됨</span>`
-      : otherLeague
-        ? `<span class="ba-attn" data-act="open" data-tip="저장 당시 리그: ${escapeHtml(r.league)} · 현재: ${escapeHtml(currentLeague)}\n다른 리그라 열리지 않을 수 있어요.\n클릭해 현재 리그로 다시 검색하세요.">${icon('refresh', 10)}이전 리그</span>`
-        : ''
+      : ''
   // 능력치 미리보기 칩은 텍스트 길이에 따라 줄바꿈돼 호버(+n) 위치가 흔들림 →
   // 고정 폭 '조건 N개' 단일 칩(호버 시 전체 상세) + 상시 메모로 대체.
   const condChip = stats.length ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${stats.length}개</span>` : ''
@@ -235,6 +233,30 @@ function rowHtml(r, kind, currentLeague) {
   </div>`
 }
 
+// 폴더 하나의 헤더+본문 HTML (리그 섹션 안에서 재사용)
+function folderHtml(g, items, currentLeague) {
+  const fActions =
+    g.id !== null
+      ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
+      : ''
+  const folderColor = g.color || (g.id === null ? '#a78bfa' : '#8b85a8')
+  const fkey = g.id ?? ''
+  const collapsed = collapsedFolders.has(fkey)
+  const fgrip = g.id !== null
+    ? `<span class="ba-folder-grip" draggable="true" data-id="${g.id}" data-tip="드래그해 폴더 순서 이동" style="color:${folderColor}">${icon('grip', 14)}</span>`
+    : ''
+  const chevron = `<span class="ba-folder-chevron">${icon('chevronRight', 13)}</span>`
+  const folderIc = g.id !== null
+    ? `<span class="ba-folder-ic" data-id="${g.id}" data-color="${folderColor}" data-tip="폴더 색상 변경" style="color:${folderColor}">${icon('folder', 15)}</span>`
+    : `<span class="ba-folder-ic" style="color:${folderColor}">${icon('folder', 15)}</span>`
+  const headStyle = `background:${hexToRgba(folderColor, g.id === null ? 0.1 : 0.15)};border-left-color:${folderColor}`
+  const countStyle = `color:${folderColor};background:${hexToRgba(folderColor, 0.16)}`
+  return `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}" data-folder="${fkey}">
+      <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
+      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${items.map((r) => rowHtml(r, 'bookmark', currentLeague)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
+    </div>`
+}
+
 // 북마크 + 히스토리를 한 스크롤에 통합 렌더 (탭 없음 → 패널 전체 높이 활용)
 export async function renderList(listEl, root, ui = {}) {
   await hydrateUiState()
@@ -250,15 +272,13 @@ export async function renderList(listEl, root, ui = {}) {
   const cleanupBtn = staleN > 0
     ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요.\n오래된 검색은 거래소 필터·파라미터가 바뀌면\n더 이상 불러오지 못할 수 있거든요.">${icon('broom', 13)}오래된 ${staleN}</button>`
     : ''
-  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span></div>`
-  html += `<div class="ba-search-row">
-    <span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span>
-    <span class="ba-seg">
+  const sortToggle = `<span class="ba-seg">
       <span class="ba-sort-seg ${bmSort === 'order' ? 'active' : ''}" data-sort="order" data-tip="수동 순서">순서</span>
       <span class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</span>
       <span class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</span>
-    </span>
-  </div>`
+    </span>`
+  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${sortToggle}</span></div>`
+  html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크·히스토리 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span></div>`
   // 모든 폴더 접기/펼치기 토글 — 실폴더가 있을 때만(미분류 포함 2개 이상). 라벨은 현재 접힘 상태로 결정.
   const allKeys = ['', ...folders.map((f) => f.id)]
   const allCollapsed = allKeys.every((k) => collapsedFolders.has(k))
@@ -268,57 +288,56 @@ export async function renderList(listEl, root, ui = {}) {
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
   html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
-  const byFolder = (fid) => bookmarks.filter((b) => (b.folderId ?? null) === fid)
   const sortItems = (arr) => {
     if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
     if (bmSort === 'name') return [...arr].sort((a, b) => String(a.name || a.title).localeCompare(String(b.name || b.title), 'ko'))
     return arr
   }
-  // 빈 상태 — 북마크도 사용자 폴더도 없을 때 (마스코트 안내)
-  if (bookmarks.length === 0 && folders.length === 0) {
+  // 빈 상태 — 북마크·폴더·히스토리 전부 없을 때 (마스코트 안내)
+  if (bookmarks.length === 0 && folders.length === 0 && history.length === 0) {
     html += `<div class="ba-empty-bm">
       <img src="${analystUrl}" alt="">
       <b>저장된 북마크가 없어요</b>
       <small>좋은 검색을 찾으면 상단 <span class="hl">현재 검색 저장</span>으로<br>북마크해 두고 언제든 다시 열어보세요</small>
     </div>`
-  } else for (const g of groups) {
-    const items = sortItems(byFolder(g.id))
-    // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
-    const fActions =
-      g.id !== null
-        ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
-        : ''
-    // 폴더 색 — 헤더 틴트 + 좌측 띠 + 컬러 폴더 아이콘(클릭 시 색 그리드) + 본문 색 레일. 헤더 클릭 = 접기/펼치기.
-    // 미분류는 특수 폴더(고정·색변경 불가) — 시그니처 자수정으로 표시.
-    const folderColor = g.color || (g.id === null ? '#a78bfa' : '#8b85a8')
-    const fkey = g.id ?? ''
-    const collapsed = collapsedFolders.has(fkey)
-    // 실폴더만 드래그 그립(미분류는 항상 맨 위 고정)
-    const fgrip = g.id !== null
-      ? `<span class="ba-folder-grip" draggable="true" data-id="${g.id}" data-tip="드래그해 폴더 순서 이동" style="color:${folderColor}">${icon('grip', 14)}</span>`
-      : ''
-    const chevron = `<span class="ba-folder-chevron">${icon('chevronRight', 13)}</span>`
-    const folderIc = g.id !== null
-      ? `<span class="ba-folder-ic" data-id="${g.id}" data-color="${folderColor}" data-tip="폴더 색상 변경" style="color:${folderColor}">${icon('folder', 15)}</span>`
-      : `<span class="ba-folder-ic" style="color:${folderColor}">${icon('folder', 15)}</span>`
-    const headStyle = `background:${hexToRgba(folderColor, g.id === null ? 0.1 : 0.15)};border-left-color:${folderColor}`
-    const countStyle = `color:${folderColor};background:${hexToRgba(folderColor, 0.16)}`
-    html += `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}" data-folder="${fkey}">
-      <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
-      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${items.map((r) => rowHtml(r, 'bookmark', ui.league)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
-    </div>`
-  }
-
-  // ── 히스토리 섹션 (점진 렌더) ──
-  html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 15)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span>${history.length ? `<span class="ba-sec-actions"><button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button></span>` : ''}</div>`
-  if (history.length) {
-    html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="hs" placeholder="히스토리 검색 (이름·조건)" value="${escapeHtml(hsSearch)}" /></span></div>`
-    html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history')).join('')
-    if (history.length > historyLimit) {
-      html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>`
-    }
   } else {
-    html += '<div class="ba-empty-sm">최근 검색 기록이 없습니다.</div>'
+    // ── 리그 섹션 (접이식) — 현재 리그는 펼침, 지난 리그는 접어서 아카이브(리다이렉트로 열림) ──
+    const leagueMap = ui.getLeagueMap ? ui.getLeagueMap() : {}
+    const seen = new Set()
+    const orderedLeagues = [ui.league, ...bookmarks.map((b) => b.league), ...history.map((h) => h.league)]
+      .filter((l) => l && !seen.has(l) && seen.add(l))
+    for (const league of orderedLeagues) {
+      const isCurrent = league === ui.league
+      const lgBm = bookmarks.filter((b) => (b.league || '') === league)
+      const lgHs = history.filter((h) => (h.league || '') === league)
+      if (!isCurrent && !lgBm.length && !lgHs.length) continue
+      const key = 'L:' + league
+      // 기본: 현재 리그 펼침 / 지난 리그 접힘. collapsedLeagues에 키가 있으면 그 기본을 반전.
+      const collapsed = collapsedLeagues.has(key) ? isCurrent : !isCurrent
+      const lgName = leagueMap[league] || league
+      html += `<div class="ba-league${collapsed ? ' ba-league--collapsed' : ''}" data-league="${escapeHtml(league)}">
+      <div class="ba-league-head" data-key="${escapeHtml(key)}">
+        <span class="ba-league-chevron">${icon('chevronRight', 13)}</span>
+        <span class="ba-league-ic">${icon('trophy', 14)}</span>
+        <span class="ba-league-name">${escapeHtml(lgName)}</span>
+        <span class="ba-league-badge${isCurrent ? ' current' : ''}">${isCurrent ? '현재' : '지난'}</span>
+        <span class="ba-league-count">${lgBm.length}</span>
+      </div>
+      <div class="ba-league-body">`
+      // 폴더 그룹 (이 리그 북마크). 빈 폴더는 숨김 — 단 현재 리그 미분류는 드롭 타깃으로 유지
+      for (const g of groups) {
+        const items = sortItems(lgBm.filter((b) => (b.folderId ?? null) === g.id))
+        if (!items.length && !(isCurrent && g.id === null)) continue
+        html += folderHtml(g, items, ui.league)
+      }
+      // 히스토리 (이 리그) — 전체 삭제는 game 전체이므로 현재 리그 섹션에만 노출
+      if (lgHs.length) {
+        html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 14)}<span>히스토리</span><span class="ba-sec-count">${lgHs.length}</span></span>${isCurrent ? `<span class="ba-sec-actions"><button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button></span>` : ''}</div>`
+        html += lgHs.slice(0, historyLimit).map((r) => rowHtml(r, 'history')).join('')
+        if (lgHs.length > historyLimit) html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${lgHs.length - historyLimit}개)</button>`
+      }
+      html += `</div></div>`
+    }
   }
 
   listEl.innerHTML = html
@@ -551,8 +570,7 @@ function bindAll(listEl, ui) {
 
   // 빠른 검색 — 입력 시 재렌더 없이 show/hide (검색창 포커스 유지)
   listEl.querySelectorAll('.ba-search-input').forEach((inp) => inp.addEventListener('input', () => {
-    if (inp.dataset.scope === 'bm') bmSearch = inp.value
-    else hsSearch = inp.value
+    bmSearch = inp.value
     applyFilters(listEl)
   }))
   // 정렬 토글 — 재렌더
@@ -612,6 +630,14 @@ function bindAll(listEl, ui) {
     if (folder.classList.toggle('ba-folder--collapsed')) collapsedFolders.add(key)
     else collapsedFolders.delete(key)
     saveCollapsed()
+  }))
+
+  // 리그 헤더 클릭 → 접기/펼치기 (기본 현재 펼침·지난 접힘에서 토글 — collapsedLeagues에 반전 키 기록)
+  listEl.querySelectorAll('.ba-league-head').forEach((head) => head.addEventListener('click', () => {
+    const key = head.dataset.key
+    head.closest('.ba-league').classList.toggle('ba-league--collapsed')
+    if (collapsedLeagues.has(key)) collapsedLeagues.delete(key)
+    else collapsedLeagues.add(key)
   }))
 
   bindDnD(listEl)

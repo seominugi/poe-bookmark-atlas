@@ -3,6 +3,7 @@
 import { parseSearchQuery, searchIdentity } from '../lib/searchParser.js'
 import { buildStatMap } from '../lib/statMap.js'
 import { buildFilterMap } from '../lib/filterMap.js'
+import { buildLeagueMap } from '../lib/leagueMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
 import { parseExaltedPerDivine } from '../lib/currencyRates.js'
@@ -53,6 +54,20 @@ function ensureFilterMap() {
   return filterMapLoading
 }
 ensureFilterMap()
+
+// 리그명 맵도 1회 로드 — 리그 섹션 헤더에 한글 리그명(스탠다드 등) 표시. 로드되면 재렌더 트리거.
+let leagueMap = {}
+let leagueMapLoading = null
+function ensureLeagueMap() {
+  if (Object.keys(leagueMap).length) return Promise.resolve()
+  if (!leagueMapLoading) {
+    leagueMapLoading = send({ type: 'fetchLeagues', game })
+      .then((r) => { if (r && r.ok) { leagueMap = buildLeagueMap(r.data); document.dispatchEvent(new CustomEvent('ba:records-changed')) } LOG('leagueMap', Object.keys(leagueMap).length) })
+      .catch((e) => LOG('leagueMap 오류', String(e)))
+  }
+  return leagueMapLoading
+}
+ensureLeagueMap()
 
 let pending = null // { queryId, query, league, url, done }
 let lastQuery = null // 최근 검색 raw query (한↔영 전환용)
@@ -124,6 +139,7 @@ initFuzzyPrefix()
 const panel = mountPanel({
   game,
   league: leagueFromUrl(),
+  getLeagueMap: () => leagueMap,
   getCurrentSearch: () => (lastQuery ? { query: lastQuery, league: lastQueryLeague || leagueFromUrl() } : null),
 })
 

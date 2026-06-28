@@ -17,7 +17,7 @@ const discordUrl = chrome.runtime.getURL(discordIcon)
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
 
-export function mountPanel({ game, league, getCurrentSearch }) {
+export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   if (document.getElementById('ba-panel-host')) return { toggle() {}, show() {}, hide() {} }
   const host = document.createElement('div')
   host.id = 'ba-panel-host'
@@ -41,7 +41,7 @@ export function mountPanel({ game, league, getCurrentSearch }) {
               <div class="ba-kbd-pop-group">패널 단축키</div>
               <div class="ba-kbd-pop-row"><span>패널 열기 / 접기</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>B</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>현재 검색 저장</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>S</kbd></span></div>
-              <div class="ba-kbd-pop-row"><span>북마크 검색</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>K</kbd></span></div>
+              <div class="ba-kbd-pop-row"><span>북마크·히스토리 검색</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>K</kbd></span></div>
               <div class="ba-kbd-pop-group">검색 단축키</div>
               <div class="ba-kbd-pop-row"><span>아이템 검색</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>F</kbd></span></div>
               <div class="ba-kbd-pop-divider"></div>
@@ -371,6 +371,7 @@ export function mountPanel({ game, league, getCurrentSearch }) {
 
   const ui = {
     showNameInput, showSaveInput, showFolderPick, toast, game, league,
+    getLeagueMap: getLeagueMap || (() => ({})),
   }
   const refresh = () => renderList($('ba-list'), root, ui)
 

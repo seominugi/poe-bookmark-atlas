@@ -18,7 +18,7 @@ body {
   border-bottom: 1px solid rgba(167, 139, 250, 0.18);
   background: linear-gradient(180deg, rgba(167, 139, 250, 0.08), transparent);
 }
-.pop-head > img { width: 34px; height: 34px; border-radius: 9px; flex: none; box-shadow: 0 0 0 1px rgba(167, 139, 250, 0.4), 0 0 16px rgba(167, 139, 250, 0.3); }
+.pop-head > img { width: 34px; height: 34px; border-radius: 9px; flex: none; box-shadow: 0 0 16px rgba(167, 139, 250, 0.3); }
 .pop-title { display: flex; flex-direction: column; line-height: 1.2; flex: 1; min-width: 0; }
 .pop-title b { font-size: 15px; font-weight: 800; background: linear-gradient(90deg, #c4b5fd, #7dd3fc, #5eead4); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .pop-title small { font-size: 10px; color: #a78bfa; font-weight: 700; letter-spacing: 0.04em; }

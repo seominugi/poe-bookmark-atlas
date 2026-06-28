@@ -286,6 +286,22 @@
 .ba-import:hover { color: #7dd3fc; border-color: var(--ba-blue-line); }
 .ba-export:hover { color: var(--ba-cyan); border-color: var(--ba-cyan-line); }
 
+/* ---- 리그 섹션 (접이식 상위 그룹: 현재 펼침 / 지난 접힘) ---- */
+.ba-league { margin-bottom: 12px; }
+.ba-league-head { display: flex; align-items: center; gap: 8px; padding: 9px 11px; cursor: pointer; border-radius: 10px; background: rgba(167, 139, 250, 0.09); border: 1px solid var(--ba-violet-soft); font-size: 13px; font-weight: 700; color: var(--ba-text-strong); transition: background .15s, border-color .15s; }
+.ba-league-head:hover { background: rgba(167, 139, 250, 0.16); border-color: var(--ba-violet-line); }
+.ba-league-chevron { display: inline-flex; flex: none; color: var(--ba-text-muted); transform: rotate(90deg); transition: transform .18s; }
+.ba-league--collapsed .ba-league-chevron { transform: rotate(0deg); }
+.ba-league-ic { display: inline-flex; flex: none; color: #c4b5fd; }
+.ba-league-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ba-league-badge { font-size: 9.5px; font-weight: 700; padding: 1.5px 8px; border-radius: 9px; flex: none; color: var(--ba-text-muted); background: rgba(255, 255, 255, 0.07); }
+.ba-league-badge.current { color: #0b0a16; background: var(--ba-violet-2); }
+.ba-league-count { font-size: 10px; font-weight: 700; color: var(--ba-text-muted); flex: none; }
+.ba-league-body { padding: 9px 0 2px 5px; }
+.ba-league--collapsed .ba-league-body { display: none; }
+/* 리그 섹션 안 히스토리 헤더는 약간 작게 */
+.ba-league-body .ba-sec-hist { margin-top: 6px; }
+
 /* ---- 폴더 (글래스 카드로 영역 구분) ---- */
 .ba-folder {
   margin-bottom: 11px;
@@ -554,7 +570,7 @@
 /* 헤더 — 로고 + 부제 + 풀폭 저장 (.dc.html 렌더 구조) */
 .ba-head { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 16px 16px 0; border-bottom: none; }
 .ba-brand { display: flex; align-items: center; gap: 10px; }
-.ba-brand-logo { width: 28px; height: 28px; border-radius: 8px; flex: none; box-shadow: 0 0 0 1px rgba(167,139,250,.4), 0 0 16px rgba(167,139,250,.3); }
+.ba-brand-logo { width: 28px; height: 28px; border-radius: 8px; flex: none; box-shadow: 0 0 16px rgba(167,139,250,.3); }
 .ba-brand-tx { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
 .ba-brand-tx b { font-size: 14.5px; font-weight: 800; background: linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.02em; }
 .ba-brand-tx small { font-size: 10px; color: #a78bfa; font-weight: 700; letter-spacing: .04em; }
