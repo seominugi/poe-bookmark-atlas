@@ -242,7 +242,7 @@
 .ba-folder-pick .chip.new { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 
 /* ---- 리스트 컨테이너 ---- */
-.ba-list { overflow-y: auto; flex: 1; padding: 12px 14px 18px; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+.ba-list { overflow-y: auto; flex: 1; padding: 14px 14px 18px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px); mask-image: linear-gradient(to bottom, transparent 0, #000 18px); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 .ba-list::-webkit-scrollbar { width: 7px; }
 .ba-list::-webkit-scrollbar-track { background: transparent; }
 .ba-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
@@ -341,7 +341,7 @@
   border-left-color: rgba(255, 255, 255, 0.3);
   border-radius: 12px; padding: 11px 13px; margin-bottom: 9px; cursor: pointer;
   box-shadow: 0 8px 28px rgba(0,0,0,0.4), inset 0 1px 1px 0 rgba(255,255,255,0.24), inset 0 -1px 1px 0 rgba(0,0,0,0.22);
-  transition: border-color .15s, box-shadow .15s, transform .15s;
+  transition: border-color .15s, box-shadow .15s, transform .15s, opacity .55s ease-in-out;
 }
 .ba-row:hover {
   border-top-color: rgba(196, 181, 253, 0.85);
@@ -434,6 +434,7 @@
   white-space: pre; text-align: left;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55); pointer-events: none;
 }
+.ba-tip-hr { border: none; border-top: 1px solid var(--ba-violet-line); margin: 5px 0; width: 100%; }
 .ba-tip[hidden] { display: none; }
 
 /* ---- 빈 상태 (선택: renderList 빈 상태 마크업 시) ---- */
@@ -562,6 +563,9 @@
 .ba-brand-credit:hover { filter: brightness(1.08); }
 .ba-brand-credit .ba-foot-chip { padding: 4px 11px; }
 .ba-brand-credit .ba-foot-chip b { font-size: 12.5px; }  /* 타이틀(14.5px)보다 약간 작게 — 종속적으로 */
+.ba-donate { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 28px; height: 28px; flex: none; color: #fb7185; background: rgba(251, 113, 133, 0.12); border: 1px solid rgba(251, 113, 133, 0.32); border-radius: 8px; text-decoration: none; transition: background .15s, color .15s, transform .15s; }
+.ba-donate:hover { background: rgba(251, 113, 133, 0.22); color: #fda4af; transform: scale(1.08); }
+.ba-donate .ba-ic { fill: currentColor; }   /* 꽉 찬 하트 */
 /* 헤더 단축키 칩 — 호버 시 확장 팝업의 단축키 섹션 디자인(kbd 키캡+그룹)을 팝오버로 차용. margin-left:auto로 '제작' 칩과 함께 우측 정렬 */
 .ba-kbd-wrap { position: relative; margin-left: auto; flex: none; display: inline-flex; }
 .ba-kbd-chip { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; color: var(--ba-violet-2); background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.32); cursor: help; transition: background .15s, border-color .15s, color .15s; }
@@ -579,7 +583,7 @@
 .ba-kbd-pop kbd { font-family: inherit; font-size: 10.5px; font-weight: 700; color: var(--ba-text); background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; min-width: 20px; text-align: center; }
 .ba-kbd-pop-foot { margin-top: 1px; padding-top: 9px; border-top: 1px solid rgba(167,139,250,.16); font-size: 11px; color: #9b94bd; }
 .ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
-.ba-econ-row { margin: 9px 16px 7px; }
+.ba-econ-row { margin: 9px 16px 11px; }
 /* 한↔영 거래소 전환 버튼 (PoE1 한정, econ-row 아래) */
 .ba-convert-row { margin: 0 16px 10px; }
 .ba-convert { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 12px; font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); border-radius: 10px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
@@ -646,3 +650,17 @@
 .ba-tour-skip { font-size: 11.5px; font-weight: 700; color: var(--ba-text-muted); background: rgba(255,255,255,.06); border: 1px solid var(--ba-border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
 .ba-tour-next { font-size: 11.5px; font-weight: 800; color: #0b0a16; background: linear-gradient(135deg, #b6a6fb, #8b7cf0); border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-family: inherit; }
 .ba-tour-hl { outline: 2px solid var(--ba-violet); outline-offset: 2px; border-radius: 8px; }
+
+/* 스포트라이트 — 저장·북마크 focus·투어 시 주변을 일시적으로 어둡게, 대상만 밝게 강조.
+   진입·이탈 모두 fade로 부드럽게: transition은 상시 적용하고, opacity 값만 spotlighting에서 바꾼다. */
+.ba-root > *, .ba-root .ba-folder { transition: opacity .55s ease-in-out; }
+.ba-root.ba-spotlighting > * { opacity: .25; }
+.ba-root.ba-spotlighting > *:has(.ba-spot-target),
+.ba-root.ba-spotlighting > *:has(.ba-tour-hl),
+.ba-root.ba-spotlighting > .ba-tour-card,
+.ba-root.ba-spotlighting > .ba-tip,
+.ba-root.ba-spotlighting > .ba-toast { opacity: 1; }
+.ba-root.ba-spotlighting .ba-row:not(.ba-spot-target):not(.ba-tour-hl) { opacity: .45; }
+.ba-root.ba-spotlighting .ba-folder:has(.ba-spot-target) { overflow: visible; }   /* glow가 폴더 경계에서 잘리지 않게 */
+.ba-spot-target { position: relative; box-shadow: 0 0 0 2px var(--ba-violet), 0 0 22px rgba(167, 139, 250, .55) !important; transition: box-shadow .55s ease-in-out, opacity .55s ease-in-out; }
+.ba-tour-hl { position: relative; z-index: 1; }

@@ -1,5 +1,5 @@
 import {
-  listByKind, listFolders, moveBookmark, overwriteBookmark, addBookmark,
+  listByKind, listFolders, moveBookmark, overwriteBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, setNote, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
 } from '../../store/store.js'
@@ -43,7 +43,7 @@ let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
 let focusBookmarkId = null // 저장·승격 후 스크롤·강조 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
-const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-note-btn, .ba-note, .ba-open, .ba-attn[data-act], .ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-dens-seg, .ba-sort-seg, .ba-import, .ba-export'
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-note-btn, .ba-note, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export'
 function applyA11y(listEl) {
   listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
     if (el.matches('button, a, input')) return
@@ -65,15 +65,21 @@ function applyA11y(listEl) {
   }
 }
 
-/** 같은 조건의 기존 북마크 행을 스크롤·강조 — 중복 저장 차단 시 위치를 안내 */
+let spotTimer = null
+/** 북마크 행으로 스크롤하고 스포트라이트 — 주변을 일시적으로 어둡게, 대상만 밝게 강조. 저장·승격·중복안내 공용 */
 export function highlightBookmark(container, id) {
   const row = container && container.querySelector(`.ba-row[data-id="${CSS.escape(id)}"]`)
   if (!row) return
   row.scrollIntoView({ block: 'center', behavior: 'smooth' })
-  row.classList.remove('ba-flash')
-  void row.offsetWidth // 리플로우로 애니메이션 재시작
-  row.classList.add('ba-flash')
-  setTimeout(() => row.classList.remove('ba-flash'), 1800)
+  const rootEl = container.closest('.ba-root')
+  container.querySelectorAll('.ba-spot-target').forEach((x) => x.classList.remove('ba-spot-target'))
+  row.classList.add('ba-spot-target')
+  if (rootEl) rootEl.classList.add('ba-spotlighting')
+  clearTimeout(spotTimer)
+  spotTimer = setTimeout(() => {
+    row.classList.remove('ba-spot-target')
+    if (rootEl) rootEl.classList.remove('ba-spotlighting')
+  }, 1900)
 }
 
 // 가격 문자열의 단위(div/ex)를 화폐 아이콘으로 치환
@@ -217,7 +223,7 @@ function rowHtml(r, kind, currentLeague) {
   const noteText = r.note || buildAutoNote(r) // 빈 메모면 조건 요약을 렌더 시점에 폴백 표시(저장 X, 편집하면 그때 저장)
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
     <div class="ba-line1">
-      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
       <span class="ba-price-pill"${price && r.snapshotAt ? ` data-tip="이 가격은 ${ago(r.snapshotAt)} 기준이에요. 북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>
     </div>
     ${chipsRow}
@@ -244,9 +250,7 @@ export async function renderList(listEl, root, ui = {}) {
   const cleanupBtn = staleN > 0
     ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요.\n오래된 검색은 거래소 필터·파라미터가 바뀌면\n더 이상 불러오지 못할 수 있거든요.">${icon('broom', 13)}오래된 ${staleN}</button>`
     : ''
-  const dens = ui.getDensity ? ui.getDensity() : 'comfortable'
-  const densToggle = `<span class="ba-seg"><span class="ba-dens-seg ${dens === 'comfortable' ? 'active' : ''}" data-dens="comfortable" data-tip="여유 보기 — 글씨·간격이 큼 (읽기 편함)">여유</span><span class="ba-dens-seg ${dens === 'compact' ? 'active' : ''}" data-dens="compact" data-tip="조밀 보기 — 한 화면에 더 많이">조밀</span></span>`
-  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${densToggle}</span></div>`
+  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span></div>`
   html += `<div class="ba-search-row">
     <span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span>
     <span class="ba-seg">
@@ -282,8 +286,8 @@ export async function renderList(listEl, root, ui = {}) {
     // 미분류는 비어도 항상 표시 — 폴더 밖으로 다시 드래그할 드롭 타깃이 필요
     const fActions =
       g.id !== null
-        ? `<span class="ba-folder-save" data-fid="${g.id}" data-tip="현재 검색을 이 폴더에 저장">${icon('plus', 13)}</span><span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
-        : `<span class="ba-folder-save" data-fid="" data-tip="현재 검색을 미분류에 저장">${icon('plus', 13)}</span>`
+        ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
+        : ''
     // 폴더 색 — 헤더 틴트 + 좌측 띠 + 컬러 폴더 아이콘(클릭 시 색 그리드) + 본문 색 레일. 헤더 클릭 = 접기/펼치기.
     // 미분류는 특수 폴더(고정·색변경 불가) — 시그니처 자수정으로 표시.
     const folderColor = g.color || (g.id === null ? '#a78bfa' : '#8b85a8')
@@ -553,8 +557,6 @@ function bindAll(listEl, ui) {
   }))
   // 정렬 토글 — 재렌더
   listEl.querySelectorAll('.ba-sort-seg').forEach((b) => b.addEventListener('click', () => { bmSort = b.dataset.sort; saveSort(); changed() }))
-  // 정보 밀도 토글 (여유/조밀)
-  listEl.querySelectorAll('.ba-dens-seg').forEach((b) => b.addEventListener('click', () => { if (ui.setDensity) ui.setDensity(b.dataset.dens) }))
 
   // ✎ 폴더 이름 변경 — 현재 이름에서 바로 인라인 수정
   listEl.querySelectorAll('.ba-folder-rename').forEach((s) => s.addEventListener('click', () => {
@@ -610,28 +612,6 @@ function bindAll(listEl, ui) {
     if (folder.classList.toggle('ba-folder--collapsed')) collapsedFolders.add(key)
     else collapsedFolders.delete(key)
     saveCollapsed()
-  }))
-
-  // ➕ 현재(최근) 검색을 이 폴더/미분류에 바로 저장
-  listEl.querySelectorAll('.ba-folder-save').forEach((b) => b.addEventListener('click', async () => {
-    const preFolderId = b.dataset.fid || null
-    const latest = (await listByKind('history', ui.game))[0]
-    if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
-    const dup = await findBookmark(latest.dedupeKey, ui.game)
-    if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark(listEl, dup.id); return }
-    // 폴더 선택 다이얼로그(해당 폴더 사전 선택, 변경 가능). showSaveInput 없으면 이름만 prompt 폴백.
-    const res = ui.showSaveInput
-      ? await ui.showSaveInput(suggestName(latest), preFolderId)
-      : { name: prompt('북마크 이름', suggestName(latest)), folderId: preFolderId }
-    if (!res || res.name === null) return
-    const saved = await addBookmark({
-      game: latest.game, league: latest.league, url: latest.url, title: latest.title,
-      itemType: latest.itemType, name: latest.name, stats: latest.stats, statGroups: latest.statGroups,
-      otherFilters: latest.otherFilters, priceFilter: latest.priceFilter, icon: latest.icon,
-      snapshot: latest.snapshot, dedupeKey: latest.dedupeKey, folderId: res.folderId,
-    }, res.name || latest.title)
-    focusBookmarkId = saved.id
-    changed(); toast('저장했습니다.')
   }))
 
   bindDnD(listEl)

@@ -51,6 +51,7 @@ export function mountPanel({ game, league, getCurrentSearch }) {
             </div>
           </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
+          <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="후원하기 — 투네이션으로 응원 ↗">${icon('heart', 13)}</a>
         </div>
         <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>
       </div>
@@ -66,9 +67,6 @@ export function mountPanel({ game, league, getCurrentSearch }) {
           <span class="ba-econ-lbl"><b>시장 동향</b></span>
         </a>
       </div>
-      ${/kakaogames/.test(location.hostname) ? `<div class="ba-convert-row">
-        <button class="ba-convert" id="ba-convert" data-tip="현재 검색 조건 그대로 영문 거래소(pathofexile.com)에서 열어요">${icon('external', 14)}영문 거래소로 전환</button>
-      </div>` : ''}
       <div class="ba-namebar" id="ba-namebar" hidden>
         <div class="ba-modal-card" id="ba-modal-card">
           <div class="ba-modal-title" id="ba-modal-title">북마크 이름</div>
@@ -195,18 +193,22 @@ export function mountPanel({ game, league, getCurrentSearch }) {
     if (inp) { inp.focus(); inp.select() }
   }, true)
 
-  // 정보 밀도 (여유/조밀) — 북마크 섹션 헤더의 토글로 제어. chrome.storage 영속화.
-  let density = 'comfortable'
-  const applyDensity = (d) => { density = d; elRoot.setAttribute('data-density', d) }
-  applyDensity(density)
-  try { chrome.storage.local.get('uiDensity').then((r) => { if (r && r.uiDensity && r.uiDensity !== density) { applyDensity(r.uiDensity); refresh() } }) } catch (_) {}
+  // 밀도는 '조밀'로 통합 (여유/조밀 토글 제거 — 항상 조밀)
+  elRoot.setAttribute('data-density', 'compact')
 
   // 커스텀 툴팁 — 네이티브 title 대신 패널 안(Shadow DOM)에서 렌더. 우측 도킹이라 요소 왼쪽에 표시.
   const tipEl = $('ba-tip')
   root.addEventListener('mouseover', (e) => {
     const el = e.target.closest && e.target.closest('[data-tip]')
     if (!el) return
-    tipEl.textContent = el.getAttribute('data-tip')
+    const raw = el.getAttribute('data-tip')
+    // 구분선 마커(────────)가 있으면 폭 100% <hr>로 치환(나머지는 escape해 안전하게 HTML 렌더)
+    if (raw.indexOf('────────') >= 0) {
+      const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+      tipEl.innerHTML = esc(raw).replace(/\n?────────\n?/, '<hr class="ba-tip-hr">')
+    } else {
+      tipEl.textContent = raw
+    }
     tipEl.hidden = false
     const r = el.getBoundingClientRect()
     tipEl.style.left = 'auto'
@@ -368,8 +370,6 @@ export function mountPanel({ game, league, getCurrentSearch }) {
 
   const ui = {
     showNameInput, showSaveInput, showFolderPick, toast, game, league,
-    getDensity: () => density,
-    setDensity: (d) => { applyDensity(d); try { chrome.storage.local.set({ uiDensity: d }) } catch (_) {} refresh() },
   }
   const refresh = () => renderList($('ba-list'), root, ui)
 
@@ -397,6 +397,8 @@ export function mountPanel({ game, league, getCurrentSearch }) {
   }
   $('ba-save').onclick = doSave
   $('ba-foot-guide').onclick = () => startTour()
+  // 영문 거래소 전환 버튼 — 상단 공간 절약을 위해 현재 마크업을 숨김(head 템플릿에서 제거).
+  // 핸들러는 복원 대비 유지(버튼이 없으면 아래 가드로 무효). 복원 시 .ba-convert-row 마크업만 되살리면 됨.
   const convertBtn = $('ba-convert')
   if (convertBtn) convertBtn.onclick = async () => {
     const cur = getCurrentSearch && getCurrentSearch()
@@ -426,12 +428,13 @@ export function mountPanel({ game, league, getCurrentSearch }) {
     card.className = 'ba-tour-card'
     root.appendChild(card)
     const clearHL = () => { if (prev) prev.classList.remove('ba-tour-hl') }
-    const finish = () => { clearHL(); card.remove(); try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const finish = () => { clearHL(); elRoot.classList.remove('ba-spotlighting'); card.remove(); try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
     const render = () => {
       const step = TOUR[i]
       const target = root.querySelector(step.sel)
       clearHL()
-      if (target) { target.classList.add('ba-tour-hl'); prev = target; target.scrollIntoView({ block: 'nearest' }) }
+      if (target) { target.classList.add('ba-tour-hl'); prev = target; target.scrollIntoView({ block: 'center', behavior: 'smooth' }) }
+      elRoot.classList.add('ba-spotlighting')
       card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button><button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div>`
       const rect = target ? target.getBoundingClientRect() : null
       card.style.top = (rect ? Math.min(window.innerHeight - 170, Math.max(8, rect.bottom + 8)) : 80) + 'px'
