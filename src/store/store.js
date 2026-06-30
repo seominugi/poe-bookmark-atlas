@@ -3,6 +3,8 @@ import { buildAutoNote } from '../lib/autoNote.js'
 
 const KEY = 'records'
 const FOLDERS_KEY = 'folders'
+const SCHEMA_KEY = 'schemaVersion'
+const CURRENT_SCHEMA = 1 // 데이터 스키마 버전. 구조를 바꾸면 +1 하고 MIGRATIONS에 단계 변환을 추가
 export const HISTORY_CAP = 200 // 히스토리 보관 상한. renderList "더 보기"(60+200)가 실제로 동작하도록 상향
 
 function uid(prefix) { return (prefix || 'r_') + Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -10,6 +12,28 @@ async function readAll() { return (await chrome.storage.local.get(KEY))[KEY] ?? 
 async function writeAll(records) { await chrome.storage.local.set({ [KEY]: records }) }
 async function readFolders() { return (await chrome.storage.local.get(FOLDERS_KEY))[FOLDERS_KEY] ?? [] }
 async function writeFolders(folders) { await chrome.storage.local.set({ [FOLDERS_KEY]: folders }) }
+
+// ── 스키마 버전 & 마이그레이션 ───────────────────────────────
+// 버전 키가 없으면 기존(레거시)·신규 데이터 모두 현재 구조(v1, 지금까지 전부 additive)와 호환되므로 v1로 마킹만 한다.
+// 향후 구조를 바꿀 때: CURRENT_SCHEMA를 올리고 MIGRATIONS[새버전] = async (s) => {...} 단계 변환을 추가하면 순차 적용된다.
+// 주의: 실제 변환 단계를 넣으면 데이터를 읽기 전에 await ensureSchema()가 끝나도록 호출부를 조정해야 한다.
+const MIGRATIONS = {
+  // 2: async (s) => { /* v1 → v2: s.records / s.folders 변환 후 반환 */ return s },
+}
+export async function ensureSchema() {
+  const got = (await chrome.storage.local.get(SCHEMA_KEY))[SCHEMA_KEY]
+  if (got === CURRENT_SCHEMA) return
+  let v = typeof got === 'number' ? got : 1 // 미설정 = 레거시/신규 모두 v1 구조로 간주
+  while (v < CURRENT_SCHEMA) {
+    const step = MIGRATIONS[v + 1]
+    if (step) {
+      const s = await step({ records: await readAll(), folders: await readFolders() })
+      await writeAll(s.records); await writeFolders(s.folders)
+    }
+    v++
+  }
+  await chrome.storage.local.set({ [SCHEMA_KEY]: CURRENT_SCHEMA })
+}
 
 // ── URL 안전성: 거래소(허용 도메인) 링크만 열기·복사·가져오기·내보내기 허용 (피싱·javascript: 차단) ──
 const ALLOWED_HOSTS = ['poe.kakaogames.com', 'www.pathofexile.com']
@@ -27,7 +51,8 @@ export function isAllowedIconUrl(url) {
   try { const u = new URL(String(url)); return u.protocol === 'https:' && ALLOWED_ICON_HOSTS.includes(u.hostname) } catch (_) { return false }
 }
 
-const maxBookmarkOrder = (all) => all.reduce((m, r) => (r.kind === 'bookmark' ? Math.max(m, r.order ?? 0) : m), 0)
+// 새 북마크는 폴더 맨 앞(최신 우선)에 오도록 현재 가장 작은 order - 1을 부여
+const minBookmarkOrder = (all) => all.reduce((m, r) => (r.kind === 'bookmark' ? Math.min(m, r.order ?? 0) : m), 0)
 
 /** 히스토리 추가(동일 dedupeKey 갱신, 50개 캡). @returns {Promise<object>} */
 export async function addHistory(rec) {
@@ -68,7 +93,7 @@ export async function promoteToBookmark(id, name) {
   r.kind = 'bookmark'
   r.name = name ?? r.name ?? r.title
   r.folderId = r.folderId ?? null
-  r.order = maxBookmarkOrder(all) + 1
+  r.order = minBookmarkOrder(all) - 1
   if (!r.note) r.note = buildAutoNote(r) || undefined // 빈 메모면 검색 조건 요약 자동 채움
   r.updatedAt = Date.now()
   await writeAll(all)
@@ -97,7 +122,7 @@ export async function addBookmark(rec, name) {
   const now = Date.now()
   const record = {
     ...rec, id: uid(), kind: 'bookmark', name: name ?? rec.title,
-    folderId: rec.folderId ?? null, order: maxBookmarkOrder(all) + 1,
+    folderId: rec.folderId ?? null, order: minBookmarkOrder(all) - 1,
     note: rec.note || buildAutoNote(rec) || undefined, // 빈 메모면 검색 조건 요약 자동 채움
     createdAt: now, updatedAt: now,
   }

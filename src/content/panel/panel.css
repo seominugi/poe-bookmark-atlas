@@ -346,9 +346,6 @@
 .ba-folder-body.ba-body-dragover { outline: 2px dashed var(--ba-violet); outline-offset: -3px; background: var(--ba-violet-soft); border-radius: 0 0 11px 11px; }
 .ba-folder-body.ba-body-dragover .ba-folder-empty { border-color: var(--ba-violet); color: var(--ba-violet-2); background: transparent; }
 
-/* 다른 폴더로 이동 버튼 */
-.ba-act.move:hover { color: var(--ba-violet-2); }
-
 /* ---- 행 (북마크·히스토리 카드) — 두꺼운 베벨 글래스 ---- */
 .ba-row {
   background: var(--ba-card-grad), var(--ba-surface);
@@ -385,7 +382,7 @@
 
 /* ---- 액션 버튼: 의미색 ---- */
 .ba-star, .ba-del, .ba-over, .ba-rename, .ba-hist-del,
-.ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del {
+.ba-folder-rename, .ba-folder-export, .ba-folder-del {
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0; line-height: 1; color: var(--ba-text-muted);
   background: rgba(255, 255, 255, 0.05); border: 1px solid var(--ba-border);
@@ -393,13 +390,17 @@
   transition: background .15s, border-color .15s, color .15s;
 }
 .ba-star, .ba-del, .ba-over, .ba-rename { width: 29px; height: 29px; font-size: 15px; }
-.ba-folder-save, .ba-folder-rename, .ba-folder-export, .ba-folder-del { width: 24px; height: 24px; font-size: 13px; }
+.ba-folder-rename, .ba-folder-export, .ba-folder-del { width: 24px; height: 24px; font-size: 13px; }
+/* 폴더 액션 기본 의미색 (시인성 — rowfoot 팔레트와 통일: 편집=바이올렛, 내보내기=청록, 삭제=로즈) */
+.ba-folder-rename { color: #b0a4e8; }
+.ba-folder-export { color: #6cc5d4; }
+.ba-folder-del { color: #e08a8a; }
 
 .ba-star:hover { color: var(--ba-warn); background: var(--ba-warn-soft); border-color: var(--ba-warn-line); }
 .ba-over:hover { color: #bae6fd; background: var(--ba-blue-soft); border-color: var(--ba-blue-line); }
 .ba-rename:hover, .ba-folder-rename:hover { color: #ddd6fe; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 .ba-del:hover, .ba-folder-del:hover, .ba-hist-del:hover { color: #fecdd3; background: var(--ba-danger-soft); border-color: var(--ba-danger-line); }
-.ba-folder-save:hover, .ba-folder-export:hover { color: #c4b5fd; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+.ba-folder-export:hover { color: #9fe0ea; background: rgba(108,197,212,0.14); border-color: rgba(108,197,212,0.45); }
 /* 검색 링크 복사 (선택: .ba-copy 마크업 시) — 시안 */
 .ba-copy {
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
@@ -489,8 +490,8 @@
 .ba-chips .ba-cond { margin-left: 0; }   /* 칩 행에서는 좌측 정렬(히스토리 .ba-meta의 우측 정렬 override) */
 
 /* 이름 = 클릭 칩(다시 열기) — 북마크는 이 칩만 재검색 트리거 */
-.ba-open { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 3px 9px 3px 7px; margin: -3px 0; border-radius: 8px; cursor: pointer; background: transparent; border: 1px solid transparent; transition: background .16s, border-color .16s, box-shadow .16s; }
-.ba-open:hover { background: rgba(167,139,250,0.16); border-color: rgba(167,139,250,0.45); box-shadow: 0 0 14px rgba(167,139,250,0.3); }
+.ba-open { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 3px 9px 3px 7px; margin: -3px 0; border-radius: 8px; cursor: pointer; background: rgba(167,139,250,0.09); border: 1px solid rgba(167,139,250,0.3); transition: background .16s, border-color .16s, box-shadow .16s; }
+.ba-open:hover { background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.6); box-shadow: 0 0 14px rgba(167,139,250,0.3); }
 .ba-open b { color: var(--ba-text-strong); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 가격 = 앰버 알약 (카드 우상단) */
@@ -502,13 +503,23 @@
 .ba-rowfoot .time { display: inline-flex; align-items: center; gap: 4px; color: #8b85a8; font-size: 11px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .ba-rowfoot .acts { margin-left: auto; display: inline-flex; gap: 5px; }
 .ba-act { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center; color: #8b85a8; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.10); border-radius: 7px; cursor: pointer; transition: color .15s; }
-.ba-act.copy:hover { color: var(--ba-cyan); }
-.ba-act.over:hover  { color: #7dd3fc; }
+/* 의미별 기본 색 — 회색 통일에서 벗어나 기능 직관성 부여 (웹 표준: 삭제=빨강, 복사=청록, 갱신=하늘, 편집=바이올렛, 이동=앰버) */
+.ba-act.copy   { color: #6cc5d4; }
+.ba-act.over   { color: #74b6e8; }
+.ba-act.rename { color: #b0a4e8; }
+.ba-act.move   { color: #d4ab6e; }
+.ba-act.del    { color: #e08a8a; }
+.ba-act.copy:hover   { color: var(--ba-cyan); }
+.ba-act.over:hover   { color: #9fddff; }
 .ba-act.rename:hover { color: var(--ba-violet-2); }
-.ba-act.del:hover   { color: #fda4af; }
-.ba-act.note:hover, .ba-act.note.has { color: var(--ba-violet-2); }
+.ba-act.move:hover   { color: #f0c078; }
+.ba-act.del:hover    { color: #fda4af; }
 /* 메모 — 라인은 메모 있을 때만(빈 슬롯 숨김), 클릭 시 인라인 편집 */
 .ba-note-slot:empty { display: none; }
+/* 조건 칩 + 메모를 한 행에 — 조건이 단일 칩이 된 뒤 카드 높이 압축 (칩 좌측, 메모가 우측 공간 채움) */
+.ba-meta-row { display: flex; align-items: center; gap: 6px; margin-top: 7px; min-width: 0; }
+.ba-meta-row .ba-note-slot { flex: 1; min-width: 0; }
+.ba-meta-row .ba-note { margin-top: 0; }
 .ba-note { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; color: #9b94bd; cursor: pointer; max-width: 100%; }
 .ba-note .ba-ic { flex: none; color: #7c75a3; }
 .ba-note > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -566,6 +577,24 @@
 .ba-folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ba-folder-actions { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .ba-folder--collapsed .ba-folder-body { display: none; }
+/* 폴더 본문 하단 — 현재 검색을 이 폴더에 저장하는 전체폭 칩 (점선 테두리 = '추가' 액션) */
+.ba-folder-savechip { display: flex; align-items: center; justify-content: center; gap: 5px; width: 100%; margin-top: 8px; padding: 7px 8px; font-size: 11.5px; font-weight: 700; color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px dashed var(--ba-violet-line); border-radius: 8px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.ba-folder-savechip:hover { background: rgba(167,139,250,0.2); border-style: solid; color: #ddd6fe; }
+.ba-folder-savechip .ba-ic { flex: none; }
+/* 상단 칩 — 항상 폴더 본문 맨 위에 위치하므로 마진 반전(위 0, 아래 여백) */
+.ba-folder-body > .ba-folder-savechip:first-child { margin-top: 0; margin-bottom: 8px; }
+
+/* 북마크 간략(한 줄) 보기 — 이름·가격만, 칩·메모·하단 액션 숨김 (히스토리 행은 영향 없음) */
+.ba-list.ba-oneline .ba-row[data-kind="bookmark"] .ba-meta-row,
+.ba-list.ba-oneline .ba-row[data-kind="bookmark"] .ba-rowfoot { display: none; }
+/* 간략 행은 containment 해제 — content-visibility:auto의 last-remembered-size가 상세 높이를 붙드는 문제 방지 (행이 작아 성능 영향 미미) */
+.ba-list.ba-oneline .ba-row[data-kind="bookmark"] { content-visibility: visible; contain-intrinsic-size: auto; padding-top: 7px; padding-bottom: 7px; margin-bottom: 6px; }
+/* 간략 보기 토글 버튼 (정렬 세그 옆) */
+.ba-oneline-toggle { margin-right: auto; display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; font-size: 11px; font-weight: 700; color: #9b94bd; background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); border-radius: 9px; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
+/* 빈 메모 placeholder — 메모 버튼을 없앤 대신 모든 북마크에서 메모 추가 진입점 유지 */
+.ba-note--empty { opacity: .55; }
+.ba-note--empty:hover { opacity: 1; }
+.ba-oneline-toggle:hover { color: #c4b5fd; border-color: var(--ba-violet-line); }
 
 /* 헤더 — 로고 + 부제 + 풀폭 저장 (.dc.html 렌더 구조) */
 .ba-head { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 16px 16px 0; border-bottom: none; }
@@ -607,6 +636,7 @@
 .ba-convert:hover { background: rgba(167,139,250,.22); border-color: rgba(167,139,250,.55); color: #ddd6fe; }
 /* 검색 아래 액션 행 (.dc.html: 오래된·가져오기·내보내기·폴더추가, 우측 정렬) */
 .ba-action-row { display: flex; justify-content: flex-end; align-items: center; gap: 7px; margin: 0 2px 10px; }
+.ba-io-group { display: inline-flex; align-items: center; gap: 7px; }   /* 가져오기·내보내기 묶음(투어 박스가 둘을 함께 강조) */
 /* 아이콘(SVG block) + 텍스트 가로 정렬 — 없으면 아이콘이 윗줄로 줄바꿈돼 버튼이 어긋남 */
 .ba-clean-stale, .ba-add-folder, .ba-collapse-all { display: inline-flex; align-items: center; gap: 4px; }
 /* 오래된 정리 무장 상태 (카운트다운 중) — 더 강한 경고색 */
@@ -664,20 +694,29 @@
 .ba-tour-title { font-size: 14px; font-weight: 800; color: var(--ba-text-strong); margin: 4px 0 6px; }
 .ba-tour-card p { font-size: 12px; line-height: 1.6; color: var(--ba-text); margin: 0; }
 .ba-tour-btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
-.ba-tour-skip { font-size: 11.5px; font-weight: 700; color: var(--ba-text-muted); background: rgba(255,255,255,.06); border: 1px solid var(--ba-border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+.ba-tour-skip, .ba-tour-prev { font-size: 11.5px; font-weight: 700; color: var(--ba-text-muted); background: rgba(255,255,255,.06); border: 1px solid var(--ba-border); border-radius: 8px; padding: 6px 12px; cursor: pointer; font-family: inherit; }
+.ba-tour-skip { margin-right: auto; }   /* 건너뛰기는 좌측, 이전·다음은 우측 */
+.ba-tour-prev:hover { color: var(--ba-violet-2); border-color: var(--ba-violet-line); }
 .ba-tour-next { font-size: 11.5px; font-weight: 800; color: #0b0a16; background: linear-gradient(135deg, #b6a6fb, #8b7cf0); border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-family: inherit; }
-.ba-tour-hl { outline: 2px solid var(--ba-violet); outline-offset: 2px; border-radius: 8px; }
+/* 투어 스포트라이트 박스 — 대상 rect에 fixed로 띄워 주변을 어둡게(box-shadow spread) + 숨쉬는 테두리.
+   깊이·외부(shadow 직계)·형제 문제와 무관하게 정확히 그 영역만 강조한다. */
+.ba-tour-spot {
+  position: fixed; z-index: 2147483540; pointer-events: none; border-radius: 10px; opacity: 0;
+  animation: ba-tour-breathe 1.8s ease-in-out infinite;
+  transition: top .32s ease, left .32s ease, width .32s ease, height .32s ease, opacity .25s ease;
+}
+@keyframes ba-tour-breathe {
+  0%, 100% { box-shadow: 0 0 0 9999px rgba(8,6,18,.74), 0 0 0 2px var(--ba-violet), 0 0 14px 3px rgba(167,139,250,.4); }
+  50%      { box-shadow: 0 0 0 9999px rgba(8,6,18,.74), 0 0 0 3px var(--ba-violet-2), 0 0 28px 8px rgba(167,139,250,.85); }
+}
 
-/* 스포트라이트 — 저장·북마크 focus·투어 시 주변을 일시적으로 어둡게, 대상만 밝게 강조.
+/* 스포트라이트 — 북마크 저장·focus 시 주변을 일시적으로 어둡게, 대상만 밝게 강조 (투어는 .ba-tour-spot 박스가 담당).
    진입·이탈 모두 fade로 부드럽게: transition은 상시 적용하고, opacity 값만 spotlighting에서 바꾼다. */
 .ba-root > *, .ba-root .ba-folder { transition: opacity .55s ease-in-out; }
 .ba-root.ba-spotlighting > * { opacity: .25; }
 .ba-root.ba-spotlighting > *:has(.ba-spot-target),
-.ba-root.ba-spotlighting > *:has(.ba-tour-hl),
-.ba-root.ba-spotlighting > .ba-tour-card,
 .ba-root.ba-spotlighting > .ba-tip,
 .ba-root.ba-spotlighting > .ba-toast { opacity: 1; }
-.ba-root.ba-spotlighting .ba-row:not(.ba-spot-target):not(.ba-tour-hl) { opacity: .45; }
+.ba-root.ba-spotlighting .ba-row:not(.ba-spot-target) { opacity: .45; }
 .ba-root.ba-spotlighting .ba-folder:has(.ba-spot-target) { overflow: visible; }   /* glow가 폴더 경계에서 잘리지 않게 */
 .ba-spot-target { position: relative; box-shadow: 0 0 0 2px var(--ba-violet), 0 0 22px rgba(167, 139, 250, .55) !important; transition: box-shadow .55s ease-in-out, opacity .55s ease-in-out; }
-.ba-tour-hl { position: relative; z-index: 1; }

@@ -7,7 +7,7 @@ import { buildLeagueMap } from '../lib/leagueMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
 import { parseExaltedPerDivine } from '../lib/currencyRates.js'
-import { addHistory, markUsedByUrl } from '../store/store.js'
+import { addHistory, markUsedByUrl, ensureSchema } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 
@@ -26,6 +26,9 @@ function leagueFromUrl() {
 }
 
 const send = (m) => new Promise((res) => chrome.runtime.sendMessage(m, res))
+
+// 데이터 스키마 버전 보장 — 향후 구조 변경 시 마이그레이션 진입점 (현재 v1: 버전 마킹만)
+ensureSchema()
 
 // statMap은 검색 흐름과 독립적으로 1회 로드(레이스 방지)
 let statMap = {}

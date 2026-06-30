@@ -375,13 +375,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   }
   const refresh = () => renderList($('ba-list'), root, ui)
 
-  // 최근(현재) 검색을 북마크로 저장 (버튼 + 단축키/팝업 공용)
-  const doSave = async () => {
+  // 최근(현재) 검색을 북마크로 저장 (버튼 + 단축키/팝업 + 폴더별 + 버튼 공용)
+  // presetFolderId: 폴더 헤더 +에서 호출 시 그 폴더를 저장 다이얼로그에 미리 선택
+  const doSave = async (presetFolderId = null) => {
     const latest = (await listByKind('history', game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
     const dup = await findBookmark(latest.dedupeKey, game)
     if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark($('ba-list'), dup.id); return }
-    const res = await showSaveInput(suggestName(latest))
+    const res = await showSaveInput(suggestName(latest), presetFolderId)
     if (res === null) return
     const saved = await addBookmark(
       {
@@ -397,7 +398,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     highlightBookmark($('ba-list'), saved.id)
     toast('북마크에 저장했습니다.')
   }
-  $('ba-save').onclick = doSave
+  $('ba-save').onclick = () => doSave() // 클릭 이벤트가 presetFolderId로 새지 않게 래핑
+  ui.saveCurrentSearch = doSave // 폴더 헤더 +에서 renderList가 폴더 id와 함께 호출
   $('ba-foot-guide').onclick = () => startTour()
   // 영문 거래소 전환 버튼 — 상단 공간 절약을 위해 현재 마크업을 숨김(head 템플릿에서 제거).
   // 핸들러는 복원 대비 유지(버튼이 없으면 아래 가드로 무효). 복원 시 .ba-convert-row 마크업만 되살리면 됨.
@@ -415,33 +417,65 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
 
   // ── 사용법 가이드 코치마크 (4스텝) ──
   const TOUR = [
-    { sel: '#ba-save', title: '① 좋은 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 좋은 검색은 "현재 검색 저장"으로 영구 보관하고, 저장 시 폴더도 바로 고를 수 있어요.' },
-    { sel: '.ba-open', title: '② 한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
-    { sel: '.ba-sec-hist', title: '③ 자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
-    { sel: '.ba-econ-row', title: '④ 시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
-    { sel: '#ba-handle', title: '⑤ 언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
-    { sel: '.ba-kbd-chip', title: '⑥ 단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
+    { sel: '#ba-save', title: '자주하는 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 자주 쓰는 검색은 "현재 검색 저장"으로 영구 보관하고, 저장할 때 폴더도 바로 고를 수 있어요.' },
+    { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },
+    { sel: '.ba-open', title: '한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
+    { sel: '.ba-price-pill', title: '검색 시점 시세', body: '가격에 마우스를 올리면 검색 당시 매물 기준 시세(빠르게 팔리는 가격)를 보여줘요. 북마크를 열면 최신 시세로 갱신됩니다.' },
+    { sel: '.ba-rowfoot', title: '카드 액션 모음', body: '카드 하단 버튼으로 검색 링크 복사, 최근 검색으로 갱신, 이름 변경, 다른 폴더로 이동, 삭제를 할 수 있어요.' },
+    { sel: '.ba-folder-ic[data-id]', title: '폴더 색상 구분', body: '폴더 아이콘을 클릭하면 색을 바꿀 수 있어요. 색으로 분류하면 원하는 폴더를 한눈에 찾습니다.' },
+    { sel: '.ba-action-row', title: '정리 도구', body: '모든 폴더 접기·펼치기와 새 폴더 추가가 여기 모여 있어요.' },
+    { sel: '.ba-io-group', title: '백업 · 공유 (JSON)', body: '북마크를 JSON 파일로 내보내 백업하거나 다른 사람과 공유할 수 있어요. 받은 JSON은 가져오기로 합쳐집니다. 특정 폴더만 내보내려면 폴더 헤더의 ⬇ 아이콘을 쓰세요.' },
+    { sel: '.ba-sec-hist', title: '자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
+    { sel: '.ba-econ-row', title: '시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
+    { sel: '#ba-handle', title: '언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
+    { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
   ]
   function startTour() {
     setCollapsed(false)
     let i = 0
-    let prev = null
     const card = document.createElement('div')
     card.className = 'ba-tour-card'
+    const box = document.createElement('div') // 스포트라이트 구멍 — 주변을 어둡게(box-shadow) + 숨쉬는 테두리
+    box.className = 'ba-tour-spot'
+    root.appendChild(box)
     root.appendChild(card)
-    const clearHL = () => { if (prev) prev.classList.remove('ba-tour-hl') }
-    const finish = () => { clearHL(); elRoot.classList.remove('ba-spotlighting'); card.remove(); try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const finish = () => { box.remove(); card.remove(); try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const place = (target) => {
+      const rc = target ? target.getBoundingClientRect() : null
+      if (!rc || (!rc.width && !rc.height)) { box.style.opacity = '0'; return }
+      // 콘텐츠 영역(패딩 제외) 기준 + 대칭 여백 — 비대칭 패딩(예: 섹션 헤더 padding-bottom)에서도 위아래 여백이 같게
+      const cs = getComputedStyle(target)
+      const pt = parseFloat(cs.paddingTop) || 0, pb = parseFloat(cs.paddingBottom) || 0
+      const pl = parseFloat(cs.paddingLeft) || 0, pr = parseFloat(cs.paddingRight) || 0
+      const PAD = 5
+      box.style.opacity = '1'
+      box.style.top = (rc.top + pt - PAD) + 'px'
+      box.style.left = (rc.left + pl - PAD) + 'px'
+      box.style.width = (rc.width - pl - pr + 2 * PAD) + 'px'
+      box.style.height = (rc.height - pt - pb + 2 * PAD) + 'px'
+    }
     const render = () => {
       const step = TOUR[i]
-      const target = root.querySelector(step.sel)
-      clearHL()
-      if (target) { target.classList.add('ba-tour-hl'); prev = target; target.scrollIntoView({ block: 'center', behavior: 'smooth' }) }
-      elRoot.classList.add('ba-spotlighting')
-      card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button><button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div>`
-      const rect = target ? target.getBoundingClientRect() : null
-      card.style.top = (rect ? Math.min(window.innerHeight - 170, Math.max(8, rect.bottom + 8)) : 80) + 'px'
+      let target = root.querySelector(step.sel)
+      if (target && !target.getBoundingClientRect().width) {
+        // 접힌 폴더 안이면 투어 동안만 임시로 펼쳐 대상이 보이게(사용자 설정 Set은 건드리지 않음)
+        const folded = target.closest('.ba-folder--collapsed')
+        if (folded) folded.classList.remove('ba-folder--collapsed')
+        if (!target.getBoundingClientRect().width) {
+          target = [...root.querySelectorAll(step.sel)].find((e) => e.getBoundingClientRect().width) || target
+        }
+      }
+      card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button>${i > 0 ? '<button class="ba-tour-prev">이전</button>' : ''}<button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div>`
       card.querySelector('.ba-tour-next').onclick = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
       card.querySelector('.ba-tour-skip').onclick = finish
+      const prevBtn = card.querySelector('.ba-tour-prev'); if (prevBtn) prevBtn.onclick = () => { if (i > 0) { i -= 1; render() } }
+      if (target) target.scrollIntoView({ block: 'center' }) // instant — smooth는 rect가 스크롤 도중 부정확
+      // 레이아웃 안정 후(더블 rAF) 박스·카드 위치 확정
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        place(target)
+        const rc = target ? target.getBoundingClientRect() : null
+        card.style.top = (rc ? Math.min(window.innerHeight - 180, Math.max(8, rc.bottom + 12)) : 80) + 'px'
+      }))
     }
     render()
   }
