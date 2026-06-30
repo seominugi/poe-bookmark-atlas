@@ -35,6 +35,37 @@ export async function ensureSchema() {
   await chrome.storage.local.set({ [SCHEMA_KEY]: CURRENT_SCHEMA })
 }
 
+// ── 가이드 투어 전용 데모 데이터 ──────────────────────────
+// 빈 첫 화면에서도 투어가 기능을 시연하도록 임시 주입(__demo 플래그), 투어 종료 시 제거한다. 실제 저장소는 오염되지 않는다.
+const DEMO_FOLDER_ID = '__demo_folder'
+export async function isStoreEmpty(game) {
+  const all = await readAll()
+  const folders = await readFolders()
+  return !all.some((r) => r.game === game && !r.__demo) && !folders.some((f) => !f.__demo)
+}
+export async function seedDemoData(game, league) {
+  const all = await readAll()
+  if (all.some((r) => r.__demo)) return // 이미 주입됨
+  const folders = await readFolders()
+  const now = Date.now()
+  const u = (h) => `https://poe.kakaogames.com/trade2/search/poe2/${encodeURIComponent(league || 'Standard')}/__demo_${h}`
+  const snap = (v, n, low) => ({ valueDiv: v, value: v, unit: 'divine', sampleN: n, lowestAsk: low, method: 'sellable_p25', capturedAt: now })
+  const base = { game, league, createdAt: now, updatedAt: now, snapshotAt: now, __demo: true }
+  const records = [
+    { ...base, id: '__demo_b1', kind: 'bookmark', name: '예시 — 화염 저항 반지', title: '반지', itemType: '반지', url: u('b1'), stats: ['화염 저항 #%', '최대 생명력 #'], otherFilters: [{ key: 'category', label: '유형', value: '반지' }], snapshot: snap(2.3, 12, 1.8), folderId: DEMO_FOLDER_ID, order: -1, lastUsedAt: now, note: '예시 메모 — 위치·빌드·용도' },
+    { ...base, id: '__demo_b2', kind: 'bookmark', name: '예시 — 카오스 단검', title: '단검', itemType: '단검', url: u('b2'), stats: ['물리 피해 #', '공격 속도 #%', '치명타 확률 #%'], snapshot: snap(0.5, 8, 0.3), folderId: null, order: -2, lastUsedAt: now },
+    { ...base, id: '__demo_h1', kind: 'history', name: '예시 검색 — 생명력 갑옷', title: '갑옷', itemType: '갑옷', url: u('h1'), stats: ['최대 생명력 #', '방어도 #'], snapshot: snap(1.1, 7, 0.9), dedupeKey: '__demo_h1' },
+  ]
+  await writeFolders([...folders, { id: DEMO_FOLDER_ID, name: '예시 폴더', game, color: '#a78bfa', __demo: true }])
+  await writeAll([...all, ...records])
+}
+export async function clearDemoData() {
+  const all = await readAll()
+  if (all.some((r) => r.__demo)) await writeAll(all.filter((r) => !r.__demo))
+  const folders = await readFolders()
+  if (folders.some((f) => f.__demo)) await writeFolders(folders.filter((f) => !f.__demo))
+}
+
 // ── URL 안전성: 거래소(허용 도메인) 링크만 열기·복사·가져오기·내보내기 허용 (피싱·javascript: 차단) ──
 const ALLOWED_HOSTS = ['poe.kakaogames.com', 'www.pathofexile.com']
 export function isAllowedTradeUrl(url) {

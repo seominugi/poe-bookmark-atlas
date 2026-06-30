@@ -1,7 +1,7 @@
 import css from './panel.css?inline'
 import { renderList, highlightBookmark, analystUrl, researcherUrl } from './renderList.js'
 import { icon } from '../../lib/icons.js'
-import { listByKind, addBookmark, findBookmark, listFolders, addFolder } from '../../store/store.js'
+import { listByKind, addBookmark, findBookmark, listFolders, addFolder, isStoreEmpty, seedDemoData, clearDemoData } from '../../store/store.js'
 import { suggestName } from '../../lib/suggestName.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
 import ytIcon from '../../icons/yt_icon_rgb.png'
@@ -430,8 +430,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     { sel: '#ba-handle', title: '언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
     { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
   ]
-  function startTour() {
+  async function startTour() {
     setCollapsed(false)
+    // 첫 화면처럼 비어 있으면 투어 동안만 데모 데이터를 띄운다(종료 시 제거 — 실제 저장소 무오염)
+    let demoOn = false
+    try { if (await isStoreEmpty(game)) { await seedDemoData(game, league); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
     let i = 0
     const card = document.createElement('div')
     card.className = 'ba-tour-card'
@@ -439,7 +442,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     box.className = 'ba-tour-spot'
     root.appendChild(box)
     root.appendChild(card)
-    const finish = () => { box.remove(); card.remove(); try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const finish = () => { box.remove(); card.remove(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
     const place = (target) => {
       const rc = target ? target.getBoundingClientRect() : null
       if (!rc || (!rc.width && !rc.height)) { box.style.opacity = '0'; return }
@@ -469,13 +472,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
       card.querySelector('.ba-tour-next').onclick = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
       card.querySelector('.ba-tour-skip').onclick = finish
       const prevBtn = card.querySelector('.ba-tour-prev'); if (prevBtn) prevBtn.onclick = () => { if (i > 0) { i -= 1; render() } }
-      if (target) target.scrollIntoView({ block: 'center' }) // instant — smooth는 rect가 스크롤 도중 부정확
-      // 레이아웃 안정 후(더블 rAF) 박스·카드 위치 확정
-      requestAnimationFrame(() => requestAnimationFrame(() => {
-        place(target)
-        const rc = target ? target.getBoundingClientRect() : null
-        card.style.top = (rc ? Math.min(window.innerHeight - 180, Math.max(8, rc.bottom + 12)) : 80) + 'px'
-      }))
+      if (target) target.scrollIntoView({ block: 'center' }) // instant — 동기 스크롤이라 직후 rect가 정확
+      place(target) // 동기 즉시 배치 — rAF·setTimeout은 비활성 탭에서 지연/정지되므로 사용 안 함
+      const rc = target ? target.getBoundingClientRect() : null
+      card.style.top = (rc ? Math.min(window.innerHeight - 180, Math.max(8, rc.bottom + 12)) : 80) + 'px'
     }
     render()
   }
