@@ -42,6 +42,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
               <div class="ba-kbd-pop-row"><span>패널 열기 / 접기</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>B</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>현재 검색 저장</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>S</kbd></span></div>
               <div class="ba-kbd-pop-row"><span>북마크·히스토리 검색</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>K</kbd></span></div>
+              <div class="ba-kbd-pop-row"><span>설정</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>O</kbd></span></div>
               <div class="ba-kbd-pop-group">검색 단축키</div>
               <div class="ba-kbd-pop-row"><span>아이템 검색</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>F</kbd></span></div>
               <div class="ba-kbd-pop-divider"></div>
@@ -52,7 +53,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
             </div>
           </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
-          <button class="ba-gear" id="ba-gear" data-tip="설정">${icon('settings', 15)}</button>
+          <button class="ba-gear" id="ba-gear" data-tip="설정 (Alt+O)">${icon('settings', 15)}</button>
           <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="후원하기 — 투네이션으로 응원 ↗">${icon('heart', 13)}</a>
         </div>
         <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>
@@ -205,6 +206,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     if (isCollapsed()) setCollapsed(false)
     const inp = root.querySelector('.ba-search-input[data-scope="bm"]')
     if (inp) { inp.focus(); inp.select() }
+  }, true)
+
+  // 설정 열기 단축키 (Alt+O) — 접혀 있으면 펼친 뒤 설정 모달
+  window.addEventListener('keydown', (e) => {
+    if (e.repeat || !e.altKey || e.ctrlKey || e.metaKey || e.code !== 'KeyO') return
+    e.preventDefault()
+    if (isCollapsed()) setCollapsed(false)
+    showSettings()
   }, true)
 
   // 밀도는 '조밀'로 통합 (여유/조밀 토글 제거 — 항상 조밀)
