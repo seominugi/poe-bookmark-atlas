@@ -1,8 +1,9 @@
 // 작업3 — 영문 PoB 조립기 핵심 로직. 캡처한 실제 아이템(공허 경고 · 사원 서판)의 mod로 검증.
 // stat id → 번들 EN 맵 조회 → 값 치환 → 영문 라인. 다중변형(Area/Map)은 KR 설명으로 택1.
 import { describe, it, expect } from 'vitest'
-import { stripTags, digitsToHash, extractValues, fillValues, pickTemplate, translateMod } from '../src/lib/pobExport.js'
+import { stripTags, digitsToHash, extractValues, fillValues, pickTemplate, translateMod, buildPobText } from '../src/lib/pobExport.js'
 import map from '../src/lib/pobStatMap.json'
+import baseMap from '../src/lib/pobBaseMap.json'
 
 describe('stripTags — [Key|표시텍스트] 마크업 제거', () => {
   it('[Rarity|희귀도] → 희귀도', () => {
@@ -51,5 +52,112 @@ describe('translateMod — 캡처 아이템(공허 경고)의 실제 mod → 영
   }
   it('미매핑 id는 en=null(폴백은 조립기가 처리)', () => {
     expect(translateMod('explicit.stat_does_not_exist', '없음', map).en).toBeNull()
+  })
+})
+
+describe('buildPobText — 전체 아이템 → PoB import 텍스트 (캡처 실데이터)', () => {
+  // 2026-07-03 라이브 캡처: 공허 경고 · 사원 서판 (필드는 사용분만 축약)
+  const captured = {
+    name: '공허 경고', baseType: '사원 서판', rarity: 'Rare', ilvl: 80,
+    implicitMods: ['지도에 [ContainsIncursion|바알 등대] 추가\n잔여 사용 횟수 10회'],
+    explicitMods: [
+      { description: '지도에서 발견하는 아이템 [Rarity|희귀도] 8% 증가', hash: 'stat.explicit.stat_2306002879' },
+      { description: '지도에 [Rarity|희귀] 상자 2개 추가 등장', hash: 'stat.explicit.stat_231864447' },
+      { description: '지도 내 [ContainsIncursion|바알 등대] 상자가 [Rarity|희귀] 등급일 확률 42% 증가', hash: 'stat.explicit.stat_2514439422' },
+      { description: '지도에 [Shrine|성소]가 등장할 확률 88% 증가', hash: 'stat.explicit.stat_689816330' },
+    ],
+    extended: { hashes: { explicit: [['explicit.stat_2306002879', [2]], ['explicit.stat_231864447', [1]], ['explicit.stat_2514439422', [3]], ['explicit.stat_689816330', [0]]], implicit: [['implicit.stat_3035440454', [0]]] } },
+  }
+  it('캡처 아이템 전체 조립 — Item Class·Rarity·이름·base EN·ilvl·implicit·explicit', () => {
+    const { text, missing } = buildPobText(captured, map, baseMap)
+    expect(text).toBe([
+      'Item Class: Tablet',
+      'Rarity: Rare',
+      'seominugi-bookmark-item-tablet', // 희귀 이름은 절차 생성(KR↔EN 데이터 부재) → ASCII 플레이스홀더(PoB 폰트에 한글 없음)
+      'Temple Tablet',
+      '--------',
+      'Item Level: 80',
+      '--------',
+      'Adds Vaal Beacons to a Map (implicit)',
+      '10 use remaining (implicit)',
+      '--------',
+      '8% increased Rarity of Items found in Map',
+      'Map contains an additional Rare Chest',
+      '42% increased chance Vaal Beacon Chests are Rare in Map',
+      'Map has 88% increased chance to contain Shrines',
+    ].join('\n'))
+    expect(missing).toEqual([])
+  })
+  it('미매핑 base — KR 그대로 두고 missing에 기록', () => {
+    const { text, missing } = buildPobText({ ...captured, baseType: '존재하지않는베이스' }, map, baseMap)
+    expect(text).toContain('존재하지않는베이스')
+    expect(text).not.toContain('Item Class:') // classId 없음 → 라인 생략
+    expect(missing).toContain('base:존재하지않는베이스')
+  })
+  it('미매핑 mod — KR 라인 유지(태그 제거) + missing 기록', () => {
+    const it2 = { ...captured, explicitMods: [{ description: '알 수 없는 [X|속성] 5% 증가', hash: 'stat.explicit.stat_00000' }] }
+    const { text, missing } = buildPobText(it2, map, baseMap)
+    expect(text).toContain('알 수 없는 속성 5% 증가')
+    expect(missing).toContain('explicit:explicit.stat_00000')
+  })
+  it('이름 없는 아이템(마법 등) — 이름 라인 생략', () => {
+    const { text } = buildPobText({ ...captured, name: '' }, map, baseMap)
+    expect(text).not.toContain('공허 경고')
+    expect(text.split('\n')[1]).toBe('Rarity: Rare')
+    expect(text.split('\n')[2]).toBe('Temple Tablet')
+  })
+  it('타락(corrupted) — 마지막 섹션에 Corrupted', () => {
+    const { text } = buildPobText({ ...captured, corrupted: true }, map, baseMap)
+    expect(text.endsWith('--------\nCorrupted')).toBe(true)
+  })
+  it('enchant·fractured·crafted 그룹 — 접미 표기와 섹션 배치(poe1 장비)', () => {
+    const tinyMap = {
+      'enchant.stat_1': 'Enchant Line #',
+      'fractured.stat_2': '#% Fractured Line',
+      'explicit.stat_3': '#% Explicit Line',
+      'crafted.stat_4': '+# Crafted Line',
+    }
+    const it2 = {
+      name: '테스트', baseType: '사원 서판', rarity: 'Rare', ilvl: 60,
+      enchantMods: ['인챈트 라인 5'], fracturedMods: ['10% 분열 라인'],
+      explicitMods: [{ description: '20% 명시 라인', hash: 'stat.explicit.stat_3' }], craftedMods: ['+7 제작 라인'],
+      extended: { hashes: { enchant: [['enchant.stat_1', [0]]], fractured: [['fractured.stat_2', [0]]], explicit: [['explicit.stat_3', [0]]], crafted: [['crafted.stat_4', [0]]] } },
+    }
+    const { text, missing } = buildPobText(it2, tinyMap, baseMap)
+    const lines = text.split('\n')
+    expect(lines).toContain('Enchant Line 5 (enchant)')
+    expect(lines).toContain('10% Fractured Line (fractured)')
+    expect(lines).toContain('20% Explicit Line')
+    expect(lines).toContain('+7 Crafted Line (crafted)')
+    // 섹션 배치: enchant는 별도 섹션(implicit 자리), fractured→explicit→crafted는 한 섹션에 이 순서
+    expect(text.indexOf('(enchant)')).toBeLessThan(text.indexOf('Fractured'))
+    expect(text.indexOf('Fractured')).toBeLessThan(text.indexOf('Explicit'))
+    expect(text.indexOf('Explicit')).toBeLessThan(text.indexOf('Crafted'))
+    expect(missing).toEqual([])
+  })
+  it('유니크 이름 — uniqueMap으로 EN 번역(PoB가 유니크를 EN 이름으로 인식)', () => {
+    const uniq = { '이그니페리스': 'Igniferis' }
+    const { text, missing } = buildPobText({ ...captured, rarity: 'Unique', name: '이그니페리스' }, map, baseMap, uniq)
+    expect(text).toContain('Rarity: Unique')
+    expect(text.split('\n')[2]).toBe('Igniferis')
+    expect(missing.filter((m) => m.startsWith('unique:'))).toEqual([])
+  })
+  it('유니크 미매핑 이름 — KR 유지 + missing 기록', () => {
+    const { text, missing } = buildPobText({ ...captured, rarity: 'Unique', name: '없는유니크' }, map, baseMap, {})
+    expect(text).toContain('없는유니크')
+    expect(missing).toContain('unique:없는유니크')
+  })
+  it('희귀 이름 — uniqueMap 무관, ASCII 플레이스홀더로 치환(classId 슬러그)', () => {
+    const { text, missing } = buildPobText(captured, map, baseMap, { '공허 경고': 'X' })
+    expect(text.split('\n')[2]).toBe('seominugi-bookmark-item-tablet') // rarity Rare → 유니크 맵 무시, 플레이스홀더
+    expect(missing.filter((m) => m.startsWith('unique:'))).toEqual([])
+  })
+  it('희귀 + base 미매핑 — 슬러그 폴백 item', () => {
+    const { text } = buildPobText({ ...captured, baseType: '없는베이스' }, map, baseMap)
+    expect(text).toContain('seominugi-bookmark-item-item')
+  })
+  it('classId 공백은 하이픈 슬러그로 (Body Armours → body-armours)', () => {
+    const { text } = buildPobText({ ...captured, baseType: '전사의 갑옷' }, map, { '전사의 갑옷': ['Warrior Plate', 'Body Armours'] })
+    expect(text.split('\n')[2]).toBe('seominugi-bookmark-item-body-armours')
   })
 })

@@ -7,31 +7,37 @@
 //   curl -A "Mozilla/5.0"                                https://poe.kakaogames.com/api/trade2/data/stats  -o kr-stats.json
 // (Node fetch는 Cloudflare 봇차단에 걸려 curl 사용.) KR·EN 모두 그룹·순서 동일(8202개)해 인덱스로 페어링.
 //
-// 실행: node scripts/build-pob-statmap.mjs <en-stats.json> <kr-stats.json>
+// 실행: node scripts/build-pob-statmap.mjs <en-stats.json> <kr-stats.json> [출력파일명=pobStatMap.json]
+//   poe1: node scripts/build-pob-statmap.mjs en-stats1.json kr-stats1.json pobStatMap.poe1.json
 import { readFile, writeFile } from 'node:fs/promises'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
-const [, , enPath, krPath] = process.argv
-if (!enPath || !krPath) { console.error('사용법: node scripts/build-pob-statmap.mjs <en-stats.json> <kr-stats.json>'); process.exit(1) }
+const [, , enPath, krPath, outName = 'pobStatMap.json'] = process.argv
+if (!enPath || !krPath) { console.error('사용법: node scripts/build-pob-statmap.mjs <en-stats.json> <kr-stats.json> [출력파일명]'); process.exit(1) }
 const SKIP_TYPES = new Set(['pseudo']) // 검색 집계용 — 실제 아이템 mod 아님
-const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'lib', 'pobStatMap.json')
+const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'src', 'lib', outName)
 
 const en = JSON.parse(await readFile(enPath, 'utf8'))
 const kr = JSON.parse(await readFile(krPath, 'utf8'))
 
-// KR: type#index → entry (EN과 동일 순서라 인덱스로 매칭)
-const krAt = new Map()
-for (const g of kr.result) g.entries.forEach((e, i) => krAt.set(g.id + '#' + i, e))
-
-// id(전체, 예 "explicit.stat_689816330") → [{en, ko}] (같은 id의 변형 모두 수집)
-const byId = new Map()
+// 그룹 내 "같은 id의 k번째 등장"끼리 페어링 — 단순 인덱스 페어링은 EN/KR 엔트리 수가 1개라도 어긋나면
+// (예: poe1 enchant EN 1465 vs KR 1464) 그 지점부터 전부 오염되므로 id 시퀀스 기준으로 맞춘다.
+const byId = new Map() // 전체 id → [{en, ko}] (같은 id의 변형 순서 보존)
+let unpaired = 0
 for (const g of en.result) {
   if (SKIP_TYPES.has(g.id)) continue
-  g.entries.forEach((e, i) => {
+  const krG = (kr.result || []).find((x) => x.id === g.id)
+  const krSeq = new Map() // id → 그룹 내 등장 순서 배열
+  for (const e of krG?.entries || []) { if (!krSeq.has(e.id)) krSeq.set(e.id, []); krSeq.get(e.id).push(e) }
+  const seen = new Map()
+  for (const e of g.entries) {
+    const k = seen.get(e.id) || 0; seen.set(e.id, k + 1)
+    const krE = krSeq.get(e.id)?.[k]
+    if (!krE) unpaired++
     if (!byId.has(e.id)) byId.set(e.id, [])
-    byId.get(e.id).push({ en: e.text, ko: krAt.get(g.id + '#' + i)?.text ?? null })
-  })
+    byId.get(e.id).push({ en: e.text, ko: krE?.text ?? null })
+  }
 }
 
 const map = {}
@@ -42,4 +48,4 @@ for (const [id, variants] of byId) {
 
 await writeFile(out, JSON.stringify(map), 'utf8')
 const multi = Object.values(map).filter(Array.isArray).length
-console.log(`pobStatMap.json 생성: ${Object.keys(map).length} ids (다중변형 ${multi}) → ${out}`)
+console.log(`${outName} 생성: ${Object.keys(map).length} ids (다중변형 ${multi}, KR 미페어링 ${unpaired}) → ${out}`)

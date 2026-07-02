@@ -42,3 +42,65 @@ export function translateMod(id, koDesc, map) {
   if (tpl == null) return { en: null, ko: koDesc }
   return { en: fillValues(tpl, extractValues(stripTags(koDesc))), ko: koDesc }
 }
+
+/**
+ * 아이템 전체 → PoB import 텍스트(인게임 Ctrl+C 포맷).
+ * 섹션: [Item Class/Rarity/이름/base EN] / Item Level / implicit (implicit) / explicit / Corrupted — '--------' 구분.
+ * 미매핑 base·mod는 KR 그대로 두고 missing[]에 기록(UI가 부분 변환 경고용).
+ * 이름: 유니크는 uniqueMap으로 EN 번역(PoB가 유니크를 EN 이름으로 매칭 — 기능 필수).
+ *       희귀는 절차 생성 이름(Words 조합)인데 KR↔EN 공개 데이터가 없고 PoB 폰트에 한글도 없어(□) —
+ *       ASCII 플레이스홀더 `seominugi-bookmark-item-<classId 슬러그>`로 치환(PoB는 이름을 파싱 안 함 — 표시용).
+ * @returns {{ text: string, missing: string[] }}
+ */
+export function buildPobText(item, statMap, baseMap, uniqueMap = {}) {
+  const missing = []
+  const base = baseMap[item.baseType]
+  if (!base) missing.push('base:' + item.baseType)
+
+  let name = item.name
+  if (name && item.rarity === 'Unique') {
+    if (uniqueMap[name]) name = uniqueMap[name]
+    else missing.push('unique:' + name)
+  } else if (name) {
+    const slug = ((base && base[1]) || 'item').toLowerCase().replace(/\s+/g, '-')
+    name = 'seominugi-bookmark-item-' + slug
+  }
+
+  const head = []
+  if (base && base[1]) head.push('Item Class: ' + base[1])
+  head.push('Rarity: ' + (item.rarity || 'Rare'))
+  if (name) head.push(name)
+  head.push(base ? base[0] : (item.baseType || ''))
+
+  // 한 mod가 여러 줄(\n)일 수 있음(예: 서판 implicit) → 줄 단위로 펼치고 implicit 접미 부착
+  const modLines = (list, hashAt, kind, suffix) => {
+    const outLines = []
+    ;(list || []).forEach((m, i) => {
+      const ko = typeof m === 'string' ? m : m.description
+      const id = typeof m === 'object' && m.hash ? m.hash.replace(/^stat\./, '') : hashAt(i) // explicitMods[].hash는 "stat." 접두
+      const t = id ? translateMod(id, ko, statMap) : { en: null }
+      if (t.en == null) missing.push(kind + ':' + (id || '?'))
+      const txt = t.en != null ? t.en : stripTags(ko)
+      txt.split('\n').forEach((l) => { const s = l.trim(); if (s) outLines.push(s + suffix) })
+    })
+    return outLines
+  }
+  const hashes = item.extended?.hashes || {}
+  const hashAt = (kind) => (i) => hashes[kind]?.[i]?.[0] ?? null
+  const ench = modLines(item.enchantMods, hashAt('enchant'), 'enchant', ' (enchant)')
+  const impl = modLines(item.implicitMods, hashAt('implicit'), 'implicit', ' (implicit)')
+  // 인게임 표기 순서: fractured → explicit → crafted (한 섹션). PoB는 접미로 구분
+  const expl = [
+    ...modLines(item.fracturedMods, hashAt('fractured'), 'fractured', ' (fractured)'),
+    ...modLines(item.explicitMods, () => null, 'explicit', ''),
+    ...modLines(item.craftedMods, hashAt('crafted'), 'crafted', ' (crafted)'),
+  ]
+
+  const sections = [head]
+  if (item.ilvl != null) sections.push(['Item Level: ' + item.ilvl])
+  if (ench.length) sections.push(ench)
+  if (impl.length) sections.push(impl)
+  if (expl.length) sections.push(expl)
+  if (item.corrupted) sections.push(['Corrupted'])
+  return { text: sections.map((s) => s.join('\n')).join('\n--------\n'), missing }
+}
