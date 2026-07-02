@@ -1,5 +1,5 @@
 ---
-timestamp: 2026-07-01 (Asia/Seoul)
+timestamp: 2026-07-03 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
@@ -9,7 +9,7 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
-0.2.0 스토어 심사 대기 중. 첫 사용자 피드백 3건을 다음 버전(0.3.0)으로 개선 — **별도 세션 `task_315e1210`에서 권장 순서 2→3→1로 진행 중**.
+0.2.0 스토어 심사 대기 중. 피드백 3건 중 **작업1(중복 저장 오판)·작업2(패널 좌/우) 완료**, 작업3(영문 PoB 복사)은 코어 조립기·EN stat 맵까지 완료 — **남은 것: 아이템 원본 보존 + 전체 아이템 텍스트 조립 + 행별 'PoB 복사' 버튼 UI**.
 
 ## 완료된 작업
 
@@ -30,29 +30,40 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 ### 검색 통합·리그 접이식 (592d2c6)
 - 북마크·히스토리 통합 검색, 리그별 접이식 섹션(현재 펼침/지난 접힘), 정렬 토글 헤더 이동
 
-## 미완료 / 진행 중 작업
+### 피드백 작업1·2 + 버그픽스 (2026-07-02~03)
 
-### 피드백 3건 개선 (task_315e1210 세션, 2026-07-01~, 권장 순서 2→3→1)
+- **작업1 — 저장 충돌 판정·UX 재설계** (`searchParser.js`, `renderList.js`, `panel.js`)
+  - `filterParts()`: 비-능력치 필터(경로석 확률·등급 등)를 searchIdentity에 포함 → 수치만 바꿔도 "이미 저장됨" 오판 해결
+  - `structuralIdentity()`/`findNearDuplicate()`: 수치만 다른 near-dup 감지 → **취소/새로 만들기/덮어쓰기 3지선다** (`resolveSaveConflict` + `showConflict` 팝오버)
+  - 조건 칩에 입력 수치 표기(≥/≤/~) + '조건 N개' 앰버 배지, 북마크 열람 시 검색 필드 업그레이드(`markUsedByUrl` 4번째 인자)
+- **스포트라이트 focus 재설계**: opacity 디밍이 패널 opacity transition들과 충돌해 무력화 → **투어식 hole-punch 오버레이**(`.ba-focus-spot`)로 교체. 대화 중 **재렌더 레이스**(행 교체 → 강조·스크롤 소실, "취소해야 스크롤됨") 해결: 행 재조회 + MutationObserver 재적용 + center 스크롤 + 휠 잠금 + 접힌 폴더 자동 펼침
+- **카드 2줄 구성 + ⋯ 액션 팝오버**: 액션 5종 팝오버 통합(간략/상세 공통). shadow retargeting(`composedPath` 필수), hover transform containing-block, content-visibility, **flip 기준 리스트 가시영역 바닥**(하단 잘림) 픽스
+- **작업2 — 패널 좌/우 설정**: 기어 → 설정 모달(`showSettings`), `uiPanelSide` storage, `[data-side="left"]` 미러링, 핸들 `left` transition
+- **팝업 정리**: 영문거래소·시세/동향 버튼 제거
+- **E2E 하네스** (`test-harness/`, `vite.harness.config.js`, `.claude/launch.json`): 목 chrome + 시드로 패널 마운트, Preview MCP(`preview_eval`)로 자동 검증. `__triggerConflict`/`__saveUnique`/`__dumpBookmarks` 헬퍼. **주의: 스크린샷·rAF는 이 환경에서 멈춤 → eval+setTimeout만**
 
-1. **중복 저장 오판 수정** ★먼저(작고 명확)
-   - 원인: `src/lib/searchParser.js` `searchIdentity()`가 키에 q.stats(능력치)·가격·유형·이름만 넣고 **otherFilters(경로석 확률·효율·등급·타락 등 type/misc/map 필터 값)를 누락** → 경로석 확률만 40%→120% 바꿔도 "이미 저장됨".
-   - 수정: (a) searchIdentity에 비-능력치 필터 값 포함(`filterMap.js` parseQueryFilters 재사용 검토), (b) 중복 시 "덮어쓰기" 액션 제공(`store.js` overwriteBookmark 재사용).
+### 작업3 — 영문 PoB 복사 (착수, 코어 완료)
 
-2. **패널 좌측 이동 옵션** (중간 규모)
-   - 현재 우측 하드코딩: `panel.css` 52줄(.ba-root right:14px), 79줄(핸들 right:398px), 91줄(collapsed right:0) + `panel.js` applyPagePush 우측 기준.
-   - 구현: `uiPanelSide` storage 저장 + `[data-side="left"]` 스코프로 방향 스타일 미러링(패널·핸들·glint·collapsed·페이지밀기).
+- **선결 2건 해소**: ① `item.extended.hashes` 라이브 캡처 확인 ② EN stat 취득 — **이 개발 환경은 pathofexile.com geo-block 안 걸림**(curl 통과, Node fetch는 Cloudflare 차단)
+- `scripts/build-pob-statmap.mjs`: EN+KR trade stats(각 8202개, 그룹·순서 동일) 위치 페어링 → `src/lib/pobStatMap.json`(8086 id, 다중변형 80개 `[{en,ko}]` KR 매칭 택1, 588KB)
+- `src/lib/pobExport.js`: stripTags/fillValues/pickTemplate/translateMod — 캡처 실아이템(공허 경고) mod 15케이스 TDD 통과
+- 문서: `docs/영문-pob-복사-선행조사.md` (캡처 결과·아키텍처 C 확정)
 
-3. **아이템 → 영문 PoB 복사** ★대형(선행조사 후 착수)
-   - **착수 전 확인**: KR trade2 API 아이템에 `item.extended.hashes`(+ mods magnitude) 유무 → 아키텍처 갈림길.
-   - 권장 C안: trade stat ID 기준 **ko↔en stat 맵을 seominugi.com 서빙**(EN stat은 pathofexile.com geo-block). base/유니크 KO→EN은 poe-i18n 생성기(`D:\github\poe-i18n-json-data-generator-dev\assets\data\poe2\json`) 활용(단 생성기 mod ID ≠ trade stat ID → 조인 주의).
-   - `content-main.js`는 현재 `.item.icon`만 캡처 → 아이템 원본 유지 + per-아이템 "PoB 복사" 버튼(거래소 페이지 표면) 필요. PoB2 텍스트 포맷 조립.
-   - MVP: 희귀 아이템 + explicit/implicit + 흔한 base → 확장.
+## 미완료 / 다음 단계 (작업3 계속)
+
+1. **content-main 아이템 원본 보존**: 현재 `.item.icon`만 사용 → 결과별 item JSON을 행 매칭 가능하게 유지
+2. **전체 아이템 텍스트 조립기**: PoB2 import 포맷(Item Class/Rarity/이름/base EN/Item Level/implicit/explicit) — base type KR→EN은 poe-i18n(`D:\github\poe-i18n-json-data-generator-dev\assets\data\poe2\json\**\*_base_types.json`, name.{en,kr}) 번들 맵 스크립트 추가. 희귀 이름은 KR 유지 가능(PoB는 base만 EN 필수)
+3. **UI**: 거래소 **결과 행마다** 'PoB 복사' 버튼(사용자 확정) — 주입 패턴 재사용, 클릭 시 조립→클립보드+피드백. EN 맵은 **lazy-load**(동적 import)
+4. 실제 PoB import 검증(MVP: 희귀 gear) — **gear 아이템 캡처 필요**(서판은 엣지). Designer·QA 페르소나 검증(Phase 3·4) 후 완료 선언
+5. 멀티 페르소나: PS Go·Dev Lead 승인 완료(2026-07-03, EN 맵 갱신 스크립트 문서화 조건)
 
 ## 현재 상태
 
-- 브랜치: `main` (origin/main 동기화, 최신 커밋 `ae71972`)
-- 작업 트리: **clean** (미커밋 없음)
-- 배포: **0.2.0 스토어 심사 중** / 0.3.0 개선은 별도 세션 진행
+- 브랜치: `main` — 이번 세션 3커밋(작업1·2+픽스 / 하네스 / PoB 코어) 후 origin push
+- 테스트: **116/116**(vitest, jsdom 포함) · 빌드 통과(content-main 113KB — pobStatMap 미번들)
+- 배포: **0.2.0 스토어 심사 중** / 이번 작업들은 0.3.0 대상
 - 빌드: `npm run build` → dist/ (해시 변경 시 확장 리로드+F5). dist/·deploy/ gitignore.
-- 검증 제약: 거래소는 **로그인 세션 탭에서만** 패널 마운트, 자동 navigate 새 탭은 카카오 로그인+Cloudflare 차단 → 라이브 검증은 확장 리로드+F5 수동. 확장은 **dist 폴더** 로드(루트 로드 시 import 에러).
+- 하네스: `.claude/launch.json`의 `harness`(포트 5199), `test-harness/harness.mjs` 참조
+- 검증 제약: 거래소는 **로그인 세션 탭에서만** 패널 마운트 → 라이브 검증은 확장 리로드+F5 수동. 확장은 **dist 폴더** 로드.
 - 커밋 작성자: `git -c user.name="서민욱" -c user.email="alsdnr0712@gmail.com"`, Co-Authored-By 금지.
+- **함정 메모**: 패널은 open shadow root — document 레벨 리스너에서 `e.target.closest` 금지, **`e.composedPath()` 사용** (이번 세션에만 3회 물림)
