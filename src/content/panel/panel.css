@@ -86,9 +86,20 @@
   border-radius: 12px 0 0 12px;
   box-shadow: -6px 0 18px rgba(0, 0, 0, 0.34);
   overflow: hidden; z-index: 2147483050;
-  transition: right .26s var(--ba-ease);
+  transition: right .26s var(--ba-ease), left .26s var(--ba-ease);   /* 좌측 배치 시 핸들은 left로 움직이므로 left도 트랜지션(안 그러면 패널만 슬라이드·핸들은 점프) */
 }
 .ba-root.collapsed ~ .ba-handle { right: 0; }   /* 접힘 시 화면 우측 끝으로 */
+
+/* ── 패널 좌측 배치 (data-side="left") — 우측 하드코딩 스타일 미러링 ── */
+.ba-root[data-side="left"] { right: auto; left: 14px; }
+.ba-root[data-side="left"].collapsed { transform: translateX(-132%); }   /* 좌측 화면 밖으로 슬라이드 아웃 */
+.ba-root[data-side="left"] ~ .ba-handle {
+  right: auto; left: 398px;                               /* 패널(좌) 우측 모서리(14+384)에 딱 붙음 */
+  border: 1.5px solid transparent; border-left: none;
+  border-radius: 0 12px 12px 0;
+  box-shadow: 6px 0 18px rgba(0, 0, 0, 0.34);
+}
+.ba-root[data-side="left"].collapsed ~ .ba-handle { left: 0; }   /* 접힘 시 화면 좌측 끝으로 */
 /* 상단: 드래그 그립 (세로 위치 이동) */
 .ba-handle-grip {
   width: 100%; display: flex; align-items: center; justify-content: center; padding: 9px 0;
@@ -218,6 +229,8 @@
 .ba-namebar[hidden] { display: none; }
 .ba-modal-card { width: 100%; max-width: 330px; display: flex; flex-direction: column; gap: 11px; background: var(--ba-panel-bg); border: 1px solid var(--ba-violet-line); border-radius: 14px; padding: 15px 16px; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55); }
 .ba-modal-title { font-size: 13px; font-weight: 800; color: var(--ba-violet-2); }
+.ba-modal-msg { font-size: 12px; line-height: 1.6; color: var(--ba-text); white-space: pre-line; }
+.ba-modal-msg[hidden] { display: none; }
 .ba-modal-btns { display: flex; gap: 8px; justify-content: flex-end; margin-top: 2px; }
 .ba-name-input {
   width: 100%; box-sizing: border-box; background: rgba(255, 255, 255, 0.06);
@@ -234,12 +247,19 @@
 .ba-name-ok:hover { filter: brightness(1.06); }
 .ba-name-cancel { color: var(--ba-text); background: rgba(255, 255, 255, 0.06); }
 .ba-name-cancel:hover { background: rgba(255, 255, 255, 0.12); }
+/* 3버튼 다이얼로그의 보조 액션(예: '새로 만들기') — 취소(중립)와 구분되는 바이올렛 세컨더리 */
+.ba-name-alt { font-size: 11.5px; font-weight: 800; border-radius: var(--ba-r-box); padding: 7px 14px; cursor: pointer; color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); transition: filter .15s, background .15s; }
+.ba-name-alt:hover { background: rgba(167, 139, 250, 0.24); }
+.ba-name-alt[hidden] { display: none; }
 /* 저장 폴더 선택 칩 (선택: showNameInput 확장 시) */
 .ba-folder-pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; }
 .ba-folder-pick .lbl { font-size: 10.5px; font-weight: 700; color: var(--ba-violet-2); width: 100%; }
 .ba-folder-pick .chip { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 8px; cursor: pointer; color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-border); }
 .ba-folder-pick .chip.active { color: #0b0a16; background: var(--ba-violet-2); border-color: var(--ba-violet-2); }
 .ba-folder-pick .chip.new { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+/* 설정 모달의 세그먼트(패널 위치 등) — .ba-seg 스타일 재사용, 전체폭·균등분할 */
+.ba-set-seg { width: 100%; }
+.ba-set-seg .ba-set-opt { flex: 1; justify-content: center; }
 
 /* ---- 리스트 컨테이너 ---- */
 .ba-list { overflow-y: auto; flex: 1; padding: 14px 14px 18px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px); mask-image: linear-gradient(to bottom, transparent 0, #000 18px); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
@@ -379,6 +399,11 @@
   transition: background .15s, color .15s;
 }
 .ba-cond:hover { background: rgba(167, 139, 250, 0.24); color: #ddd6fe; }
+/* 조건 요약 변형(북마크 카드) — '조건 N개' 대신 수치 포함 요약. 좌측 정렬 + 한 줄 말줄임(전체는 호버 툴팁). */
+.ba-cond--summary { margin-left: 0; min-width: 0; max-width: 100%; }
+/* 조건 개수 배지 — 바이올렛 칩의 보색(앰버/골드)으로 강조해 한눈에 띄게. 어두운 글자 + 은은한 글로우 */
+.ba-cond--summary .ba-cond-n { flex: none; font-size: 10px; font-weight: 800; line-height: 1.5; padding: 0 6px; border-radius: 999px; background: var(--ba-warn); color: #2b1e02; box-shadow: 0 0 7px rgba(251, 191, 36, 0.5); }
+.ba-cond--summary .ba-cond-tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 
 /* ---- 액션 버튼: 의미색 ---- */
 .ba-star, .ba-del, .ba-over, .ba-rename, .ba-hist-del,
@@ -514,6 +539,14 @@
 .ba-act.rename:hover { color: var(--ba-violet-2); }
 .ba-act.move:hover   { color: #f0c078; }
 .ba-act.del:hover    { color: #fda4af; }
+/* ⋯ 카드 액션 버튼(메타 행 우측) + 액션 팝오버 — 간략히/상세히 공통, 팝오버는 fixed(.ba-root 기준)로 overflow 회피 */
+.ba-more { flex: none; margin-left: auto; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 24px; border-radius: 7px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
+.ba-more:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+.ba-actions-pop { position: fixed; z-index: 2147483300; min-width: 178px; display: flex; flex-direction: column; gap: 2px; padding: 6px; background: rgba(20,17,34,0.99); border: 1px solid var(--ba-violet-line); border-radius: 10px; box-shadow: 0 14px 38px rgba(0,0,0,0.6); }
+.ba-actions-pop[hidden] { display: none; }
+.ba-actpop-time { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--ba-text-muted); padding: 2px 8px 6px; margin-bottom: 3px; border-bottom: 1px solid rgba(167,139,250,0.14); font-variant-numeric: tabular-nums; }
+.ba-actions-pop .ba-act { width: auto; height: auto; justify-content: flex-start; gap: 9px; padding: 8px 10px; border: none; background: transparent; border-radius: 7px; font-size: 12px; font-weight: 600; }
+.ba-actions-pop .ba-act:hover { background: rgba(255,255,255,0.07); }
 /* 메모 — 라인은 메모 있을 때만(빈 슬롯 숨김), 클릭 시 인라인 편집 */
 .ba-note-slot:empty { display: none; }
 /* 조건 칩 + 메모를 한 행에 — 조건이 단일 칩이 된 뒤 카드 높이 압축 (칩 좌측, 메모가 우측 공간 채움) */
@@ -585,8 +618,8 @@
 .ba-folder-body > .ba-folder-savechip:first-child { margin-top: 0; margin-bottom: 8px; }
 
 /* 북마크 간략(한 줄) 보기 — 이름·가격만, 칩·메모·하단 액션 숨김 (히스토리 행은 영향 없음) */
-.ba-list.ba-oneline .ba-row[data-kind="bookmark"] .ba-meta-row,
-.ba-list.ba-oneline .ba-row[data-kind="bookmark"] .ba-rowfoot { display: none; }
+/* 간략(2줄) 보기 — 메모만 숨김. 조건칩·⋯(액션)은 유지해 간략히에서도 조건 툴팁·카드 액션 접근 가능 */
+.ba-list.ba-oneline .ba-row[data-kind="bookmark"] .ba-note-slot { display: none; }
 /* 간략 행은 containment 해제 — content-visibility:auto의 last-remembered-size가 상세 높이를 붙드는 문제 방지 (행이 작아 성능 영향 미미) */
 .ba-list.ba-oneline .ba-row[data-kind="bookmark"] { content-visibility: visible; contain-intrinsic-size: auto; padding-top: 7px; padding-bottom: 7px; margin-bottom: 6px; }
 /* 간략 보기 토글 버튼 (정렬 세그 옆) */
@@ -611,6 +644,9 @@
 .ba-donate { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 28px; height: 28px; flex: none; color: #fb7185; background: rgba(251, 113, 133, 0.12); border: 1px solid rgba(251, 113, 133, 0.32); border-radius: 8px; text-decoration: none; transition: background .15s, color .15s, transform .15s; }
 .ba-donate:hover { background: rgba(251, 113, 133, 0.22); color: #fda4af; transform: scale(1.08); }
 .ba-donate .ba-ic { fill: currentColor; }   /* 꽉 찬 하트 */
+/* 설정(톱니) 버튼 — 헤더 우측, 설정 모달 진입점 */
+.ba-gear { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
+.ba-gear:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 /* 헤더 단축키 칩 — 호버 시 확장 팝업의 단축키 섹션 디자인(kbd 키캡+그룹)을 팝오버로 차용. margin-left:auto로 '제작' 칩과 함께 우측 정렬 */
 .ba-kbd-wrap { position: relative; margin-left: auto; flex: none; display: inline-flex; }
 .ba-kbd-chip { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; color: var(--ba-violet-2); background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.32); cursor: help; transition: background .15s, border-color .15s, color .15s; }
@@ -710,13 +746,25 @@
   50%      { box-shadow: 0 0 0 9999px rgba(8,6,18,.74), 0 0 0 3px var(--ba-violet-2), 0 0 28px 8px rgba(167,139,250,.85); }
 }
 
-/* 스포트라이트 — 북마크 저장·focus 시 주변을 일시적으로 어둡게, 대상만 밝게 강조 (투어는 .ba-tour-spot 박스가 담당).
-   진입·이탈 모두 fade로 부드럽게: transition은 상시 적용하고, opacity 값만 spotlighting에서 바꾼다. */
-.ba-root > *, .ba-root .ba-folder { transition: opacity .55s ease-in-out; }
-.ba-root.ba-spotlighting > * { opacity: .25; }
-.ba-root.ba-spotlighting > *:has(.ba-spot-target),
-.ba-root.ba-spotlighting > .ba-tip,
-.ba-root.ba-spotlighting > .ba-toast { opacity: 1; }
-.ba-root.ba-spotlighting .ba-row:not(.ba-spot-target) { opacity: .45; }
+/* 저장·focus 스포트라이트 — 대상만 남기고 주변을 어둡게. 예전엔 형제 opacity를 낮췄으나 패널 곳곳의
+   opacity transition과 충돌해 디밍이 안 먹었다(형제가 계속 1로 복귀) → 투어와 동일한 hole-punch(box-shadow) 오버레이(.ba-focus-spot)로 대체. */
+.ba-root .ba-folder { transition: opacity .55s ease-in-out; }   /* 폴더 드래그 opacity(.5) 페이드 유지 */
+.ba-focus-spot {
+  position: fixed; z-index: 2147483440; pointer-events: none; border-radius: 10px;
+  box-shadow: 0 0 0 9999px rgba(8, 6, 18, 0.66), 0 0 0 1px var(--ba-violet-line);
+  animation: ba-focus-in .26s ease both;
+}
+@keyframes ba-focus-in { from { opacity: 0; } to { opacity: 1; } }
+
+/* 저장 충돌 팝오버 — 오버레이 없이 강조된 북마크 옆에 뜬다(북마크가 안 가림). spotlight 디밍 제외라 또렷. */
+.ba-conflict-pop { position: fixed; z-index: 2147483450; max-width: 300px; display: flex; flex-direction: column; gap: 9px; padding: 14px 15px; background: var(--ba-panel-bg); border: 1px solid var(--ba-violet-line); border-radius: 12px; box-shadow: 0 16px 44px rgba(0, 0, 0, 0.6); }
+.ba-conflict-title { font-size: 13px; font-weight: 800; color: var(--ba-violet-2); }
+.ba-conflict-msg { font-size: 12px; line-height: 1.6; color: var(--ba-text); }
+.ba-conflict-btns { display: flex; flex-wrap: wrap; gap: 7px; justify-content: flex-end; margin-top: 2px; }
+.ba-conflict-btn { font-size: 11.5px; font-weight: 800; border-radius: var(--ba-r-box); padding: 7px 13px; cursor: pointer; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.06); color: var(--ba-text); transition: filter .15s, background .15s; }
+.ba-conflict-btn:hover { background: rgba(255, 255, 255, 0.12); }
+.ba-conflict-btn.alt { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+.ba-conflict-btn.primary { color: #0b0a16; background: linear-gradient(135deg, #b6a6fb, #8b7cf0); border: none; }
+.ba-conflict-btn.primary:hover { filter: brightness(1.06); }
 .ba-root.ba-spotlighting .ba-folder:has(.ba-spot-target) { overflow: visible; }   /* glow가 폴더 경계에서 잘리지 않게 */
 .ba-spot-target { position: relative; box-shadow: 0 0 0 2px var(--ba-violet), 0 0 22px rgba(167, 139, 250, .55) !important; transition: box-shadow .55s ease-in-out, opacity .55s ease-in-out; }

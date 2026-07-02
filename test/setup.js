@@ -15,6 +15,6 @@ globalThis.chrome = {
       async clear() { mem.clear() },
     },
   },
-  runtime: { sendMessage: async () => ({}), onMessage: { addListener() {} } },
+  runtime: { sendMessage: async () => ({}), onMessage: { addListener() {} }, getURL: (p) => p },
 }
 globalThis.__resetChromeMock = () => mem.clear()

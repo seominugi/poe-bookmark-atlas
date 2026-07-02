@@ -114,10 +114,15 @@ window.addEventListener('message', async (e) => {
       LOG('snapshot:', snapshot, '| listings', listings.length, '| epd', epd)
     } catch (err) { LOG('환율/스냅샷 오류', String(err)) }
 
-    // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt + 가격 스냅샷 자동 갱신
-    if (listings.length > 0) markUsedByUrl(location.href, snapshot || undefined, icon || undefined)
-
     const parsed = parseSearchQuery(pending.query, statMap, filterMap)
+    const key = dedupeKey(pending.query)
+    // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt·스냅샷·아이콘 갱신 +
+    // 검색 조건을 최신 파서 형식으로 재기록(구 북마크에 능력치 수치 등 반영 — 하위호환 업그레이드).
+    if (listings.length > 0) await markUsedByUrl(location.href, snapshot || undefined, icon || undefined, {
+      title: parsed.title, itemType: parsed.itemType, stats: parsed.stats, statGroups: parsed.statGroups,
+      otherFilters: parsed.otherFilters, priceFilter: parsed.priceFilter, dedupeKey: key,
+    })
+
     const rec = await addHistory({
       game,
       league: pending.league,
@@ -131,7 +136,7 @@ window.addEventListener('message', async (e) => {
       priceFilter: parsed.priceFilter,
       icon: icon || undefined,
       snapshot: snapshot || undefined,
-      dedupeKey: dedupeKey(pending.query),
+      dedupeKey: key,
     })
     LOG('히스토리 저장됨:', rec && rec.id, parsed.title)
     document.dispatchEvent(new CustomEvent('ba:records-changed'))

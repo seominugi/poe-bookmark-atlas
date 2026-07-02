@@ -60,8 +60,8 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     const a = await addBookmark(rec({ title: 'A' }), 'A')
     const b = await addBookmark(rec({ title: 'B', dedupeKey: 'k2' }), 'B')
     expect(a.folderId).toBeNull()
-    expect(b.order).toBeGreaterThan(a.order)
-    expect((await listByKind('bookmark')).map((x) => x.name)).toEqual(['A', 'B'])
+    expect(b.order).toBeLessThan(a.order)
+    expect((await listByKind('bookmark')).map((x) => x.name)).toEqual(['B', 'A'])
   })
 
   it('moveBookmark로 순서·폴더 변경', async () => {

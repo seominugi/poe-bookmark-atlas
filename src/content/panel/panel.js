@@ -1,7 +1,7 @@
 import css from './panel.css?inline'
-import { renderList, highlightBookmark, analystUrl, researcherUrl } from './renderList.js'
+import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl } from './renderList.js'
 import { icon } from '../../lib/icons.js'
-import { listByKind, addBookmark, findBookmark, listFolders, addFolder, isStoreEmpty, seedDemoData, clearDemoData } from '../../store/store.js'
+import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, isStoreEmpty, seedDemoData, clearDemoData } from '../../store/store.js'
 import { suggestName } from '../../lib/suggestName.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
 import ytIcon from '../../icons/yt_icon_rgb.png'
@@ -52,6 +52,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
             </div>
           </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
+          <button class="ba-gear" id="ba-gear" data-tip="설정">${icon('settings', 15)}</button>
           <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="후원하기 — 투네이션으로 응원 ↗">${icon('heart', 13)}</a>
         </div>
         <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>
@@ -71,10 +72,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
       <div class="ba-namebar" id="ba-namebar" hidden>
         <div class="ba-modal-card" id="ba-modal-card">
           <div class="ba-modal-title" id="ba-modal-title">북마크 이름</div>
+          <div class="ba-modal-msg" id="ba-modal-msg" hidden></div>
           <input class="ba-name-input" id="ba-name-input" placeholder="북마크 이름" maxlength="60" />
           <div class="ba-folder-pick" id="ba-folder-pick" hidden></div>
           <div class="ba-modal-btns">
             <button class="ba-name-cancel" id="ba-name-cancel">취소</button>
+            <button class="ba-name-alt" id="ba-name-alt" hidden>새로 만들기</button>
             <button class="ba-name-ok" id="ba-name-ok">저장</button>
           </div>
         </div>
@@ -103,12 +106,21 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
 
   // 접기/펼치기 = 표시/숨김 (핸들·✕·툴바 아이콘 공통, 상태 유지). 핸들은 항상 보여 다시 열 수 있음.
   const isCollapsed = () => elRoot.classList.contains('collapsed')
-  // 펼쳤을 때 페이지 콘텐츠를 왼쪽으로 밀어 패널 자리를 확보(도킹) → 검색 영역과 겹침 방지
+  let panelSide = 'right' // 패널 좌/우 배치 (uiPanelSide 선호)
+  // 펼쳤을 때 페이지 콘텐츠를 패널 반대쪽으로 밀어 자리를 확보(도킹) → 검색 영역과 겹침 방지. 좌/우 배치에 따라 방향 반전.
   const applyPagePush = (collapsed) => {
     try {
-      document.documentElement.style.setProperty('margin-right', collapsed ? '' : '412px', 'important')
-      document.documentElement.style.setProperty('transition', 'margin-right .25s ease', 'important')
+      const push = collapsed ? '' : '412px'
+      document.documentElement.style.setProperty('margin-left', panelSide === 'left' ? push : '', 'important')
+      document.documentElement.style.setProperty('margin-right', panelSide === 'right' ? push : '', 'important')
+      document.documentElement.style.setProperty('transition', 'margin .25s ease', 'important')
     } catch (_) {}
+  }
+  // 패널 좌/우 배치 적용 — data-side(CSS 미러링) + 페이지 밀기 방향 갱신. (핸들 그라데이션은 세로 기준이라 재계산 불필요)
+  const applySide = (side) => {
+    panelSide = side === 'left' ? 'left' : 'right'
+    elRoot.setAttribute('data-side', panelSide)
+    applyPagePush(isCollapsed())
   }
   // 접힘 시 핸들에 북마크 수 배지 표시
   const updateHandleBadge = async () => {
@@ -127,7 +139,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
   applyPagePush(isCollapsed())
   try {
-    chrome.storage.local.get('uiCollapsed').then((r) => {
+    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide']).then((r) => {
+      if (r && r.uiPanelSide) applySide(r.uiPanelSide)
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
       updateHandleBadge()
     })
@@ -212,8 +225,13 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     }
     tipEl.hidden = false
     const r = el.getBoundingClientRect()
-    tipEl.style.left = 'auto'
-    tipEl.style.right = Math.max(8, window.innerWidth - r.left + 8) + 'px'
+    if (panelSide === 'left') { // 좌측 도킹: 요소의 오른쪽에 표시
+      tipEl.style.right = 'auto'
+      tipEl.style.left = Math.max(8, Math.min(window.innerWidth - tipEl.offsetWidth - 8, r.right + 8)) + 'px'
+    } else { // 우측 도킹: 요소의 왼쪽에 표시
+      tipEl.style.left = 'auto'
+      tipEl.style.right = Math.max(8, window.innerWidth - r.left + 8) + 'px'
+    }
     // 세로: 요소 상단에 맞추되, 아래로 넘치면 위로 끌어올려 뷰포트 안에 유지(긴 조건 목록 대응)
     const h = tipEl.offsetHeight
     let top = r.top
@@ -255,6 +273,103 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
       input.addEventListener('keydown', onKey)
       bar.addEventListener('click', onOverlay)
     })
+  }
+
+  // 저장 충돌 팝오버 — 오버레이 없이 강조된 북마크 바로 옆에 뜬다(북마크가 안 가림).
+  // (rowId, title, message, buttons[{label,value,primary?,alt?}]) → Promise<value | 'cancel'>
+  function showConflict(rowId, title, message, buttons) {
+    const listEl = $('ba-list')
+    highlightBookmark(listEl, rowId, { hold: true }) // 대상 북마크 강조(ring) + 스크롤
+    const spot = document.createElement('div') // hole-punch focus — 대상만 남기고 주변을 어둡게(opacity 디밍이 패널 transition과 충돌해 대체)
+    spot.className = 'ba-focus-spot'
+    elRoot.appendChild(spot) // .ba-root 직속 → box-shadow가 패널(overflow:hidden)에 클립되어 패널만 어둡게
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    return new Promise((resolve) => {
+      const pop = document.createElement('div')
+      pop.className = 'ba-conflict-pop'
+      pop.innerHTML =
+        `<div class="ba-conflict-title">${esc(title)}</div><div class="ba-conflict-msg">${esc(message)}</div>` +
+        '<div class="ba-conflict-btns"><button class="ba-conflict-btn cancel" data-v="__cancel">취소</button>' +
+        buttons.map((b) => `<button class="ba-conflict-btn${b.primary ? ' primary' : b.alt ? ' alt' : ''}" data-v="${esc(b.value)}">${esc(b.label)}</button>`).join('') + '</div>'
+      elRoot.appendChild(pop) // .ba-root 직속(overflow는 fixed+clamp로 회피)
+      const pw = pop.offsetWidth; const ph = pop.offsetHeight
+      // 행은 매번 재조회 — 대화 중 재렌더(records-changed)가 행 엘리먼트를 통째로 교체하면 캡처 참조가 stale(rect 0)이 되기 때문
+      const getRow = () => listEl.querySelector(`.ba-row[data-id="${CSS.escape(rowId)}"]`)
+      // 스크롤·재렌더로 대상 행이 움직이면 오버레이·팝오버가 어긋나므로, 그때마다 대상 위치로 재배치한다.
+      const reposition = () => {
+        const rr = elRoot.getBoundingClientRect()
+        const left = Math.max(10, Math.min(rr.width - pw - 10, (rr.width - pw) / 2))
+        const row = getRow()
+        let top
+        if (row) {
+          const br = row.getBoundingClientRect()
+          const P = 4 // hole-punch 오버레이를 대상 행 위에(.ba-root 상대 좌표 — fixed가 transform 조상 기준)
+          spot.style.display = ''
+          spot.style.top = (br.top - rr.top - P) + 'px'; spot.style.left = (br.left - rr.left - P) + 'px'
+          spot.style.width = (br.width + 2 * P) + 'px'; spot.style.height = (br.height + 2 * P) + 'px'
+          top = br.bottom - rr.top + 8; if (top + ph > rr.height - 10) top = br.top - rr.top - ph - 8 // 팝오버는 강조 북마크 아래(넘치면 위)
+        } else { spot.style.display = 'none'; top = rr.height - ph - 14 }
+        pop.style.left = left + 'px'; pop.style.top = Math.max(10, top) + 'px'
+      }
+      reposition()
+      listEl.addEventListener('scroll', reposition, { passive: true })
+      const blockWheel = (e) => e.preventDefault() // 저장 직후 튀는 휠 스크롤로 대상이 밀려 focus가 어긋나던 문제 차단(대화 동안 리스트 스크롤 잠금 — 모달)
+      listEl.addEventListener('wheel', blockWheel, { passive: false })
+      // 대화 중 재렌더가 행을 교체하면 강조 클래스·스크롤이 사라짐 → 새 행에 강조 재적용(재센터) 후 재배치.
+      // ("다이얼로그 동안 focus가 안 잡히다가 취소하면 그제야 스크롤되던" 근본 원인 — 취소 경로만 fresh 조회였음)
+      const mo = new MutationObserver(() => {
+        const row = getRow()
+        if (row && !row.classList.contains('ba-spot-target')) highlightBookmark(listEl, rowId, { hold: true })
+        reposition()
+      })
+      mo.observe(listEl, { childList: true, subtree: true })
+      const pb = pop.querySelector('.ba-conflict-btn.primary') || pop.querySelector('.ba-conflict-btn'); if (pb) pb.focus()
+      const finish = (val) => {
+        pop.remove(); spot.remove(); clearHighlight(listEl)
+        mo.disconnect()
+        listEl.removeEventListener('scroll', reposition); listEl.removeEventListener('wheel', blockWheel)
+        document.removeEventListener('keydown', onKey, true); document.removeEventListener('click', onOut, true)
+        resolve(val)
+      }
+      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); finish('cancel') } }
+      // 팝오버 밖 클릭 = 취소. composedPath로 검사 — document 리스너라 shadow 내부 클릭이 host로 리타겟팅돼 closest가 못 찾는 문제 회피.
+      const onOut = (e) => { if (!e.composedPath().some((el) => el && el.classList && el.classList.contains('ba-conflict-pop'))) finish('cancel') }
+      pop.querySelectorAll('.ba-conflict-btn').forEach((btn) => btn.addEventListener('click', (e) => { e.stopPropagation(); finish(btn.dataset.v === '__cancel' ? 'cancel' : btn.dataset.v) }))
+      document.addEventListener('keydown', onKey, true)
+      setTimeout(() => document.addEventListener('click', onOut, true), 0) // 다음 틱부터(트리거 클릭 무시)
+    })
+  }
+
+  // 설정 모달 — ba-namebar 재사용. 현재는 '패널 위치'(좌/우). 향후 설정을 여기 모은다.
+  function showSettings() {
+    const bar = $('ba-namebar'); const input = $('ba-name-input'); const msg = $('ba-modal-msg')
+    const ok = $('ba-name-ok'); const cancel = $('ba-name-cancel'); const alt = $('ba-name-alt'); const pick = $('ba-folder-pick')
+    $('ba-modal-title').textContent = '설정'
+    msg.hidden = true; input.hidden = true; alt.hidden = true; cancel.hidden = true
+    ok.textContent = '닫기'
+    const render = () => {
+      pick.innerHTML =
+        '<span class="lbl">패널 위치</span>' +
+        `<span class="ba-seg ba-set-seg">
+          <span class="ba-set-opt${panelSide === 'right' ? ' active' : ''}" data-side="right">오른쪽</span>
+          <span class="ba-set-opt${panelSide === 'left' ? ' active' : ''}" data-side="left">왼쪽</span>
+        </span>`
+      pick.querySelectorAll('.ba-set-opt').forEach((o) => o.addEventListener('click', async () => {
+        applySide(o.dataset.side)
+        try { await chrome.storage.local.set({ uiPanelSide: o.dataset.side }) } catch (_) {}
+        render()
+      }))
+    }
+    render()
+    pick.hidden = false; bar.hidden = false; ok.focus()
+    const finish = () => {
+      bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
+      input.hidden = false; cancel.hidden = false; ok.textContent = '저장' // 다른 다이얼로그용 원복
+      ok.removeEventListener('click', finish); bar.removeEventListener('click', onOverlay); root.removeEventListener('keydown', onKey, true)
+    }
+    const onOverlay = (e) => { if (e.target === bar) finish() }
+    const onKey = (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); finish() } }
+    ok.addEventListener('click', finish); bar.addEventListener('click', onOverlay); root.addEventListener('keydown', onKey, true)
   }
 
   // 저장 다이얼로그 — 이름 + 폴더 선택(미분류·기존 폴더·+새 폴더). @returns {Promise<{name, folderId}|null>}
@@ -370,7 +485,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   }
 
   const ui = {
-    showNameInput, showSaveInput, showFolderPick, toast, game, league,
+    showNameInput, showSaveInput, showFolderPick, showConflict, toast, game, league,
     getLeagueMap: getLeagueMap || (() => ({})),
   }
   const refresh = () => renderList($('ba-list'), root, ui)
@@ -380,8 +495,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   const doSave = async (presetFolderId = null) => {
     const latest = (await listByKind('history', game))[0]
     if (!latest) { toast('먼저 거래소에서 검색을 실행하세요.'); return }
-    const dup = await findBookmark(latest.dedupeKey, game)
-    if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark($('ba-list'), dup.id); return }
+    const action = await resolveSaveConflict(latest, game, ui)
+    if (action.cancel) { if (action.highlightId) highlightBookmark($('ba-list'), action.highlightId); return }
+    if (action.overwriteId) {
+      await overwriteBookmark(action.overwriteId, overwriteSource(latest))
+      await refresh()
+      highlightBookmark($('ba-list'), action.overwriteId)
+      toast('최신 검색으로 덮어썼습니다.')
+      return
+    }
     const res = await showSaveInput(suggestName(latest), presetFolderId)
     if (res === null) return
     const saved = await addBookmark(
@@ -401,6 +523,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   $('ba-save').onclick = () => doSave() // 클릭 이벤트가 presetFolderId로 새지 않게 래핑
   ui.saveCurrentSearch = doSave // 폴더 헤더 +에서 renderList가 폴더 id와 함께 호출
   $('ba-foot-guide').onclick = () => startTour()
+  const gearBtn = $('ba-gear'); if (gearBtn) gearBtn.onclick = () => showSettings()
   // 영문 거래소 전환 버튼 — 상단 공간 절약을 위해 현재 마크업을 숨김(head 템플릿에서 제거).
   // 핸들러는 복원 대비 유지(버튼이 없으면 아래 가드로 무효). 복원 시 .ba-convert-row 마크업만 되살리면 됨.
   const convertBtn = $('ba-convert')
@@ -476,6 +599,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
       place(target) // 동기 즉시 배치 — rAF·setTimeout은 비활성 탭에서 지연/정지되므로 사용 안 함
       const rc = target ? target.getBoundingClientRect() : null
       card.style.top = (rc ? Math.min(window.innerHeight - 180, Math.max(8, rc.bottom + 12)) : 80) + 'px'
+      if (panelSide === 'left') { card.style.left = '420px'; card.style.right = 'auto' } // 좌/우 배치 대응
+      else { card.style.right = '420px'; card.style.left = 'auto' }
     }
     render()
   }
@@ -504,6 +629,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   })()
 
   document.addEventListener('ba:records-changed', () => { refresh(); updateHandleBadge() })
+  // 팝업에서 패널 좌/우 배치를 바꾸면 즉시 반영
+  try {
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area === 'local' && changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
+    })
+  } catch (_) {}
   refresh()
 
   // 첫 실행 가이드(1회, tourDone) + 팝업 "다시 보기"(baTourRestart) 재실행

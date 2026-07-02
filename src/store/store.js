@@ -193,8 +193,12 @@ export async function moveBookmark(id, patch) {
   await writeAll(all)
 }
 
-/** 저장된 검색을 열어 결과가 실제 로드되면 호출 — 해당 URL 북마크의 lastUsedAt 갱신(만료 경고 해제) */
-export async function markUsedByUrl(url, snapshot, icon) {
+/**
+ * 저장된 검색을 열어 결과가 실제 로드되면 호출 — 해당 URL 북마크의 lastUsedAt 갱신(만료 경고 해제),
+ * 스냅샷·아이콘 갱신. fields가 오면 검색 조건을 최신 파서 형식으로 재기록한다
+ * (구 북마크에 능력치 수치 등 반영 = 하위호환 업그레이드). 표시명(name)·폴더·순서·id·생성시각은 보존.
+ */
+export async function markUsedByUrl(url, snapshot, icon, fields) {
   const all = await readAll()
   const now = Date.now()
   let changed = false
@@ -203,6 +207,15 @@ export async function markUsedByUrl(url, snapshot, icon) {
       r.lastUsedAt = now
       if (snapshot) { r.snapshot = snapshot; r.snapshotAt = now } // 북마크를 열어 결과가 뜨면 가격 스냅샷 자동 갱신
       if (icon) r.icon = icon // 결과 대표 이미지도 최신 최빈으로 갱신
+      if (fields) { // 검색 조건 재기록(구 북마크 업그레이드) — name·folderId·order·id·createdAt는 건드리지 않음
+        r.title = fields.title
+        r.itemType = fields.itemType
+        r.stats = fields.stats
+        r.statGroups = fields.statGroups
+        r.otherFilters = fields.otherFilters
+        r.priceFilter = fields.priceFilter
+        if (fields.dedupeKey) r.dedupeKey = fields.dedupeKey
+      }
       changed = true
     }
   }

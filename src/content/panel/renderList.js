@@ -7,6 +7,7 @@ import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
 import { suggestName } from '../../lib/suggestName.js'
 import { buildAutoNote } from '../../lib/autoNote.js'
+import { findNearDuplicate, formatStatText } from '../../lib/searchParser.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
@@ -70,19 +71,62 @@ function applyA11y(listEl) {
 
 let spotTimer = null
 /** 북마크 행으로 스크롤하고 스포트라이트 — 주변을 일시적으로 어둡게, 대상만 밝게 강조. 저장·승격·중복안내 공용 */
-export function highlightBookmark(container, id) {
+export function highlightBookmark(container, id, opts = {}) {
   const row = container && container.querySelector(`.ba-row[data-id="${CSS.escape(id)}"]`)
   if (!row) return
-  row.scrollIntoView({ block: 'center', behavior: 'smooth' })
+  const folded = row.closest('.ba-folder--collapsed')
+  if (folded) folded.classList.remove('ba-folder--collapsed') // 접힌 폴더 안이면 펼쳐 대상이 보이게(안 그러면 0-size라 스크롤·hole-punch가 어긋남)
+  // hold(다이얼로그 focus): 즉시 가운데로 — 팝오버는 행 바로 아래 붙어 겹칠 게 없고, 사용자가 '제대로 된 위치'로 인지하는 것도 center. 자동 해제 안 함(대화 동안 유지)
+  row.scrollIntoView(opts.hold ? { block: 'center' } : { block: 'center', behavior: 'smooth' })
   const rootEl = container.closest('.ba-root')
   container.querySelectorAll('.ba-spot-target').forEach((x) => x.classList.remove('ba-spot-target'))
   row.classList.add('ba-spot-target')
   if (rootEl) rootEl.classList.add('ba-spotlighting')
   clearTimeout(spotTimer)
-  spotTimer = setTimeout(() => {
+  if (!opts.hold) spotTimer = setTimeout(() => {
     row.classList.remove('ba-spot-target')
     if (rootEl) rootEl.classList.remove('ba-spotlighting')
   }, 1900)
+}
+
+/** spotlight 해제 — hold로 띄운 강조를 명시적으로 끈다(다이얼로그 종료 시). */
+export function clearHighlight(container) {
+  clearTimeout(spotTimer)
+  const rootEl = container && container.closest('.ba-root')
+  if (container) container.querySelectorAll('.ba-spot-target').forEach((x) => x.classList.remove('ba-spot-target'))
+  if (rootEl) rootEl.classList.remove('ba-spotlighting')
+}
+
+// 덮어쓰기 payload — 이름·폴더·순서·id·생성시각은 overwriteBookmark가 보존하므로 검색 내용만.
+export function overwriteSource(rec) {
+  return {
+    game: rec.game, league: rec.league, url: rec.url, title: rec.title,
+    itemType: rec.itemType, stats: rec.stats, statGroups: rec.statGroups,
+    otherFilters: rec.otherFilters, priceFilter: rec.priceFilter, icon: rec.icon,
+    snapshot: rec.snapshot, dedupeKey: rec.dedupeKey,
+  }
+}
+
+/**
+ * 저장 충돌 판정 — exact(완전 동일)면 덮어쓰기/취소, 수치만 다른 near-dup이면 덮어쓰기/새로 만들기/취소, 없으면 새로 저장.
+ * @returns {Promise<{overwriteId?:string, new?:boolean, cancel?:boolean, highlightId?:string}>}
+ */
+export async function resolveSaveConflict(latest, game, ui) {
+  // showConflict: 오버레이 없는 팝오버 — 강조된 북마크가 가려지지 않게. (rowId, title, message, buttons) → 선택 value
+  const ask = ui && ui.showConflict ? ui.showConflict : null
+  const exact = await findBookmark(latest.dedupeKey, game)
+  if (exact) {
+    const v = ask ? await ask(exact.id, '이미 저장된 검색', `완전히 같은 조건이 "${exact.name || exact.title}"에 저장돼 있어요. 최신 검색 결과로 덮어쓸까요?`, [{ label: '덮어쓰기', value: 'overwrite', primary: true }]) : 'cancel'
+    return v === 'overwrite' ? { overwriteId: exact.id } : { cancel: true, highlightId: exact.id }
+  }
+  const near = findNearDuplicate(latest, await listByKind('bookmark', game))
+  if (near) {
+    const v = ask ? await ask(near.id, '수치만 다른 북마크', `수치만 다른 "${near.name || near.title}"이(가) 이미 있어요. 덮어쓸까요, 아니면 새로 만들까요?`, [{ label: '새로 만들기', value: 'new', alt: true }, { label: '덮어쓰기', value: 'overwrite', primary: true }]) : 'new'
+    if (v === 'overwrite') return { overwriteId: near.id }
+    if (v === 'new') return { new: true }
+    return { cancel: true, highlightId: near.id }
+  }
+  return { new: true }
 }
 
 // 가격 문자열의 단위(div/ex)를 화폐 아이콘으로 치환
@@ -179,7 +223,7 @@ function condTipText(r) {
     lines.push('[능력치 필터]')
     for (const g of groups) {
       lines.push(`  · ${g.label}`)
-      for (const f of g.filters) lines.push(`    ${f}`)
+      for (const f of g.filters) lines.push(`    ${formatStatText(f)}`)
     }
   } else if (r.stats && r.stats.length) {
     if (lines.length) lines.push('')
@@ -187,6 +231,20 @@ function condTipText(r) {
     for (const s of r.stats) lines.push(`  ${s}`)
   }
   return lines.join('\n')
+}
+
+// 카드에 항상 보이는 조건 요약(수치 포함) — 비능력치 필터(유형 제외) + 능력치(입력 수치 결합)
+function condSummaryText(r) {
+  const parts = []
+  const of = Array.isArray(r.otherFilters) ? r.otherFilters : []
+  for (const f of of) { if (f && f.key !== 'category') parts.push(f.value ? `${f.label} ${f.value}` : f.label) }
+  const groups = Array.isArray(r.statGroups) ? r.statGroups : []
+  if (groups.length) {
+    for (const g of groups) for (const f of (g.filters || [])) parts.push(formatStatText(f))
+  } else if (Array.isArray(r.stats)) {
+    for (const s of r.stats) parts.push(s) // 구 레코드(값 없음) 폴백
+  }
+  return parts.join(' · ')
 }
 
 function rowHtml(r, kind, currentLeague) {
@@ -199,6 +257,8 @@ function rowHtml(r, kind, currentLeague) {
   // 조건 칩 카운트 = 비능력치 필터(유형·가격·레벨 등) + 능력치 수 — 히스토리·북마크 공통
   const condCount = (Array.isArray(r.otherFilters) ? r.otherFilters.length : 0) + stats.length
   const condChip = condCount ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${condCount}개</span>` : ''
+  // 북마크 카드: '조건 N개' 대신 입력 수치까지 담은 조건 요약(호버 시 전체 상세는 동일 툴팁). 긴 조건은 CSS 말줄임.
+  const condSummaryChip = condCount ? `<span class="ba-cond ba-cond--summary" data-tip="${condTip}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span><span class="ba-cond-tx">${escapeHtml(condSummaryText(r))}</span></span>` : ''
   // 가격 툴팁 — snapshot 기준 "검색 시점 시세(빠른 판매가 p25)" + 표본 수
   const priceAt = r.snapshotAt || (r.snapshot && r.snapshot.capturedAt)
   const sampleN = r.snapshot && r.snapshot.sampleN
@@ -232,10 +292,15 @@ function rowHtml(r, kind, currentLeague) {
       <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
       <span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>
     </div>
-    <div class="ba-meta-row">${attn}${condChip}<div class="ba-note-slot" data-id="${r.id}" data-note="${escapeHtml(noteText)}">${noteText ? `<span class="ba-note${r.note ? '' : ' ba-note--auto'}" data-tip="${r.note ? '클릭해 메모 편집' : '검색 조건 자동 요약 — 클릭해 메모로 저장·편집'}">${icon('chat', 11)}<span>${escapeHtml(noteText)}</span></span>` : `<span class="ba-note ba-note--empty" data-tip="클릭해 메모 추가">${icon('chat', 11)}<span>+ 메모</span></span>`}</div></div>
-    <div class="ba-rowfoot">
-      <span class="time">${icon('clock', 11)}${fmtTime(when)}</span>
-      <span class="acts"><span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 13)}</span><span class="ba-act over ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신(덮어쓰기)">${icon('refresh', 13)}</span><span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}" data-tip="이름 변경">${icon('pencil', 12)}</span><span class="ba-act move ba-move" data-id="${r.id}" data-folder="${r.folderId ?? ''}" data-tip="다른 폴더로 이동">${icon('folder', 12)}</span><span class="ba-act del ba-del" data-id="${r.id}" data-tip="삭제">${icon('trash', 12)}</span></span>
+    <div class="ba-meta-row">${attn}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
+    <div class="ba-note-slot" data-id="${r.id}" data-note="${escapeHtml(noteText)}">${noteText ? `<span class="ba-note${r.note ? '' : ' ba-note--auto'}" data-tip="${r.note ? '클릭해 메모 편집' : '검색 조건 자동 요약 — 클릭해 메모로 저장·편집'}">${icon('chat', 11)}<span>${escapeHtml(noteText)}</span></span>` : `<span class="ba-note ba-note--empty" data-tip="클릭해 메모 추가">${icon('chat', 11)}<span>+ 메모</span></span>`}</div>
+    <div class="ba-actions-pop" hidden>
+      <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
+      <span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}">${icon('link', 13)}링크 복사</span>
+      <span class="ba-act over ba-over" data-id="${r.id}">${icon('refresh', 13)}최근 검색으로 갱신</span>
+      <span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}">${icon('pencil', 12)}이름 변경</span>
+      <span class="ba-act move ba-move" data-id="${r.id}" data-folder="${r.folderId ?? ''}">${icon('folder', 12)}다른 폴더로 이동</span>
+      <span class="ba-act del ba-del" data-id="${r.id}">${icon('trash', 12)}삭제</span>
     </div>
   </div>`
 }
@@ -382,6 +447,43 @@ function bindAll(listEl, ui) {
   listEl.querySelectorAll('.ba-open').forEach((s) =>
     s.addEventListener('click', (e) => { e.stopPropagation(); openTradeUrl(decodeURIComponent(s.closest('.ba-row').dataset.url), toast, e) }))
 
+  // ⋯ 카드 액션 팝오버 — .ba-more 클릭 시 그 카드의 숨은 액션 목록을 카드 옆에 띄운다(간략히·상세히 공통).
+  // 패널 overflow:hidden 회피: .ba-actions-pop은 position:fixed(.ba-root의 transform 때문에 .ba-root 기준) + JS 위치·클램프.
+  const hidePop = (p) => { p.hidden = true; const r = p.closest('.ba-row'); if (r) { r.style.contentVisibility = ''; r.style.transform = ''; r.style.transition = '' } } // containment·hover transform·transition 원복
+  const closeActionsPops = () => listEl.querySelectorAll('.ba-actions-pop:not([hidden])').forEach(hidePop)
+  listEl.querySelectorAll('.ba-more').forEach((m) => m.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const row = m.closest('.ba-row'); const rootEl = m.closest('.ba-root')
+    const pop = row && row.querySelector('.ba-actions-pop')
+    if (!pop || !rootEl) return
+    const wasOpen = !pop.hidden
+    closeActionsPops()
+    if (wasOpen) return // 토글: 열려 있었으면 닫기만
+    // 이 카드의 content-visibility(성능 최적화)와 hover transform 잠시 해제 — 둘 다 fixed 팝오버의 containing block을
+    // 이 카드로 바꿔, 호버 상태로 클릭하면 팝오버가 카드 기준으로 어긋나 안 보이는 문제. inline이 :hover를 오버라이드.
+    row.style.contentVisibility = 'visible'
+    row.style.transition = 'none' // hover transform을 스냅(애니메이션 없이) — .15s transform transition으로 ⋯가 움직여 팝오버가 2단계로 어긋나는 것 방지
+    row.style.transform = 'none'
+    pop.hidden = false
+    const tr = m.getBoundingClientRect(); const rr = rootEl.getBoundingClientRect()
+    const lr = listEl.getBoundingClientRect()
+    const pw = pop.offsetWidth; const ph = pop.offsetHeight
+    // flip 기준을 리스트 가시영역 바닥으로 — 패널(root) 바닥 기준이면 리스트 아래 푸터 위로 삐져나와 일부만 보임
+    const limit = Math.min(rr.height - 8, lr.bottom - rr.top - 4)
+    let top = tr.bottom - rr.top + 6
+    if (top + ph > limit) top = tr.top - rr.top - ph - 6 // 아래 공간 부족 → 위로
+    pop.style.left = Math.max(8, Math.min(rr.width - pw - 8, tr.right - rr.left - pw)) + 'px'
+    pop.style.top = Math.max(8, top) + 'px'
+  }))
+  if (!listEl.__actpopClose) { // 팝오버 밖 클릭 시 닫기 — 재렌더와 무관하게 1회만 등록
+    listEl.__actpopClose = true
+    document.addEventListener('click', (e) => {
+      // composedPath로 검사 — document 리스너라 shadow 내부 클릭이 host로 리타겟팅돼 closest가 못 찾음.
+      // (그러면 ⋯ 재클릭 시 capture에서 먼저 닫고 → bubble 핸들러가 다시 열어 토글 실패·2단계 깜빡임)
+      if (!e.composedPath().some((el) => el.classList && (el.classList.contains('ba-actions-pop') || el.classList.contains('ba-more')))) closeActionsPops()
+    }, true)
+  }
+
   // 🔗 검색 링크 복사 (북마크·히스토리 공통)
   listEl.querySelectorAll('.ba-copy').forEach((c) =>
     c.addEventListener('click', async (e) => {
@@ -444,8 +546,14 @@ function bindAll(listEl, ui) {
   listEl.querySelectorAll('.ba-star').forEach((s) =>
     s.addEventListener('click', async () => {
       const hist = (await listByKind('history', ui.game)).find((r) => r.id === s.dataset.id)
-      const dup = hist && (await findBookmark(hist.dedupeKey, ui.game))
-      if (dup) { toast('이미 같은 조건의 북마크가 있습니다.'); highlightBookmark(listEl, dup.id); return }
+      if (!hist) return
+      const action = await resolveSaveConflict(hist, ui.game, ui)
+      if (action.cancel) { if (action.highlightId) highlightBookmark(listEl, action.highlightId); return }
+      if (action.overwriteId) {
+        await overwriteBookmark(action.overwriteId, overwriteSource(hist))
+        changed(); toast('최신 검색으로 덮어썼습니다.')
+        return
+      }
       const name = ui.showNameInput ? await ui.showNameInput(suggestName(hist), '북마크 이름') : prompt('북마크 이름', suggestName(hist))
       if (name === null) return
       focusBookmarkId = s.dataset.id
@@ -457,12 +565,7 @@ function bindAll(listEl, ui) {
     o.addEventListener('click', async () => {
       const latest = (await listByKind('history', ui.game))[0]
       if (!latest) { toast('갱신할 최근 검색이 없습니다.'); return }
-      await overwriteBookmark(o.dataset.id, {
-        game: latest.game, league: latest.league, url: latest.url, title: latest.title,
-        itemType: latest.itemType, stats: latest.stats, statGroups: latest.statGroups,
-        otherFilters: latest.otherFilters, priceFilter: latest.priceFilter, icon: latest.icon,
-        snapshot: latest.snapshot, dedupeKey: latest.dedupeKey,
-      })
+      await overwriteBookmark(o.dataset.id, overwriteSource(latest))
       changed(); toast('최근 검색으로 갱신했습니다.')
     }))
 

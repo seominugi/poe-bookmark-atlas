@@ -2,8 +2,6 @@
 import './popup.css'
 import { icon } from '../lib/icons.js'
 import icon128 from '../icons/icon128.png'
-import analystImg from '../icons/mascot-analyst.webp'
-import researcherImg from '../icons/mascot-researcher.webp'
 import cafeImg from '../icons/naver_cafe_logo.webp'
 import ytImg from '../icons/yt_icon_rgb.png'
 import discordImg from '../icons/icon_clyde_white_RGB.png'
@@ -18,8 +16,6 @@ const SHORTCUTS_STAT = [
   { label: '능력치 필터 추가', keys: ['Alt', 'A'] },
   { label: '능력치 그룹 추가', keys: ['Alt', 'G'] },
 ]
-const ECON = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
-const TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
 const TRADE_HOME = 'https://poe.kakaogames.com/trade2/search/poe2'
 
 const version = chrome.runtime.getManifest().version
@@ -46,11 +42,6 @@ document.getElementById('app').innerHTML = `
     <div class="pop-cta">
       <button class="pop-btn pop-btn--primary" id="pop-toggle">${icon('bookmark', 15)}패널 열기 / 접기</button>
       <button class="pop-btn pop-btn--ghost" id="pop-tour">${icon('sparkle', 14)}사용법 가이드 다시 보기</button>
-      <button class="pop-btn pop-btn--ghost" id="pop-cross">${icon('external', 14)}<span id="pop-cross-tx">PoE1 영문 거래소 연동 켜기</span></button>
-      <div class="pop-econ-row">
-        <button class="pop-econ pop-econ--items" id="pop-econ"><span class="glint"></span><span class="pic"><img src="${analystImg}" alt="" /></span><span class="lbl">아이템 시세</span></button>
-        <button class="pop-econ pop-econ--trend" id="pop-trend"><span class="glint"></span><span class="pic"><img src="${researcherImg}" alt="" /></span><span class="lbl">시장 동향</span></button>
-      </div>
     </div>
     <div class="pop-foot">
       <span class="pop-foot-tx"><b>피드백 · 문의</b><small>버그 제보·건의는 커뮤니티로</small></span>
@@ -62,7 +53,6 @@ document.getElementById('app').innerHTML = `
 
 // ── 핸들러 ──
 const $ = (id) => document.getElementById(id)
-const gameOf = (url) => (/\/trade2|poe2/i.test(url || '') ? 'poe2' : 'poe1')
 const isTrade = (url) => /(poe\.kakaogames\.com|www\.pathofexile\.com)\/trade2?\//i.test(url || '')
 async function activeTab() { const [t] = await chrome.tabs.query({ active: true, currentWindow: true }); return t }
 
@@ -83,24 +73,4 @@ $('pop-tour').onclick = async () => {
   if (!ok) { try { await chrome.storage.local.set({ baTourRestart: true }) } catch (_) {} chrome.tabs.create({ url: TRADE_HOME }) }
   window.close()
 }
-$('pop-econ').onclick = async () => { const t = await activeTab(); chrome.tabs.create({ url: ECON[gameOf(t && t.url)] }); window.close() }
-$('pop-trend').onclick = async () => { const t = await activeTab(); chrome.tabs.create({ url: TREND[gameOf(t && t.url)] }); window.close() }
 $('pop-shortcuts').onclick = () => { chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }); window.close() }
-
-// 영문 거래소 전환(PoE1) — pathofexile.com optional 권한 토글 (권한 요청은 확장 페이지에서만 가능)
-const CROSS_ORIGINS = ['https://www.pathofexile.com/*']
-async function refreshCross() {
-  let granted = false
-  try { granted = await chrome.permissions.contains({ origins: CROSS_ORIGINS }) } catch (_) {}
-  $('pop-cross-tx').textContent = granted ? 'PoE1 영문 거래소 연동: 켜짐 ✓ (패널·전환)' : 'PoE1 영문 거래소 연동 켜기'
-}
-$('pop-cross').onclick = async () => {
-  let granted = false
-  try { granted = await chrome.permissions.contains({ origins: CROSS_ORIGINS }) } catch (_) {}
-  try {
-    if (granted) await chrome.permissions.remove({ origins: CROSS_ORIGINS })
-    else await chrome.permissions.request({ origins: CROSS_ORIGINS })
-  } catch (_) {}
-  refreshCross()
-}
-refreshCross()
