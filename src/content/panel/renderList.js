@@ -257,8 +257,14 @@ function rowHtml(r, kind, currentLeague, leagueMap) {
   // 조건 칩 카운트 = 비능력치 필터(유형·가격·레벨 등) + 능력치 수 — 히스토리·북마크 공통
   const condCount = (Array.isArray(r.otherFilters) ? r.otherFilters.length : 0) + stats.length
   const condChip = condCount ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${condCount}개</span>` : ''
+  // 저장 당시 리그 — 조건 칩 툴팁 맨 위에 얹는다(히스토리·북마크 공통). 《...》는 tooltip 렌더러가
+  // 시안색으로 바꿔줌(기존 ────────→<hr> 패턴과 동일 메커니즘).
+  const leagueName = r.league ? (leagueMap && leagueMap[r.league]) || r.league : ''
+  const leagueLine = leagueName ? `[리그] 《${leagueName}》` : ''
+  const condTipWithLeague = escapeHtml([leagueLine, condTipText(r)].filter(Boolean).join('\n────────\n'))
   // 북마크 카드: '조건 N개' 대신 입력 수치까지 담은 조건 요약(호버 시 전체 상세는 동일 툴팁). 긴 조건은 CSS 말줄임.
-  const condSummaryChip = condCount ? `<span class="ba-cond ba-cond--summary" data-tip="${condTip}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span><span class="ba-cond-tx">${escapeHtml(condSummaryText(r))}</span></span>` : ''
+  // 조건 0개여도 칩은 항상 렌더 — 아니면 리그 정보(위 condTipWithLeague)를 걸어둘 곳이 없다.
+  const condSummaryChip = `<span class="ba-cond ba-cond--summary" data-tip="${condTipWithLeague}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span><span class="ba-cond-tx">${escapeHtml(condSummaryText(r))}</span></span>`
   // 가격 툴팁 — snapshot 기준 "검색 시점 시세(빠른 판매가 p25)" + 표본 수
   const priceAt = r.snapshotAt || (r.snapshot && r.snapshot.capturedAt)
   const sampleN = r.snapshot && r.snapshot.sampleN
@@ -268,13 +274,10 @@ function rowHtml(r, kind, currentLeague, leagueMap) {
 
   // ── 히스토리: 카드 전체 클릭으로 재검색 (디자인: 북마크 카드와 동일한 조건칩+⋯팝오버 언어) ──
   if (kind === 'history') {
-    // 히스토리는 모든 리그 통합 렌더라 그룹으로 구분이 안 됨 — 리그를 별도 칩(말줄임 문제 있었음) 대신
-    // 조건 칩(+ 조건이 없으면 날짜 칩) 툴팁 맨 위에 얹는다. 《...》는 tooltip 렌더러가 시안색으로 바꿔주는 마커.
-    const leagueName = r.league ? (leagueMap && leagueMap[r.league]) || r.league : ''
-    const leagueLine = leagueName ? `[리그] 《${leagueName}》` : ''
-    const histTip = escapeHtml([leagueLine, condTipText(r)].filter(Boolean).join('\n────────\n'))
-    const histCondChip = condCount ? `<span class="ba-cond" data-tip="${histTip}">${icon('search', 12)}조건 ${condCount}개</span>` : ''
-    const whenChip = `<span class="ba-hist-when"${histTip && !condCount ? ` data-tip="${histTip}"` : ''}>${icon('clock', 11)}${fmtTime(when)}</span>`
+    // 히스토리는 모든 리그 통합 렌더라 그룹으로 구분이 안 됨 — 리그는 별도 칩(말줄임 문제 있었음) 대신
+    // 조건 칩(+ 조건이 없으면 날짜 칩) 툴팁 맨 위에 얹는다(leagueLine·condTipWithLeague는 위에서 공용 계산).
+    const histCondChip = condCount ? `<span class="ba-cond" data-tip="${condTipWithLeague}">${icon('search', 12)}조건 ${condCount}개</span>` : ''
+    const whenChip = `<span class="ba-hist-when"${condTipWithLeague && !condCount ? ` data-tip="${condTipWithLeague}"` : ''}>${icon('clock', 11)}${fmtTime(when)}</span>`
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
       <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b>${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
       <div class="ba-meta">${histCondChip}${whenChip}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>
@@ -405,7 +408,7 @@ export async function renderList(listEl, root, ui = {}) {
         <span class="ba-league-chevron">${icon('chevronRight', 13)}</span>
         <span class="ba-league-ic">${icon('trophy', 14)}</span>
         <span class="ba-league-name">${escapeHtml(lgName)}</span>
-        <span class="ba-league-badge${isCurrent ? ' current' : ''}">${isCurrent ? '현재' : '지난'}</span>
+        <span class="ba-league-badge${isCurrent ? ' current' : ' past'}"${isCurrent ? '' : ` data-tip="리그가 바뀌면서 저장 당시 조건이 더 이상 안 맞을 수 있어요.\n열리긴 하지만(최신 리그로 자동 이동) 결과가 비거나 다를 수 있습니다."`}>${isCurrent ? '현재' : '지난'}</span>
         <span class="ba-league-count">${lgBm.length}</span>
       </div>
       <div class="ba-league-body">`

@@ -555,7 +555,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   const TOUR = [
     { sel: '#ba-save', title: '자주하는 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 자주 쓰는 검색은 "현재 검색 저장"으로 영구 보관하고, 저장할 때 폴더도 바로 고를 수 있어요.' },
     { sel: '.ba-pob-btn', global: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요. (검색 결과가 있어야 보여요)' },
-    { sel: '.ba-exr-chip', global: true, title: '가격을 한눈에', body: '제시 가격 옆에 엑잘티드(포1은 카오스) 환산값이 자동으로 붙어요 — 서미누기 환율 기준. (검색 결과가 있어야 보여요)' },
+    { sel: '.ba-exr-chip', global: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준. (검색 결과가 있어야 보여요)' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },
     { sel: '.ba-open', title: '한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
     { sel: '.ba-price-pill', title: '검색 시점 시세', body: '가격에 마우스를 올리면 검색 당시 매물 기준 시세(빠르게 팔리는 가격)를 보여줘요. 북마크를 열면 최신 시세로 갱신됩니다.' },
@@ -570,7 +570,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
   ]
   async function startTour() {
+    const wasCollapsed = isCollapsed()
     setCollapsed(false)
+    // 패널이 접혀 있다가 열리는 거면 .ba-root의 슬라이드인(.26s)이 끝날 때까지 기다린다 — 그 전에 첫 스텝을
+    // 측정하면 대상이 슬라이드 도중 위치로 잡혀, 패널이 마저 열리는 동안 스포트라이트·화살표가 실제 위치와 어긋난다.
+    if (wasCollapsed) await new Promise((r) => setTimeout(r, 280))
     // 첫 화면처럼 비어 있으면 투어 동안만 데모 데이터를 띄운다(종료 시 제거 — 실제 저장소 무오염)
     let demoOn = false
     try { if (await isStoreEmpty(game)) { await seedDemoData(game, league); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
@@ -579,22 +583,86 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     card.className = 'ba-tour-card'
     const box = document.createElement('div') // 스포트라이트 구멍 — 주변을 어둡게(box-shadow) + 숨쉬는 테두리
     box.className = 'ba-tour-spot'
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'svg') // 스포트라이트↔카드가 멀 때(예: global 스텝) 연결선으로 강조
+    arrow.setAttribute('class', 'ba-tour-arrow')
+    arrow.innerHTML = '<defs><marker id="ba-tour-arrowhead" markerWidth="14" markerHeight="16" refX="14" refY="8" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L14,8 L0,16 Z" class="ba-tour-arrowhead"></path></marker></defs><path class="ba-tour-arrow-line" marker-end="url(#ba-tour-arrowhead)"></path>'
     root.appendChild(box)
+    root.appendChild(arrow)
     root.appendChild(card)
-    const finish = () => { box.remove(); card.remove(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const goNext = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
+    const goPrev = () => { if (i > 0) { i -= 1; render() } }
+    // 방향키로도 이전/다음 이동 — 페이지 검색창 등에 포커스가 있으면(텍스트 커서 이동 용도) 가로채지 않는다
+    const onKeyNav = (e) => {
+      if (e.repeat || e.altKey || e.ctrlKey || e.metaKey) return
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      const ae = document.activeElement
+      if (ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable)) return
+      e.preventDefault()
+      if (e.key === 'ArrowRight') goNext(); else goPrev()
+    }
+    document.addEventListener('keydown', onKeyNav, true)
     const place = (target) => {
       const rc = target ? target.getBoundingClientRect() : null
-      if (!rc || (!rc.width && !rc.height)) { box.style.opacity = '0'; return }
+      if (!rc || (!rc.width && !rc.height)) { box.style.opacity = '0'; return null }
       // 콘텐츠 영역(패딩 제외) 기준 + 대칭 여백 — 비대칭 패딩(예: 섹션 헤더 padding-bottom)에서도 위아래 여백이 같게
       const cs = getComputedStyle(target)
       const pt = parseFloat(cs.paddingTop) || 0, pb = parseFloat(cs.paddingBottom) || 0
       const pl = parseFloat(cs.paddingLeft) || 0, pr = parseFloat(cs.paddingRight) || 0
       const PAD = 5
+      const top = rc.top + pt - PAD, left = rc.left + pl - PAD
+      const width = rc.width - pl - pr + 2 * PAD, height = rc.height - pt - pb + 2 * PAD
       box.style.opacity = '1'
-      box.style.top = (rc.top + pt - PAD) + 'px'
-      box.style.left = (rc.left + pl - PAD) + 'px'
-      box.style.width = (rc.width - pl - pr + 2 * PAD) + 'px'
-      box.style.height = (rc.height - pt - pb + 2 * PAD) + 'px'
+      box.style.top = top + 'px'
+      box.style.left = left + 'px'
+      box.style.width = width + 'px'
+      box.style.height = height + 'px'
+      return { top, left, width, height } // .ba-tour-spot엔 top/left/width/height 트랜지션이 걸려 있어 — 방금 바꾼 스타일을
+      // 동기 getBoundingClientRect()로 되읽으면 트랜지션 시작 전(이전 스텝) 값이 나온다. 화살표는 이 계산값을 직접 써야 정확하다.
+    }
+    // 내 상하좌우 네 변의 "가운데" 점 중 상대 중심에 실제로 가장 가까운 곳을 고른다(중심점 dx/dy 비율로
+    // 축만 판단하면 옆으로 넓적한 상자는 실제로 더 가까운 변이 있어도 비율 때문에 엉뚱한 변을 고르게 된다 —
+    // 네 후보 거리를 직접 비교하는 쪽이 "가까운 곳"이라는 뜻 그대로다). nx/ny는 그 변의 바깥 방향(수직) — 곡선
+    // 제어점 계산에 씀. 모서리를 비스듬히 스치지 않고 늘 변의 가운데에서 나가고 들어온다.
+    const edgeAnchor = (rect, otherX, otherY, pad) => {
+      const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2
+      const candidates = [
+        { x: cx, y: rect.top - pad, nx: 0, ny: -1 },
+        { x: cx, y: rect.top + rect.height + pad, nx: 0, ny: 1 },
+        { x: rect.left - pad, y: cy, nx: -1, ny: 0 },
+        { x: rect.left + rect.width + pad, y: cy, nx: 1, ny: 0 },
+      ]
+      let best = candidates[0], bestDist = Infinity
+      for (const c of candidates) {
+        const d = Math.hypot(c.x - otherX, c.y - otherY)
+        if (d < bestDist) { bestDist = d; best = c }
+      }
+      return best
+    }
+    const positionArrow = (br) => {
+      const cr = card.getBoundingClientRect()
+      if (!br || !cr.width) { arrow.style.opacity = '0'; return }
+      const bc = { x: br.left + br.width / 2, y: br.top + br.height / 2 }
+      const cc = { x: cr.left + cr.width / 2, y: cr.top + cr.height / 2 }
+      // 패널 내부 스텝은 카드가 스포트라이트 바로 아래 붙어(실측 간격 10px 안팎) 여백(pad)이 그 간격보다 크면
+      // 시작·끝점이 서로 앞질러 곡선이 접혀 카드 밑으로 파고드는 것처럼 보인다 — 여백 없는(pad=0) 기준점 사이
+      // 실제 간격을 먼저 재서, 그보다 여백이 커지지 않게 줄인다(둘이 맞닿을 만큼 가까우면 여백은 0에 수렴).
+      const raw1 = edgeAnchor(br, cc.x, cc.y, 0)
+      const raw2 = edgeAnchor(cr, bc.x, bc.y, 0)
+      const rawGap = Math.hypot(raw1.x - raw2.x, raw1.y - raw2.y)
+      const pad1 = Math.min(10, Math.max(0, rawGap / 2 - 1)) // 화살촉 — 스포트라이트 변의 가운데
+      const pad2 = Math.min(14, Math.max(0, rawGap / 2 - 1)) // 시작 — 카드 변의 가운데(카드는 그림자가 있어 여백을 더 둠)
+      const p1 = edgeAnchor(br, cc.x, cc.y, pad1)
+      const p2 = edgeAnchor(cr, bc.x, bc.y, pad2)
+      // 각 변에서 수직으로 빠져나가듯 살짝 곡선으로 — 직선이 아니라 부드럽게 이어지는 인상, 카드/스포트라이트 위를
+      // 다시 가로지르지 않도록 두 점 모두 자기 쪽 바깥 방향(nx/ny)으로 제어점을 밀어낸다.
+      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y)
+      const bow = Math.min(90, Math.max(20, dist * 0.35))
+      const c1 = { x: p2.x + p2.nx * bow, y: p2.y + p2.ny * bow }
+      const c2 = { x: p1.x + p1.nx * bow, y: p1.y + p1.ny * bow }
+      const path = arrow.querySelector('.ba-tour-arrow-line')
+      path.setAttribute('d', `M ${p2.x} ${p2.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p1.x} ${p1.y}`)
+      arrow.style.opacity = '1'
     }
     const render = () => {
       const step = TOUR[i]
@@ -610,16 +678,17 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
           target = [...scope.querySelectorAll(step.sel)].find((e) => e.getBoundingClientRect().width) || target
         }
       }
-      card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button>${i > 0 ? '<button class="ba-tour-prev">이전</button>' : ''}<button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div>`
-      card.querySelector('.ba-tour-next').onclick = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
+      card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button>${i > 0 ? '<button class="ba-tour-prev">이전</button>' : ''}<button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div><div class="ba-tour-kbdhint">${i > 0 ? '<kbd>←</kbd>' : ''}<kbd>→</kbd> 방향키로 이동</div>`
+      card.querySelector('.ba-tour-next').onclick = goNext
       card.querySelector('.ba-tour-skip').onclick = finish
-      const prevBtn = card.querySelector('.ba-tour-prev'); if (prevBtn) prevBtn.onclick = () => { if (i > 0) { i -= 1; render() } }
+      const prevBtn = card.querySelector('.ba-tour-prev'); if (prevBtn) prevBtn.onclick = goPrev
       if (target) target.scrollIntoView({ block: 'center' }) // instant — 동기 스크롤이라 직후 rect가 정확
-      place(target) // 동기 즉시 배치 — rAF·setTimeout은 비활성 탭에서 지연/정지되므로 사용 안 함
+      const boxRect = place(target) // 동기 즉시 배치 — rAF·setTimeout은 비활성 탭에서 지연/정지되므로 사용 안 함
       const rc = target ? target.getBoundingClientRect() : null
       card.style.top = (rc ? Math.min(window.innerHeight - 180, Math.max(8, rc.bottom + 12)) : 80) + 'px'
       if (panelSide === 'left') { card.style.left = '420px'; card.style.right = 'auto' } // 좌/우 배치 대응
       else { card.style.right = '420px'; card.style.left = 'auto' }
+      positionArrow(boxRect)
     }
     render()
   }
