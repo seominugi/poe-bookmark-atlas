@@ -639,29 +639,29 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
       }
       return best
     }
+    const HEAD = 14 // 화살촉(SVG 마커) 길이. neck→apex를 이 길이의 '직선'으로 그어 선이 화살촉 정중앙에 물리게 한다.
     const positionArrow = (br) => {
       const cr = card.getBoundingClientRect()
       if (!br || !cr.width) { arrow.style.opacity = '0'; return }
       const bc = { x: br.left + br.width / 2, y: br.top + br.height / 2 }
       const cc = { x: cr.left + cr.width / 2, y: cr.top + cr.height / 2 }
-      // 패널 내부 스텝은 카드가 스포트라이트 바로 아래 붙어(실측 간격 10px 안팎) 여백(pad)이 그 간격보다 크면
-      // 시작·끝점이 서로 앞질러 곡선이 접혀 카드 밑으로 파고드는 것처럼 보인다 — 여백 없는(pad=0) 기준점 사이
-      // 실제 간격을 먼저 재서, 그보다 여백이 커지지 않게 줄인다(둘이 맞닿을 만큼 가까우면 여백은 0에 수렴).
-      const raw1 = edgeAnchor(br, cc.x, cc.y, 0)
-      const raw2 = edgeAnchor(cr, bc.x, bc.y, 0)
-      const rawGap = Math.hypot(raw1.x - raw2.x, raw1.y - raw2.y)
-      const pad1 = Math.min(10, Math.max(0, rawGap / 2 - 1)) // 화살촉 — 스포트라이트 변의 가운데
-      const pad2 = Math.min(14, Math.max(0, rawGap / 2 - 1)) // 시작 — 카드 변의 가운데(카드는 그림자가 있어 여백을 더 둠)
-      const p1 = edgeAnchor(br, cc.x, cc.y, pad1)
-      const p2 = edgeAnchor(cr, bc.x, bc.y, pad2)
-      // 각 변에서 수직으로 빠져나가듯 살짝 곡선으로 — 직선이 아니라 부드럽게 이어지는 인상, 카드/스포트라이트 위를
-      // 다시 가로지르지 않도록 두 점 모두 자기 쪽 바깥 방향(nx/ny)으로 제어점을 밀어낸다.
-      const dist = Math.hypot(p1.x - p2.x, p1.y - p2.y)
-      const bow = Math.min(90, Math.max(20, dist * 0.35))
-      const c1 = { x: p2.x + p2.nx * bow, y: p2.y + p2.ny * bow }
-      const c2 = { x: p1.x + p1.nx * bow, y: p1.y + p1.ny * bow }
+      const a = edgeAnchor(br, cc.x, cc.y, 0) // 스포트라이트 쪽 변 중앙 + 바깥 법선(a.nx/ny)
+      const c = edgeAnchor(cr, bc.x, bc.y, 0) // 카드 쪽 변 중앙 + 바깥 법선
+      const gap = Math.hypot(a.x - c.x, a.y - c.y)
+      // 화살촉이 요소 테두리를 살짝 안 물게 apex를 바깥으로 조금 띄운다. 자리가 좁으면 화살촉 길이도 줄여 곡선이 접히지 않게.
+      const tipGap = Math.min(7, gap * 0.12)
+      const head = Math.min(HEAD, gap * 0.5)
+      const apex = { x: a.x + a.nx * tipGap, y: a.y + a.ny * tipGap } // 화살촉 끝(뾰족한 곳) — 스포트라이트를 가리킴
+      const neck = { x: apex.x + a.nx * head, y: apex.y + a.ny * head } // 화살촉 밑동 = 곡선이 직선으로 바뀌는 지점
+      const start = { x: c.x + c.nx * 12, y: c.y + c.ny * 12 } // 카드 쪽 시작(그림자 여백 12)
+      // 베지어는 neck에서 끝나되 끝 접선을 화살촉 축(-a.n, 요소 쪽)에 맞춰 곡선→직선이 매끄럽게 이어진다.
+      // 이어서 neck→apex를 '직선'으로 그으면 화살촉이 그 위에 정확히 얹혀, 선이 화살촉 옆이 아닌 정중앙에 연결된다.
+      const span = Math.hypot(neck.x - start.x, neck.y - start.y)
+      const bow = Math.min(80, Math.max(16, span * 0.32))
+      const c1 = { x: start.x + c.nx * bow, y: start.y + c.ny * bow } // 카드 변에서 수직으로 빠져나가듯(법선은 앵커 c의 것)
+      const c2 = { x: neck.x + a.nx * bow, y: neck.y + a.ny * bow } // neck 접선을 화살촉 축과 일치시킴
       const path = arrow.querySelector('.ba-tour-arrow-line')
-      path.setAttribute('d', `M ${p2.x} ${p2.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${p1.x} ${p1.y}`)
+      path.setAttribute('d', `M ${start.x} ${start.y} C ${c1.x} ${c1.y}, ${c2.x} ${c2.y}, ${neck.x} ${neck.y} L ${apex.x} ${apex.y}`)
       arrow.style.opacity = '1'
     }
     const render = () => {

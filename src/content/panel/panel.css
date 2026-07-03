@@ -737,7 +737,10 @@
 .ba-root[data-density="compact"] .ba-chips { margin-top: 6px; }
 
 /* 가이드 투어 코치마크 */
-.ba-tour-card { position: fixed; right: 420px; width: 300px; z-index: 2147483550; background: rgba(16,14,30,.98); border: 1px solid var(--ba-violet-line); border-radius: 12px; padding: 14px 16px; box-shadow: 0 18px 48px rgba(0,0,0,.6); animation: ba-toast-in .2s var(--ba-ease); }
+.ba-tour-card { position: fixed; right: 420px; width: 300px; z-index: 2147483550; background: rgba(16,14,30,.98); border: 1px solid var(--ba-violet-line); border-radius: 12px; padding: 14px 16px; box-shadow: 0 18px 48px rgba(0,0,0,.6); animation: ba-tour-card-in .2s var(--ba-ease); }
+/* 전용 진입 애니메이션 — opacity만. (토스트용 ba-toast-in은 translate(-50%)가 있어 right 배치 카드가 진입 중 폭의 절반만큼
+   밀렸다 튀어 화살표가 어긋났다.) transform 없음 → 진입 중에도 getBoundingClientRect가 정확해 화살표가 안 흔들린다. */
+@keyframes ba-tour-card-in { from { opacity: 0; } to { opacity: 1; } }
 .ba-tour-step { font-size: 10.5px; font-weight: 800; color: var(--ba-violet-2); letter-spacing: .04em; }
 .ba-tour-title { font-size: 14px; font-weight: 800; color: var(--ba-text-strong); margin: 4px 0 6px; }
 .ba-tour-card p { font-size: 12px; line-height: 1.6; color: var(--ba-text); margin: 0; }
