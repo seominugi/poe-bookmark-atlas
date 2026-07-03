@@ -142,7 +142,7 @@ function pobEnsureStyle() {
   st.id = 'ba-pob-style'
   st.textContent = `
   .ba-pob-wrap { display: block; text-align: center; margin-top: 6px; }
-  .ba-pob-btn { box-sizing: border-box;
+  .ba-pob-btn { box-sizing: border-box; position: relative;
     display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     padding: 6px 11px; cursor: pointer; white-space: nowrap;
     font-family: inherit; line-height: 1; letter-spacing: -0.01em; color: #ddd6fe;
@@ -156,6 +156,18 @@ function pobEnsureStyle() {
   .ba-pob-btn:hover span { color: #e6e0ff; }
   .ba-pob-btn:hover { box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), 0 0 22px rgba(167, 139, 250, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.16); }
   .ba-pob-btn:disabled { opacity: .8; cursor: default; }
+  /* 페이지 표면 커스텀 툴팁(#ba-page-tip, JS 렌더) — 패널 조건 칩 툴팁(.ba-tip)과 디자인 토큰 통일.
+     CSS ::after의 content:attr()는 순수 텍스트만 가능해 부분 강조색을 못 넣어서(리그 텍스트처럼 강조 요청) JS로 전환.
+     《...》 마커는 패널 툴팁과 동일 관례로 강조색(시안) span 치환. */
+  #ba-page-tip { position: fixed; z-index: 2147483600; max-width: 250px;
+    background: rgba(6, 9, 15, 0.98); color: #e6e3f5;
+    border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 8px;
+    padding: 8px 12px; font-size: 11px; line-height: 1.6; font-family: inherit;
+    white-space: pre-line; text-align: left;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55); pointer-events: none;
+    opacity: 0; transition: opacity .15s; }
+  #ba-page-tip.show { opacity: 1; }
+  #ba-page-tip .ba-tip-accent { color: #3ed8e6; font-weight: 700; }
   @keyframes ba-pob-pop { 0% { box-shadow: 0 4px 16px rgba(0,0,0,.35), 0 0 14px rgba(167,139,250,.22), inset 0 1px 0 rgba(255,255,255,.12); filter: brightness(1); }
     40% { box-shadow: 0 4px 22px rgba(0,0,0,.45), 0 0 32px rgba(167,139,250,.75), inset 0 1px 0 rgba(255,255,255,.2); filter: brightness(1.25); }
     100% { box-shadow: 0 4px 16px rgba(0,0,0,.35), 0 0 14px rgba(167,139,250,.22), inset 0 1px 0 rgba(255,255,255,.12); filter: brightness(1); } }
@@ -174,6 +186,30 @@ function pobEnsureStyle() {
     opacity: 0; pointer-events: none; transform: translateY(3px); transition: opacity .15s, transform .15s; z-index: 60; }
   .ba-exr-chip:hover::after { opacity: 1; transform: translateY(0); }`
   document.head.appendChild(st)
+}
+// 페이지 표면 커스텀 툴팁 — data-tip의 《...》를 강조색(시안) span으로 치환(패널 .ba-tip과 동일 관례).
+// 버튼 오른쪽에 배치(좁은 좌측 컬럼의 아이템 이미지를 안 가리도록) + 뷰포트 밖으로 안 나가게 클램프.
+let pageTip = null
+function ensurePageTip() {
+  if (pageTip) return pageTip
+  pageTip = document.createElement('div')
+  pageTip.id = 'ba-page-tip'
+  document.body.appendChild(pageTip)
+  return pageTip
+}
+function bindPageTip(el) {
+  el.addEventListener('mouseenter', () => {
+    const raw = el.getAttribute('data-tip'); if (!raw) return
+    const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+    const tip = ensurePageTip()
+    tip.innerHTML = esc(raw).replace(/《([^》]*)》/g, '<span class="ba-tip-accent">$1</span>')
+    tip.classList.add('show')
+    const r = el.getBoundingClientRect()
+    const left = Math.min(window.innerWidth - tip.offsetWidth - 8, r.right + 10)
+    const top = Math.max(8, Math.min(window.innerHeight - tip.offsetHeight - 8, r.top + r.height / 2 - tip.offsetHeight / 2))
+    tip.style.left = left + 'px'; tip.style.top = top + 'px'
+  })
+  el.addEventListener('mouseleave', () => { if (pageTip) pageTip.classList.remove('show') })
 }
 // 기본 화폐(엑잘/카오스) 아이콘 — 확장 내부 URL은 페이지 CSP·dynamic URL 제약으로 깨질 수 있어
 // GGG 공식 static API의 CDN 이미지(사이트 자체가 쓰는 것과 동일)를 1회 가져와 사용한다.
@@ -250,7 +286,9 @@ function injectPobButtons() {
     btn.type = 'button'
     btn.className = 'ba-pob-btn' // 바이올렛 글래스모피즘(pobEnsureStyle) — 사이트 버튼 룩 사용 안 함
     btn.innerHTML = '<b>PoB</b><span>영문 복사</span>' // 정적 문자열(사용자 데이터 없음)
-    btn.title = '이 아이템을 영문 텍스트로 복사 — PoB(Path of Building)에 Ctrl+V로 붙여넣기\nShift+클릭: 번역 안 되는 부분 있으면 Discord로 제보'
+    // 네이티브 title 대신 커스텀 툴팁(#ba-page-tip) — "Discord로 제보"를 별도 줄+강조색으로 눈에 띄게
+    btn.setAttribute('data-tip', '이 아이템을 영문 텍스트로 복사\nPoB(Path of Building)에 Ctrl+V\n\nShift+클릭 → 번역 안 되는 부분\n《Discord로 제보》')
+    bindPageTip(btn)
     btn.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation()
       if (ev.shiftKey) reportMissing(item, btn); else pobCopy(item, btn)
