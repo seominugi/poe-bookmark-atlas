@@ -10,7 +10,7 @@ import { parseExaltedPerDivine, baseFromPrice, baseCurrencyOf, fmtCurAmount } fr
 import { addHistory, markUsedByUrl, ensureSchema } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
-import { buildPobText } from '../lib/pobExport.js'
+import { buildPobText, buildReportText } from '../lib/pobExport.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -82,7 +82,7 @@ const dedupeKey = (query) => game + '|' + searchIdentity(query)
 // ── 영문 PoB 복사 + 엑잘 환산 — 결과 아이템·가격 보관 + 행마다 'PoB' 버튼·'≈ 엑잘' 칩 주입 ──
 const pobItems = new Map() // result.id → item. 스크롤 페이지네이션 fetch 누적, 새 검색 시 초기화
 const pobPrices = new Map() // result.id → listing.price({amount, currency}) — 엑잘 환산 칩용
-let lastRates = null // BE exchange_rates(카오스·디바인·미러→엑잘) — 검색마다 스냅샷 fetch에서 갱신
+let lastRates = null // BE 원본 응답({exchange_rates, items}) — 검색마다 스냅샷 fetch에서 갱신. items엔 큐레이션 4종 밖 60여 화폐(쥬얼러·색채 등) 시세
 let pobMaps = null // { statMap, baseMap } — 클릭 시 1회 lazy 로드(~775KB JSON, 초기 번들 무영향)
 
 function pobCopyText(t) {
@@ -93,20 +93,47 @@ function pobCopyText(t) {
     try { document.execCommand('copy'); res() } catch (err) { rej(err) } finally { ta.remove() }
   })
 }
-function pobFlash(btn, msg) { const t = btn.innerHTML; btn.textContent = msg; btn.disabled = true; setTimeout(() => { btn.innerHTML = t; btn.disabled = false }, 1600) } // 2줄 라벨 복원 위해 innerHTML 저장
+// title/sub — 기본 버튼과 같은 <b>+<span> 2줄 구조로 교체해 텍스트 길이와 무관하게 크기가 그대로 유지되게 한다
+// (예전엔 textContent 단일 줄로 바꿔서 2줄→1줄로 버튼이 줄어드는 문제가 있었다). 값은 전부 하드코딩 한국어 리터럴이라 안전.
+function pobFlash(btn, title, sub) {
+  const t = btn.innerHTML
+  btn.innerHTML = `<b>${title}</b><span>${sub}</span>`
+  btn.disabled = true
+  btn.classList.add('ba-pob-flash') // 살짝 강조 팝(box-shadow·밝기 — transform은 위치 계산에 쓰여 애니메이션에서 제외)
+  setTimeout(() => btn.classList.remove('ba-pob-flash'), 500)
+  setTimeout(() => { btn.innerHTML = t; btn.disabled = false }, 1600)
+}
+async function ensurePobMaps() {
+  if (!pobMaps) {
+    const [s, b, u] = await Promise.all(game === 'poe1'
+      ? [import('../lib/pobStatMap.poe1.json'), import('../lib/pobBaseMap.poe1.json'), import('../lib/pobUniqueMap.poe1.json')]
+      : [import('../lib/pobStatMap.json'), import('../lib/pobBaseMap.json'), import('../lib/pobUniqueMap.json')])
+    pobMaps = { statMap: s.default, baseMap: b.default, uniqueMap: u.default }
+  }
+  return pobMaps
+}
 async function pobCopy(item, btn) {
   try {
-    if (!pobMaps) {
-      const [s, b, u] = await Promise.all(game === 'poe1'
-        ? [import('../lib/pobStatMap.poe1.json'), import('../lib/pobBaseMap.poe1.json'), import('../lib/pobUniqueMap.poe1.json')]
-        : [import('../lib/pobStatMap.json'), import('../lib/pobBaseMap.json'), import('../lib/pobUniqueMap.json')])
-      pobMaps = { statMap: s.default, baseMap: b.default, uniqueMap: u.default }
-    }
-    const { text, missing } = buildPobText(item, pobMaps.statMap, pobMaps.baseMap, pobMaps.uniqueMap)
+    const maps = await ensurePobMaps()
+    const { text, missing } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap)
     await pobCopyText(text)
-    pobFlash(btn, missing.length ? `복사됨 (미변환 ${missing.length})` : '복사됨 ✓')
+    pobFlash(btn, '복사됨', missing.length ? `미변환 ${missing.length}` : '✓')
     if (missing.length) LOG('PoB 미변환 항목:', missing)
-  } catch (err) { LOG('PoB 복사 실패', String(err)); pobFlash(btn, '복사 실패') }
+  } catch (err) { LOG('PoB 복사 실패', String(err)); pobFlash(btn, '복사 실패', '다시 시도') }
+}
+// Shift+클릭 — 미변환 mod를 수동으로 제보(웹훅 없이: 클라이언트에 Discord 웹훅 시크릿을 두면 추출·악용 위험이 있어
+// 제보 텍스트를 클립보드에 복사 + 기존 공개 초대 링크로 Discord를 열어 사용자가 직접 붙여넣게 한다).
+const DISCORD_URL = 'https://discord.gg/kEm2G2qcZQ'
+async function reportMissing(item, btn) {
+  try {
+    const maps = await ensurePobMaps()
+    const { missing } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap)
+    const report = buildReportText(item, missing, game)
+    if (!report) { pobFlash(btn, '제보할 내용 없음', '번역 정상 ✓'); return }
+    await pobCopyText(report)
+    window.open(DISCORD_URL, '_blank', 'noopener')
+    pobFlash(btn, '제보 정보 복사됨', 'Discord에 붙여넣기')
+  } catch (err) { LOG('제보 준비 실패', String(err)); pobFlash(btn, '제보 실패', '다시 시도') }
 }
 // 페이지 표면(비-shadow) 버튼 스타일 1회 주입 — 패널과 동일한 바이올렛 글래스모피즘(:hover 포함)
 function pobEnsureStyle() {
@@ -129,6 +156,10 @@ function pobEnsureStyle() {
   .ba-pob-btn:hover span { color: #e6e0ff; }
   .ba-pob-btn:hover { box-shadow: 0 4px 18px rgba(0, 0, 0, 0.4), 0 0 22px rgba(167, 139, 250, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.16); }
   .ba-pob-btn:disabled { opacity: .8; cursor: default; }
+  @keyframes ba-pob-pop { 0% { box-shadow: 0 4px 16px rgba(0,0,0,.35), 0 0 14px rgba(167,139,250,.22), inset 0 1px 0 rgba(255,255,255,.12); filter: brightness(1); }
+    40% { box-shadow: 0 4px 22px rgba(0,0,0,.45), 0 0 32px rgba(167,139,250,.75), inset 0 1px 0 rgba(255,255,255,.2); filter: brightness(1.25); }
+    100% { box-shadow: 0 4px 16px rgba(0,0,0,.35), 0 0 14px rgba(167,139,250,.22), inset 0 1px 0 rgba(255,255,255,.12); filter: brightness(1); } }
+  .ba-pob-btn.ba-pob-flash { animation: ba-pob-pop .5s ease; }
   .ba-exr-chip { display: inline-flex; align-items: center; gap: 4px; vertical-align: middle; margin-left: 7px;
     position: relative; padding: 2px 8px; white-space: nowrap; cursor: help;
     font-family: inherit; font-size: 11px; font-weight: 700; line-height: 1; letter-spacing: -0.01em; color: #ddd6fe;
@@ -219,8 +250,11 @@ function injectPobButtons() {
     btn.type = 'button'
     btn.className = 'ba-pob-btn' // 바이올렛 글래스모피즘(pobEnsureStyle) — 사이트 버튼 룩 사용 안 함
     btn.innerHTML = '<b>PoB</b><span>영문 복사</span>' // 정적 문자열(사용자 데이터 없음)
-    btn.title = '이 아이템을 영문 텍스트로 복사 — PoB(Path of Building)에 Ctrl+V로 붙여넣기'
-    btn.addEventListener('click', (ev) => { ev.preventDefault(); ev.stopPropagation(); pobCopy(item, btn) })
+    btn.title = '이 아이템을 영문 텍스트로 복사 — PoB(Path of Building)에 Ctrl+V로 붙여넣기\nShift+클릭: 번역 안 되는 부분 있으면 Discord로 제보'
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault(); ev.stopPropagation()
+      if (ev.shiftKey) reportMissing(item, btn); else pobCopy(item, btn)
+    })
     // 1순위: '인증 완료' 배지 아래(왼쪽 컬럼, 자연 흐름) — 텍스트 앵커라 이미지 로딩 타이밍과 무관하고,
     // poe1 세로로 긴 무기 이미지에서 버튼이 늘어지는 문제(높이 매칭)도 없다.
     const rr = row.getBoundingClientRect()
@@ -325,7 +359,7 @@ window.addEventListener('message', async (e) => {
       // BE는 EN 리그 id(예: Mirage)를 요구 — poe1 URL은 KR 표시명(허상)이라 leagueMap으로 역변환(못 찾으면 그대로)
       const leagueId = Object.keys(leagueMap).find((id) => leagueMap[id] === pending.league) || pending.league
       const rr = await send({ type: 'fetchRates', game, league: leagueId })
-      if (rr && rr.ok && rr.data && rr.data.exchange_rates) { lastRates = rr.data.exchange_rates; injectPobButtons() } // 환율 도착 즉시 엑잘 칩 패스
+      if (rr && rr.ok && rr.data && rr.data.exchange_rates) { lastRates = rr.data; injectPobButtons() } // 환율 도착 즉시 엑잘 칩 패스
       const epd = rr && rr.ok ? parseExaltedPerDivine(rr.data) || 0 : 0
       snapshot = priceSnapshot(listings, { exaltedPerDivine: epd })
       LOG('snapshot:', snapshot, '| listings', listings.length, '| epd', epd)

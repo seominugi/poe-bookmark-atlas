@@ -36,11 +36,18 @@ export function pickTemplate(id, koDesc, map) {
   return (hit || e[0]).en
 }
 
-// mod(stat id + KR 설명) → { en, ko }. en=null이면 미매핑(조립기가 폴백 결정).
+// 거래소 필터 목록이 로컬/글로벌 동명 mod를 구분하려고 붙인 표시(EN "(Local)"/KR "(특정)" 등) — 실제
+// 인게임 아이템 텍스트엔 없다. PoB는 인게임 텍스트만 인식하므로 남아 있으면 그 mod를 통째로 못 읽는다.
+const TRADE_ONLY_SUFFIX = /\s*\((?:Local|Global)\)\s*$/
+
+// mod(stat id + KR 설명) → { en, ko }. en=null이면 미매핑 또는 미완성 변환(조립기가 폴백·집계).
 export function translateMod(id, koDesc, map) {
-  const tpl = pickTemplate(id, koDesc, map)
+  const tpl = pickTemplate(id, koDesc, map)?.replace(TRADE_ONLY_SUFFIX, '')
   if (tpl == null) return { en: null, ko: koDesc }
-  return { en: fillValues(tpl, extractValues(stripTags(koDesc))), ko: koDesc }
+  const en = fillValues(tpl, extractValues(stripTags(koDesc)))
+  // 클러스터 주얼류 "Allocates #" 같은 텍스트형(특성 이름) 옵션은 #가 숫자가 아니라 extractValues가 못 채운다.
+  // 미치환 "#"가 그대로 남으면 PoB가 그 줄을 통째로 못 읽으므로 실패로 취급(en=null → 조립기가 KR로 폴백·집계).
+  return { en: en.includes('#') ? null : en, ko: koDesc }
 }
 
 /**
@@ -103,4 +110,17 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}) {
   if (expl.length) sections.push(expl)
   if (item.corrupted) sections.push(['Corrupted'])
   return { text: sections.map((s) => s.join('\n')).join('\n--------\n'), missing }
+}
+
+// 미변환 mod 수동 제보용 텍스트 — 웹훅 없이 사용자가 직접 Discord에 붙여넣는 방식(클라이언트에 웹훅 시크릿을 두지 않기 위함).
+// missing 없으면 null(제보할 게 없음 — 조립기가 버튼 동작 결정).
+export function buildReportText(item, missing, game) {
+  if (!missing || !missing.length) return null
+  return [
+    '[POE 북마크 아틀라스] PoB 번역 미변환 제보',
+    `아이템: ${item.name || '(이름 없음)'} / 베이스: ${item.baseType || '(알 수 없음)'}`,
+    `게임: ${game}`,
+    '미변환 항목:',
+    ...missing.map((m) => '- ' + m),
+  ].join('\n')
 }

@@ -385,13 +385,23 @@
 .ba-line1 b { color: var(--ba-text-strong); font-weight: 700; font-size: 14px; }
 .ba-l1l { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ba-thumb { width: 28px; height: 28px; flex: none; box-sizing: border-box; padding: 2px; border-radius: 6px; object-fit: contain; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--ba-border); }
-.ba-price { color: var(--ba-gold); font-weight: 800; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-variant-numeric: tabular-nums; }
 .ba-cur { width: 17px; height: 17px; vertical-align: middle; flex-shrink: 0; }
 .ba-stale { color: var(--ba-warn); cursor: help; }
+/* 히스토리 가격 칩 — 북마크(.ba-price-pill, 골드)와 같은 필 구조·크기지만 히스토리 전용 색(시안)으로 구분 */
+.ba-hist-price { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 9px; background: var(--ba-cyan-soft); border: 1px solid var(--ba-cyan-line); border-radius: 999px; color: var(--ba-cyan); font-weight: 800; white-space: nowrap; font-size: 12.5px; font-variant-numeric: tabular-nums; flex: none; }
+.ba-hist-price img { width: 16px; height: 16px; }
 
 /* 카드 메타 */
-.ba-meta { display: flex; align-items: center; gap: 7px; margin-top: 9px; color: var(--ba-text); font-size: 11px; }
-.ba-time { color: #d6dee8; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.ba-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ba-text); font-size: 11px; }
+/* 히스토리 날짜 칩 — 가격 칩과 같은 히스토리 시안 계열로 통일, 조건칩과 폭·글꼴 비례 맞춤(11px→12px).
+   리그는 더 이상 이 칩에 안 담김(가변 길이라 말줄임 문제 있었음) — 조건칩(있으면)·이 칩의 툴팁으로 이동. 날짜는 항상 고정 길이라 flex:none으로 충분 */
+.ba-hist-when { flex: none; display: inline-flex; align-items: center; gap: 5px; cursor: default;
+  font-size: 12px; font-weight: 600; color: #7de6ee; white-space: nowrap;
+  background: var(--ba-cyan-soft); border: 1px solid var(--ba-cyan-line); border-radius: var(--ba-r-chip); padding: 4px 10px; }
+/* 조건칩이 이제 .ba-meta의 첫 항목(좌측 정렬)이라 .ba-cond 기본 margin-left:auto(우측 정렬용)를 무효화.
+   ⋯는 반대로 margin-left:auto로 항상 행 우측 끝에 고정(칩들이 짧아 남는 공간이 ⋯ 앞이 아니라 뒤에 생기던 문제) */
+.ba-meta .ba-cond { flex: none; margin-left: 0; }
+.ba-meta .ba-more, .ba-meta-row .ba-more { flex: none; margin-left: auto; }
 .ba-cond {
   margin-left: auto; cursor: help; font-size: 12.5px; font-weight: 600; color: #c4b5fd; white-space: nowrap;
   background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line);
@@ -477,6 +487,7 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55); pointer-events: none;
 }
 .ba-tip-hr { border: none; border-top: 1px solid var(--ba-violet-line); margin: 5px 0; width: 100%; }
+.ba-tip-accent { color: var(--ba-cyan); font-weight: 700; }
 .ba-tip[hidden] { display: none; }
 
 /* ---- 빈 상태 (선택: renderList 빈 상태 마크업 시) ---- */
@@ -575,9 +586,7 @@
  * ============================================================ */
 .ba-ic { display: block; flex: none; }
 .ba-sec-title { display: inline-flex; align-items: center; gap: 6px; }
-.ba-time { display: inline-flex; align-items: center; gap: 4px; }
 .ba-cond { display: inline-flex; align-items: center; gap: 5px; }
-.ba-meta .ba-star, .ba-meta .ba-copy, .ba-meta .ba-hist-del { width: 27px; height: 27px; }
 .ba-l1l { flex: 1; }                 /* .dc.html: 이름 영역이 공간 차지 → 긴 이름 말줄임 */
 .ba-chips { margin-top: 8px; }       /* .dc.html: line1과 조건칩 사이 간격 */
 .ba-grip { padding: 0; font-size: 0; }  /* SVG 그립(14px) — 이모지용 패딩 제거 */
@@ -644,8 +653,9 @@
 .ba-donate { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 28px; height: 28px; flex: none; color: #fb7185; background: rgba(251, 113, 133, 0.12); border: 1px solid rgba(251, 113, 133, 0.32); border-radius: 8px; text-decoration: none; transition: background .15s, color .15s, transform .15s; }
 .ba-donate:hover { background: rgba(251, 113, 133, 0.22); color: #fda4af; transform: scale(1.08); }
 .ba-donate .ba-ic { fill: currentColor; }   /* 꽉 찬 하트 */
-/* 설정(톱니) 버튼 — 헤더 우측, 설정 모달 진입점 */
-.ba-gear { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 8px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
+/* 설정 버튼 — 푸터 하단(가이드 다시 보기 옆), 설정 모달 진입점. 아이콘만으론 직관성이 떨어져 텍스트 병기(가이드 버튼과 같은 패턴).
+   헤더 .ba-brand 행이 아이콘 과밀로 타이틀을 줄바꿈시켜 이쪽으로 이동했음 */
+.ba-gear { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; white-space: nowrap; font-family: inherit; font-size: 12px; font-weight: 700; border-radius: 9px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
 .ba-gear:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 /* 헤더 단축키 칩 — 호버 시 확장 팝업의 단축키 섹션 디자인(kbd 키캡+그룹)을 팝오버로 차용. margin-left:auto로 '제작' 칩과 함께 우측 정렬 */
 .ba-kbd-wrap { position: relative; margin-left: auto; flex: none; display: inline-flex; }
@@ -696,7 +706,8 @@
 
 /* 피드백 푸터 — 서미누기 제작 칩(글린트·글로우) + 소셜 (.dc.html) */
 .ba-foot { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 9px; padding: 12px 14px 14px; border-top: 1px solid rgba(167,139,250,.16); background: rgba(0,0,0,.18); }
-.ba-foot-guide { flex: 0 0 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ba-violet-2); background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.28); border-radius: 9px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
+.ba-foot-row2 { flex: 0 0 100%; display: flex; align-items: stretch; gap: 8px; }
+.ba-foot-guide { flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 10px; font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ba-violet-2); background: rgba(167,139,250,.1); border: 1px solid rgba(167,139,250,.28); border-radius: 9px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
 .ba-foot-guide:hover { background: rgba(167,139,250,.2); border-color: rgba(167,139,250,.5); color: #ddd6fe; }
 .ba-foot-tx { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; line-height: 1.3; flex: 1; min-width: 0; }
 .ba-foot-chip-wrap { position: relative; display: inline-flex; }

@@ -53,7 +53,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
             </div>
           </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
-          <button class="ba-gear" id="ba-gear" data-tip="설정 (Alt+O)">${icon('settings', 15)}</button>
           <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="후원하기 — 투네이션으로 응원 ↗">${icon('heart', 13)}</a>
         </div>
         <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>
@@ -91,7 +90,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
         <a class="ba-foot-soc ba-foot-soc--cafe" href="https://cafe.naver.com/seominugi" target="_blank" rel="noopener" data-tip="네이버 카페에서 문의하기"><img src="${cafeUrl}" alt="네이버 카페"></a>
         <a class="ba-foot-soc ba-foot-soc--yt" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="유튜브 채널 바로가기"><img src="${ytUrl}" alt="유튜브"></a>
         <a class="ba-foot-soc ba-foot-soc--dc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 서버 참여"><img src="${discordUrl}" alt="디스코드"></a>
-        <button class="ba-foot-guide" id="ba-foot-guide">${icon('sparkle', 13)}사용법 가이드 다시 보기</button>
+        <div class="ba-foot-row2">
+          <button class="ba-foot-guide" id="ba-foot-guide">${icon('sparkle', 13)}사용법 가이드 다시 보기</button>
+          <button class="ba-gear" id="ba-gear" data-tip="설정 (Alt+O)">${icon('settings', 15)}설정</button>
+        </div>
       </div>
       <div class="ba-toast" id="ba-toast" hidden></div>
     </div>
@@ -225,10 +227,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     const el = e.target.closest && e.target.closest('[data-tip]')
     if (!el) return
     const raw = el.getAttribute('data-tip')
-    // 구분선 마커(────────)가 있으면 폭 100% <hr>로 치환(나머지는 escape해 안전하게 HTML 렌더)
-    if (raw.indexOf('────────') >= 0) {
+    // 구분선 마커(────────)는 폭 100% <hr>로, 《...》는 강조색(시안) 텍스트로 치환(나머지는 escape해 안전하게 HTML 렌더)
+    if (raw.indexOf('────────') >= 0 || raw.indexOf('《') >= 0) {
       const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-      tipEl.innerHTML = esc(raw).replace(/\n?────────\n?/, '<hr class="ba-tip-hr">')
+      tipEl.innerHTML = esc(raw)
+        .replace(/\n?────────\n?/, '<hr class="ba-tip-hr">')
+        .replace(/《([^》]*)》/g, '<span class="ba-tip-accent">$1</span>')
     } else {
       tipEl.textContent = raw
     }
@@ -550,15 +554,18 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   // ── 사용법 가이드 코치마크 (4스텝) ──
   const TOUR = [
     { sel: '#ba-save', title: '자주하는 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 자주 쓰는 검색은 "현재 검색 저장"으로 영구 보관하고, 저장할 때 폴더도 바로 고를 수 있어요.' },
+    { sel: '.ba-pob-btn', global: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요. (검색 결과가 있어야 보여요)' },
+    { sel: '.ba-exr-chip', global: true, title: '가격을 한눈에', body: '제시 가격 옆에 엑잘티드(포1은 카오스) 환산값이 자동으로 붙어요 — 서미누기 환율 기준. (검색 결과가 있어야 보여요)' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },
     { sel: '.ba-open', title: '한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
     { sel: '.ba-price-pill', title: '검색 시점 시세', body: '가격에 마우스를 올리면 검색 당시 매물 기준 시세(빠르게 팔리는 가격)를 보여줘요. 북마크를 열면 최신 시세로 갱신됩니다.' },
-    { sel: '.ba-rowfoot', title: '카드 액션 모음', body: '카드 하단 버튼으로 검색 링크 복사, 최근 검색으로 갱신, 이름 변경, 다른 폴더로 이동, 삭제를 할 수 있어요.' },
+    { sel: '.ba-more', title: '카드 액션 모음', body: '⋯ 를 누르면 검색 링크 복사, 최근 검색으로 갱신, 이름 변경, 다른 폴더로 이동, 삭제 메뉴가 떠요.' },
     { sel: '.ba-folder-ic[data-id]', title: '폴더 색상 구분', body: '폴더 아이콘을 클릭하면 색을 바꿀 수 있어요. 색으로 분류하면 원하는 폴더를 한눈에 찾습니다.' },
     { sel: '.ba-action-row', title: '정리 도구', body: '모든 폴더 접기·펼치기와 새 폴더 추가가 여기 모여 있어요.' },
     { sel: '.ba-io-group', title: '백업 · 공유 (JSON)', body: '북마크를 JSON 파일로 내보내 백업하거나 다른 사람과 공유할 수 있어요. 받은 JSON은 가져오기로 합쳐집니다. 특정 폴더만 내보내려면 폴더 헤더의 ⬇ 아이콘을 쓰세요.' },
     { sel: '.ba-sec-hist', title: '자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
     { sel: '.ba-econ-row', title: '시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
+    { sel: '.ba-gear', title: '설정', body: '⚙ 을 누르면 패널 위치(좌/우) 등을 바꿀 수 있어요 (Alt+O).' },
     { sel: '#ba-handle', title: '언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
     { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
   ]
@@ -591,13 +598,16 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     }
     const render = () => {
       const step = TOUR[i]
-      let target = root.querySelector(step.sel)
+      // global: 패널(shadow root) 밖 — 거래소 페이지에 주입한 PoB 버튼·환산 칩처럼 document 쪽 대상.
+      // 검색 결과 없이 투어를 시작하면 아직 안 떠 있을 수 있어(스포트라이트만 자동 숨김, place()의 기존 0-rect 처리로 대응).
+      const scope = step.global ? document : root
+      let target = scope.querySelector(step.sel)
       if (target && !target.getBoundingClientRect().width) {
         // 접힌 폴더 안이면 투어 동안만 임시로 펼쳐 대상이 보이게(사용자 설정 Set은 건드리지 않음)
         const folded = target.closest('.ba-folder--collapsed')
         if (folded) folded.classList.remove('ba-folder--collapsed')
         if (!target.getBoundingClientRect().width) {
-          target = [...root.querySelectorAll(step.sel)].find((e) => e.getBoundingClientRect().width) || target
+          target = [...scope.querySelectorAll(step.sel)].find((e) => e.getBoundingClientRect().width) || target
         }
       }
       card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button>${i > 0 ? '<button class="ba-tour-prev">이전</button>' : ''}<button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div>`

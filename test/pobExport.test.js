@@ -1,9 +1,11 @@
 // 작업3 — 영문 PoB 조립기 핵심 로직. 캡처한 실제 아이템(공허 경고 · 사원 서판)의 mod로 검증.
 // stat id → 번들 EN 맵 조회 → 값 치환 → 영문 라인. 다중변형(Area/Map)은 KR 설명으로 택1.
 import { describe, it, expect } from 'vitest'
-import { stripTags, digitsToHash, extractValues, fillValues, pickTemplate, translateMod, buildPobText } from '../src/lib/pobExport.js'
+import { stripTags, digitsToHash, extractValues, fillValues, pickTemplate, translateMod, buildPobText, buildReportText } from '../src/lib/pobExport.js'
 import map from '../src/lib/pobStatMap.json'
 import baseMap from '../src/lib/pobBaseMap.json'
+import poe1Map from '../src/lib/pobStatMap.poe1.json'
+import poe1BaseMap from '../src/lib/pobBaseMap.poe1.json'
 
 describe('stripTags — [Key|표시텍스트] 마크업 제거', () => {
   it('[Rarity|희귀도] → 희귀도', () => {
@@ -52,6 +54,28 @@ describe('translateMod — 캡처 아이템(공허 경고)의 실제 mod → 영
   }
   it('미매핑 id는 en=null(폴백은 조립기가 처리)', () => {
     expect(translateMod('explicit.stat_does_not_exist', '없음', map).en).toBeNull()
+  })
+})
+
+describe('translateMod — # 미치환 잔존은 실패로 취급 (텍스트형 옵션 mod)', () => {
+  // 클러스터 주얼류 "Allocates #"(할당 #)는 #가 숫자가 아니라 특성 이름 자리 — extractValues는 숫자만 찾아서
+  // 못 채운다. 미치환 "#"가 그대로 남으면 PoB가 파싱 못 하므로, en=null(실패)로 처리해 조립기가 KR로 폴백·집계하게 한다.
+  it('실제 poe1 인챈트("할당 #") — 값 없는 텍스트형 옵션은 en=null', () => {
+    expect(translateMod('enchant.stat_2954116742', '할당 골렘의 피', poe1Map).en).toBeNull()
+  })
+  it('값이 있는 정상 mod는 그대로 채워짐(회귀 방지)', () => {
+    expect(translateMod('explicit.stat_1037193709', '냉기 피해 2~3 추가', poe1Map).en).toBe('Adds 2 to 3 Cold Damage')
+  })
+})
+
+describe('translateMod — (Local) 접미사 제거 (poe1 무기 지역 mod)', () => {
+  // "(Local)"·KR "(특정)"은 거래소 필터 목록이 로컬/글로벌 동명 mod를 구분하려고 붙인 표시일 뿐 —
+  // 실제 인게임 아이템 텍스트엔 없다. PoB는 인게임 텍스트만 파싱해서 이 문구가 있으면 mod를 인식 못 한다.
+  it('냉기 피해 로컬 mod — EN 템플릿에서 (Local) 제거', () => {
+    expect(translateMod('explicit.stat_1037193709', '냉기 피해 2~3 추가', poe1Map).en).toBe('Adds 2 to 3 Cold Damage')
+  })
+  it('번개 피해 로컬 mod — EN 템플릿에서 (Local) 제거', () => {
+    expect(translateMod('explicit.stat_3336890334', '번개 피해 1~6 추가', poe1Map).en).toBe('Adds 1 to 6 Lightning Damage')
   })
 })
 
@@ -159,5 +183,39 @@ describe('buildPobText — 전체 아이템 → PoB import 텍스트 (캡처 실
   it('classId 공백은 하이픈 슬러그로 (Body Armours → body-armours)', () => {
     const { text } = buildPobText({ ...captured, baseType: '전사의 갑옷' }, map, { '전사의 갑옷': ['Warrior Plate', 'Body Armours'] })
     expect(text.split('\n')[2]).toBe('seominugi-bookmark-item-body-armours')
+  })
+  it('poe1 무기 로컬 mod("녹슨 손도끼") — 조립 결과에 (Local) 문구가 남지 않는다', () => {
+    const hatchet = {
+      name: '', baseType: '녹슨 손도끼', rarity: 'Normal', ilvl: 7,
+      explicitMods: [
+        { description: '냉기 피해 2~3 추가', hash: 'stat.explicit.stat_1037193709' },
+        { description: '번개 피해 1~6 추가', hash: 'stat.explicit.stat_3336890334' },
+      ],
+      extended: { hashes: { explicit: [['explicit.stat_1037193709', [0]], ['explicit.stat_3336890334', [0]]] } },
+    }
+    const { text, missing } = buildPobText(hatchet, poe1Map, poe1BaseMap)
+    expect(text).toContain('Adds 2 to 3 Cold Damage')
+    expect(text).toContain('Adds 1 to 6 Lightning Damage')
+    expect(text).not.toContain('(Local)') // PoB는 이 문구가 있으면 mod를 인식 못 함
+    expect(missing).toEqual([])
+  })
+})
+
+describe('buildReportText — 미변환 수동 제보용 텍스트(디스코드에 붙여넣기)', () => {
+  it('미변환 항목이 있으면 아이템·게임·미변환 목록을 담은 텍스트 생성', () => {
+    const text = buildReportText({ name: '공허 경고', baseType: '사원 서판' }, ['base:골절늑골 부적', 'enchant:enchant.stat_2954116742'], 'poe1')
+    expect(text).toContain('공허 경고')
+    expect(text).toContain('사원 서판')
+    expect(text).toContain('poe1')
+    expect(text).toContain('base:골절늑골 부적')
+    expect(text).toContain('enchant:enchant.stat_2954116742')
+  })
+  it('이름 없는 아이템(마법 등)도 베이스만으로 식별 가능', () => {
+    const text = buildReportText({ name: '', baseType: '녹슨 손도끼' }, ['base:녹슨 손도끼'], 'poe1')
+    expect(text).toContain('녹슨 손도끼')
+  })
+  it('미변환 없으면 null(제보할 게 없음)', () => {
+    expect(buildReportText({ name: 'x', baseType: 'y' }, [], 'poe2')).toBeNull()
+    expect(buildReportText({ name: 'x', baseType: 'y' }, null, 'poe2')).toBeNull()
   })
 })

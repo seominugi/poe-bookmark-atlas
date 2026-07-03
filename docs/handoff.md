@@ -1,5 +1,5 @@
 ---
-timestamp: 2026-07-03 (Asia/Seoul)
+timestamp: 2026-07-04 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
@@ -9,7 +9,7 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
-0.2.0 스토어 심사 대기 중. 피드백 3건 중 **작업1(중복 저장 오판)·작업2(패널 좌/우) 완료**, **작업3(영문 PoB 복사) — poe1·poe2 모두 종단 구현 완료**(아이템 원본 보존·전체 조립·행별 버튼·엑잘/카오스 환산 칩). **남은 것: 사용자의 실제 PoB import 최종 확인 1건**.
+0.2.0 스토어 심사 대기 중. 피드백 3건(작업1·2·3) 모두 기능 구현 완료. **사용자 방침(2026-07-04): "번역 100% 완벽 안 된 상태 인정하고, 미진한 부분은 추후 보완"** — Shift+클릭 수동 제보 기능이 그 보완 파이프라인. 지금은 UI 다듬기 라운드 다수 진행, **커밋 안 한 변경 다수 누적**(아래 "현재 상태" 참조) — 다음 세션 시작 시 우선 확인.
 
 ## 완료된 작업
 
@@ -59,21 +59,40 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 - `src/content/panel/panel.js` — 설정 단축키 **Alt+O** 추가(Alt+S는 검색저장 선점) — kbd 안내 팝오버·기어 툴팁 반영
 - 문서: `docs/영문-pob-복사-선행조사.md` (캡처 결과·아키텍처 C 확정)
 
+### 작업3 이후 다듬기 라운드 (2026-07-04, 미커밋)
+
+- **PoB 번역 정확도 버그 2건**:
+  - `(Local)`/`(Global)` 접미사(거래소 필터 UI 전용 표시, 인게임 텍스트엔 없음) 미제거 → PoB가 mod 인식 못 함. `translateMod`에서 `TRADE_ONLY_SUFFIX` 정규식으로 제거
+  - `fillValues` 결과에 `#`가 안 채워진 채 남는 케이스(클러스터 주얼류 "Allocates #" 같은 텍스트형 옵션 — `#` 자리가 숫자가 아니라 특성 이름) → `missing[]` 집계에도 안 잡히던 사각지대. 이제 `#` 잔존 시 `en=null`(실패) 처리해 KR 폴백 + 집계
+  - **알려진 한계**: poe1 탈리스만(부적류 장신구) 베이스가 poe-i18n 데이터셋에 통째로 없음(Talisman 리그 아이템 미포함) — 확인됨, 대안 데이터소스 필요시 별도 조사
+- **엑잘/카오스 환산 칩 커버리지 확장**: 큐레이션 4종(엑잘·디바인·미러) 밖 BE `items` 맵(개별 화폐 시세, poe1 341개/poe2 608개) 폴백 추가 — `itemsRate()`. 거래소 103개 화폐 id 중 63개 커버(스크린샷 재현: 쥬얼러 오브·색채의 오브 등). `primary_currency` 일치 시 직접관찰 `_ask`, 아니면 cross 계산값 사용(둘이 갈리는 사례 발견해 구분)
+- **히스토리 카드 재설계 (여러 라운드)**:
+  - 리그 통합(모든 리그 단일 섹션, 북마크는 리그별 유지) — `listByKind`가 이미 시간순 정렬이라 재파티션만 제거
+  - 카드 UI를 북마크와 동일한 **조건칩+⋯팝오버** 언어로 통일 — 액션(북마크로 저장·링크복사·삭제)을 `.ba-actions-pop`으로 이동(신규 JS 불필요, 기존 범용 핸들러 재사용)
+  - 리그 표시는 별도 칩(가변 길이 → 말줄임 문제) 대신 **조건칩(없으면 날짜칩) 툴팁 맨 위**로 이동 — `[리그] 《...》` 마커를 tooltip 렌더러가 시안색 span으로 치환(`.ba-tip-accent`, 기존 `────────`→`<hr>` 패턴과 동일 메커니즘 확장)
+  - 날짜는 항상 연월일시분 전체(`fmtTime`), 히스토리 전용 시안(cyan) 색 칩(`.ba-hist-price`/`.ba-hist-when`)으로 북마크 골드 칩과 구분
+  - **버그 2건 — 북마크에도 있던 잠재 버그**: ① 가격 없을 때 빈 필(pill) 렌더(`.ba-price-pill`/`.ba-hist-price` 둘 다 무조건 래핑하던 게 원인) → 가격 있을 때만 렌더로 수정. ② ⋯ 버튼이 행 우측 끝에 고정 안 됨(칩이 짧으면 남는 공간이 ⋯ 뒤에 생김, 북마크는 조건 텍스트가 보통 길어 우연히 안 보이던 문제) → `.ba-more`에 `margin-left:auto`
+- **헤더 레이아웃**: `.ba-brand` 행에 로고·⌨·서미누기제작·⚙·♥ 5개 고정폭 요소가 몰려 타이틀 줄바꿈 → 설정(⚙) 버튼을 푸터로 이동("사용법 가이드 다시 보기" 옆), 아이콘 전용→"설정" 텍스트 병기로 직관성 개선
+- **가이드 투어**: 죽은 `.ba-rowfoot` 셀렉터(카드 리스트럭처링으로 고아됨) → `.ba-more`로 교체, 설정 스텝 신규 추가, 투어 엔진이 페이지 바깥(PoB 버튼·환산 칩) 요소도 스포트라이트 가능하도록 확장(`global:true`, shadow root가 `.ba-root`의 transform과 무관해 좌표 안전)
+- **Shift+클릭 수동 제보**: PoB 버튼에 미변환 mod 있으면 Shift+클릭으로 제보 텍스트를 클립보드에 복사 + 기존 공개 Discord 초대 링크(`discord.gg/kEm2G2qcZQ`)를 새 탭으로 오픈. **웹훅 직접 연동 안 함**(클라이언트에 webhook 시크릿 노출 시 악용 위험 — 확장은 언패킹된 JS라 누구나 추출 가능). seominugi.com 백엔드(smng-poe-pricer, 별도 레포) 쪽에 제보 수신 엔드포인트 생기면 `reportMissing()` 내부만 fetch(POST)로 교체하면 됨, UI·트리거는 안 바꿔도 됨
+
 ## 미완료 / 다음 단계
 
-1. **작업3 최종 확인**: 사용자가 poe1·poe2 각각에서 PoB 복사 → 실제 PoB(1/2)에 Ctrl+V import 검증 — 아직 미확인. 실패 시 `missing[]` 콘솔 로그(`[BA] PoB 미변환 항목:`)로 원인 특정
-2. 완료되면 Designer·QA 페르소나(Phase 3·4) 정리 후 작업3 완료 선언
-3. poe1 환산 칩은 BE 응답에 있는 엑잘·디바인·미러 매물만 지원(연금술 등은 칩 생략) — BE에 마켓 추가 시 확장은 자동 커버
-4. poe1 장비 품질/소켓/링크는 MVP 미포함(PoB에서 수동 지정 필요)
+1. 이번 세션 다듬기 라운드 **커밋 안 함** — 다음 세션에서 커밋 여부 사용자 확인 필요(8개 파일, +261/-72줄)
+2. 사용자가 poe1·poe2 각각에서 PoB 복사 → 실제 PoB(1/2)에 Ctrl+V import 최종 확인 — 아직 미확인(현재 "미완벽 인정, 추후 보완" 방침이라 급하지 않음. Shift+클릭 제보로 사용자 피드백 루프 대체)
+3. poe1 탈리스만 베이스 데이터 소스 부재(위 참조) — 필요시 별도 조사
+4. poe1 환산 칩은 BE items 맵에 있는 63개 화폐만 지원 — 제왕의 오브·축복의 오브 등 일부 흔한 화폐는 BE 데이터 자체에 없음(이 리그 스냅샷 한정일 수 있음)
+5. poe1 장비 품질/소켓/링크는 MVP 미포함(PoB에서 수동 지정 필요)
+6. 완료 선언 전 Designer·QA 페르소나(Phase 3·4) 정리 권장(§14, 아직 미실시)
 
 ## 현재 상태
 
-- 브랜치: `main` — 이번 세션 커밋 예정(작업1·2+픽스 / 하네스 / PoB 코어는 기존 3커밋 완료·push됨; 이번 라운드의 PoB 종단 구현·poe1 지원·환산 칩·단축키는 신규 커밋)
-- 테스트: **139/139**(vitest, jsdom 포함) · 빌드 통과
+- 브랜치: `main` — **미커밋 변경 다수**(작업3 종단 구현 이후 다듬기 라운드 전체, 8 파일). 이전 3커밋(작업1·2+픽스/하네스/PoB 코어)만 origin push 완료
+- 테스트: **165/165**(vitest, jsdom 포함) · 빌드 통과
 - 배포: **0.2.0 스토어 심사 중** / 이번 작업들은 0.3.0 대상
 - 빌드: `npm run build` → dist/ (해시 변경 시 확장 리로드+F5). dist/·deploy/ gitignore.
-- 하네스: `.claude/launch.json`의 `harness`(포트 5199), `test-harness/harness.mjs` 참조
+- 하네스: `.claude/launch.json`의 `harness`(포트 5199), `test-harness/harness.mjs` 참조. content-main.js(페이지 주입 로직·PoB 버튼·환산 칩)는 하네스가 실행 안 함 — 이 부분은 `preview_eval`로 실제 로직을 인라인 재현해 모의 검증(라이브 로그인 세션 접근 불가)
 - 검증 제약: 거래소는 **로그인 세션 탭에서만** 패널 마운트 → 라이브 검증은 확장 리로드+F5 수동. 확장은 **dist 폴더** 로드.
 - 커밋 작성자: `git -c user.name="서민욱" -c user.email="alsdnr0712@gmail.com"`, Co-Authored-By 금지.
-- **함정 메모**: 패널은 open shadow root — document 레벨 리스너에서 `e.target.closest` 금지, **`e.composedPath()` 사용** (이번 세션에만 3회 물림)
+- **함정 메모**: 패널은 open shadow root — document 레벨 리스너에서 `e.target.closest` 금지, **`e.composedPath()` 사용** (누적 3회 물림)
 - **맵 재생성 절차**: `scripts/build-pob-statmap.mjs <en.json> <kr.json> [출력명]`은 비-KR 환경(VPN)에서 curl로 받은 raw JSON 필요(EN pathofexile.com geo-block, Node fetch는 Cloudflare 차단 — curl만 통과). `scripts/build-pob-basemap.mjs [poe-i18n루트] [base출력] [unique출력]`은 poe-i18n-json-data-generator-dev 레포 최신 상태 의존

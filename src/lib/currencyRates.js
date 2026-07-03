@@ -10,13 +10,32 @@ export function baseCurrencyOf(game) {
 }
 
 /**
- * 거래소 제시 가격({amount, currency}) → 게임 기본 화폐 환산값 (poe2: 엑잘 / poe1: 카오스, BE exchange_rates 기준).
- * 미러는 디바인 경유 cross. 이미 기본 화폐거나 미지원 화폐·환율 부재면 null(표시 안 함).
- * @param {{amount:number, currency:string}|null} price @param {any} ex @param {string} game @returns {number|null}
+ * BE items 맵(개별 화폐별 시세, 큐레이션 exchange_rates 4종 밖 60여 종 커버 — 쥬얼러·색채·연금술 등)에서
+ * 화폐 하나의 기준화폐 환산 rate. primary_currency가 기준화폐와 같으면 그 시장에서 직접관찰된 _ask를 쓰고
+ * (cross 계산 없이 가장 신뢰도 높음), 다르면 top-level cross 필드를 쓴다(예: chrome은 divine이 primary라
+ * top-level chaos가 cross 계산값 — 실측 chaos_ask보다 유동성 높은 divine 경유가 더 안정적).
+ * @param {any} items @param {string} currency @param {string} base @returns {number|null}
  */
-export function baseFromPrice(price, ex, game) {
-  if (!price || !ex || typeof price.amount !== 'number') return null
-  let per = null
+export function itemsRate(items, currency, base) {
+  const it = items?.[currency]
+  if (!it) return null
+  if (it.primary_currency === base && typeof it[base + '_ask'] === 'number') return it[base + '_ask']
+  return typeof it[base] === 'number' ? it[base] : null
+}
+
+/**
+ * 거래소 제시 가격({amount, currency}) → 게임 기본 화폐 환산값 (poe2: 엑잘 / poe1: 카오스).
+ * 1순위 BE exchange_rates(엑잘·디바인·미러 — 미러는 디바인 경유 cross), 2순위 BE items 맵(그 외 다수 화폐).
+ * 이미 기본 화폐거나 둘 다 없으면 null(표시 안 함).
+ * @param {{amount:number, currency:string}|null} price @param {any} rateData BE 원본 응답({exchange_rates, items})
+ * @param {string} game @returns {number|null}
+ */
+export function baseFromPrice(price, rateData, game) {
+  if (!price || !rateData || typeof price.amount !== 'number') return null
+  const base = baseCurrencyOf(game)
+  if (price.currency === base) return null
+  const ex = rateData.exchange_rates || {}
+  let per
   if (game === 'poe1') {
     const cpd = ex.chaos_per_divine?.price
     per = {
@@ -32,6 +51,7 @@ export function baseFromPrice(price, ex, game) {
       mirror: ex.divine_per_mirror?.price && epd ? ex.divine_per_mirror.price * epd : null,
     }[price.currency]
   }
+  if (typeof per !== 'number' || per <= 0) per = itemsRate(rateData.items, price.currency, base)
   return typeof per === 'number' && per > 0 ? price.amount * per : null
 }
 

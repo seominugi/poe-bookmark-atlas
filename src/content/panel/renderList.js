@@ -247,7 +247,7 @@ function condSummaryText(r) {
   return parts.join(' · ')
 }
 
-function rowHtml(r, kind, currentLeague) {
+function rowHtml(r, kind, currentLeague, leagueMap) {
   const price = priceHtml(r.snapshot)
   const title = escapeHtml(r.name || r.title)
   const stats = r.stats || []
@@ -266,11 +266,23 @@ function rowHtml(r, kind, currentLeague) {
   // 대표 아이템 이미지 — 북마크·히스토리 공통(검색 결과 최빈 아이콘)
   const thumb = r.icon && isAllowedIconUrl(r.icon) ? `<img class="ba-thumb" src="${escapeHtml(r.icon)}" alt="" loading="lazy" />` : ''
 
-  // ── 히스토리: 카드 전체 클릭으로 재검색 (디자인: 가벼운 글래스 카드) ──
+  // ── 히스토리: 카드 전체 클릭으로 재검색 (디자인: 북마크 카드와 동일한 조건칩+⋯팝오버 언어) ──
   if (kind === 'history') {
+    // 히스토리는 모든 리그 통합 렌더라 그룹으로 구분이 안 됨 — 리그를 별도 칩(말줄임 문제 있었음) 대신
+    // 조건 칩(+ 조건이 없으면 날짜 칩) 툴팁 맨 위에 얹는다. 《...》는 tooltip 렌더러가 시안색으로 바꿔주는 마커.
+    const leagueName = r.league ? (leagueMap && leagueMap[r.league]) || r.league : ''
+    const leagueLine = leagueName ? `[리그] 《${leagueName}》` : ''
+    const histTip = escapeHtml([leagueLine, condTipText(r)].filter(Boolean).join('\n────────\n'))
+    const histCondChip = condCount ? `<span class="ba-cond" data-tip="${histTip}">${icon('search', 12)}조건 ${condCount}개</span>` : ''
+    const whenChip = `<span class="ba-hist-when"${histTip && !condCount ? ` data-tip="${histTip}"` : ''}>${icon('clock', 11)}${fmtTime(when)}</span>`
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b>${title}</b></span><span class="ba-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span></div>
-      <div class="ba-meta"><span class="ba-star" data-id="${r.id}" data-name="${title}" data-tip="북마크로 저장">${icon('star', 14)}</span><span class="ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="검색 링크 복사">${icon('link', 14)}</span><span class="ba-hist-del" data-id="${r.id}" data-tip="이 기록 삭제">${icon('trash', 14)}</span><span class="ba-time">${icon('clock', 11)}${fmtTime(when)}</span>${condChip}</div>
+      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b>${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
+      <div class="ba-meta">${histCondChip}${whenChip}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>
+      <div class="ba-actions-pop" hidden>
+        <span class="ba-act ba-star" data-id="${r.id}" data-name="${title}">${icon('star', 13)}북마크로 저장</span>
+        <span class="ba-act ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}">${icon('link', 13)}링크 복사</span>
+        <span class="ba-act ba-hist-del" data-id="${r.id}">${icon('trash', 12)}삭제</span>
+      </div>
     </div>`
   }
 
@@ -290,7 +302,7 @@ function rowHtml(r, kind, currentLeague) {
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
     <div class="ba-line1">
       <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
-      <span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>
+      ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
     <div class="ba-meta-row">${attn}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
     <div class="ba-note-slot" data-id="${r.id}" data-note="${escapeHtml(noteText)}">${noteText ? `<span class="ba-note${r.note ? '' : ' ba-note--auto'}" data-tip="${r.note ? '클릭해 메모 편집' : '검색 조건 자동 요약 — 클릭해 메모로 저장·편집'}">${icon('chat', 11)}<span>${escapeHtml(noteText)}</span></span>` : `<span class="ba-note ba-note--empty" data-tip="클릭해 메모 추가">${icon('chat', 11)}<span>+ 메모</span></span>`}</div>
@@ -376,16 +388,14 @@ export async function renderList(listEl, root, ui = {}) {
       <small>좋은 검색을 찾으면 상단 <span class="hl">현재 검색 저장</span>으로<br>북마크해 두고 언제든 다시 열어보세요</small>
     </div>`
   } else {
-    // ── 리그 섹션 (접이식) — 현재 리그는 펼침, 지난 리그는 접어서 아카이브(리다이렉트로 열림) ──
+    // ── 리그 섹션 (접이식, 북마크 전용) — 현재 리그는 펼침, 지난 리그는 접어서 아카이브(리다이렉트로 열림) ──
     const leagueMap = ui.getLeagueMap ? ui.getLeagueMap() : {}
     const seen = new Set()
-    const orderedLeagues = [ui.league, ...bookmarks.map((b) => b.league), ...history.map((h) => h.league)]
-      .filter((l) => l && !seen.has(l) && seen.add(l))
+    const orderedLeagues = [ui.league, ...bookmarks.map((b) => b.league)].filter((l) => l && !seen.has(l) && seen.add(l))
     for (const league of orderedLeagues) {
       const isCurrent = league === ui.league
       const lgBm = bookmarks.filter((b) => (b.league || '') === league)
-      const lgHs = history.filter((h) => (h.league || '') === league)
-      if (!isCurrent && !lgBm.length && !lgHs.length) continue
+      if (!isCurrent && !lgBm.length) continue
       const key = 'L:' + league
       // 기본: 현재 리그 펼침 / 지난 리그 접힘. collapsedLeagues에 키가 있으면 그 기본을 반전.
       const collapsed = collapsedLeagues.has(key) ? isCurrent : !isCurrent
@@ -405,13 +415,13 @@ export async function renderList(listEl, root, ui = {}) {
         if (!items.length && !(isCurrent && g.id === null)) continue
         html += folderHtml(g, items, ui.league)
       }
-      // 히스토리 (이 리그) — 전체 삭제는 game 전체이므로 현재 리그 섹션에만 노출
-      if (lgHs.length) {
-        html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 14)}<span>히스토리</span><span class="ba-sec-count">${lgHs.length}</span></span>${isCurrent ? `<span class="ba-sec-actions"><button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button></span>` : ''}</div>`
-        html += lgHs.slice(0, historyLimit).map((r) => rowHtml(r, 'history')).join('')
-        if (lgHs.length > historyLimit) html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${lgHs.length - historyLimit}개)</button>`
-      }
       html += `</div></div>`
+    }
+    // ── 히스토리 — 리그 구분 없이 전체 통합(시간순, listByKind가 이미 최신순 정렬) ──
+    if (history.length) {
+      html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 14)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span><span class="ba-sec-actions"><button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button></span></div>`
+      html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history', ui.league, leagueMap)).join('')
+      if (history.length > historyLimit) html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>`
     }
   }
 
@@ -438,7 +448,7 @@ function bindAll(listEl, ui) {
   listEl.querySelectorAll('.ba-row').forEach((row) => {
     if (row.dataset.kind !== 'history') return
     row.addEventListener('click', (e) => {
-      if (e.target.closest('.ba-star,.ba-copy,.ba-cond,.ba-stale,.ba-hist-del')) return
+      if (e.target.closest('.ba-star,.ba-copy,.ba-cond,.ba-stale,.ba-hist-del,.ba-more,.ba-actions-pop')) return
       openTradeUrl(decodeURIComponent(row.dataset.url), toast, e)
     })
   })
