@@ -61,7 +61,8 @@ const tourDemo = {
   hide() { const el = document.getElementById('ba-tour-demo'); if (el) el.remove() },
 }
 
-const panel = mountPanel({ game: 'poe2', league: 'Runes of Aldur', getLeagueMap: () => ({ 'Runes of Aldur': 'Runes of Aldur', Abyss: '지난 리그' }), getCurrentSearch: () => null, migrateSearch, tourDemo })
+const panel = mountPanel({ game: 'poe2', league: 'Runes of Aldur', // 리그 목록 = 지금 열려 있는 리그만(거래소 API와 동일). 위 시드의 'Abyss'는 일부러 빼서 '끝난 리그'로 만든다.
+getLeagueMap: () => ({ 'Runes of Aldur': 'Runes of Aldur', Standard: '스탠다드' }), getCurrentSearch: () => null, migrateSearch, tourDemo })
 panel.show()
 globalThis.__panel = panel
 globalThis.__root = document.getElementById('ba-panel-host').shadowRoot

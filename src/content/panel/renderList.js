@@ -165,6 +165,29 @@ const hexToRgba = (hex, a) => {
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
 const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능성 경고
 
+/**
+ * 리그가 "아직 열려 있는지"를 거래소 리그 목록(/api/trade(2)/data/leagues = 현재 리그만 반환) 기준으로 판정한다.
+ *
+ * ⚠ 페이지 URL의 리그를 '현재 리그'로 믿으면 안 된다 — 오래된 북마크 링크로 들어오면 URL이 이미 끝난 리그
+ * (예: Settlers)라서, 그 페이지에선 끝난 리그가 '현재'로 뒤바뀌고 진짜 현재 리그가 '지난'으로 표시된다.
+ * 이관 대상 리그로 쓰면 죽은 리그에 검색을 만들게 된다.
+ *
+ * poe1 카카오는 URL에 표시명("허상")이 오고 맵의 키는 id("Mirage")라 양쪽 형태를 모두 인정한다.
+ * 리그 목록을 아직 못 받았으면(로드 전·실패) 판정을 보류한다 — 성급하게 "지난 리그" 경고를 띄우지 않는다.
+ */
+export function leagueInfo(leagueMap) {
+  const map = leagueMap || {}
+  const known = Object.keys(map).length > 0
+  const names = new Set(Object.values(map))
+  const inMap = (l) => !!map[l] || names.has(l)
+  return {
+    known,
+    isLive: (l) => !known || (!!l && inMap(l)),
+    isDead: (l) => !!l && known && !inMap(l),
+    name: (l) => (l ? map[l] || l : ''),
+  }
+}
+
 // 허용 도메인(거래소) 링크만 연다 — 가져온 데이터의 피싱·javascript: URL 차단.
 // Ctrl/⌘ 클릭은 새 탭으로 열어 현재 검색을 유지한다.
 function openTradeUrl(url, toast, e) {
@@ -248,7 +271,7 @@ function condSummaryText(r) {
   return parts.join(' · ')
 }
 
-function rowHtml(r, kind, currentLeague, leagueMap) {
+function rowHtml(r, kind, lg) {
   const price = priceHtml(r.snapshot)
   const title = escapeHtml(r.name || r.title)
   const stats = r.stats || []
@@ -260,7 +283,7 @@ function rowHtml(r, kind, currentLeague, leagueMap) {
   const condChip = condCount ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${condCount}개</span>` : ''
   // 저장 당시 리그 — 조건 칩 툴팁 맨 위에 얹는다(히스토리·북마크 공통). 《...》는 tooltip 렌더러가
   // 시안색으로 바꿔줌(기존 ────────→<hr> 패턴과 동일 메커니즘).
-  const leagueName = r.league ? (leagueMap && leagueMap[r.league]) || r.league : ''
+  const leagueName = lg ? lg.name(r.league) : r.league || ''
   const leagueLine = leagueName ? `[리그] 《${leagueName}》` : ''
   const condTipWithLeague = escapeHtml([leagueLine, condTipText(r)].filter(Boolean).join('\n────────\n'))
   // 북마크 카드: '조건 N개' 대신 입력 수치까지 담은 조건 요약(호버 시 전체 상세는 동일 툴팁). 긴 조건은 CSS 말줄임.
@@ -303,9 +326,10 @@ function rowHtml(r, kind, currentLeague, leagueMap) {
   // 능력치 미리보기 칩은 텍스트 길이에 따라 줄바꿈돼 호버(+n) 위치가 흔들림 →
   // 고정 폭 '조건 N개' 단일 칩(호버 시 전체 상세) + 상시 메모로 대체.
   const noteText = r.note || buildAutoNote(r) // 빈 메모면 조건 요약을 렌더 시점에 폴백 표시(저장 X, 편집하면 그때 저장)
-  // 리그 이관 — 저장 당시 리그와 지금 리그가 다르면(=조건이 안 맞는 링크) 열 때 다시 검색을 제안한다.
+  // 리그 이관 — 저장 당시 리그가 '이미 끝난 리그'일 때만 열 때 다시 검색을 제안한다.
+  // 지금 보고 있는 페이지의 리그와 다르다는 것만으론 부족하다: 스탠다드↔하드코어처럼 둘 다 열려 있으면 안 깨졌다.
   // 조건(query)을 가진 북마크만 실제 이관이 가능하므로 액션도 그때만 노출(구 북마크는 열기 흐름에서 안내).
-  const pastLeague = !!(currentLeague && r.league && r.league !== currentLeague)
+  const pastLeague = !!(lg && lg.isDead(r.league))
   const migrateAct = r.query
     ? `<span class="ba-act relg ba-migrate" data-id="${r.id}">${icon('trophy', 13)}현재 리그로 다시 검색</span>`
     : ''
@@ -329,7 +353,7 @@ function rowHtml(r, kind, currentLeague, leagueMap) {
 }
 
 // 폴더 하나의 헤더+본문 HTML (리그 섹션 안에서 재사용)
-function folderHtml(g, items, currentLeague) {
+function folderHtml(g, items, lg) {
   const fActions =
     g.id !== null
       ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
@@ -350,7 +374,7 @@ function folderHtml(g, items, currentLeague) {
   const countStyle = `color:${folderColor};background:${hexToRgba(folderColor, 0.16)}`
   return `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}" data-folder="${fkey}">
       <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
-      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${saveChip}${items.map((r) => rowHtml(r, 'bookmark', currentLeague)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
+      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${saveChip}${items.map((r) => rowHtml(r, 'bookmark', lg)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
 }
 
@@ -399,24 +423,33 @@ export async function renderList(listEl, root, ui = {}) {
       <small>좋은 검색을 찾으면 상단 <span class="hl">현재 검색 저장</span>으로<br>북마크해 두고 언제든 다시 열어보세요</small>
     </div>`
   } else {
-    // ── 리그 섹션 (접이식, 북마크 전용) — 현재 리그는 펼침, 지난 리그는 접어서 아카이브(리다이렉트로 열림) ──
+    // ── 리그 섹션 (접이식, 북마크 전용) — 끝난 리그만 접어서 아카이브 ──
+    // '지난' 판정은 거래소 리그 목록 기준(leagueInfo). 페이지 URL의 리그와 비교하면, 오래된 북마크 링크로
+    // 들어왔을 때 끝난 리그가 '현재'로 뒤바뀐다.
     const leagueMap = ui.getLeagueMap ? ui.getLeagueMap() : {}
+    const lg = leagueInfo(leagueMap)
     const seen = new Set()
     const orderedLeagues = [ui.league, ...bookmarks.map((b) => b.league)].filter((l) => l && !seen.has(l) && seen.add(l))
     for (const league of orderedLeagues) {
-      const isCurrent = league === ui.league
+      const dead = lg.isDead(league)
+      const isCurrent = league === ui.league && !dead // 지금 보고 있는 리그(그리고 아직 열려 있는 리그)
       const lgBm = bookmarks.filter((b) => (b.league || '') === league)
       if (!isCurrent && !lgBm.length) continue
       const key = 'L:' + league
-      // 기본: 현재 리그 펼침 / 지난 리그 접힘. collapsedLeagues에 키가 있으면 그 기본을 반전.
-      const collapsed = collapsedLeagues.has(key) ? isCurrent : !isCurrent
-      const lgName = leagueMap[league] || league
+      // 기본: 열려 있는 리그 펼침 / 끝난 리그 접힘. collapsedLeagues에 키가 있으면 그 기본을 반전.
+      const collapsed = collapsedLeagues.has(key) ? !dead : dead
+      const lgName = lg.name(league)
+      const badge = isCurrent
+        ? '<span class="ba-league-badge current">현재</span>'
+        : dead
+          ? `<span class="ba-league-badge past" data-tip="이미 끝난 리그예요. 링크를 열어도 저장 당시 조건이 그대로 재현되지 않습니다.\n북마크를 열거나 ⋯ → '현재 리그로 다시 검색'을 쓰면 지금 리그로 되살릴 수 있어요.">지난</span>`
+          : ''
       html += `<div class="ba-league${collapsed ? ' ba-league--collapsed' : ''}" data-league="${escapeHtml(league)}">
       <div class="ba-league-head" data-key="${escapeHtml(key)}">
         <span class="ba-league-chevron">${icon('chevronRight', 13)}</span>
         <span class="ba-league-ic">${icon('trophy', 14)}</span>
         <span class="ba-league-name">${escapeHtml(lgName)}</span>
-        <span class="ba-league-badge${isCurrent ? ' current' : ' past'}"${isCurrent ? '' : ` data-tip="리그가 바뀌면서 저장 당시 조건이 더 이상 안 맞을 수 있어요.\n열리긴 하지만(최신 리그로 자동 이동) 결과가 비거나 다를 수 있습니다."`}>${isCurrent ? '현재' : '지난'}</span>
+        ${badge}
         <span class="ba-league-count">${lgBm.length}</span>
       </div>
       <div class="ba-league-body">`
@@ -424,14 +457,14 @@ export async function renderList(listEl, root, ui = {}) {
       for (const g of groups) {
         const items = sortItems(lgBm.filter((b) => (b.folderId ?? null) === g.id))
         if (!items.length && !(isCurrent && g.id === null)) continue
-        html += folderHtml(g, items, ui.league)
+        html += folderHtml(g, items, lg)
       }
       html += `</div></div>`
     }
     // ── 히스토리 — 리그 구분 없이 전체 통합(시간순, listByKind가 이미 최신순 정렬) ──
     if (history.length) {
       html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 14)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span><span class="ba-sec-actions"><button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button></span></div>`
-      html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history', ui.league, leagueMap)).join('')
+      html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history', lg)).join('')
       if (history.length > historyLimit) html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>`
     }
   }
@@ -473,6 +506,14 @@ function bindAll(listEl, ui) {
     network: '거래소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
     http: '거래소가 이 조건을 받아주지 않았어요. 잠시 후 다시 시도해 주세요.',
   }
+  const lg = leagueInfo(ui.getLeagueMap ? ui.getLeagueMap() : {})
+  // 이관 대상 리그 — 지금 보고 있는 페이지의 리그를 쓰되, 그것이 이미 끝난 리그면(오래된 북마크 링크로 들어온
+  // 경우) 절대 그리로 만들지 않는다. 그럴 땐 최근에 실제로 검색한 살아있는 리그를 쓰고, 그것도 없으면 포기한다.
+  const resolveTargetLeague = async () => {
+    if (lg.isLive(ui.league)) return ui.league
+    const recent = (await listByKind('history', ui.game)).find((h) => h.league && lg.isLive(h.league))
+    return recent ? recent.league : null
+  }
   let migrating = false // 중복 클릭 차단 — 요청이 몰리면 거래소 요청 제한(429)에 걸려 검색 자체가 막힌다
   const runMigration = async (id) => {
     if (migrating) return
@@ -481,12 +522,14 @@ function bindAll(listEl, ui) {
     try {
       const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
       if (!rec || !rec.query) { toast('이 북마크에는 저장된 검색 조건이 없어 다시 검색할 수 없어요.'); return }
-      toast('현재 리그로 다시 검색 중…')
-      const res = await ui.migrateSearch(rec.query, ui.league)
+      const target = await resolveTargetLeague()
+      if (!target) { toast('지금 리그를 알 수 없어요. 거래소에서 검색을 한 번 실행한 뒤 다시 시도해 주세요.'); return }
+      toast(`${lg.name(target)}(으)로 다시 검색 중…`)
+      const res = await ui.migrateSearch(rec.query, target)
       if (!res || !res.ok) { toast(MIGRATE_FAIL[res && res.reason] || '저장된 조건으로 다시 검색하지 못했어요.'); return }
       // 저장하기 '전에' 검증한다 — 검증을 이동 시점에만 두면 이상한 URL이 북마크에 먼저 기록된다
       if (!isAllowedTradeUrl(res.url)) { toast('허용되지 않은 링크가 돌아와 취소했어요.'); return }
-      await migrateBookmarkLeague(id, res.url, ui.league) // 링크·리그만 교체 — 이름·폴더·메모는 그대로
+      await migrateBookmarkLeague(id, res.url, target) // 링크·리그만 교체 — 이름·폴더·메모는 그대로
       openTradeUrl(res.url, toast)
     } finally { migrating = false }
   }
@@ -503,17 +546,16 @@ function bindAll(listEl, ui) {
       if (row.dataset.past !== '1' || e.ctrlKey || e.metaKey || !ui.showConflict) { openTradeUrl(url, toast, e); return }
       const id = row.dataset.id
       const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
-      const lgMap = (ui.getLeagueMap ? ui.getLeagueMap() : {}) || {}
-      const lgName = (l) => (l ? lgMap[l] || l : '')
-      const savedLg = lgName(rec && rec.league)
-      const canMigrate = !!(rec && rec.query && ui.migrateSearch)
+      const savedLg = lg.name(rec && rec.league)
+      const target = await resolveTargetLeague()
+      const canMigrate = !!(rec && rec.query && ui.migrateSearch && target)
       const full = condSummaryText(rec || {})
       const summary = full.length > 110 ? full.slice(0, 110) + '…' : full // 팝오버가 길어지지 않게 — 전체는 카드 조건 칩 툴팁에 있다
       const v = await ui.showConflict(
         id,
         '지난 리그 북마크',
         canMigrate
-          ? `저장 당시 리그는 "${savedLg}"예요. 같은 조건을 지금 리그 "${lgName(ui.league)}"로 다시 검색할까요? 북마크 링크도 새 검색으로 갱신됩니다.`
+          ? `저장 당시 리그는 "${savedLg}"예요. 같은 조건을 "${lg.name(target)}"로 다시 검색할까요? 북마크 링크도 새 검색으로 갱신됩니다.`
           : `저장 당시 리그는 "${savedLg}"라 그대로 열면 조건이 안 맞을 수 있어요. 저장된 조건: ${summary || '없음'}`,
         canMigrate
           ? [{ label: '그대로 열기', value: 'open', alt: true }, { label: '현재 리그로 다시 검색', value: 'migrate', primary: true }]

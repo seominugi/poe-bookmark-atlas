@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // 리그 이관 — 지난 리그 북마크를 열 때의 제안 흐름과 ⋯ 액션(저장된 조건으로 현재 리그 재검색).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { addBookmark, listByKind } from '../src/store/store.js'
+import { addBookmark, addHistory, listByKind } from '../src/store/store.js'
 import { renderList } from '../src/content/panel/renderList.js'
 
 if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = function () {}
@@ -15,18 +15,22 @@ const baseRec = (over) => ({
   url: 'https://poe.kakaogames.com/trade2/search/poe2/Old/hash1', league: 'Old', dedupeKey: 'k1', ...over,
 })
 
+// 거래소 리그 목록 = 지금 열려 있는 리그만. 'Old'가 없다 = 이미 끝난 리그(예: Settlers).
+const LIVE = { New: '현재 리그', HC: '하드코어' }
+
 // ui 목 — showConflict는 사용자가 고를 값을 미리 정해둔다(호출 인자도 기록)
-function makeUi(choice, migrateResult = { ok: true, url: 'https://poe.kakaogames.com/trade2/search/poe2/New/newhash' }) {
+function makeUi(choice, migrateResult = { ok: true, url: 'https://poe.kakaogames.com/trade2/search/poe2/New/newhash' }, over = {}) {
   const calls = { conflict: [], migrate: [], toast: [] }
   return {
     calls,
     ui: {
       game: 'poe2',
       league: 'New',
-      getLeagueMap: () => ({ Old: '지난 리그', New: '현재 리그' }),
+      getLeagueMap: () => LIVE,
       toast: (m) => calls.toast.push(m),
       showConflict: async (...args) => { calls.conflict.push(args); return choice },
       migrateSearch: async (...args) => { calls.migrate.push(args); return migrateResult },
+      ...over,
     },
   }
 }
@@ -41,14 +45,39 @@ async function render(ui) {
 const tick = () => new Promise((r) => setTimeout(r, 0))
 
 describe('리그 이관 — 행 표시', () => {
-  it('저장 리그가 현재 리그와 다르면 data-past, 같으면 없음', async () => {
-    await addBookmark(baseRec({ league: 'Old' }), '지난것')
-    await addBookmark(baseRec({ league: 'New', dedupeKey: 'k2' }), '현재것')
+  const byName = (list, n) => [...list.querySelectorAll('.ba-row[data-kind="bookmark"]')]
+    .find((r) => r.querySelector('.ba-open b').textContent === n)
+
+  it('끝난 리그(목록에 없음)만 data-past — 살아있는 다른 리그는 깨진 게 아니다', async () => {
+    await addBookmark(baseRec({ league: 'Old' }), '끝난리그')
+    await addBookmark(baseRec({ league: 'New', dedupeKey: 'k2' }), '지금리그')
+    await addBookmark(baseRec({ league: 'HC', dedupeKey: 'k3' }), '하드코어') // 살아있지만 다른 리그
     const list = await render(makeUi('cancel').ui)
-    const rows = [...list.querySelectorAll('.ba-row[data-kind="bookmark"]')]
-    const byName = (n) => rows.find((r) => r.querySelector('.ba-open b').textContent === n)
-    expect(byName('지난것').dataset.past).toBe('1')
-    expect(byName('현재것').dataset.past).toBeUndefined()
+    expect(byName(list, '끝난리그').dataset.past).toBe('1')
+    expect(byName(list, '지금리그').dataset.past).toBeUndefined()
+    expect(byName(list, '하드코어').dataset.past).toBeUndefined()
+  })
+
+  it('리그 목록을 아직 못 받았으면 판정 보류 — 성급한 경고 없음', async () => {
+    await addBookmark(baseRec({ league: 'Old' }), '끝난리그')
+    const { ui } = makeUi('cancel', undefined, { getLeagueMap: () => ({}) })
+    const list = await render(ui)
+    expect(byName(list, '끝난리그').dataset.past).toBeUndefined()
+  })
+
+  it('리그 섹션 배지: 끝난 리그 "지난" / 보고 있는 리그 "현재" / 살아있는 다른 리그는 배지 없음', async () => {
+    await addBookmark(baseRec({ league: 'Old' }), '끝난리그')
+    await addBookmark(baseRec({ league: 'New', dedupeKey: 'k2' }), '지금리그')
+    await addBookmark(baseRec({ league: 'HC', dedupeKey: 'k3' }), '하드코어')
+    const list = await render(makeUi('cancel').ui)
+    const badgeOf = (lgKey) => {
+      const sec = list.querySelector(`.ba-league[data-league="${lgKey}"]`)
+      const b = sec.querySelector('.ba-league-badge')
+      return { text: b ? b.textContent : null, collapsed: sec.classList.contains('ba-league--collapsed') }
+    }
+    expect(badgeOf('Old')).toEqual({ text: '지난', collapsed: true }) // 끝난 리그만 접어둔다
+    expect(badgeOf('New')).toEqual({ text: '현재', collapsed: false })
+    expect(badgeOf('HC')).toEqual({ text: null, collapsed: false })
   })
 
   it('⋯ 액션은 조건(query)을 가진 북마크에만 노출된다', async () => {
@@ -117,6 +146,28 @@ describe('리그 이관 — 열기 시 제안', () => {
     list.querySelector('.ba-open').click()
     await tick(); await tick()
     expect(calls.conflict).toHaveLength(0)
+  })
+
+  it('끝난 리그 페이지에서 열어도 이관 대상은 그 죽은 리그가 아니라 최근 검색한 살아있는 리그', async () => {
+    // 오래된 북마크 링크로 들어오면 URL(=ui.league)이 이미 끝난 리그다 — 그리로 다시 검색하면 안 된다
+    await addBookmark(baseRec({ query: QUERY }), '내 북마크')
+    await addHistory(baseRec({ league: 'New', dedupeKey: 'h1', title: '최근검색' }))
+    const { ui, calls } = makeUi('migrate', undefined, { league: 'Old' })
+    const list = await render(ui)
+    list.querySelector('.ba-migrate').click()
+    await tick(); await tick()
+    expect(calls.migrate).toEqual([[QUERY, 'New']])
+  })
+
+  it('끝난 리그 페이지 + 참고할 최근 검색도 없으면 요청하지 않고 안내한다', async () => {
+    const b = await addBookmark(baseRec({ query: QUERY }), '내 북마크')
+    const { ui, calls } = makeUi('migrate', undefined, { league: 'Old' })
+    const list = await render(ui)
+    list.querySelector('.ba-migrate').click()
+    await tick(); await tick()
+    expect(calls.migrate).toHaveLength(0)
+    expect(calls.toast.some((t) => t.includes('지금 리그를 알 수 없어요'))).toBe(true)
+    expect((await listByKind('bookmark', 'poe2')).find((x) => x.id === b.id).league).toBe('Old')
   })
 
   it('Ctrl 클릭(새 탭)은 제안 없이 원본을 연다', async () => {
