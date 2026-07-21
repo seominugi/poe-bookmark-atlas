@@ -360,8 +360,20 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     $('ba-modal-title').textContent = '설정'
     msg.hidden = true; input.hidden = true; alt.hidden = true; cancel.hidden = true
     ok.textContent = '닫기'
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     const render = () => {
+      // 내 리그 — 리그 이관 대상이자 '현재' 배지의 기준. 자동(페이지 URL → 최근 검색)으로도 대부분 맞지만,
+      // 오래된 북마크 링크로 들어오면 URL이 끝난 리그라 자동 판정이 흔들린다. 그때 사용자가 못 박을 수 있게 한다.
+      const leagues = Object.entries(ui.getLeagueMap())
+      const leagueRow = leagues.length
+        ? '<span class="lbl">내 리그</span>' +
+          `<select class="ba-set-league" title="북마크를 되살릴 때 이 리그로 다시 검색합니다">
+            <option value=""${userLeague ? '' : ' selected'}>자동 (거래소 화면·최근 검색 기준)</option>
+            ${leagues.map(([id, name]) => `<option value="${esc(id)}"${id === userLeague ? ' selected' : ''}>${esc(name)}</option>`).join('')}
+          </select>`
+        : ''
       pick.innerHTML =
+        leagueRow +
         '<span class="lbl">패널 위치</span>' +
         `<span class="ba-seg ba-set-seg">
           <span class="ba-set-opt${panelSide === 'right' ? ' active' : ''}" data-side="right">오른쪽</span>
@@ -372,6 +384,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         try { await chrome.storage.local.set({ uiPanelSide: o.dataset.side }) } catch (_) {}
         render()
       }))
+      const sel = pick.querySelector('.ba-set-league')
+      if (sel) sel.addEventListener('change', async () => { await setUserLeague(sel.value); render() })
     }
     render()
     pick.hidden = false; bar.hidden = false; ok.focus()
@@ -501,8 +515,27 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     showNameInput, showSaveInput, showFolderPick, showConflict, toast, game, league,
     getLeagueMap: getLeagueMap || (() => ({})),
     migrateSearch, // 저장된 조건을 현재 리그로 다시 검색(renderList의 지난 리그 북마크 흐름에서 사용)
+    userLeague: null, // 설정에서 직접 고른 리그(빈 값 = 자동 판정). 아래 setUserLeague/저장소 로드에서 채운다
   }
   const refresh = () => renderList($('ba-list'), root, ui)
+
+  // 내 리그 설정 — 게임별로 따로 보관(poe1·poe2는 리그 이름이 다르다). 빈 값 = 자동 판정.
+  let userLeague = ''
+  const applyUserLeague = (v) => { userLeague = v || ''; ui.userLeague = userLeague || null }
+  const setUserLeague = async (v) => {
+    applyUserLeague(v)
+    try {
+      const cur = (await chrome.storage.local.get('uiLeague')).uiLeague || {}
+      await chrome.storage.local.set({ uiLeague: { ...cur, [game]: userLeague } })
+    } catch (_) {}
+    await refresh()
+  }
+  try {
+    chrome.storage.local.get('uiLeague').then((r) => {
+      const v = r && r.uiLeague && r.uiLeague[game]
+      if (v) { applyUserLeague(v); refresh() }
+    })
+  } catch (_) {}
 
   // 최근(현재) 검색을 북마크로 저장 (버튼 + 단축키/팝업 + 폴더별 + 버튼 공용)
   // presetFolderId: 폴더 헤더 +에서 호출 시 그 폴더를 저장 다이얼로그에 미리 선택
@@ -729,7 +762,13 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 팝업에서 패널 좌/우 배치를 바꾸면 즉시 반영
   try {
     chrome.storage.onChanged.addListener((changes, area) => {
-      if (area === 'local' && changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
+      if (area !== 'local') return
+      if (changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
+      // 다른 탭에서 리그를 바꾸면 이 탭도 따라간다(같은 게임일 때만)
+      if (changes.uiLeague) {
+        const v = (changes.uiLeague.newValue || {})[game] || ''
+        if (v !== userLeague) { applyUserLeague(v); refresh() }
+      }
     })
   } catch (_) {}
   refresh()

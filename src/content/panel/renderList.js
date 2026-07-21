@@ -175,6 +175,21 @@ const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능�
  * poe1 카카오는 URL에 표시명("허상")이 오고 맵의 키는 id("Mirage")라 양쪽 형태를 모두 인정한다.
  * 리그 목록을 아직 못 받았으면(로드 전·실패) 판정을 보류한다 — 성급하게 "지난 리그" 경고를 띄우지 않는다.
  */
+/**
+ * "내가 지금 쓰는 리그" 결정 — 리그 이관 대상이자 섹션 '현재' 배지의 기준.
+ * ① 사용자가 설정에서 직접 고른 리그(가장 확실) ② 지금 보고 있는 페이지의 리그 ③ 최근에 실제로 검색한 리그.
+ * 각 후보는 '아직 열려 있는 리그'일 때만 채택한다 — 오래된 북마크 링크로 들어오면 ②가 이미 끝난 리그다.
+ * 셋 다 없으면 null(= 알 수 없음)이고, 호출부는 이관을 실행하지 않고 안내한다.
+ * @param {{userLeague?: string, pageLeague?: string, history?: any[]}} src
+ */
+export function resolveCurrentLeague(src, lg) {
+  const { userLeague, pageLeague, history } = src || {}
+  if (userLeague && lg.isLive(userLeague)) return userLeague
+  if (pageLeague && lg.isLive(pageLeague)) return pageLeague
+  const recent = (history || []).find((h) => h && h.league && lg.isLive(h.league))
+  return recent ? recent.league : null
+}
+
 export function leagueInfo(leagueMap) {
   const map = leagueMap || {}
   const known = Object.keys(map).length > 0
@@ -381,11 +396,14 @@ function folderHtml(g, items, lg) {
 // 북마크 + 히스토리를 한 스크롤에 통합 렌더 (탭 없음 → 패널 전체 높이 활용)
 export async function renderList(listEl, root, ui = {}) {
   await hydrateUiState()
+  // 리그 판정은 렌더·이벤트 양쪽에서 같은 값을 써야 한다(섹션 배지 ↔ 이관 대상이 어긋나면 사용자가 속는다)
+  const lg = leagueInfo(ui.getLeagueMap ? ui.getLeagueMap() : {})
   const [bookmarks, folders, history] = await Promise.all([
     listByKind('bookmark', ui.game),
     listFolders(ui.game),
     listByKind('history', ui.game),
   ])
+  const currentLeague = resolveCurrentLeague({ userLeague: ui.userLeague, pageLeague: ui.league, history }, lg)
 
   // ── 북마크 섹션 (폴더 그룹) ──
   const now = Date.now()
@@ -424,15 +442,11 @@ export async function renderList(listEl, root, ui = {}) {
     </div>`
   } else {
     // ── 리그 섹션 (접이식, 북마크 전용) — 끝난 리그만 접어서 아카이브 ──
-    // '지난' 판정은 거래소 리그 목록 기준(leagueInfo). 페이지 URL의 리그와 비교하면, 오래된 북마크 링크로
-    // 들어왔을 때 끝난 리그가 '현재'로 뒤바뀐다.
-    const leagueMap = ui.getLeagueMap ? ui.getLeagueMap() : {}
-    const lg = leagueInfo(leagueMap)
     const seen = new Set()
-    const orderedLeagues = [ui.league, ...bookmarks.map((b) => b.league)].filter((l) => l && !seen.has(l) && seen.add(l))
+    const orderedLeagues = [currentLeague || ui.league, ...bookmarks.map((b) => b.league)].filter((l) => l && !seen.has(l) && seen.add(l))
     for (const league of orderedLeagues) {
       const dead = lg.isDead(league)
-      const isCurrent = league === ui.league && !dead // 지금 보고 있는 리그(그리고 아직 열려 있는 리그)
+      const isCurrent = league === currentLeague && !dead // 내가 지금 쓰는 리그(설정 → 페이지 → 최근 검색)
       const lgBm = bookmarks.filter((b) => (b.league || '') === league)
       if (!isCurrent && !lgBm.length) continue
       const key = 'L:' + league
@@ -471,7 +485,7 @@ export async function renderList(listEl, root, ui = {}) {
 
   listEl.innerHTML = html
   listEl.classList.toggle('ba-oneline', oneline) // 북마크 간략(한 줄) 보기 영속 반영
-  bindAll(listEl, ui)
+  bindAll(listEl, ui, { lg, currentLeague })
   applyFilters(listEl) // 재렌더 후 현재 검색어로 필터 재적용
   if (focusGripId) { // 키보드 재정렬 후 포커스 복원 (연속 이동 가능)
     const g = listEl.querySelector(`.ba-grip[data-id="${CSS.escape(focusGripId)}"]`)
@@ -485,7 +499,7 @@ export async function renderList(listEl, root, ui = {}) {
   }
 }
 
-function bindAll(listEl, ui) {
+function bindAll(listEl, ui, ctx) {
   const toast = ui.toast || (() => {})
 
   // 행 열기 — 히스토리는 카드 전체 클릭, 북마크는 이름 칩(.ba-open)만 (오클릭 방지)
@@ -506,14 +520,10 @@ function bindAll(listEl, ui) {
     network: '거래소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
     http: '거래소가 이 조건을 받아주지 않았어요. 잠시 후 다시 시도해 주세요.',
   }
-  const lg = leagueInfo(ui.getLeagueMap ? ui.getLeagueMap() : {})
-  // 이관 대상 리그 — 지금 보고 있는 페이지의 리그를 쓰되, 그것이 이미 끝난 리그면(오래된 북마크 링크로 들어온
-  // 경우) 절대 그리로 만들지 않는다. 그럴 땐 최근에 실제로 검색한 살아있는 리그를 쓰고, 그것도 없으면 포기한다.
-  const resolveTargetLeague = async () => {
-    if (lg.isLive(ui.league)) return ui.league
-    const recent = (await listByKind('history', ui.game)).find((h) => h.league && lg.isLive(h.league))
-    return recent ? recent.league : null
-  }
+  // 이관 대상 리그 = 렌더가 '현재'로 표시한 그 리그(resolveCurrentLeague). 여기서 다시 계산하면
+  // 화면 표시와 실제 대상이 어긋날 수 있어 렌더 결과를 그대로 받아 쓴다. null이면 이관하지 않는다.
+  const lg = ctx.lg
+  const targetLeague = ctx.currentLeague
   let migrating = false // 중복 클릭 차단 — 요청이 몰리면 거래소 요청 제한(429)에 걸려 검색 자체가 막힌다
   const runMigration = async (id) => {
     if (migrating) return
@@ -522,8 +532,8 @@ function bindAll(listEl, ui) {
     try {
       const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
       if (!rec || !rec.query) { toast('이 북마크에는 저장된 검색 조건이 없어 다시 검색할 수 없어요.'); return }
-      const target = await resolveTargetLeague()
-      if (!target) { toast('지금 리그를 알 수 없어요. 거래소에서 검색을 한 번 실행한 뒤 다시 시도해 주세요.'); return }
+      const target = targetLeague
+      if (!target) { toast('지금 리그를 알 수 없어요. 설정에서 리그를 고르거나, 거래소에서 검색을 한 번 실행해 주세요.'); return }
       toast(`${lg.name(target)}(으)로 다시 검색 중…`)
       const res = await ui.migrateSearch(rec.query, target)
       if (!res || !res.ok) { toast(MIGRATE_FAIL[res && res.reason] || '저장된 조건으로 다시 검색하지 못했어요.'); return }
@@ -547,7 +557,7 @@ function bindAll(listEl, ui) {
       const id = row.dataset.id
       const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
       const savedLg = lg.name(rec && rec.league)
-      const target = await resolveTargetLeague()
+      const target = targetLeague
       const canMigrate = !!(rec && rec.query && ui.migrateSearch && target)
       const full = condSummaryText(rec || {})
       const summary = full.length > 110 ? full.slice(0, 110) + '…' : full // 팝오버가 길어지지 않게 — 전체는 카드 조건 칩 툴팁에 있다

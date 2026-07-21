@@ -92,6 +92,36 @@ describe('리그 이관 — 행 표시', () => {
   })
 })
 
+describe('내 리그 결정 (설정 → 페이지 → 최근 검색)', () => {
+  it('설정에서 고른 리그가 페이지 리그보다 우선한다', async () => {
+    await addBookmark(baseRec({ query: QUERY }), '내 북마크')
+    const { ui, calls } = makeUi('cancel', undefined, { league: 'New', userLeague: 'HC' })
+    const list = await render(ui)
+    list.querySelector('.ba-migrate').click()
+    await tick(); await tick()
+    expect(calls.migrate).toEqual([[QUERY, 'HC']])
+  })
+
+  it('설정 리그가 이미 끝난 리그면 무시하고 자동 판정으로 넘어간다', async () => {
+    await addBookmark(baseRec({ query: QUERY }), '내 북마크')
+    const { ui, calls } = makeUi('cancel', undefined, { league: 'New', userLeague: 'Old' })
+    const list = await render(ui)
+    list.querySelector('.ba-migrate').click()
+    await tick(); await tick()
+    expect(calls.migrate).toEqual([[QUERY, 'New']])
+  })
+
+  it("설정 리그 섹션이 '현재'로 표시된다(보고 있는 페이지가 다른 리그여도)", async () => {
+    await addBookmark(baseRec({ league: 'HC' }), '하드코어것')
+    await addBookmark(baseRec({ league: 'New', dedupeKey: 'k2' }), '지금리그')
+    const { ui } = makeUi('cancel', undefined, { league: 'New', userLeague: 'HC' })
+    const list = await render(ui)
+    const badge = (l) => list.querySelector(`.ba-league[data-league="${l}"] .ba-league-badge`)?.textContent || null
+    expect(badge('HC')).toBe('현재')
+    expect(badge('New')).toBeNull()
+  })
+})
+
 describe('리그 이관 — 열기 시 제안', () => {
   it('지난 리그 + 조건 있음 → 다시 검색 선택 시 API 호출 후 북마크 링크·리그 갱신', async () => {
     const b = await addBookmark(baseRec({ query: QUERY }), '내 북마크')

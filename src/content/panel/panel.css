@@ -260,6 +260,11 @@
 /* 설정 모달의 세그먼트(패널 위치 등) — .ba-seg 스타일 재사용, 전체폭·균등분할 */
 .ba-set-seg { width: 100%; }
 .ba-set-seg .ba-set-opt { flex: 1; justify-content: center; }
+/* 설정 모달의 '내 리그' 셀렉트 — 기본 select 룩은 밝은 시스템 색이라 패널과 겉돈다 */
+.ba-set-league { width: 100%; margin-bottom: 4px; padding: 7px 10px; font-family: inherit; font-size: 12px; font-weight: 600;
+  color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-border); border-radius: 8px; cursor: pointer; }
+.ba-set-league:hover { border-color: var(--ba-violet-line); }
+.ba-set-league option { color: #e6e3f5; background: #14111f; }   /* 드롭다운 목록은 OS 렌더 — 최소한 배경/글자색만 맞춘다 */
 
 /* ---- 리스트 컨테이너 ---- */
 .ba-list { overflow-y: auto; flex: 1; padding: 14px 14px 18px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px); mask-image: linear-gradient(to bottom, transparent 0, #000 18px); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
