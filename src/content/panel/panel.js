@@ -365,19 +365,22 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       // 내 리그 — 리그 이관 대상이자 '현재' 배지의 기준. 자동(페이지 URL → 최근 검색)으로도 대부분 맞지만,
       // 오래된 북마크 링크로 들어오면 URL이 끝난 리그라 자동 판정이 흔들린다. 그때 사용자가 못 박을 수 있게 한다.
       const leagues = Object.entries(ui.getLeagueMap())
-      const leagueRow = leagues.length
-        ? '<span class="lbl">내 리그</span>' +
-          `<select class="ba-set-league" title="북마크를 되살릴 때 이 리그로 다시 검색합니다">
-            <option value=""${userLeague ? '' : ' selected'}>자동 (거래소 화면·최근 검색 기준)</option>
-            ${leagues.map(([id, name]) => `<option value="${esc(id)}"${id === userLeague ? ' selected' : ''}>${esc(name)}</option>`).join('')}
-          </select>`
-        : ''
+      // 저장된 값이 목록에 없어도(리그 목록 로드 전·끝난 리그) 선택지에 남긴다 — 안 그러면 설정이 조용히 사라진 것처럼 보인다
+      if (userLeague && !leagues.some(([id]) => id === userLeague)) leagues.push([userLeague, userLeague])
+      const leagueRow =
+        '<span class="lbl">내 리그</span>' +
+        `<select class="ba-set-league" title="북마크를 되살릴 때 이 리그로 다시 검색합니다">
+          <option value=""${userLeague ? '' : ' selected'}>자동 (거래소 화면·최근 검색 기준)</option>
+          ${leagues.map(([id, name]) => `<option value="${esc(id)}"${id === userLeague ? ' selected' : ''}>${esc(name)}</option>`).join('')}
+        </select>`
       pick.innerHTML =
         leagueRow +
         '<span class="lbl">패널 위치</span>' +
+        // 선택지를 뜻하는 방향 그대로 배치한다 — '왼쪽'이 왼쪽 칸, '오른쪽'이 오른쪽 칸.
+        // 반대로 두면 버튼 위치와 결과가 어긋나 매번 라벨을 읽어야 한다.
         `<span class="ba-seg ba-set-seg">
-          <span class="ba-set-opt${panelSide === 'right' ? ' active' : ''}" data-side="right">오른쪽</span>
           <span class="ba-set-opt${panelSide === 'left' ? ' active' : ''}" data-side="left">왼쪽</span>
+          <span class="ba-set-opt${panelSide === 'right' ? ' active' : ''}" data-side="right">오른쪽</span>
         </span>`
       pick.querySelectorAll('.ba-set-opt').forEach((o) => o.addEventListener('click', async () => {
         applySide(o.dataset.side)
