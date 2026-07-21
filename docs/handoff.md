@@ -13,7 +13,7 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 완료된 작업
 
-### 리그 이관(저장 조건 → 현재 리그 재검색) + 가이드 투어 예시 요소 (2026-07-22, 미커밋)
+### 리그 이관(저장 조건 → 현재 리그 재검색) + 가이드 투어 예시 요소 (2026-07-22, `develop` 푸시 완료)
 
 **핵심 판단 — 미완료 6번의 전제 교정**: "자동 채움 = 거래소 Vue 필터 UI를 클릭·타이핑으로 흉내내야 함(고리스크)"라는 기존 전제가 틀렸다. `cross-site-receiver.js`가 이미 쓰던 **공식 검색 생성 API**(`POST /api/trade2/search/poe2/<리그>`)에 저장된 raw query를 그대로 다시 제출하면, 반환된 해시 URL로 이동하는 것만으로 거래소가 **필터 UI까지 조건대로 채워** 렌더한다. UI 자동화 없이 (a)안이 노리던 결과를 그대로 얻는다. 유일한 걸림돌은 "raw query를 저장하지 않았다"였고, 그건 필드 추가로 해결.
 
@@ -126,8 +126,9 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 상태
 
-- 브랜치: `main` — tip `1aaab38`(origin 동기화). **미커밋**: 리그 이관·투어 예시 구현분 7파일 수정(`content-main.js`·`panel.js`·`renderList.js`·`panel.css`·`store.js`·`harness.mjs`·`store.test.js`) + 신규 3파일(`src/lib/tradeSearch.js`·`test/tradeSearch.test.js`·`test/leagueMigration.dom.test.js`) + `docs/handoff.md`(이 갱신) + `docs/영상-소개-대본.md`(신규, 사용자 검토 대기)
-  - ⚠ **`main` 직접 커밋 금지(전역 §4.7)** — 이 repo엔 `develop`이 없다. 커밋 전에 통합 브랜치 신설 여부를 사용자와 정할 것
+- **브랜치 전략 (2026-07-22 신설)**: 통합 브랜치 `develop`, `main`은 릴리즈 전용(직접 커밋 금지). 정본은 루트 `CLAUDE.md`. 릴리즈 시 `develop` → `main` 머지 후 태그.
+- 현재 브랜치: `develop` — tip `ebcdcb2`(origin/develop 동기화 `0 0`). `main`은 `1aaab38`에 멈춰 있고 **0.3.0 스토어 심사 통과 후 develop을 머지**하면 된다
+- 미커밋: `docs/영상-소개-대본.md`(신규, 사용자 검토 대기)뿐
 - 테스트: **200/200**(vitest, jsdom 포함) · 빌드 통과
 - 배포: **0.2.0 심사 통과** / **0.3.0 준비 완료**(`deploy/poe-bookmark-atlas-0.3.0.zip`, 화살표 수정까지 반영) — 사용자가 스토어 심사 제출 예정
 - **GitHub 릴리즈·태그 (2026-07-04 도입)**: 버전별 릴리즈 노트를 GitHub Releases로 통합관리(스토어 설명에 매번 쓰던 것 대체). `v0.1.0`(`34469d5`)·`v0.2.0`(`ae71972`) 공개, `v0.3.0`(`0f80dae`) **draft**(스토어 심사 통과 후 사용자가 직접 publish → 그때 태그 실제 생성). **다음 릴리즈 절차**: ① 릴리즈 커밋에서 버전 범프+빌드+zip ② `gh release create vX.Y.Z --draft --target <full-sha> --title "vX.Y.Z" --notes-file <md>`(전체 SHA 필수 — 단축 SHA는 target_commitish 거부) ③ 스토어 심사 통과 후 draft를 publish. 노트는 사용자 관점 기능 중심으로 묶어 작성(개발 커밋 나열 X)
