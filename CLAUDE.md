@@ -8,6 +8,11 @@
 - **핵심 페르소나**: Product Strategist (커뮤니티 가치) + Designer (Chrome Extension UX)
 - **체크리스트**: `D:\github\multi-persona-domain-review-framework\domains\domain-specific-tool\`
 
+## 브랜치 전략 (전역 §4.7)
+
+- **통합 브랜치는 `develop`** (2026-07-22 신설). 개발 커밋은 `develop` 또는 그 하위 작업 브랜치(`feature/*`)에 한다.
+- **`main`은 릴리즈 전용** — 직접 커밋 금지. 스토어 심사에 올릴 버전이 확정되면 `develop` → `main` 머지 후 GitHub 릴리즈 태그를 만든다(절차는 `docs/handoff.md` 현재 상태 참조).
+
 ## 프로젝트 개요
 
 - PoE 북마크 아틀라스 — Chrome Extension (Manifest V3). v0.1 구현 완료, 로컬 테스트 단계.
