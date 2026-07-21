@@ -5,7 +5,7 @@ import {
   addBookmark, overwriteBookmark, moveBookmark,
   listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
-  backfillQuery, migrateBookmarkLeague,
+  backfillQuery, migrateBookmarkLeague, needsTourDemo, seedDemoData, clearDemoData,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -226,6 +226,41 @@ describe('store v1.2 (JSON 내보내기/가져오기)', () => {
     expect(nf).toBeTruthy()
     const imported = (await listByKind('bookmark', 'poe2')).find((b) => b.dedupeKey === 'new1')
     expect(imported.folderId).toBe(nf.id) // 새 폴더 id로 remap
+  })
+})
+
+// ── 가이드 투어 데모 필요 판정 ──
+describe('needsTourDemo', () => {
+  const bm = (over) => ({ ...rec(), snapshot: { valueDiv: 1, unit: 'divine' }, ...over })
+
+  it('북마크·폴더·가격이 모두 갖춰졌을 때만 데모가 필요 없다', async () => {
+    await addFolder('내 폴더', 'poe2')
+    await addBookmark(bm(), 'A')
+    expect(await needsTourDemo('poe2')).toBe(false)
+  })
+  it('히스토리만 있고 북마크가 없으면 데모가 필요하다(제보된 5·6·8스텝 공백)', async () => {
+    for (let i = 0; i < 8; i++) await addHistory(rec({ dedupeKey: 'h' + i }))
+    expect(await needsTourDemo('poe2')).toBe(true)
+  })
+  it('북마크는 있지만 실폴더가 없으면 데모가 필요하다(폴더 색상 스텝)', async () => {
+    await addBookmark(bm(), 'A') // 미분류는 가상 그룹이라 .ba-folder-ic[data-id]가 없다
+    expect(await needsTourDemo('poe2')).toBe(true)
+  })
+  it('가격 스냅샷이 있는 북마크가 하나도 없으면 데모가 필요하다(시세 스텝)', async () => {
+    await addFolder('내 폴더', 'poe2')
+    await addBookmark(bm({ snapshot: undefined }), 'A')
+    expect(await needsTourDemo('poe2')).toBe(true)
+  })
+  it('다른 게임의 북마크는 세지 않는다', async () => {
+    await addFolder('내 폴더', 'poe1')
+    await addBookmark(bm({ game: 'poe1' }), 'A')
+    expect(await needsTourDemo('poe2')).toBe(true)
+  })
+  it('데모 데이터 자체는 판정에서 제외한다(중복 주입 방지)', async () => {
+    await seedDemoData('poe2', 'Standard')
+    expect(await needsTourDemo('poe2')).toBe(true)
+    await clearDemoData()
+    expect((await listByKind('bookmark', 'poe2')).length).toBe(0) // 실제 저장소는 오염되지 않는다
   })
 })
 

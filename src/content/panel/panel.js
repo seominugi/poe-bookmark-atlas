@@ -1,7 +1,7 @@
 import css from './panel.css?inline'
 import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl } from './renderList.js'
 import { icon } from '../../lib/icons.js'
-import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, isStoreEmpty, seedDemoData, clearDemoData } from '../../store/store.js'
+import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData } from '../../store/store.js'
 import { suggestName } from '../../lib/suggestName.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
 import ytIcon from '../../icons/yt_icon_rgb.png'
@@ -614,7 +614,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     if (wasCollapsed) await new Promise((r) => setTimeout(r, 280))
     // 첫 화면처럼 비어 있으면 투어 동안만 데모 데이터를 띄운다(종료 시 제거 — 실제 저장소 무오염)
     let demoOn = false
-    try { if (await isStoreEmpty(game)) { await seedDemoData(game, league); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
+    // 북마크·폴더·가격이 없으면(히스토리만 쌓인 흔한 상태 포함) 투어 동안만 데모를 띄운다 — 없으면 5·6·8스텝이 가리킬 대상이 없다
+    try { if (await needsTourDemo(game)) { await seedDemoData(game, league); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
     let i = 0
     const card = document.createElement('div')
     card.className = 'ba-tour-card'
@@ -716,7 +717,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         } else if (!step.demo) tourDemo.hide()
       }
       if (target && !target.getBoundingClientRect().width) {
-        // 접힌 폴더 안이면 투어 동안만 임시로 펼쳐 대상이 보이게(사용자 설정 Set은 건드리지 않음)
+        // 접힌 폴더·리그 섹션 안이면 투어 동안만 임시로 펼쳐 대상이 보이게(사용자 설정 Set은 건드리지 않음).
+        // 리그 섹션은 끝난 리그가 기본 접힘이라, 북마크가 지난 리그에만 있으면 여기서 걸린다.
+        const foldedLeague = target.closest('.ba-league--collapsed')
+        if (foldedLeague) foldedLeague.classList.remove('ba-league--collapsed')
         const folded = target.closest('.ba-folder--collapsed')
         if (folded) folded.classList.remove('ba-folder--collapsed')
         if (!target.getBoundingClientRect().width) {

@@ -39,17 +39,28 @@ export async function ensureSchema() {
 // ── 가이드 투어 전용 데모 데이터 ──────────────────────────
 // 빈 첫 화면에서도 투어가 기능을 시연하도록 임시 주입(__demo 플래그), 투어 종료 시 제거한다. 실제 저장소는 오염되지 않는다.
 const DEMO_FOLDER_ID = '__demo_folder'
-export async function isStoreEmpty(game) {
+
+/**
+ * 투어가 가리킬 대상이 실제로 있는지 — 없으면 데모를 띄운다.
+ * "저장소가 통째로 비었나"로 판정하면 안 된다: 히스토리만 쌓이고 북마크는 0개인 흔한 상태에서
+ * 북마크 이름·가격·폴더 아이콘 스텝이 통째로 가리킬 게 없어진다(사용자 제보 2026-07-22, 5·6·8스텝).
+ * 데모는 폴더 1 + 북마크 2(가격 스냅샷 포함)를 넣으므로 아래 세 조건을 모두 메운다.
+ */
+export async function needsTourDemo(game) {
   const all = await readAll()
-  const folders = await readFolders()
-  return !all.some((r) => r.game === game && !r.__demo) && !folders.some((f) => !f.__demo)
+  const bookmarks = all.filter((r) => r.kind === 'bookmark' && r.game === game && !r.__demo)
+  const folders = (await readFolders()).filter((f) => !f.__demo && (!f.game || f.game === game))
+  return bookmarks.length === 0 || folders.length === 0 || !bookmarks.some((b) => b.snapshot)
 }
+
 export async function seedDemoData(game, league) {
   const all = await readAll()
   if (all.some((r) => r.__demo)) return // 이미 주입됨
   const folders = await readFolders()
   const now = Date.now()
-  const u = (h) => `https://poe.kakaogames.com/trade2/search/poe2/${encodeURIComponent(league || 'Standard')}/__demo_${h}`
+  // 데모 링크도 게임에 맞는 경로로 — 투어 중 실수로 클릭해도 엉뚱한 게임의 404로 가지 않게
+  const basePath = game === 'poe1' ? '/trade/search/' : '/trade2/search/poe2/'
+  const u = (h) => `https://poe.kakaogames.com${basePath}${encodeURIComponent(league || 'Standard')}/__demo_${h}`
   const snap = (v, n, low) => ({ valueDiv: v, value: v, unit: 'divine', sampleN: n, lowestAsk: low, method: 'sellable_p25', capturedAt: now })
   const base = { game, league, createdAt: now, updatedAt: now, snapshotAt: now, __demo: true }
   const records = [
