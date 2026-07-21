@@ -5,6 +5,7 @@ import {
   addBookmark, overwriteBookmark, moveBookmark,
   listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
+  backfillQuery, migrateBookmarkLeague,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -225,5 +226,78 @@ describe('store v1.2 (JSON 내보내기/가져오기)', () => {
     expect(nf).toBeTruthy()
     const imported = (await listByKind('bookmark', 'poe2')).find((b) => b.dedupeKey === 'new1')
     expect(imported.folderId).toBe(nf.id) // 새 폴더 id로 remap
+  })
+})
+
+// ── 리그 이관(저장된 조건을 현재 리그로 다시 검색) ──
+describe('리그 이관', () => {
+  const Q = { query: { status: { option: 'online' } }, sort: { price: 'asc' } }
+
+  it('backfillQuery: 같은 조건(dedupeKey)의 query 없는 북마크에만 채운다', async () => {
+    const old = await addBookmark(rec({ dedupeKey: 'kA' }), '구 북마크') // query 없음
+    const has = await addBookmark(rec({ dedupeKey: 'kA', query: { query: { keep: 1 } } }), '이미 있음')
+    await addBookmark(rec({ dedupeKey: 'kB' }), '다른 조건')
+    const n = await backfillQuery('kA', 'poe2', Q)
+    expect(n).toBe(1)
+    const all = await listByKind('bookmark', 'poe2')
+    expect(all.find((b) => b.id === old.id).query).toEqual(Q)
+    expect(all.find((b) => b.id === has.id).query).toEqual({ query: { keep: 1 } }) // 기존 값 보존
+    expect(all.find((b) => b.name === '다른 조건').query).toBeUndefined()
+  })
+
+  it('backfillQuery: 다른 게임·빈 인자는 건드리지 않는다', async () => {
+    await addBookmark(rec({ dedupeKey: 'kA', game: 'poe1' }), 'poe1')
+    expect(await backfillQuery('kA', 'poe2', Q)).toBe(0)
+    expect(await backfillQuery('', 'poe2', Q)).toBe(0)
+    expect(await backfillQuery('kA', 'poe1', null)).toBe(0)
+  })
+
+  it('migrateBookmarkLeague: url·league만 교체하고 이름·폴더·메모·id는 보존', async () => {
+    const f = await addFolder('반지', 'poe2')
+    const b = await addBookmark(rec({ league: '지난리그', note: '내 메모', query: Q }), '내 북마크')
+    await moveBookmark(b.id, { folderId: f.id, order: 7 })
+    const url = 'https://poe.kakaogames.com/trade2/search/poe2/새리그/newhash'
+    expect(await migrateBookmarkLeague(b.id, url, '새리그')).toBe(true)
+    const after = (await listByKind('bookmark', 'poe2'))[0]
+    expect(after.id).toBe(b.id)
+    expect(after.url).toBe(url)
+    expect(after.league).toBe('새리그')
+    expect(after.name).toBe('내 북마크')
+    expect(after.note).toBe('내 메모')
+    expect(after.folderId).toBe(f.id)
+    expect(after.order).toBe(7)
+    expect(after.query).toEqual(Q) // 조건은 그대로 → 다음 리그에도 다시 이관 가능
+    expect(after.lastUsedAt).toBeGreaterThan(0) // 방금 사용 → '오래됨' 경고 해제
+  })
+
+  it('migrateBookmarkLeague: 없는 id·히스토리는 false', async () => {
+    const h = await addHistory(rec())
+    expect(await migrateBookmarkLeague('없음', 'https://x', 'L')).toBe(false)
+    expect(await migrateBookmarkLeague(h.id, 'https://x', 'L')).toBe(false)
+  })
+
+  it('overwriteBookmark·markUsedByUrl이 query를 승계한다', async () => {
+    const b = await addBookmark(rec({ dedupeKey: 'k1' }), 'A')
+    await overwriteBookmark(b.id, { ...rec({ dedupeKey: 'k2' }), query: Q })
+    expect((await listByKind('bookmark'))[0].query).toEqual(Q)
+    const Q2 = { query: { status: { option: 'any' } } }
+    await markUsedByUrl(rec().url, undefined, undefined, { title: 't', stats: [], query: Q2 })
+    expect((await listByKind('bookmark'))[0].query).toEqual(Q2)
+  })
+
+  it('importBookmarksJSON: 손상·과대 query는 버리고 북마크는 살린다', async () => {
+    const data = {
+      bookmarks: [
+        { dedupeKey: 'i1', name: '정상', title: 't', url: 'https://poe.kakaogames.com/trade2/search/poe2/i1', query: Q },
+        { dedupeKey: 'i2', name: '손상', title: 't', url: 'https://poe.kakaogames.com/trade2/search/poe2/i2', query: { evil: 1 } },
+        { dedupeKey: 'i3', name: '과대', title: 't', url: 'https://poe.kakaogames.com/trade2/search/poe2/i3', query: { query: { n: 'x'.repeat(21000) } } },
+      ],
+    }
+    const { added } = await importBookmarksJSON('poe2', data)
+    expect(added).toBe(3)
+    const list = await listByKind('bookmark', 'poe2')
+    expect(list.find((b) => b.dedupeKey === 'i1').query).toEqual(Q)
+    expect(list.find((b) => b.dedupeKey === 'i2').query).toBeUndefined()
+    expect(list.find((b) => b.dedupeKey === 'i3').query).toBeUndefined()
   })
 })

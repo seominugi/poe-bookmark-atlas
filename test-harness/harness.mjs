@@ -38,7 +38,30 @@ await addBookmark(rec('사원 서판', { dedupeKey: 'k_sawon' }), '사원 서판
 const fold = await addFolder('유니크', 'poe2')
 await addBookmark(rec('지식의 매듭', { dedupeKey: 'k_fold1', folderId: fold.id }), '지식의 매듭')
 
-const panel = mountPanel({ game: 'poe2', league: 'Runes of Aldur', getLeagueMap: () => ({ 'Runes of Aldur': 'Runes of Aldur' }), getCurrentSearch: () => null })
+// 지난 리그 북마크(리그 이관 흐름 확인용) — 조건 있는 것 / 없는 구 북마크 각 1개
+await addBookmark(rec('지난 리그 검색', { dedupeKey: 'k_past', league: 'Abyss', query: { query: { status: { option: 'online' }, type: '서판' }, sort: { price: 'asc' } } }), '지난 리그 검색')
+await addBookmark(rec('지난 리그(구 북마크)', { dedupeKey: 'k_past_noq', league: 'Abyss' }), '지난 리그(구 북마크)')
+
+// 거래소 API를 부를 수 없으므로 결과를 흉내낸다. __migrateResult로 성공/실패를 바꿔 토스트·갱신을 확인한다.
+globalThis.__migrateResult = { ok: false, reason: 'rate' } // 기본은 실패 — 성공은 실제 이동(location.href)이라 하네스가 떠남
+globalThis.__migrateCalls = []
+const migrateSearch = async (query, league) => { globalThis.__migrateCalls.push({ query, league }); return globalThis.__migrateResult }
+
+// 투어 예시 요소 스텁 — 실제 카드는 content-main.js(하네스 미실행)가 만든다.
+// 여기선 panel.js의 훅(대상 없을 때 예시를 놓고 스포트라이트를 붙이는지)만 검증한다.
+const tourDemo = {
+  show(side) {
+    if (document.getElementById('ba-tour-demo')) return
+    const el = document.createElement('div')
+    el.id = 'ba-tour-demo'
+    el.style.cssText = `position:fixed;top:50%;${side === 'left' ? 'right' : 'left'}:120px;padding:14px;background:#1a1430;color:#ddd6fe;border:1px dashed #a78bfa;border-radius:12px;text-align:center`
+    el.innerHTML = '<div class="ba-pob-btn" style="display:inline-block;padding:6px 11px;border:1px solid #a78bfa">PoB</div><div style="margin-top:8px">제시 가격 12 <span class="ba-exr-chip" style="display:inline-block;padding:2px 8px;border:1px solid #a78bfa">≈ 24 엑잘</span></div>'
+    document.body.appendChild(el)
+  },
+  hide() { const el = document.getElementById('ba-tour-demo'); if (el) el.remove() },
+}
+
+const panel = mountPanel({ game: 'poe2', league: 'Runes of Aldur', getLeagueMap: () => ({ 'Runes of Aldur': 'Runes of Aldur', Abyss: '지난 리그' }), getCurrentSearch: () => null, migrateSearch, tourDemo })
 panel.show()
 globalThis.__panel = panel
 globalThis.__root = document.getElementById('ba-panel-host').shadowRoot

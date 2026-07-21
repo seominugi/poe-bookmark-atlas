@@ -546,11 +546,13 @@
 .ba-act.rename { color: #b0a4e8; }
 .ba-act.move   { color: #d4ab6e; }
 .ba-act.del    { color: #e08a8a; }
+.ba-act.relg   { color: #7fd4a8; }   /* 리그 이관(다시 검색) = 복구 계열 → 에메랄드 */
 .ba-act.copy:hover   { color: var(--ba-cyan); }
 .ba-act.over:hover   { color: #9fddff; }
 .ba-act.rename:hover { color: var(--ba-violet-2); }
 .ba-act.move:hover   { color: #f0c078; }
 .ba-act.del:hover    { color: #fda4af; }
+.ba-act.relg:hover   { color: #a7f3d0; }
 /* ⋯ 카드 액션 버튼(메타 행 우측) + 액션 팝오버 — 간략히/상세히 공통, 팝오버는 fixed(.ba-root 기준)로 overflow 회피 */
 .ba-more { flex: none; margin-left: auto; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 24px; border-radius: 7px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
 .ba-more:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }

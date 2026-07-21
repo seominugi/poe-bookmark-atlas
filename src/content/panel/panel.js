@@ -17,7 +17,7 @@ const discordUrl = chrome.runtime.getURL(discordIcon)
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
 
-export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
+export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migrateSearch, tourDemo }) {
   if (document.getElementById('ba-panel-host')) return { toggle() {}, show() {}, hide() {} }
   const host = document.createElement('div')
   host.id = 'ba-panel-host'
@@ -500,6 +500,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   const ui = {
     showNameInput, showSaveInput, showFolderPick, showConflict, toast, game, league,
     getLeagueMap: getLeagueMap || (() => ({})),
+    migrateSearch, // 저장된 조건을 현재 리그로 다시 검색(renderList의 지난 리그 북마크 흐름에서 사용)
   }
   const refresh = () => renderList($('ba-list'), root, ui)
 
@@ -554,8 +555,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
   // ── 사용법 가이드 코치마크 (4스텝) ──
   const TOUR = [
     { sel: '#ba-save', title: '자주하는 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 자주 쓰는 검색은 "현재 검색 저장"으로 영구 보관하고, 저장할 때 폴더도 바로 고를 수 있어요.' },
-    { sel: '.ba-pob-btn', global: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요. (검색 결과가 있어야 보여요)' },
-    { sel: '.ba-exr-chip', global: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준. (검색 결과가 있어야 보여요)' },
+    { sel: '.ba-pob-btn', global: true, demo: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요.' },
+    { sel: '.ba-exr-chip', global: true, demo: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준.' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },
     { sel: '.ba-open', title: '한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
     { sel: '.ba-price-pill', title: '검색 시점 시세', body: '가격에 마우스를 올리면 검색 당시 매물 기준 시세(빠르게 팔리는 가격)를 보여줘요. 북마크를 열면 최신 시세로 갱신됩니다.' },
@@ -589,7 +590,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
     root.appendChild(box)
     root.appendChild(arrow)
     root.appendChild(card)
-    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
     const goNext = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
     const goPrev = () => { if (i > 0) { i -= 1; render() } }
     // 방향키로도 이전/다음 이동 — 페이지 검색창 등에 포커스가 있으면(텍스트 커서 이동 용도) 가로채지 않는다
@@ -670,6 +671,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch }) {
       // 검색 결과 없이 투어를 시작하면 아직 안 떠 있을 수 있어(스포트라이트만 자동 숨김, place()의 기존 0-rect 처리로 대응).
       const scope = step.global ? document : root
       let target = scope.querySelector(step.sel)
+      // 페이지 쪽 대상(PoB 버튼·환산 칩)이 없으면 = 검색 결과가 없는 화면 → 투어 동안만 '예시' 요소를 놓고 그걸 가리킨다.
+      // (패널이 빈 목록에서 seedDemoData로 예시를 띄우는 것과 같은 처리) 예시가 필요 없는 스텝에선 즉시 치운다.
+      if (tourDemo) {
+        if (step.demo && (!target || !target.getBoundingClientRect().width)) {
+          tourDemo.show(panelSide)
+          target = scope.querySelector(step.sel)
+        } else if (!step.demo) tourDemo.hide()
+      }
       if (target && !target.getBoundingClientRect().width) {
         // 접힌 폴더 안이면 투어 동안만 임시로 펼쳐 대상이 보이게(사용자 설정 Set은 건드리지 않음)
         const folded = target.closest('.ba-folder--collapsed')

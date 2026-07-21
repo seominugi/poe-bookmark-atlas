@@ -2,6 +2,7 @@ import {
   listByKind, listFolders, moveBookmark, overwriteBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, setNote, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
+  migrateBookmarkLeague,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
@@ -103,7 +104,7 @@ export function overwriteSource(rec) {
     game: rec.game, league: rec.league, url: rec.url, title: rec.title,
     itemType: rec.itemType, stats: rec.stats, statGroups: rec.statGroups,
     otherFilters: rec.otherFilters, priceFilter: rec.priceFilter, icon: rec.icon,
-    snapshot: rec.snapshot, dedupeKey: rec.dedupeKey,
+    snapshot: rec.snapshot, dedupeKey: rec.dedupeKey, query: rec.query,
   }
 }
 
@@ -302,7 +303,13 @@ function rowHtml(r, kind, currentLeague, leagueMap) {
   // 능력치 미리보기 칩은 텍스트 길이에 따라 줄바꿈돼 호버(+n) 위치가 흔들림 →
   // 고정 폭 '조건 N개' 단일 칩(호버 시 전체 상세) + 상시 메모로 대체.
   const noteText = r.note || buildAutoNote(r) // 빈 메모면 조건 요약을 렌더 시점에 폴백 표시(저장 X, 편집하면 그때 저장)
-  return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
+  // 리그 이관 — 저장 당시 리그와 지금 리그가 다르면(=조건이 안 맞는 링크) 열 때 다시 검색을 제안한다.
+  // 조건(query)을 가진 북마크만 실제 이관이 가능하므로 액션도 그때만 노출(구 북마크는 열기 흐름에서 안내).
+  const pastLeague = !!(currentLeague && r.league && r.league !== currentLeague)
+  const migrateAct = r.query
+    ? `<span class="ba-act relg ba-migrate" data-id="${r.id}">${icon('trophy', 13)}현재 리그로 다시 검색</span>`
+    : ''
+  return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
       <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
@@ -312,6 +319,7 @@ function rowHtml(r, kind, currentLeague, leagueMap) {
     <div class="ba-actions-pop" hidden>
       <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
       <span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}">${icon('link', 13)}링크 복사</span>
+      ${migrateAct}
       <span class="ba-act over ba-over" data-id="${r.id}">${icon('refresh', 13)}최근 검색으로 갱신</span>
       <span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}">${icon('pencil', 12)}이름 변경</span>
       <span class="ba-act move ba-move" data-id="${r.id}" data-folder="${r.folderId ?? ''}">${icon('folder', 12)}다른 폴더로 이동</span>
@@ -456,9 +464,64 @@ function bindAll(listEl, ui) {
     })
   })
 
-  // 북마크 이름 칩 클릭 → 재검색
+  // ── 리그 이관 — 저장된 조건을 현재 리그의 새 검색으로 다시 만들고, 성공하면 북마크 링크를 그걸로 교체 ──
+  // 북마크는 저장 시점 리그의 검색 링크라 리그가 바뀌면 조건이 사라진다. 조건(query)을 그대로 다시 제출하면
+  // 거래소가 새 검색을 만들어 주고, 그 화면은 필터 UI까지 조건대로 채워져 뜬다.
+  const MIGRATE_FAIL = {
+    rate: '거래소 요청이 잠시 제한됐어요. 30초쯤 뒤에 다시 시도해 주세요.',
+    auth: '거래소 로그인이 풀린 것 같아요. 새로고침 후 다시 시도해 주세요.',
+    network: '거래소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
+    http: '거래소가 이 조건을 받아주지 않았어요. 잠시 후 다시 시도해 주세요.',
+  }
+  let migrating = false // 중복 클릭 차단 — 요청이 몰리면 거래소 요청 제한(429)에 걸려 검색 자체가 막힌다
+  const runMigration = async (id) => {
+    if (migrating) return
+    if (!ui.migrateSearch) { toast('이 화면에서는 다시 검색을 쓸 수 없어요.'); return }
+    migrating = true // ⚠ 첫 await 앞에서 잠근다 — 뒤에 두면 연타 클릭이 전부 검사를 통과해 요청이 여러 번 나간다
+    try {
+      const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
+      if (!rec || !rec.query) { toast('이 북마크에는 저장된 검색 조건이 없어 다시 검색할 수 없어요.'); return }
+      toast('현재 리그로 다시 검색 중…')
+      const res = await ui.migrateSearch(rec.query, ui.league)
+      if (!res || !res.ok) { toast(MIGRATE_FAIL[res && res.reason] || '저장된 조건으로 다시 검색하지 못했어요.'); return }
+      // 저장하기 '전에' 검증한다 — 검증을 이동 시점에만 두면 이상한 URL이 북마크에 먼저 기록된다
+      if (!isAllowedTradeUrl(res.url)) { toast('허용되지 않은 링크가 돌아와 취소했어요.'); return }
+      await migrateBookmarkLeague(id, res.url, ui.league) // 링크·리그만 교체 — 이름·폴더·메모는 그대로
+      openTradeUrl(res.url, toast)
+    } finally { migrating = false }
+  }
+  listEl.querySelectorAll('.ba-migrate').forEach((m) =>
+    m.addEventListener('click', (e) => { e.stopPropagation(); runMigration(m.dataset.id) }))
+
+  // 북마크 이름 칩 클릭 → 재검색. 지난 리그 북마크는 열어봐야 조건이 안 맞으므로, 그 자리에서 이관을 제안한다.
+  // (Ctrl/⌘ 클릭 = 새 탭으로 원본 그대로 열기는 기존 동작 유지)
   listEl.querySelectorAll('.ba-open').forEach((s) =>
-    s.addEventListener('click', (e) => { e.stopPropagation(); openTradeUrl(decodeURIComponent(s.closest('.ba-row').dataset.url), toast, e) }))
+    s.addEventListener('click', async (e) => {
+      e.stopPropagation()
+      const row = s.closest('.ba-row')
+      const url = decodeURIComponent(row.dataset.url)
+      if (row.dataset.past !== '1' || e.ctrlKey || e.metaKey || !ui.showConflict) { openTradeUrl(url, toast, e); return }
+      const id = row.dataset.id
+      const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
+      const lgMap = (ui.getLeagueMap ? ui.getLeagueMap() : {}) || {}
+      const lgName = (l) => (l ? lgMap[l] || l : '')
+      const savedLg = lgName(rec && rec.league)
+      const canMigrate = !!(rec && rec.query && ui.migrateSearch)
+      const full = condSummaryText(rec || {})
+      const summary = full.length > 110 ? full.slice(0, 110) + '…' : full // 팝오버가 길어지지 않게 — 전체는 카드 조건 칩 툴팁에 있다
+      const v = await ui.showConflict(
+        id,
+        '지난 리그 북마크',
+        canMigrate
+          ? `저장 당시 리그는 "${savedLg}"예요. 같은 조건을 지금 리그 "${lgName(ui.league)}"로 다시 검색할까요? 북마크 링크도 새 검색으로 갱신됩니다.`
+          : `저장 당시 리그는 "${savedLg}"라 그대로 열면 조건이 안 맞을 수 있어요. 저장된 조건: ${summary || '없음'}`,
+        canMigrate
+          ? [{ label: '그대로 열기', value: 'open', alt: true }, { label: '현재 리그로 다시 검색', value: 'migrate', primary: true }]
+          : [{ label: '그대로 열기', value: 'open', primary: true }],
+      )
+      if (v === 'migrate') runMigration(id)
+      else if (v === 'open') openTradeUrl(url, toast, e)
+    }))
 
   // ⋯ 카드 액션 팝오버 — .ba-more 클릭 시 그 카드의 숨은 액션 목록을 카드 옆에 띄운다(간략히·상세히 공통).
   // 패널 overflow:hidden 회피: .ba-actions-pop은 position:fixed(.ba-root의 transform 때문에 .ba-root 기준) + JS 위치·클램프.

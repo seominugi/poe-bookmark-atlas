@@ -7,7 +7,8 @@ import { buildLeagueMap } from '../lib/leagueMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
 import { parseExaltedPerDivine, baseFromPrice, baseCurrencyOf, fmtCurAmount } from '../lib/currencyRates.js'
-import { addHistory, markUsedByUrl, ensureSchema } from '../store/store.js'
+import { searchApiPath, searchResultPath, isSafeSearchId, sanitizeQuery } from '../lib/tradeSearch.js'
+import { addHistory, markUsedByUrl, ensureSchema, backfillQuery, isAllowedTradeUrl } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText, buildReportText } from '../lib/pobExport.js'
@@ -179,6 +180,22 @@ function pobEnsureStyle() {
     border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 999px;
     box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.1); }
   .ba-exr-chip img { width: 15px !important; height: 15px !important; object-fit: contain !important; display: block; max-width: none !important; }
+  /* 가이드 투어 예시 카드 — 실제 결과 행이 없을 때만 잠깐 놓는 모형.
+     실제 결과로 오인하지 않도록 점선 테두리 + '예시' 배지를 달고, 클릭도 받지 않는다(pointer-events:none).
+     진입은 opacity만 — transform으로 키우면 투어가 삽입 직후 동기로 재는 rect가 어긋나 스포트라이트가 밀린다. */
+  .ba-demo-card { box-sizing: border-box; position: fixed; top: 50%; transform: translateY(-50%); z-index: 2147483500;
+    width: 260px; padding: 12px 14px 14px; text-align: center; pointer-events: none;
+    font-family: inherit; color: #ddd6fe; letter-spacing: -0.01em;
+    background: rgba(14, 11, 26, 0.92); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+    border: 1.5px dashed rgba(167, 139, 250, 0.55); border-radius: 14px;
+    box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
+    opacity: 0; transition: opacity .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  .ba-demo-card.show { opacity: 1; }
+  .ba-demo-badge { font-size: 10.5px; font-weight: 700; color: #a5f3fc; margin-bottom: 9px; }
+  .ba-demo-name { font-size: 13px; font-weight: 800; color: #fde68a; }
+  .ba-demo-price { display: flex; align-items: center; justify-content: center; gap: 2px;
+    margin-top: 6px; font-size: 11.5px; font-weight: 600; color: #cbc5e8; }
+  @media (prefers-reduced-motion: reduce) { .ba-demo-card { transition-duration: .001ms; } }
   .ba-exr-chip::after { content: attr(data-tip); position: absolute; right: 0; bottom: calc(100% + 7px);
     padding: 7px 10px; font-size: 11px; font-weight: 600; letter-spacing: -0.01em; color: #e6e0ff; white-space: nowrap;
     background: rgba(20, 17, 34, 0.97); border: 1px solid rgba(167, 139, 250, 0.5); border-radius: 9px;
@@ -409,7 +426,7 @@ window.addEventListener('message', async (e) => {
     // 검색 조건을 최신 파서 형식으로 재기록(구 북마크에 능력치 수치 등 반영 — 하위호환 업그레이드).
     if (listings.length > 0) await markUsedByUrl(location.href, snapshot || undefined, icon || undefined, {
       title: parsed.title, itemType: parsed.itemType, stats: parsed.stats, statGroups: parsed.statGroups,
-      otherFilters: parsed.otherFilters, priceFilter: parsed.priceFilter, dedupeKey: key,
+      otherFilters: parsed.otherFilters, priceFilter: parsed.priceFilter, dedupeKey: key, query: pending.query || undefined,
     })
 
     const rec = await addHistory({
@@ -426,11 +443,73 @@ window.addEventListener('message', async (e) => {
       icon: icon || undefined,
       snapshot: snapshot || undefined,
       dedupeKey: key,
+      query: pending.query || undefined, // 리그 이관용 raw 조건 — 북마크로 저장·승격될 때 함께 넘어간다
     })
+    // query 도입 전에 저장한 북마크는 조건이 없어 이관이 불가능하다 → 같은 조건을 다시 검색하는 이 순간 채워 넣는다.
+    if (pending.query) await backfillQuery(key, game, pending.query)
     LOG('히스토리 저장됨:', rec && rec.id, parsed.title)
     document.dispatchEvent(new CustomEvent('ba:records-changed'))
   }
 })
+
+// ── 리그 이관 — 저장된 검색 조건(raw query)을 현재 리그의 새 검색으로 재생성 ──
+// 거래소가 자기 검색을 만들 때 쓰는 공식 엔드포인트에 same-origin POST 한다(cross-site-receiver.js와 동일 방식).
+// 필터 UI를 프로그래밍으로 채우지 않는 이유는 lib/tradeSearch.js 헤더 참조.
+// 사용자 클릭 1회 = 요청 1회. 일괄 이관은 제공하지 않는다 — GGG rate limit(429)에 걸리면 거래소 검색 자체가 막힌다.
+async function migrateSearch(rawQuery, league) {
+  const s = sanitizeQuery(rawQuery)
+  if (!s.ok) { LOG('리그 이관 — 조건 형식 불량', s.reason); return { ok: false, reason: s.reason } }
+  let res
+  try {
+    res = await fetch(searchApiPath(game, league), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(s.query),
+    })
+  } catch (err) { LOG('리그 이관 네트워크 오류', String(err)); return { ok: false, reason: 'network' } }
+  if (res.status === 429) return { ok: false, reason: 'rate' } // 거래소 요청 제한 — 잠시 후 재시도 안내
+  if (res.status === 401 || res.status === 403) return { ok: false, reason: 'auth' }
+  if (!res.ok) { LOG('리그 이관 실패 HTTP', res.status); return { ok: false, reason: 'http' } }
+  let data = null
+  try { data = await res.json() } catch (_) {}
+  const id = data && data.id
+  if (!isSafeSearchId(id)) { LOG('리그 이관 — 응답 id 이상'); return { ok: false, reason: 'bad-id' } }
+  const url = location.origin + searchResultPath(game, league, id)
+  if (!isAllowedTradeUrl(url)) { LOG('리그 이관 — 허용되지 않은 URL'); return { ok: false, reason: 'bad-url' } }
+  return { ok: true, url, total: (data && data.total) ?? null }
+}
+
+// ── 가이드 투어용 예시 요소 ──
+// PoB 버튼·환산 칩은 검색 결과 행에 주입되므로, 결과가 없는 화면(첫 방문·거래소 홈)에서 투어를 돌리면
+// 그 스텝만 가리킬 대상이 없어 스포트라이트가 통째로 사라진다. 패널이 빈 화면에서 데모 데이터를 띄우는 것과
+// 같은 방식으로(store.seedDemoData), 대상이 없을 때만 실제와 같은 클래스의 '예시' 요소를 페이지에 잠시 놓는다.
+// 실제 클래스를 그대로 쓰므로 투어 셀렉터(.ba-pob-btn/.ba-exr-chip)를 바꿀 필요가 없다.
+const TOUR_DEMO_ID = 'ba-tour-demo'
+function showTourDemo(side) {
+  if (document.getElementById(TOUR_DEMO_ID)) return
+  pobEnsureStyle()
+  const el = document.createElement('div')
+  el.id = TOUR_DEMO_ID
+  el.className = 'ba-demo-card'
+  // 전부 정적 한국어 리터럴 — 사용자·외부 데이터 없음
+  el.innerHTML = `
+    <div class="ba-demo-badge">예시 · 검색 결과가 있을 때 이렇게 보여요</div>
+    <div class="ba-demo-name">형상 없는 반지</div>
+    <div class="ba-demo-price">제시 가격 12 <span class="ba-exr-chip">≈ 24 ${game === 'poe1' ? '카오스' : '엑잘'}</span></div>
+    <div class="ba-pob-wrap"><button type="button" class="ba-pob-btn" tabindex="-1"><b>PoB</b><span>영문 복사</span></button></div>`
+  document.body.appendChild(el)
+  // 패널이 덮은 쪽을 피해 남은 영역 가운데에 놓는다(패널 = 폭 384 + 좌우 여백 14).
+  const RESERVED = 412
+  const w = el.offsetWidth || 260 // offsetWidth 읽기가 리플로우도 겸함 → 아래 .show 전환이 실제로 재생된다
+  const freeStart = side === 'left' ? RESERVED : 0
+  const freeEnd = side === 'left' ? window.innerWidth : window.innerWidth - RESERVED
+  el.style.left = Math.max(16, Math.round((freeStart + freeEnd) / 2 - w / 2)) + 'px'
+  el.classList.add('show')
+}
+function hideTourDemo() {
+  const el = document.getElementById(TOUR_DEMO_ID)
+  if (el) el.remove()
+}
 
 initFuzzyPrefix()
 const panel = mountPanel({
@@ -438,6 +517,8 @@ const panel = mountPanel({
   league: leagueFromUrl(),
   getLeagueMap: () => leagueMap,
   getCurrentSearch: () => (lastQuery ? { query: lastQuery, league: lastQueryLeague || leagueFromUrl() } : null),
+  migrateSearch,
+  tourDemo: { show: showTourDemo, hide: hideTourDemo },
 })
 
 // 팝업·단축키 명령 수신 (toggle/save/tour)

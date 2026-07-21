@@ -1,5 +1,6 @@
 // src/store/store.js
 import { buildAutoNote } from '../lib/autoNote.js'
+import { sanitizeQuery } from '../lib/tradeSearch.js'
 
 const KEY = 'records'
 const FOLDERS_KEY = 'folders'
@@ -175,6 +176,7 @@ export async function overwriteBookmark(id, source) {
   r.statGroups = source.statGroups
   r.otherFilters = source.otherFilters
   r.priceFilter = source.priceFilter
+  r.query = source.query // 리그 이관용 raw 검색 조건도 새 검색 것으로 교체
   if (source.icon !== undefined) r.icon = source.icon
   r.snapshot = source.snapshot
   r.dedupeKey = source.dedupeKey
@@ -215,11 +217,48 @@ export async function markUsedByUrl(url, snapshot, icon, fields) {
         r.otherFilters = fields.otherFilters
         r.priceFilter = fields.priceFilter
         if (fields.dedupeKey) r.dedupeKey = fields.dedupeKey
+        if (fields.query) r.query = fields.query // 리그 이관용 raw 조건 — 구 북마크 업그레이드
       }
       changed = true
     }
   }
   if (changed) await writeAll(all)
+}
+
+/**
+ * 같은 조건(dedupeKey)의 북마크 중 raw 검색 조건(query)이 없는 것에 채운다.
+ * query는 나중에 도입돼서 그 전에 저장한 북마크엔 없다 → 사용자가 그 조건으로 다시 검색하는 순간
+ * 자동으로 채워 넣어 리그 이관이 가능해진다(있는 값은 덮지 않는다).
+ * @returns {Promise<number>} 채운 개수
+ */
+export async function backfillQuery(dedupeKey, game, query) {
+  if (!dedupeKey || !query) return 0
+  const all = await readAll()
+  let filled = 0
+  for (const r of all) {
+    if (r.kind === 'bookmark' && r.dedupeKey === dedupeKey && (!game || r.game === game) && !r.query) { r.query = query; filled++ }
+  }
+  if (filled) await writeAll(all)
+  return filled
+}
+
+/**
+ * 리그 이관 성공 반영 — 북마크의 링크·리그를 새로 만든 검색으로 교체한다.
+ * 이름·폴더·순서·메모·id·생성시각·조건(query)은 그대로 두어 "같은 북마크가 되살아난" 것으로 보이게 한다.
+ * 방금 사용했으므로 lastUsedAt도 갱신(= 오래됨 경고 해제).
+ * @returns {Promise<boolean>} 대상 북마크를 찾아 갱신했으면 true
+ */
+export async function migrateBookmarkLeague(id, url, league) {
+  const all = await readAll()
+  const r = all.find((x) => x.id === id && x.kind === 'bookmark')
+  if (!r) return false
+  const now = Date.now()
+  r.url = url
+  r.league = league
+  r.updatedAt = now
+  r.lastUsedAt = now
+  await writeAll(all)
+  return true
 }
 
 /** 오래된(staleMs 이상 미사용) 북마크 일괄 삭제. game 스코프. @returns {Promise<number>} 삭제 개수 */
@@ -381,6 +420,11 @@ export async function importBookmarksJSON(game, data) {
     // 기존 메타(id·kind·order·시간)는 버리고 addBookmark가 새로 발급하도록 한다
     const { id, kind, order, createdAt, updatedAt, lastUsedAt, ...rest } = b
     if (rest.icon && !isAllowedIconUrl(rest.icon)) delete rest.icon // 허용 CDN 외 이미지는 제거(북마크 자체는 유지)
+    if (rest.query) { // 남이 만든 raw 검색 조건 — 거래소 API로 그대로 보내므로 형태·크기를 검증(불합격이면 조건만 버림)
+      const s = sanitizeQuery(rest.query)
+      if (s.ok) rest.query = s.query
+      else delete rest.query
+    }
     await addBookmark({ ...rest, game, folderId }, b.name || b.title)
     added++
   }
