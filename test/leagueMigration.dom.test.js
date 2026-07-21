@@ -80,15 +80,14 @@ describe('리그 이관 — 행 표시', () => {
     expect(badgeOf('HC')).toEqual({ text: null, collapsed: false })
   })
 
-  it('⋯ 액션은 조건(query)을 가진 북마크에만 노출된다', async () => {
+  it('⋯ 액션은 검색 해시나 조건이 있으면 노출 — 조건 없는 구 북마크도 URL 치환으로 되살릴 수 있다', async () => {
     await addBookmark(baseRec({ query: QUERY }), '조건있음')
-    await addBookmark(baseRec({ dedupeKey: 'k2' }), '조건없음') // 구 북마크
+    await addBookmark(baseRec({ dedupeKey: 'k2' }), '해시만있음') // 구 북마크(조건 미저장)
+    await addBookmark(baseRec({ dedupeKey: 'k3', url: 'https://poe.kakaogames.com/trade2/search/poe2/Old' }), '둘다없음')
     const list = await render(makeUi('cancel').ui)
-    const rows = [...list.querySelectorAll('.ba-row[data-kind="bookmark"]')]
-    const has = rows.find((r) => r.querySelector('.ba-open b').textContent === '조건있음')
-    const none = rows.find((r) => r.querySelector('.ba-open b').textContent === '조건없음')
-    expect(has.querySelector('.ba-migrate')).toBeTruthy()
-    expect(none.querySelector('.ba-migrate')).toBeNull()
+    expect(byName(list, '조건있음').querySelector('.ba-migrate')).toBeTruthy()
+    expect(byName(list, '해시만있음').querySelector('.ba-migrate')).toBeTruthy()
+    expect(byName(list, '둘다없음').querySelector('.ba-migrate')).toBeNull()
   })
 })
 
@@ -99,7 +98,7 @@ describe('내 리그 결정 (설정 → 페이지 → 최근 검색)', () => {
     const list = await render(ui)
     list.querySelector('.ba-migrate').click()
     await tick(); await tick()
-    expect(calls.migrate).toEqual([[QUERY, 'HC']])
+    expect(calls.migrate.map((c) => c[1])).toEqual(['HC'])
   })
 
   it('설정 리그가 이미 끝난 리그면 무시하고 자동 판정으로 넘어간다', async () => {
@@ -108,7 +107,7 @@ describe('내 리그 결정 (설정 → 페이지 → 최근 검색)', () => {
     const list = await render(ui)
     list.querySelector('.ba-migrate').click()
     await tick(); await tick()
-    expect(calls.migrate).toEqual([[QUERY, 'New']])
+    expect(calls.migrate.map((c) => c[1])).toEqual(['New'])
   })
 
   it("설정 리그 섹션이 '현재'로 표시된다(보고 있는 페이지가 다른 리그여도)", async () => {
@@ -131,7 +130,9 @@ describe('리그 이관 — 열기 시 제안', () => {
     await tick(); await tick()
     expect(calls.conflict).toHaveLength(1)
     expect(calls.conflict[0][2]).toContain('현재 리그') // 어느 리그로 가는지 문구에 명시
-    expect(calls.migrate).toEqual([[QUERY, 'New']]) // 저장된 조건 그대로 + 현재 리그
+    expect(calls.migrate).toHaveLength(1)
+    expect(calls.migrate[0][0].query).toEqual(QUERY) // 레코드째 넘긴다(URL 해시 재사용 → 조건 폴백 순서)
+    expect(calls.migrate[0][1]).toBe('New')
     const after = (await listByKind('bookmark', 'poe2')).find((x) => x.id === b.id)
     expect(after.url).toBe('https://poe.kakaogames.com/trade2/search/poe2/New/newhash')
     expect(after.league).toBe('New')
@@ -157,8 +158,8 @@ describe('리그 이관 — 열기 시 제안', () => {
     expect(calls.migrate).toHaveLength(0)
   })
 
-  it('조건 없는 구 북마크는 이관 버튼 대신 저장된 조건을 보여준다', async () => {
-    await addBookmark(baseRec({ stats: ['화염 저항 #%'] }), '구 북마크')
+  it('해시도 조건도 없으면 이관 버튼 대신 저장된 조건을 보여준다', async () => {
+    await addBookmark(baseRec({ stats: ['화염 저항 #%'], url: 'https://poe.kakaogames.com/trade2/search/poe2/Old' }), '복구불가')
     const { ui, calls } = makeUi('open')
     const list = await render(ui)
     list.querySelector('.ba-open').click()
@@ -186,7 +187,7 @@ describe('리그 이관 — 열기 시 제안', () => {
     const list = await render(ui)
     list.querySelector('.ba-migrate').click()
     await tick(); await tick()
-    expect(calls.migrate).toEqual([[QUERY, 'New']])
+    expect(calls.migrate.map((c) => c[1])).toEqual(['New'])
   })
 
   it('끝난 리그 페이지 + 참고할 최근 검색도 없으면 요청하지 않고 안내한다', async () => {
@@ -220,7 +221,7 @@ describe('리그 이관 — ⋯ 액션과 실패 처리', () => {
     const list = await render(ui)
     list.querySelector('.ba-migrate').click()
     await tick(); await tick()
-    expect(calls.migrate).toEqual([[QUERY, 'New']])
+    expect(calls.migrate.map((c) => c[1])).toEqual(['New'])
     expect((await listByKind('bookmark', 'poe2')).find((x) => x.id === b.id).league).toBe('New')
   })
 

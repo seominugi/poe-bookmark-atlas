@@ -1,6 +1,6 @@
 // src/store/store.js
 import { buildAutoNote } from '../lib/autoNote.js'
-import { sanitizeQuery } from '../lib/tradeSearch.js'
+import { sanitizeQuery, isAllowedTradeUrl } from '../lib/tradeSearch.js'
 
 const KEY = 'records'
 const FOLDERS_KEY = 'folders'
@@ -67,15 +67,9 @@ export async function clearDemoData() {
   if (folders.some((f) => f.__demo)) await writeFolders(folders.filter((f) => !f.__demo))
 }
 
-// ── URL 안전성: 거래소(허용 도메인) 링크만 열기·복사·가져오기·내보내기 허용 (피싱·javascript: 차단) ──
-const ALLOWED_HOSTS = ['poe.kakaogames.com', 'www.pathofexile.com']
-export function isAllowedTradeUrl(url) {
-  try {
-    const u = new URL(String(url))
-    return u.protocol === 'https:' && ALLOWED_HOSTS.includes(u.hostname) &&
-      (u.pathname.startsWith('/trade2/') || u.pathname.startsWith('/trade/'))
-  } catch (_) { return false }
-}
+// URL 안전성(거래소 도메인만 허용)의 정본은 lib/tradeSearch.js — 그쪽이 이관용 URL 조립에도 쓰기 때문에
+// 순환 import를 피하려고 정의를 옮겼다. 기존 import 경로(store)를 유지하기 위해 재수출한다.
+export { isAllowedTradeUrl }
 
 // 아이템 썸네일 이미지: POE 공식 CDN(web.poecdn.com, https)만 허용 — 가져온 북마크의 악성·트래킹 이미지 차단.
 const ALLOWED_ICON_HOSTS = ['web.poecdn.com']

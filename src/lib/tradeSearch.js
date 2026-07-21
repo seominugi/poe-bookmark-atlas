@@ -13,6 +13,18 @@
 const encLeague = (league) => encodeURIComponent(String(league || 'Standard'))
 const isPoe2 = (game) => game === 'poe2'
 
+// ── 거래소 URL 정책 ──
+// 열기·복사·가져오기·내보내기·이관에 쓰는 링크는 거래소 도메인만 허용한다(피싱·javascript: 차단).
+// store.js가 이 모듈을 쓰므로(순환 import 방지) 정책의 정본은 여기 두고 store.js가 재수출한다.
+const ALLOWED_HOSTS = ['poe.kakaogames.com', 'www.pathofexile.com']
+export function isAllowedTradeUrl(url) {
+  try {
+    const u = new URL(String(url))
+    return u.protocol === 'https:' && ALLOWED_HOSTS.includes(u.hostname) &&
+      (u.pathname.startsWith('/trade2/') || u.pathname.startsWith('/trade/'))
+  } catch (_) { return false }
+}
+
 /** 검색 생성(POST) API 경로 — same-origin 상대 경로 */
 export function searchApiPath(game, league) {
   return isPoe2(game) ? `/api/trade2/search/poe2/${encLeague(league)}` : `/api/trade/search/${encLeague(league)}`
@@ -21,6 +33,29 @@ export function searchApiPath(game, league) {
 /** 생성된 검색의 결과 페이지 경로 */
 export function searchResultPath(game, league, id) {
   return isPoe2(game) ? `/trade2/search/poe2/${encLeague(league)}/${id}` : `/trade/search/${encLeague(league)}/${id}`
+}
+
+/**
+ * 저장된 북마크 URL에서 검색 해시를 뽑는다.
+ *
+ * 검색 해시는 조건(query)만 담고 리그는 URL 경로가 정한다 — 같은 해시를 리그만 바꿔 열면 그 리그에서
+ * 같은 조건으로 검색된다(사용자 확인, 2026-07-22). 덕분에 조건을 저장하지 않은 옛 북마크도
+ * 리그 세그먼트 치환만으로 되살릴 수 있다(해시가 서버에 아직 살아 있는 한).
+ *
+ * 저장 데이터는 가져오기로 들어온 남의 것일 수 있으므로 도메인·경로·해시 형태를 모두 검증한다.
+ * @returns {string|null}
+ */
+export function searchHashFromUrl(url, game) {
+  let u
+  try { u = new URL(String(url)) } catch (_) { return null }
+  if (!isAllowedTradeUrl(u.href)) return null
+  const parts = u.pathname.split('/').filter(Boolean)
+  const i = parts.indexOf('search')
+  if (i < 0) return null
+  let rest = parts.slice(i + 1)
+  if (isPoe2(game) && rest[0] === 'poe2') rest = rest.slice(1)
+  const hash = rest[1] ? decodeURIComponent(rest[1]) : null // [0]=리그, [1]=해시
+  return isSafeSearchId(hash) ? hash : null
 }
 
 // 응답 id를 그대로 URL에 이어 붙이므로, 경로·쿼리·프로토콜로 탈출할 수 있는 문자는 전부 배제한다.

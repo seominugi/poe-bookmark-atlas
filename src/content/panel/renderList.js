@@ -9,6 +9,7 @@ import { icon } from '../../lib/icons.js'
 import { suggestName } from '../../lib/suggestName.js'
 import { buildAutoNote } from '../../lib/autoNote.js'
 import { findNearDuplicate, formatStatText } from '../../lib/searchParser.js'
+import { searchHashFromUrl } from '../../lib/tradeSearch.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
@@ -190,6 +191,16 @@ export function resolveCurrentLeague(src, lg) {
   return recent ? recent.league : null
 }
 
+/**
+ * 이 북마크를 다른 리그로 되살릴 수 있는가 — 둘 중 하나면 된다.
+ * ① 저장된 URL에서 검색 해시를 뽑을 수 있다(리그만 바꿔 열면 같은 조건으로 검색된다)
+ * ② 저장된 raw 조건이 있다(해시가 만료됐어도 새로 만들 수 있다)
+ */
+export function migratable(rec) {
+  if (!rec) return false
+  return !!rec.query || !!searchHashFromUrl(rec.url, rec.game)
+}
+
 export function leagueInfo(leagueMap) {
   const map = leagueMap || {}
   const known = Object.keys(map).length > 0
@@ -343,10 +354,10 @@ function rowHtml(r, kind, lg) {
   const noteText = r.note || buildAutoNote(r) // 빈 메모면 조건 요약을 렌더 시점에 폴백 표시(저장 X, 편집하면 그때 저장)
   // 리그 이관 — 저장 당시 리그가 '이미 끝난 리그'일 때만 열 때 다시 검색을 제안한다.
   // 지금 보고 있는 페이지의 리그와 다르다는 것만으론 부족하다: 스탠다드↔하드코어처럼 둘 다 열려 있으면 안 깨졌다.
-  // 조건(query)을 가진 북마크만 실제 이관이 가능하므로 액션도 그때만 노출(구 북마크는 열기 흐름에서 안내).
+  // 검색 해시는 조건만 담고 리그는 URL이 정하므로, 조건(query)을 저장하지 않은 옛 북마크도 이관 대상이다.
   const pastLeague = !!(lg && lg.isDead(r.league))
-  const migrateAct = r.query
-    ? `<span class="ba-act relg ba-migrate" data-id="${r.id}">${icon('trophy', 13)}현재 리그로 다시 검색</span>`
+  const migrateAct = migratable(r)
+    ? `<span class="ba-act relg ba-migrate" data-id="${r.id}">${icon('trophy', 13)}내 리그로 다시 검색</span>`
     : ''
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
@@ -519,6 +530,7 @@ function bindAll(listEl, ui, ctx) {
     auth: '거래소 로그인이 풀린 것 같아요. 새로고침 후 다시 시도해 주세요.',
     network: '거래소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
     http: '거래소가 이 조건을 받아주지 않았어요. 잠시 후 다시 시도해 주세요.',
+    expired: '거래소에서 이 검색 링크가 만료됐고, 저장된 조건도 없어 되살릴 수 없어요. 조건을 보고 직접 다시 만들어 주세요.',
   }
   // 이관 대상 리그 = 렌더가 '현재'로 표시한 그 리그(resolveCurrentLeague). 여기서 다시 계산하면
   // 화면 표시와 실제 대상이 어긋날 수 있어 렌더 결과를 그대로 받아 쓴다. null이면 이관하지 않는다.
@@ -531,11 +543,11 @@ function bindAll(listEl, ui, ctx) {
     migrating = true // ⚠ 첫 await 앞에서 잠근다 — 뒤에 두면 연타 클릭이 전부 검사를 통과해 요청이 여러 번 나간다
     try {
       const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
-      if (!rec || !rec.query) { toast('이 북마크에는 저장된 검색 조건이 없어 다시 검색할 수 없어요.'); return }
+      if (!migratable(rec)) { toast('이 북마크는 링크·조건이 모두 없어 다시 검색할 수 없어요.'); return }
       const target = targetLeague
       if (!target) { toast('지금 리그를 알 수 없어요. 설정에서 리그를 고르거나, 거래소에서 검색을 한 번 실행해 주세요.'); return }
       toast(`${lg.name(target)}(으)로 다시 검색 중…`)
-      const res = await ui.migrateSearch(rec.query, target)
+      const res = await ui.migrateSearch(rec, target)
       if (!res || !res.ok) { toast(MIGRATE_FAIL[res && res.reason] || '저장된 조건으로 다시 검색하지 못했어요.'); return }
       // 저장하기 '전에' 검증한다 — 검증을 이동 시점에만 두면 이상한 URL이 북마크에 먼저 기록된다
       if (!isAllowedTradeUrl(res.url)) { toast('허용되지 않은 링크가 돌아와 취소했어요.'); return }
@@ -558,7 +570,7 @@ function bindAll(listEl, ui, ctx) {
       const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
       const savedLg = lg.name(rec && rec.league)
       const target = targetLeague
-      const canMigrate = !!(rec && rec.query && ui.migrateSearch && target)
+      const canMigrate = !!(migratable(rec) && ui.migrateSearch && target)
       const full = condSummaryText(rec || {})
       const summary = full.length > 110 ? full.slice(0, 110) + '…' : full // 팝오버가 길어지지 않게 — 전체는 카드 조건 칩 툴팁에 있다
       const v = await ui.showConflict(
@@ -568,7 +580,7 @@ function bindAll(listEl, ui, ctx) {
           ? `저장 당시 리그는 "${savedLg}"예요. 같은 조건을 "${lg.name(target)}"로 다시 검색할까요? 북마크 링크도 새 검색으로 갱신됩니다.`
           : `저장 당시 리그는 "${savedLg}"라 그대로 열면 조건이 안 맞을 수 있어요. 저장된 조건: ${summary || '없음'}`,
         canMigrate
-          ? [{ label: '그대로 열기', value: 'open', alt: true }, { label: '현재 리그로 다시 검색', value: 'migrate', primary: true }]
+          ? [{ label: '그대로 열기', value: 'open', alt: true }, { label: '내 리그로 다시 검색', value: 'migrate', primary: true }]
           : [{ label: '그대로 열기', value: 'open', primary: true }],
       )
       if (v === 'migrate') runMigration(id)

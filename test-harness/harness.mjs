@@ -45,7 +45,7 @@ await addBookmark(rec('지난 리그(구 북마크)', { dedupeKey: 'k_past_noq',
 // 거래소 API를 부를 수 없으므로 결과를 흉내낸다. __migrateResult로 성공/실패를 바꿔 토스트·갱신을 확인한다.
 globalThis.__migrateResult = { ok: false, reason: 'rate' } // 기본은 실패 — 성공은 실제 이동(location.href)이라 하네스가 떠남
 globalThis.__migrateCalls = []
-const migrateSearch = async (query, league) => { globalThis.__migrateCalls.push({ query, league }); return globalThis.__migrateResult }
+const migrateSearch = async (rec, league) => { globalThis.__migrateCalls.push({ id: rec && rec.id, hasQuery: !!(rec && rec.query), league }); return globalThis.__migrateResult }
 
 // 투어 예시 요소 스텁 — 실제 카드는 content-main.js(하네스 미실행)가 만든다.
 // 여기선 panel.js의 훅(대상 없을 때 예시를 놓고 스포트라이트를 붙이는지)만 검증한다.

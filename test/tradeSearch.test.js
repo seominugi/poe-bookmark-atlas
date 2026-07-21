@@ -1,6 +1,28 @@
 // test/tradeSearch.test.js — 리그 이관(저장된 조건을 현재 리그로 재검색)용 순수 헬퍼
 import { describe, it, expect } from 'vitest'
-import { searchApiPath, searchResultPath, isSafeSearchId, sanitizeQuery } from '../src/lib/tradeSearch.js'
+import { searchApiPath, searchResultPath, isSafeSearchId, sanitizeQuery, searchHashFromUrl } from '../src/lib/tradeSearch.js'
+
+describe('searchHashFromUrl', () => {
+  it('poe2 저장 URL에서 검색 해시를 뽑는다', () => {
+    expect(searchHashFromUrl('https://poe.kakaogames.com/trade2/search/poe2/Standard/EBo8vB8LC5', 'poe2')).toBe('EBo8vB8LC5')
+  })
+  it('poe1 저장 URL에서 검색 해시를 뽑는다(한글 리그 포함)', () => {
+    expect(searchHashFromUrl('https://poe.kakaogames.com/trade/search/Hardcore/EBo8vB8LC5', 'poe1')).toBe('EBo8vB8LC5')
+    expect(searchHashFromUrl('https://poe.kakaogames.com/trade/search/%ED%97%88%EC%83%81/abc123', 'poe1')).toBe('abc123')
+  })
+  it('쿼리스트링·해시 조각이 붙어 있어도 해시만 뽑는다', () => {
+    expect(searchHashFromUrl('https://poe.kakaogames.com/trade2/search/poe2/Standard/EBo8vB8LC5?x=1#y', 'poe2')).toBe('EBo8vB8LC5')
+  })
+  it('해시 없는 리그 홈 URL은 null', () => {
+    expect(searchHashFromUrl('https://poe.kakaogames.com/trade2/search/poe2/Standard', 'poe2')).toBeNull()
+  })
+  it('거래소 외 도메인·비정상 해시는 null (저장 데이터는 남이 만든 것일 수 있다)', () => {
+    expect(searchHashFromUrl('https://evil.example/trade2/search/poe2/Standard/abc', 'poe2')).toBeNull()
+    expect(searchHashFromUrl('https://poe.kakaogames.com/trade2/search/poe2/Standard/..%2F..%2Fevil', 'poe2')).toBeNull()
+    expect(searchHashFromUrl('', 'poe2')).toBeNull()
+    expect(searchHashFromUrl(null, 'poe2')).toBeNull()
+  })
+})
 
 describe('searchApiPath', () => {
   it('poe2는 /api/trade2/search/poe2/<리그>', () => {
