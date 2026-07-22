@@ -62,7 +62,8 @@ const tourDemo = {
 }
 
 const panel = mountPanel({ game: 'poe2', league: 'Runes of Aldur', // 리그 목록 = 지금 열려 있는 리그만(거래소 API와 동일). 위 시드의 'Abyss'는 일부러 빼서 '끝난 리그'로 만든다.
-getLeagueMap: () => ({ 'Runes of Aldur': 'Runes of Aldur', Standard: '스탠다드' }), getCurrentSearch: () => null, migrateSearch, tourDemo })
+// __leagueMap으로 덮어써 '끝난 리그 페이지' 상황(현재 리그를 못 정하는 경우)도 재현할 수 있게 한다
+getLeagueMap: () => globalThis.__leagueMap || { 'Runes of Aldur': 'Runes of Aldur', Standard: '스탠다드' }, getCurrentSearch: () => null, migrateSearch, tourDemo })
 panel.show()
 globalThis.__panel = panel
 globalThis.__root = document.getElementById('ba-panel-host').shadowRoot

@@ -1,5 +1,5 @@
 import css from './panel.css?inline'
-import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl } from './renderList.js'
+import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague } from './renderList.js'
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData } from '../../store/store.js'
 import { suggestName } from '../../lib/suggestName.js'
@@ -615,7 +615,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 첫 화면처럼 비어 있으면 투어 동안만 데모 데이터를 띄운다(종료 시 제거 — 실제 저장소 무오염)
     let demoOn = false
     // 북마크·폴더·가격이 없으면(히스토리만 쌓인 흔한 상태 포함) 투어 동안만 데모를 띄운다 — 없으면 5·6·8스텝이 가리킬 대상이 없다
-    try { if (await needsTourDemo(game)) { await seedDemoData(game, league); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
+    // 데모를 페이지 URL의 리그로 심으면 안 된다 — 옛 북마크 링크로 들어온 상태면 그 URL이 이미 끝난 리그라
+    // 예시 데이터가 'Settlers' 같은 옛 리그 섹션(지난 배지·접힘)에 들어가 사용자를 헷갈리게 한다.
+    // 살아있는 리그(설정 → 페이지 → 최근 검색)를 쓰고, 하나도 못 정하면 실제 리그명 대신 '예전 리그'로 적는다.
+    const demoLeague =
+      resolveCurrentLeague(
+        { userLeague, pageLeague: league, history: await listByKind('history', game) },
+        leagueInfo(ui.getLeagueMap()),
+      ) || '예전 리그'
+    try { if (await needsTourDemo(game)) { await seedDemoData(game, demoLeague); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
     let i = 0
     const card = document.createElement('div')
     card.className = 'ba-tour-card'
