@@ -10,7 +10,7 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 ## 현재 목표
 
 **0.4.0 배포 준비 (2026-07-22)** — 리그 이관·투어 데모·내 리그 설정을 담아 **0.4.0으로 범프**(manifest·package)하고 `deploy/poe-bookmark-atlas-0.4.0.zip` 생성 완료. **남은 것: ① `develop` → `main` 머지(보호 브랜치라 사용자 확인 필요) ② GitHub 릴리즈 `v0.4.0` draft 생성 ③ 스토어 심사 제출.**
-**스토어 현재 버전 = 0.3.0**(2026-07-22 사용자 확인). 따라서 0.4.0 노트는 오늘 작업만 담고, **GitHub `v0.3.0` draft는 게시가 누락된 상태 → publish 필요**(그래야 `v0.3.0` 태그가 생기고 릴리즈 이력이 안 끊긴다).
+**진행 완료(2026-07-22)**: `v0.3.0` draft publish(태그 생성, `0f80dae`) → `develop`→`main` fast-forward 머지·푸시(`9064d03`, 11커밋) → `v0.4.0` draft 릴리즈 생성(target `9064d03`, 노트는 0.3.0 절 제외한 신규 버전). **다음: 사용자가 스토어에 `deploy/poe-bookmark-atlas-0.4.0.zip` 제출 → 심사 통과 후 `v0.4.0` draft를 직접 publish.**
 
 
 0.2.0 스토어 심사 **통과**(2026-07-04 확인). 피드백 3건(작업1·2·3) 모두 기능 구현 완료. **사용자 방침(2026-07-04): "번역 100% 완벽 안 된 상태 인정하고, 미진한 부분은 추후 보완"** — Shift+클릭 수동 제보 기능이 그 보완 파이프라인. 이후 가이드 투어 화살표·키보드 네비·리그 노출 라운드까지 마침. **0.3.0 준비 완료** — 버전 범프(manifest·package 0.3.0)·`deploy/poe-bookmark-atlas-0.3.0.zip`·GitHub 릴리즈 3종 생성. **다음: 사용자가 스토어에 0.3.0 심사 제출 예정.**
@@ -157,11 +157,11 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 ## 현재 상태
 
 - **브랜치 전략 (2026-07-22 신설)**: 통합 브랜치 `develop`, `main`은 릴리즈 전용(직접 커밋 금지). 정본은 루트 `CLAUDE.md`. 릴리즈 시 `develop` → `main` 머지 후 태그.
-- 현재 브랜치: `develop` — tip `ebcdcb2`(origin/develop 동기화 `0 0`). `main`은 `1aaab38`에 멈춰 있고 **0.3.0 스토어 심사 통과 후 develop을 머지**하면 된다
-- 미커밋: `docs/영상-소개-대본.md`(신규, 사용자 검토 대기)뿐
-- 테스트: **200/200**(vitest, jsdom 포함) · 빌드 통과
-- 배포: **0.2.0 심사 통과** / **0.3.0 준비 완료**(`deploy/poe-bookmark-atlas-0.3.0.zip`, 화살표 수정까지 반영) — 사용자가 스토어 심사 제출 예정
-- **GitHub 릴리즈·태그 (2026-07-04 도입)**: 버전별 릴리즈 노트를 GitHub Releases로 통합관리(스토어 설명에 매번 쓰던 것 대체). `v0.1.0`(`34469d5`)·`v0.2.0`(`ae71972`) 공개, `v0.3.0`(`0f80dae`) **draft**(스토어 심사 통과 후 사용자가 직접 publish → 그때 태그 실제 생성). **다음 릴리즈 절차**: ① 릴리즈 커밋에서 버전 범프+빌드+zip ② `gh release create vX.Y.Z --draft --target <full-sha> --title "vX.Y.Z" --notes-file <md>`(전체 SHA 필수 — 단축 SHA는 target_commitish 거부) ③ 스토어 심사 통과 후 draft를 publish. 노트는 사용자 관점 기능 중심으로 묶어 작성(개발 커밋 나열 X)
+- 브랜치: `main`·`develop` 둘 다 tip `9064d03`(origin 동기화, fast-forward 완료)
+- 미커밋: `docs/영상-소개-대본.md`(신규, 사용자 검토 대기 — 0.4.0 리그 이관 기능 반영 여부 확인 필요)
+- 테스트: **218/218**(vitest, jsdom 포함) · 빌드 통과
+- 배포: **0.3.0 스토어 게시 중** / **0.4.0 준비 완료**(`deploy/poe-bookmark-atlas-0.4.0.zip`, 리그 이관·투어 데모·내 리그 설정 반영) — 사용자가 스토어 심사 제출 예정
+- **GitHub 릴리즈·태그**: `v0.1.0`·`v0.2.0`·`v0.3.0`(2026-07-22 publish, `0f80dae`) 공개, `v0.4.0`(`9064d03`) **draft**(스토어 심사 통과 후 사용자가 직접 publish → 그때 태그 실제 생성). **릴리즈 절차**: ① 릴리즈 커밋에서 버전 범프+빌드+zip ② `gh release create vX.Y.Z --draft --target <full-sha> --title "vX.Y.Z" --notes-file <md>`(전체 SHA 필수 — 단축 SHA는 target_commitish 거부) ③ 스토어 심사 통과 후 draft를 publish. 노트는 사용자 관점 기능 중심으로 묶어 작성(개발 커밋 나열 X). **이전 버전 draft가 게시 안 됐으면 그것부터 publish**(v0.3.0 사례 — 스토어엔 나갔는데 태그 없이 19일 방치됨) 후 새 버전 릴리즈 진행
 - 빌드: `npm run build` → dist/ (해시 변경 시 확장 리로드+F5). dist/·deploy/ gitignore.
 - 하네스: `.claude/launch.json`의 `harness`(포트 5199), `test-harness/harness.mjs` 참조. content-main.js(페이지 주입 로직·PoB 버튼·환산 칩)는 하네스가 실행 안 함 — 이 부분은 `preview_eval`로 실제 로직을 인라인 재현해 모의 검증(라이브 로그인 세션 접근 불가)
 - 검증 제약: 거래소는 **로그인 세션 탭에서만** 패널 마운트 → 라이브 검증은 확장 리로드+F5 수동. 확장은 **dist 폴더** 로드.
