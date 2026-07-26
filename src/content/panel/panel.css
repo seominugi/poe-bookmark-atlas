@@ -552,12 +552,43 @@
 .ba-act.move   { color: #d4ab6e; }
 .ba-act.del    { color: #e08a8a; }
 .ba-act.relg   { color: #7fd4a8; }   /* 리그 이관(다시 검색) = 복구 계열 → 에메랄드 */
+.ba-act.cset   { color: #c084fc; }   /* 조건 묶음 등록 = 재사용 자산 만들기 → 퍼플 */
 .ba-act.copy:hover   { color: var(--ba-cyan); }
 .ba-act.over:hover   { color: #9fddff; }
 .ba-act.rename:hover { color: var(--ba-violet-2); }
 .ba-act.move:hover   { color: #f0c078; }
 .ba-act.del:hover    { color: #fda4af; }
 .ba-act.relg:hover   { color: #a7f3d0; }
+.ba-act.cset:hover   { color: #d8b4fe; }
+
+/* ---- 조건 묶음 칩 줄 (리스트 위 고정) ----
+   자주 쓰는 조건 뭉치를 클릭 1회로 현재 검색에 얹는다. 묶음이 없으면 hidden이라 자리를 안 차지한다. */
+/* 묶음이 많아도 목록 영역을 잠식하지 않게 3줄 남짓에서 자체 스크롤 */
+.ba-sets { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 9px 14px 0;
+  max-height: 104px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+.ba-sets[hidden] { display: none; }
+.ba-sets-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: var(--ba-violet-2); margin-right: 2px; }
+.ba-set { display: inline-flex; align-items: center; gap: 3px; max-width: 100%; border-radius: 999px;
+  background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line);
+  transition: background .15s, border-color .15s; }
+.ba-set-go { display: inline-flex; align-items: center; gap: 4px; min-width: 0; padding: 5px 10px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; color: #ddd6fe; cursor: pointer;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (hover: hover) and (pointer: fine) {
+  .ba-set:hover { background: rgba(167, 139, 250, 0.26); border-color: var(--ba-violet-2); }
+  .ba-set:hover .ba-set-go { color: #fff; }
+}
+.ba-set.editing .ba-set-go { cursor: default; }
+/* 편집 모드에서만 노출 — 평소엔 오클릭으로 묶음이 사라지지 않게 숨긴다 */
+.ba-set-del, .ba-set-mv { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
+  border-radius: 50%; color: var(--ba-text-muted); cursor: pointer; }
+.ba-set-mv[data-dir="-1"] { transform: rotate(180deg); }
+.ba-set-del:hover { color: #fda4af; background: rgba(224, 138, 138, 0.18); }
+.ba-set-mv:hover { color: var(--ba-violet-2); background: rgba(167, 139, 250, 0.18); }
+.ba-set-del { margin-right: 5px; }
+.ba-sets-edit { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+  margin-left: auto; border-radius: 7px; color: var(--ba-text-muted); cursor: pointer; transition: color .15s, background .15s; }
+.ba-sets-edit:hover, .ba-sets-edit.on { color: var(--ba-violet-2); background: var(--ba-violet-soft); }
 /* ⋯ 카드 액션 버튼(메타 행 우측) + 액션 팝오버 — 간략히/상세히 공통, 팝오버는 fixed(.ba-root 기준)로 overflow 회피 */
 .ba-more { flex: none; margin-left: auto; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 24px; border-radius: 7px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
 .ba-more:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }

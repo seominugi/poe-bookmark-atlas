@@ -39,12 +39,27 @@ const fold = await addFolder('유니크', 'poe2')
 await addBookmark(rec('지식의 매듭', { dedupeKey: 'k_fold1', folderId: fold.id }), '지식의 매듭')
 
 // 지난 리그 북마크(리그 이관 흐름 확인용) — 조건 있는 것 / 없는 구 북마크 각 1개
+await addHistory(rec('조건 묶음 원본', { dedupeKey: 'k_cset', query: { query: { type: '목걸이', stats: [{ type: 'and', filters: [
+  { id: 'explicit.stat_life', value: { min: 80 } }, { id: 'explicit.stat_fire_res', value: { min: 30 } } ] }] }, sort: { price: 'asc' } } }))
 await addBookmark(rec('지난 리그 검색', { dedupeKey: 'k_past', league: 'Abyss', query: { query: { status: { option: 'online' }, type: '서판' }, sort: { price: 'asc' } } }), '지난 리그 검색')
 await addBookmark(rec('지난 리그(구 북마크)', { dedupeKey: 'k_past_noq', league: 'Abyss' }), '지난 리그(구 북마크)')
+
+// 조건 묶음 시드 — 칩 줄 레이아웃(긴 이름 말줄임·줄바꿈) 확인용
+mem.set('conditionSets', [
+  { id: 'cs_1', name: '저항 목걸이', game: 'poe2', itemType: '목걸이', order: 1,
+    stats: [{ id: 'explicit.stat_life', text: '최대 생명력 #', value: { min: 80 } }, { id: 'explicit.stat_fire_res', text: '화염 저항 #%', value: { min: 30 } }] },
+  { id: 'cs_2', name: '이속 장화', game: 'poe2', itemType: '장화', order: 2,
+    stats: [{ id: 'explicit.stat_ms', text: '이동 속도 #%', value: { min: 30 } }] },
+  { id: 'cs_3', name: '아주아주 긴 이름의 조건 묶음 테스트용', game: 'poe2', itemType: '반지', order: 3,
+    stats: [{ id: 'explicit.stat_x', text: '무언가 #' }] },
+])
 
 // 거래소 API를 부를 수 없으므로 결과를 흉내낸다. __migrateResult로 성공/실패를 바꿔 토스트·갱신을 확인한다.
 globalThis.__migrateResult = { ok: false, reason: 'rate' } // 기본은 실패 — 성공은 실제 이동(location.href)이라 하네스가 떠남
 globalThis.__migrateCalls = []
+// 조건 묶음 — 실제 POST 대신 결과를 흉내낸다(성공은 location 이동이라 하네스가 떠남)
+globalThis.__setApplied = []
+globalThis.__setResult = { ok: false, reason: 'rate' }
 const migrateSearch = async (rec, league) => { globalThis.__migrateCalls.push({ id: rec && rec.id, hasQuery: !!(rec && rec.query), league }); return globalThis.__migrateResult }
 
 // 투어 예시 요소 스텁 — 실제 카드는 content-main.js(하네스 미실행)가 만든다.
@@ -63,7 +78,10 @@ const tourDemo = {
 
 const panel = mountPanel({ game: 'poe2', league: 'Runes of Aldur', // 리그 목록 = 지금 열려 있는 리그만(거래소 API와 동일). 위 시드의 'Abyss'는 일부러 빼서 '끝난 리그'로 만든다.
 // __leagueMap으로 덮어써 '끝난 리그 페이지' 상황(현재 리그를 못 정하는 경우)도 재현할 수 있게 한다
-getLeagueMap: () => globalThis.__leagueMap || { 'Runes of Aldur': 'Runes of Aldur', Standard: '스탠다드' }, getCurrentSearch: () => null, migrateSearch, tourDemo })
+getLeagueMap: () => globalThis.__leagueMap || { 'Runes of Aldur': 'Runes of Aldur', Standard: '스탠다드' }, getCurrentSearch: () => null, migrateSearch,
+  applyConditionSet: async (set) => { globalThis.__setApplied.push(set.name); return globalThis.__setResult },
+  getStatMap: () => ({ 'explicit.stat_life': '최대 생명력 #', 'explicit.stat_fire_res': '화염 저항 #%' }),
+  tourDemo })
 panel.show()
 globalThis.__panel = panel
 globalThis.__root = document.getElementById('ba-panel-host').shadowRoot

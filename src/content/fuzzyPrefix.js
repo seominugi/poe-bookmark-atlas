@@ -58,10 +58,13 @@ export function initFuzzyPrefix() {
   // 2) 입력 후 "~"가 없으면 보강 — 붙여넣기·전체삭제·영문 첫 입력 복구 (안전망)
   //    한글 IME 조합(isComposing) 중에는 execCommand 호출 금지 → 재귀 호출 경고 발생.
   //    조합 입력은 compositionend에서 보강한다.
+  //    완전히 비운 경우(value === '')는 보강하지 않는다 — 안 그러면 검색어를 절대 지울 수 없다
+  //    (Backspace·Ctrl+A+Delete 등 무엇으로 지워도 매번 "~"가 즉시 되살아나던 버그, 사용자 제보).
   document.addEventListener(
     'input',
     (e) => {
       if (busy || e.isComposing || !isTarget(e.target)) return
+      if (e.target.value === '') return
       if (!e.target.value.startsWith(PREFIX)) prependTilde(e.target)
     },
     true,
@@ -71,12 +74,15 @@ export function initFuzzyPrefix() {
     'compositionend',
     (e) => {
       if (busy || !isTarget(e.target)) return
+      if (e.target.value === '') return
       if (!e.target.value.startsWith(PREFIX)) prependTilde(e.target)
     },
     true,
   )
 
-  // 3) 맨 앞 "~" 보호 — Backspace로 삭제하거나 좌측 이동으로 "~" 앞에 입력하지 못하게
+  // 3) 맨 앞 "~" 보호 — Backspace로 삭제하거나 좌측 이동으로 "~" 앞에 입력하지 못하게.
+  //    단 "~"만 남았을 때(뒤에 다른 글자 없음)는 막지 않는다 — 그래야 마지막 한 글자까지
+  //    지워 검색칸을 완전히 비울 수 있다(위 2번 안전망이 빈 값은 다시 채우지 않으므로 그대로 비워진다).
   document.addEventListener(
     'keydown',
     (e) => {
@@ -84,7 +90,7 @@ export function initFuzzyPrefix() {
       if (!isTarget(el) || !el.value.startsWith(PREFIX)) return
       const s = el.selectionStart ?? 0
       const end = el.selectionEnd ?? 0
-      if (e.key === 'Backspace' && s === 1 && end === 1) { e.preventDefault(); return }
+      if (e.key === 'Backspace' && s === 1 && end === 1 && el.value.length > PREFIX.length) { e.preventDefault(); return }
       if ((e.key === 'Home' || e.key === 'ArrowLeft') && s <= 1 && !e.shiftKey) {
         e.preventDefault()
         try { el.setSelectionRange(1, 1) } catch (_) {}

@@ -1,5 +1,5 @@
 ---
-timestamp: 2026-07-22 (Asia/Seoul)
+timestamp: 2026-07-27 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
@@ -9,6 +9,9 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
+**0.5.0 준비 중 (2026-07-27)** — 0.4.0은 **스토어 심사 대기**(사용자가 제출 예정, `v0.4.0` GitHub draft 대기 중). 그 위에 **조건 묶음**(입력 최소화)과 **검색칸 삭제 버그 수정**을 쌓는 중. 둘 다 구현·검증 완료, **미커밋**.
+
+
 **0.4.0 배포 준비 (2026-07-22)** — 리그 이관·투어 데모·내 리그 설정을 담아 **0.4.0으로 범프**(manifest·package)하고 `deploy/poe-bookmark-atlas-0.4.0.zip` 생성 완료. **남은 것: ① `develop` → `main` 머지(보호 브랜치라 사용자 확인 필요) ② GitHub 릴리즈 `v0.4.0` draft 생성 ③ 스토어 심사 제출.**
 **진행 완료(2026-07-22)**: `v0.3.0` draft publish(태그 생성, `0f80dae`) → `develop`→`main` fast-forward 머지·푸시(`9064d03`, 11커밋) → `v0.4.0` draft 릴리즈 생성(target `9064d03`, 노트는 0.3.0 절 제외한 신규 버전). **다음: 사용자가 스토어에 `deploy/poe-bookmark-atlas-0.4.0.zip` 제출 → 심사 통과 후 `v0.4.0` draft를 직접 publish.**
 
@@ -16,6 +19,45 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 0.2.0 스토어 심사 **통과**(2026-07-04 확인). 피드백 3건(작업1·2·3) 모두 기능 구현 완료. **사용자 방침(2026-07-04): "번역 100% 완벽 안 된 상태 인정하고, 미진한 부분은 추후 보완"** — Shift+클릭 수동 제보 기능이 그 보완 파이프라인. 이후 가이드 투어 화살표·키보드 네비·리그 노출 라운드까지 마침. **0.3.0 준비 완료** — 버전 범프(manifest·package 0.3.0)·`deploy/poe-bookmark-atlas-0.3.0.zip`·GitHub 릴리즈 3종 생성. **다음: 사용자가 스토어에 0.3.0 심사 제출 예정.**
 
 ## 완료된 작업
+
+### 조건 묶음 — 자주 쓰는 조건을 클릭 1회로 얹기 (2026-07-27, 미커밋)
+
+**배경(사용자 피드백)**: 경쟁사 [Poe Trade Plus](https://chromewebstore.google.com/detail/poe-trade-plus/igofmcebdienfacijkhdppcfiglcbffb)를 지목하며 "자주 검색하는 조건을 템플릿으로" 요청. **핵심은 입력 최소화**(사용자 정정).
+
+**경쟁사 분석 결과**: 스토어 리스팅 전문·GitHub·Firefox 리스팅 대조. 실제 기능은 `Quick Filter Presets` 한 줄뿐이고, 원형은 **조건 1개씩 넣는 버튼**(총 생명력·저항·이속·화폐). "완성된 검색을 한 번에"는 경쟁사에도 없음. 그쪽은 UI를 조작하는 방식이라 **조건 1개가 구조적 상한**. 우리는 검색 바디를 만들어 POST할 수 있어(리그 이관에서 확보) 묶음을 통째로 얹을 수 있다 — 따라하기가 아니라 다른 물건.
+
+**입력 횟수**: 조건 7개 기준 거래소 맨손 ~35회 / 경쟁사 ~21회 / **우리 1회**.
+
+**설계 판단 2건 (데이터 근거)**
+- **자동 발견 기각** — "같은 구조를 반복 검색하면 템플릿으로 승격" 가설을 사용자 실데이터로 측정. 반복 구조 8개 중 `서로다른날 ≥ 2`는 1개뿐이고 그마저 **조건수 0**(파라미터화 불가). 지배적 패턴은 **하루 안 3~4회 반복**(= 한 세션 수치 조율, 장기 재사용 아님). 따라서 **수동 등록**만 제공
+- **앱 제공 기본 묶음 제외** — 메타 종속 콘텐츠는 리그마다 갱신해야 하는 영구 부채. 사용자 결정으로 제외. 콜드 스타트가 문제되면 내보내기/가져오기만 열어 커뮤니티가 배포하게 하면 됨(우리가 관리 주체가 되지 않음)
+
+**구현**
+- `src/lib/conditionSet.js` **신규** — `extractConditionSet`(raw query → 스탯+유형, 비활성 조건 제외, 가격 등 상황 의존 필터는 **의도적으로 미포함**), `mergeConditionSet`(현재 검색에 얹기 — 관계없는 설정 보존·중복 id는 묶음 값으로 갱신·활성 `and` 그룹에만·**원본 불변**), `conditionSetSummary`
+- `store.js` — `conditionSets` 별도 키(`folders`와 같은 패턴). `listConditionSets`/`addConditionSet`/`removeConditionSet`/`renameConditionSet`/`moveConditionSet`. **게임별 엄격 분리**(poe1/poe2 스탯 id 체계가 달라 섞이면 검색이 깨짐)
+- `content-main.js` — `applyConditionSet(set)`: `lastQuery`에 병합 → `sanitizeQuery` → POST → id·URL 검증 → `{url, merged}` 반환
+- `panel.js` — 리스트 위 **칩 줄**(묶음 없으면 hidden), 클릭=얹기, 편집 모드 토글(삭제·순서는 편집 중에만 노출 — 오클릭 방지), `storage.onChanged` 구독(탭 간 동기화)
+- `renderList.js` — 북마크·히스토리 ⋯ 에 "조건 묶음으로 등록"(raw query 있는 것만)
+- **사후 안내**: 얹기 성공 시 `baSetApplied` 플래그를 남기고 이동 → 새 페이지에서 1회 토스트로 "보던 검색에 얹었어요 — 되돌리려면 뒤로가기". 이동 전 토스트는 페이지가 바뀌며 사라지므로 이 경로가 필요. 15초 지난 흔적은 무시
+
+**검증 중 잡은 버그 2건**
+1. `moveConditionSet`이 **배열 인덱스**로 이웃을 찾는데 표시는 `order` 정렬 — 한 번 스왑하면 이후 이동이 먹지 않음(테스트가 적발). 정렬된 순서에서 이웃을 찾도록 수정. `moveFolder`는 배열 순서로 표시하므로 같은 코드가 맞다 — 두 모델을 섞은 게 원인
+2. `ui` 객체 리터럴이 `registerConditionSet`을 선언 전에 참조 → **TDZ ReferenceError**로 패널 마운트가 통째로 실패. 기존 `ui.saveCurrentSearch = doSave` 지연 배선 패턴으로 수정
+
+**하네스 실측**: 등록(⋯ → 이름 → 칩 생성·저장 내용 확인) / 칩 클릭 → `applyConditionSet` 1회 호출 / **연타 3회 → 요청 1회**(429 방지) / 편집 중 칩 클릭 무시 / 마지막 묶음 삭제 시 칩 줄 자동 숨김 / 칩 12개에서 높이 105px 상한·목록 밀림 없음 / **XSS 시도(`<img onerror>`·`<script>`)가 리터럴로 이스케이프**되고 실행 0
+
+### 아이템 검색칸 완전 삭제 불가 버그 수정 (2026-07-22, 미커밋)
+
+**증상(사용자 제보)**: 거래소 "아이템 검색"(Alt+F) 입력칸에 이미 검색어가 있을 때, Backspace·Ctrl+A+Delete 등 무엇으로 지워도 검색어가 지워지지 않는다.
+
+**원인**: 우리 확장의 `fuzzyPrefix.js`(퍼지 검색 기본화를 위해 검색칸 맨 앞에 "~"를 항상 유지·자동 복구하는 로직)가 지나치게 공격적이었다 — ① `input` 리스너가 값이 빈 문자열이 되는 즉시 "~"를 다시 채워 넣고 ② `keydown` 가드가 "~" 한 글자만 남았을 때도 Backspace를 막아, **어떤 방법으로도 검색칸을 진짜로 비울 수 없었다**(최소 "~" 하나는 항상 남음). Alt+F 단축키 자체의 문제는 아니고, 페이지에 상시 주입되는 이 안전망 로직이 원인.
+
+- `src/content/fuzzyPrefix.js` — `input`/`compositionend` 핸들러에 `value === ''`면 보강하지 않는 예외 추가, `keydown` Backspace 가드에 `el.value.length > PREFIX.length` 조건 추가("~"만 남았을 때는 막지 않음). 뒤에 다른 글자가 있을 때의 기존 보호(오타로 "~"만 지워지는 것 방지)는 그대로 유지
+- `test/fuzzyPrefix.dom.test.js` 신규 9케이스 — jsdom이 `document.execCommand`를 구현하지 않아 실제 브라우저의 insertText 동작(선택 구간에 텍스트 삽입 + input 이벤트 동기 발생)을 그대로 흉내내는 모킹을 두고 검증. 회귀 재현(전체 삭제·마지막 글자 Backspace) + 기존 동작 보존(뒤에 글자 있으면 여전히 보호·빈 칸 클릭 시 자동 삽입·붙여넣기 보강) 모두 커버
+- `vitest.config.js`에 `environmentOptions.jsdom.pretendToBeVisual: true` 전역 추가 — 기본값 false면 jsdom의 `el.focus()`가 조용히 no-op해 `document.activeElement`가 갱신되지 않아(mock execCommand가 activeElement로 대상을 찾음) 테스트 자체가 성립 안 함. 다른 jsdom 테스트는 focus 미사용이라 영향 없음
+- 테스트 **227/227**(신규 9) · 빌드 통과
+- **함정 기록**: `fuzzyPrefix`는 `navigator.userActivation`으로 "실제 클릭 vs 사이트 자동 포커스"를 구분한다. jsdom엔 이 API가 아예 없어 테스트에서 직접 정의해야 하고, 안 하면 모든 focus가 자동 포커스로 오인돼 즉시 blur된다(테스트가 통째로 무동작)
+- **미검증**: 이 파일은 페이지(비-Shadow DOM) 레벨 로직이라 하네스가 실행하지 않는 범주(content-main.js와 동일 제약, 기존 함정 메모 참조) — 라이브 거래소에서 실제 검색어 삭제 확인 필요
 
 ### 리그 이관(저장 조건 → 현재 리그 재검색) + 가이드 투어 예시 요소 (2026-07-22, `develop` 푸시 완료)
 
@@ -159,7 +201,8 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 - **브랜치 전략 (2026-07-22 신설)**: 통합 브랜치 `develop`, `main`은 릴리즈 전용(직접 커밋 금지). 정본은 루트 `CLAUDE.md`. 릴리즈 시 `develop` → `main` 머지 후 태그.
 - 브랜치: `main`·`develop` 둘 다 tip `9064d03`(origin 동기화, fast-forward 완료)
 - 미커밋: `docs/영상-소개-대본.md`(신규, 사용자 검토 대기 — 0.4.0 리그 이관 기능 반영 여부 확인 필요)
-- 테스트: **218/218**(vitest, jsdom 포함) · 빌드 통과
+- 테스트: **258/258**(vitest, jsdom 포함) · 빌드 통과
+- **미커밋** — 조건 묶음: `src/lib/conditionSet.js`·`test/conditionSet.test.js`(신규), `store.js`·`content-main.js`·`panel.js`·`renderList.js`·`panel.css`·`harness.mjs`·`store.test.js`(수정) / 검색칸 버그: `fuzzyPrefix.js`·`test/fuzzyPrefix.dom.test.js`·`vitest.config.js` / `docs/영상-소개-대본.md`(검토 대기)
 - 배포: **0.3.0 스토어 게시 중** / **0.4.0 준비 완료**(`deploy/poe-bookmark-atlas-0.4.0.zip`, 리그 이관·투어 데모·내 리그 설정 반영) — 사용자가 스토어 심사 제출 예정
 - **GitHub 릴리즈·태그**: `v0.1.0`·`v0.2.0`·`v0.3.0`(2026-07-22 publish, `0f80dae`) 공개, `v0.4.0`(`9064d03`) **draft**(스토어 심사 통과 후 사용자가 직접 publish → 그때 태그 실제 생성). **릴리즈 절차**: ① 릴리즈 커밋에서 버전 범프+빌드+zip ② `gh release create vX.Y.Z --draft --target <full-sha> --title "vX.Y.Z" --notes-file <md>`(전체 SHA 필수 — 단축 SHA는 target_commitish 거부) ③ 스토어 심사 통과 후 draft를 publish. 노트는 사용자 관점 기능 중심으로 묶어 작성(개발 커밋 나열 X). **이전 버전 draft가 게시 안 됐으면 그것부터 publish**(v0.3.0 사례 — 스토어엔 나갔는데 태그 없이 19일 방치됨) 후 새 버전 릴리즈 진행
 - 빌드: `npm run build` → dist/ (해시 변경 시 확장 리로드+F5). dist/·deploy/ gitignore.

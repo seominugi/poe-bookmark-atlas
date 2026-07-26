@@ -4,6 +4,7 @@ import { sanitizeQuery, isAllowedTradeUrl } from '../lib/tradeSearch.js'
 
 const KEY = 'records'
 const FOLDERS_KEY = 'folders'
+const SETS_KEY = 'conditionSets' // 조건 묶음 — records(북마크·히스토리)와 생명주기가 달라 folders처럼 별도 키
 const SCHEMA_KEY = 'schemaVersion'
 const CURRENT_SCHEMA = 1 // 데이터 스키마 버전. 구조를 바꾸면 +1 하고 MIGRATIONS에 단계 변환을 추가
 export const HISTORY_CAP = 200 // 히스토리 보관 상한. renderList "더 보기"(60+200)가 실제로 동작하도록 상향
@@ -11,6 +12,8 @@ export const HISTORY_CAP = 200 // 히스토리 보관 상한. renderList "더 �
 function uid(prefix) { return (prefix || 'r_') + Math.random().toString(36).slice(2) + Date.now().toString(36) }
 async function readAll() { return (await chrome.storage.local.get(KEY))[KEY] ?? [] }
 async function writeAll(records) { await chrome.storage.local.set({ [KEY]: records }) }
+async function readSets() { return (await chrome.storage.local.get(SETS_KEY))[SETS_KEY] ?? [] }
+async function writeSets(sets) { await chrome.storage.local.set({ [SETS_KEY]: sets }) }
 async function readFolders() { return (await chrome.storage.local.get(FOLDERS_KEY))[FOLDERS_KEY] ?? [] }
 async function writeFolders(folders) { await chrome.storage.local.set({ [FOLDERS_KEY]: folders }) }
 
@@ -354,6 +357,66 @@ export async function reorderFolder(id, beforeId) {
   else if (beforeId == null || bIdx < 0) folders.push(moved)
   else folders.splice(bIdx, 0, moved)
   await writeFolders(folders)
+}
+
+// ── 조건 묶음 (game 스코프) ──
+// 자주 쓰는 조건 뭉치. 칩 하나로 현재 검색에 얹는다(lib/conditionSet.js 참조).
+// 게임별로 스탯 id 체계가 달라 poe1/poe2를 섞으면 검색이 깨지므로 스코프를 엄격히 지킨다.
+
+/** 이 게임의 조건 묶음 — 등록 순(order) */
+export async function listConditionSets(game) {
+  return (await readSets())
+    .filter((s) => s && (!game || s.game === game))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+}
+
+/**
+ * 조건 묶음 등록. set은 extractConditionSet 결과({stats, itemType}).
+ * @returns {Promise<object|null>} 담을 조건이 없으면 null
+ */
+export async function addConditionSet(name, game, set) {
+  const stats = Array.isArray(set && set.stats) ? set.stats.filter((s) => s && s.id) : []
+  const itemType = (set && set.itemType) || null
+  if (!stats.length && !itemType) return null
+  const sets = await readSets()
+  const maxOrder = sets.reduce((m, s) => Math.max(m, s.order ?? 0), 0)
+  const record = {
+    id: uid('cs_'), name: name || itemType || '새 묶음', game: game ?? null,
+    stats, itemType, order: maxOrder + 1, createdAt: Date.now(),
+  }
+  sets.push(record)
+  await writeSets(sets)
+  return record
+}
+
+export async function removeConditionSet(id) {
+  await writeSets((await readSets()).filter((s) => s.id !== id))
+}
+
+export async function renameConditionSet(id, name) {
+  const sets = await readSets()
+  const s = sets.find((x) => x.id === id)
+  if (s && name) { s.name = name; await writeSets(sets) }
+}
+
+/**
+ * 칩 순서 이동 — 같은 game 스코프의 인접 묶음과 order를 스왑. dir<0 앞으로, dir>0 뒤로.
+ * ⚠ moveFolder와 달리 배열 인덱스가 아니라 **정렬된 순서**에서 이웃을 찾는다 —
+ * 폴더는 배열 순서 그대로 표시하지만 묶음은 order로 정렬해 표시하므로, 인덱스로 찾으면
+ * 한 번 스왑한 뒤부터 화면 순서와 배열 순서가 어긋나 이동이 먹지 않는다.
+ */
+export async function moveConditionSet(id, dir) {
+  const sets = await readSets()
+  const cur = sets.find((s) => s.id === id)
+  if (!cur) return
+  const scope = cur.game ?? null
+  const scoped = sets.filter((s) => (s.game ?? null) === scope).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  const target = scoped[scoped.findIndex((s) => s.id === id) + (dir < 0 ? -1 : 1)]
+  if (!target) return
+  const t = target.order ?? 0
+  target.order = cur.order ?? 0
+  cur.order = t
+  await writeSets(sets)
 }
 
 /** 폴더 삭제 — 해당 폴더의 북마크는 미분류(folderId=null)로 */

@@ -1,7 +1,9 @@
 import css from './panel.css?inline'
 import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague } from './renderList.js'
 import { icon } from '../../lib/icons.js'
-import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData } from '../../store/store.js'
+import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData,
+  listConditionSets, addConditionSet, removeConditionSet, moveConditionSet } from '../../store/store.js'
+import { extractConditionSet, conditionSetSummary } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
 import ytIcon from '../../icons/yt_icon_rgb.png'
@@ -17,7 +19,7 @@ const discordUrl = chrome.runtime.getURL(discordIcon)
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
 
-export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migrateSearch, tourDemo }) {
+export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migrateSearch, applyConditionSet, getStatMap, tourDemo }) {
   if (document.getElementById('ba-panel-host')) return { toggle() {}, show() {}, hide() {} }
   const host = document.createElement('div')
   host.id = 'ba-panel-host'
@@ -82,6 +84,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           </div>
         </div>
       </div>
+      <div class="ba-sets" id="ba-sets" hidden></div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-foot">
         <div class="ba-foot-tx">
@@ -518,9 +521,98 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     showNameInput, showSaveInput, showFolderPick, showConflict, toast, game, league,
     getLeagueMap: getLeagueMap || (() => ({})),
     migrateSearch, // 저장된 조건을 현재 리그로 다시 검색(renderList의 지난 리그 북마크 흐름에서 사용)
+    // registerConditionSet은 아래에서 정의된 뒤 ui에 붙인다 — 여기서 참조하면 TDZ(초기화 전 접근)로 터진다
     userLeague: null, // 설정에서 직접 고른 리그(빈 값 = 자동 판정). 아래 setUserLeague/저장소 로드에서 채운다
   }
   const refresh = () => renderList($('ba-list'), root, ui)
+
+  // ── 조건 묶음 칩 ──
+  // 자주 쓰는 조건 뭉치를 클릭 1회로 현재 검색에 얹는다. 거래소에서 조건 7개를 손으로 넣으면
+  // 상호작용 30회가 넘는데, 여기선 1회다(lib/conditionSet.js 헤더 참조).
+  const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+  let setsEditing = false // 편집 모드 — 평소엔 삭제·이동 버튼을 숨겨 오클릭으로 묶음이 사라지지 않게
+  let applyingSet = false // 연타 차단 — 요청이 몰리면 거래소 요청 제한(429)에 걸려 검색 자체가 막힌다
+
+  const renderSets = async () => {
+    const el = $('ba-sets')
+    if (!el) return
+    const sets = await listConditionSets(game)
+    if (!sets.length) { el.hidden = true; el.innerHTML = ''; return } // 없으면 자리 차지 안 함
+    el.hidden = false
+    const chips = sets.map((s) => {
+      const tip = esc([s.name, conditionSetSummary(s), '────────', ...s.stats.map((x) => x.text + (x.value ? ` ${x.value.min != null ? '≥' + x.value.min : ''}${x.value.max != null ? ' ≤' + x.value.max : ''}` : ''))].filter(Boolean).join('\n'))
+      const edit = setsEditing
+        ? `<span class="ba-set-mv" data-id="${s.id}" data-dir="-1" data-tip="앞으로">${icon('chevronRight', 11)}</span>`
+          + `<span class="ba-set-mv" data-id="${s.id}" data-dir="1" data-tip="뒤로">${icon('chevronRight', 11)}</span>`
+          + `<span class="ba-set-del" data-id="${s.id}" data-tip="묶음 삭제">${icon('x', 11)}</span>`
+        : ''
+      return `<span class="ba-set${setsEditing ? ' editing' : ''}" data-id="${s.id}" data-tip="${tip}">`
+        + `<span class="ba-set-go">${icon('plus', 12)}${esc(s.name)}</span>${edit}</span>`
+    }).join('')
+    el.innerHTML = `<span class="ba-sets-lbl">${icon('layers', 12)}조건 묶음</span>${chips}`
+      + `<span class="ba-sets-edit${setsEditing ? ' on' : ''}" data-tip="${setsEditing ? '편집 끝내기' : '묶음 삭제·순서 변경'}">${icon(setsEditing ? 'check' : 'pencil', 12)}</span>`
+
+    el.querySelectorAll('.ba-set-go').forEach((c) => c.addEventListener('click', (e) => {
+      e.stopPropagation()
+      if (setsEditing) return
+      runConditionSet(c.closest('.ba-set').dataset.id)
+    }))
+    el.querySelectorAll('.ba-set-del').forEach((b) => b.addEventListener('click', async (e) => {
+      e.stopPropagation(); await removeConditionSet(b.dataset.id); await renderSets(); toast('묶음을 삭제했습니다.')
+    }))
+    el.querySelectorAll('.ba-set-mv').forEach((b) => b.addEventListener('click', async (e) => {
+      e.stopPropagation(); await moveConditionSet(b.dataset.id, Number(b.dataset.dir)); await renderSets()
+    }))
+    const editBtn = el.querySelector('.ba-sets-edit')
+    if (editBtn) editBtn.addEventListener('click', async () => { setsEditing = !setsEditing; await renderSets() })
+  }
+
+  const SET_FAIL = {
+    rate: '거래소 요청이 잠시 제한됐어요. 30초쯤 뒤에 다시 시도해 주세요.',
+    auth: '거래소 로그인이 풀린 것 같아요. 새로고침 후 다시 시도해 주세요.',
+    network: '거래소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
+    http: '거래소가 이 조건을 받아주지 않았어요.',
+  }
+  // 칩 클릭 → 현재 검색에 얹어 새 검색 생성 → 이동. 무엇에 얹었는지는 이동 후 토스트로 알린다
+  // (이동 전에 띄우면 페이지가 바뀌면서 사라진다). 되돌리기는 브라우저 뒤로가기.
+  const runConditionSet = async (id) => {
+    if (applyingSet) return
+    if (!applyConditionSet) { toast('이 화면에서는 조건 묶음을 쓸 수 없어요.'); return }
+    applyingSet = true
+    try {
+      const set = (await listConditionSets(game)).find((s) => s.id === id)
+      if (!set) return
+      toast(`"${set.name}" 얹는 중…`)
+      const res = await applyConditionSet(set)
+      if (!res || !res.ok) { toast(SET_FAIL[res && res.reason] || '조건을 얹지 못했어요.'); return }
+      try { await chrome.storage.local.set({ baSetApplied: { name: set.name, merged: res.merged, at: Date.now() } }) } catch (_) {}
+      location.href = res.url
+    } finally { applyingSet = false }
+  }
+
+  // 이동 후 1회 안내 — 새로 만든 검색인지, 보던 검색에 얹은 것인지 밝힌다(뒤로가기로 되돌릴 수 있음)
+  try {
+    chrome.storage.local.get('baSetApplied').then((r) => {
+      const a = r && r.baSetApplied
+      if (!a || Date.now() - (a.at || 0) > 15000) return // 오래된 흔적은 무시
+      chrome.storage.local.remove('baSetApplied')
+      toast(a.merged ? `"${a.name}"을(를) 보던 검색에 얹었어요 — 되돌리려면 뒤로가기` : `"${a.name}"으로 검색했어요`)
+    })
+  } catch (_) {}
+
+  // 북마크·히스토리 ⋯ 에서 호출 — 그 검색의 조건을 묶음으로 등록한다
+  const registerConditionSet = async (recId) => {
+    const rec = [...(await listByKind('bookmark', game)), ...(await listByKind('history', game))].find((r) => r.id === recId)
+    const set = extractConditionSet(rec, getStatMap ? getStatMap() : {})
+    if (!set) { toast('이 검색에는 저장된 조건이 없어 묶음으로 만들 수 없어요.'); return }
+    const name = await showNameInput(rec.name || rec.title || '새 묶음', '조건 묶음 이름')
+    if (name === null) return
+    const saved = await addConditionSet(name, game, set)
+    if (!saved) { toast('담을 조건이 없어요.'); return }
+    await renderSets()
+    toast(`"${saved.name}" 묶음을 만들었어요 — ${conditionSetSummary(saved)}`)
+  }
+  ui.registerConditionSet = registerConditionSet // renderList의 ⋯ 액션이 호출(doSave와 같은 지연 배선 패턴)
 
   // 내 리그 설정 — 게임별로 따로 보관(poe1·poe2는 리그 이름이 다르다). 빈 값 = 자동 판정.
   let userLeague = ''
@@ -774,6 +866,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   })()
 
   document.addEventListener('ba:records-changed', () => { refresh(); updateHandleBadge() })
+  renderSets()
   // 팝업에서 패널 좌/우 배치를 바꾸면 즉시 반영
   try {
     chrome.storage.onChanged.addListener((changes, area) => {
@@ -784,6 +877,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         const v = (changes.uiLeague.newValue || {})[game] || ''
         if (v !== userLeague) { applyUserLeague(v); refresh() }
       }
+      if (changes.conditionSets) renderSets() // 다른 탭에서 묶음을 추가·삭제하면 칩 줄도 따라간다
     })
   } catch (_) {}
   refresh()

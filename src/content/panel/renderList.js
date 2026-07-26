@@ -334,6 +334,7 @@ function rowHtml(r, kind, lg) {
       <div class="ba-actions-pop" hidden>
         <span class="ba-act ba-star" data-id="${r.id}" data-name="${title}">${icon('star', 13)}북마크로 저장</span>
         <span class="ba-act ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}">${icon('link', 13)}링크 복사</span>
+        ${r.query ? `<span class="ba-act cset ba-cset" data-id="${r.id}">${icon('layers', 13)}조건 묶음으로 등록</span>` : ''}
         <span class="ba-act ba-hist-del" data-id="${r.id}">${icon('trash', 12)}삭제</span>
       </div>
     </div>`
@@ -370,6 +371,7 @@ function rowHtml(r, kind, lg) {
       <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
       <span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}">${icon('link', 13)}링크 복사</span>
       ${migrateAct}
+      ${r.query ? `<span class="ba-act cset ba-cset" data-id="${r.id}">${icon('layers', 13)}조건 묶음으로 등록</span>` : ''}
       <span class="ba-act over ba-over" data-id="${r.id}">${icon('refresh', 13)}최근 검색으로 갱신</span>
       <span class="ba-act rename ba-rename" data-id="${r.id}" data-name="${title}">${icon('pencil', 12)}이름 변경</span>
       <span class="ba-act move ba-move" data-id="${r.id}" data-folder="${r.folderId ?? ''}">${icon('folder', 12)}다른 폴더로 이동</span>
@@ -637,6 +639,10 @@ function bindAll(listEl, ui, ctx) {
         toast('검색 링크를 복사했습니다.')
       }
     }))
+
+  // 📚 조건 묶음으로 등록 (북마크·히스토리 공통) — 패널 컨텍스트에서만 동작
+  listEl.querySelectorAll('.ba-cset').forEach((b) =>
+    b.addEventListener('click', (e) => { e.stopPropagation(); if (ui.registerConditionSet) ui.registerConditionSet(b.dataset.id) }))
 
   // 🗑 삭제 (북마크 행)
   listEl.querySelectorAll('.ba-del').forEach((d) =>

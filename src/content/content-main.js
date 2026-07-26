@@ -8,6 +8,7 @@ import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
 import { parseExaltedPerDivine, baseFromPrice, baseCurrencyOf, fmtCurAmount } from '../lib/currencyRates.js'
 import { searchApiPath, searchResultPath, isSafeSearchId, sanitizeQuery, searchHashFromUrl, isAllowedTradeUrl } from '../lib/tradeSearch.js'
+import { mergeConditionSet } from '../lib/conditionSet.js'
 import { addHistory, markUsedByUrl, ensureSchema, backfillQuery } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
@@ -498,6 +499,36 @@ async function migrateSearch(rec, league) {
   return { ok: true, url, total: (data && data.total) ?? null, via: 'query' }
 }
 
+// ── 조건 묶음 얹기 — 저장된 조건 뭉치를 지금 검색에 더해 새 검색을 만든다 ──
+// 지금 화면의 '실행되지 않은' 입력은 우리가 알 수 없다(page-bridge는 실행된 검색만 캡처).
+// 그래서 마지막으로 실행된 검색을 바탕으로 얹고, 무엇에 얹었는지 결과와 함께 알려 되돌릴 수 있게 한다.
+async function applyConditionSet(set) {
+  const league = leagueFromUrl()
+  const merged = mergeConditionSet(lastQuery, set)
+  if (!merged) return { ok: false, reason: 'empty' }
+  const s = sanitizeQuery(merged)
+  if (!s.ok) { LOG('조건 묶음 — 형식 불량', s.reason); return { ok: false, reason: s.reason } }
+  let res
+  try {
+    res = await fetch(searchApiPath(game, league), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(s.query),
+    })
+  } catch (err) { LOG('조건 묶음 네트워크 오류', String(err)); return { ok: false, reason: 'network' } }
+  if (res.status === 429) return { ok: false, reason: 'rate' }
+  if (res.status === 401 || res.status === 403) return { ok: false, reason: 'auth' }
+  if (!res.ok) { LOG('조건 묶음 실패 HTTP', res.status); return { ok: false, reason: 'http' } }
+  let data = null
+  try { data = await res.json() } catch (_) {}
+  const id = data && data.id
+  if (!isSafeSearchId(id)) { LOG('조건 묶음 — 응답 id 이상'); return { ok: false, reason: 'bad-id' } }
+  const url = location.origin + searchResultPath(game, league, id)
+  if (!isAllowedTradeUrl(url)) { LOG('조건 묶음 — 허용되지 않은 URL'); return { ok: false, reason: 'bad-url' } }
+  // 얹기 전 화면으로 돌아갈 수 있게 현재 URL을 함께 준다(사후 확인 → 되돌리기)
+  return { ok: true, url, base: lastQuery ? location.href : null, merged: !!lastQuery }
+}
+
 // ── 가이드 투어용 예시 요소 ──
 // PoB 버튼·환산 칩은 검색 결과 행에 주입되므로, 결과가 없는 화면(첫 방문·거래소 홈)에서 투어를 돌리면
 // 그 스텝만 가리킬 대상이 없어 스포트라이트가 통째로 사라진다. 패널이 빈 화면에서 데모 데이터를 띄우는 것과
@@ -537,6 +568,8 @@ const panel = mountPanel({
   getLeagueMap: () => leagueMap,
   getCurrentSearch: () => (lastQuery ? { query: lastQuery, league: lastQueryLeague || leagueFromUrl() } : null),
   migrateSearch,
+  applyConditionSet,
+  getStatMap: () => statMap, // 조건 묶음 등록 시 스탯 id를 한글 표시명으로 바꾸는 데 쓴다
   tourDemo: { show: showTourDemo, hide: hideTourDemo },
 })
 

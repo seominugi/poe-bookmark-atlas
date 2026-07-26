@@ -6,6 +6,7 @@ import {
   listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
   backfillQuery, migrateBookmarkLeague, needsTourDemo, seedDemoData, clearDemoData,
+  listConditionSets, addConditionSet, removeConditionSet, renameConditionSet, moveConditionSet,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -261,6 +262,70 @@ describe('needsTourDemo', () => {
     expect(await needsTourDemo('poe2')).toBe(true)
     await clearDemoData()
     expect((await listByKind('bookmark', 'poe2')).length).toBe(0) // 실제 저장소는 오염되지 않는다
+  })
+})
+
+// ── 조건 묶음 ──
+describe('조건 묶음', () => {
+  const set = (over = {}) => ({ stats: [{ id: 'explicit.stat_life', text: '최대 생명력 #', value: { min: 80 } }], itemType: '목걸이', ...over })
+
+  it('등록·조회 — 등록 순으로 나온다', async () => {
+    await addConditionSet('저항 목걸이', 'poe2', set())
+    await addConditionSet('이속 장화', 'poe2', set({ itemType: '장화' }))
+    expect((await listConditionSets('poe2')).map((s) => s.name)).toEqual(['저항 목걸이', '이속 장화'])
+  })
+
+  it('게임별로 분리된다 — 스탯 id 체계가 달라 섞이면 검색이 깨진다', async () => {
+    await addConditionSet('P2', 'poe2', set())
+    await addConditionSet('P1', 'poe1', set())
+    expect((await listConditionSets('poe2')).map((s) => s.name)).toEqual(['P2'])
+    expect((await listConditionSets('poe1')).map((s) => s.name)).toEqual(['P1'])
+  })
+
+  it('이름을 안 주면 유형을 이름으로 쓴다', async () => {
+    const r = await addConditionSet('', 'poe2', set())
+    expect(r.name).toBe('목걸이')
+  })
+
+  it('담을 조건이 하나도 없으면 등록하지 않는다', async () => {
+    expect(await addConditionSet('빈것', 'poe2', { stats: [], itemType: null })).toBeNull()
+    expect(await addConditionSet('빈것', 'poe2', null)).toBeNull()
+    expect(await listConditionSets('poe2')).toHaveLength(0)
+  })
+
+  it('id 없는 잘못된 조건은 걸러낸다', async () => {
+    const r = await addConditionSet('일부불량', 'poe2', { stats: [{ text: 'x' }, { id: 'ok', text: 'ok' }], itemType: null })
+    expect(r.stats).toEqual([{ id: 'ok', text: 'ok' }])
+  })
+
+  it('이름 변경·삭제', async () => {
+    const r = await addConditionSet('원래', 'poe2', set())
+    await renameConditionSet(r.id, '바뀜')
+    expect((await listConditionSets('poe2'))[0].name).toBe('바뀜')
+    await renameConditionSet(r.id, '') // 빈 이름은 무시
+    expect((await listConditionSets('poe2'))[0].name).toBe('바뀜')
+    await removeConditionSet(r.id)
+    expect(await listConditionSets('poe2')).toHaveLength(0)
+  })
+
+  it('순서 이동 — 같은 게임 안에서만 스왑', async () => {
+    const a = await addConditionSet('A', 'poe2', set())
+    const b = await addConditionSet('B', 'poe2', set())
+    await addConditionSet('X', 'poe1', set()) // 다른 게임 — 영향 없어야
+    await moveConditionSet(b.id, -1)
+    expect((await listConditionSets('poe2')).map((s) => s.name)).toEqual(['B', 'A'])
+    await moveConditionSet(b.id, 1)
+    expect((await listConditionSets('poe2')).map((s) => s.name)).toEqual(['A', 'B'])
+    await moveConditionSet(a.id, -1) // 맨 앞에서 앞으로 → 변화 없음
+    expect((await listConditionSets('poe2')).map((s) => s.name)).toEqual(['A', 'B'])
+    expect((await listConditionSets('poe1')).map((s) => s.name)).toEqual(['X'])
+  })
+
+  it('북마크·히스토리(records)와 저장소가 분리돼 서로 영향 없다', async () => {
+    await addConditionSet('묶음', 'poe2', set())
+    await addBookmark(rec(), '북마크')
+    expect(await listConditionSets('poe2')).toHaveLength(1)
+    expect(await listByKind('bookmark', 'poe2')).toHaveLength(1)
   })
 })
 
