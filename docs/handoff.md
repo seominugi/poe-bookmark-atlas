@@ -9,7 +9,8 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
-**0.5.0 준비 중 (2026-07-27)** — 0.4.0은 **스토어 심사 대기**(사용자가 제출 예정, `v0.4.0` GitHub draft 대기 중). 그 위에 **조건 묶음**(입력 최소화)과 **검색칸 삭제 버그 수정**을 쌓는 중. 둘 다 구현·검증 완료, **미커밋**.
+**0.5.0 준비 중 (2026-07-27)** — **0.4.0 스토어 심사 통과**. `v0.4.0` GitHub 릴리즈 publish 완료 → 태그가 `9064d03`(0.4.0 버전 시점 커밋)에 생성됐고 `Latest`로 표시됨.
+그 위에 **조건 묶음**(입력 최소화, `c58e200`)과 **검색칸 삭제 버그 수정**을 쌓았다 — 둘 다 develop 푸시 완료, **라이브 확인만 남음**.
 
 
 **0.4.0 배포 준비 (2026-07-22)** — 리그 이관·투어 데모·내 리그 설정을 담아 **0.4.0으로 범프**(manifest·package)하고 `deploy/poe-bookmark-atlas-0.4.0.zip` 생성 완료. **남은 것: ① `develop` → `main` 머지(보호 브랜치라 사용자 확인 필요) ② GitHub 릴리즈 `v0.4.0` draft 생성 ③ 스토어 심사 제출.**
@@ -202,9 +203,10 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 - 브랜치: `main`·`develop` 둘 다 tip `9064d03`(origin 동기화, fast-forward 완료)
 - 미커밋: `docs/영상-소개-대본.md`(신규, 사용자 검토 대기 — 0.4.0 리그 이관 기능 반영 여부 확인 필요)
 - 테스트: **258/258**(vitest, jsdom 포함) · 빌드 통과
-- **미커밋** — 조건 묶음: `src/lib/conditionSet.js`·`test/conditionSet.test.js`(신규), `store.js`·`content-main.js`·`panel.js`·`renderList.js`·`panel.css`·`harness.mjs`·`store.test.js`(수정) / 검색칸 버그: `fuzzyPrefix.js`·`test/fuzzyPrefix.dom.test.js`·`vitest.config.js` / `docs/영상-소개-대본.md`(검토 대기)
-- 배포: **0.3.0 스토어 게시 중** / **0.4.0 준비 완료**(`deploy/poe-bookmark-atlas-0.4.0.zip`, 리그 이관·투어 데모·내 리그 설정 반영) — 사용자가 스토어 심사 제출 예정
-- **GitHub 릴리즈·태그**: `v0.1.0`·`v0.2.0`·`v0.3.0`(2026-07-22 publish, `0f80dae`) 공개, `v0.4.0`(`9064d03`) **draft**(스토어 심사 통과 후 사용자가 직접 publish → 그때 태그 실제 생성). **릴리즈 절차**: ① 릴리즈 커밋에서 버전 범프+빌드+zip ② `gh release create vX.Y.Z --draft --target <full-sha> --title "vX.Y.Z" --notes-file <md>`(전체 SHA 필수 — 단축 SHA는 target_commitish 거부) ③ 스토어 심사 통과 후 draft를 publish. 노트는 사용자 관점 기능 중심으로 묶어 작성(개발 커밋 나열 X). **이전 버전 draft가 게시 안 됐으면 그것부터 publish**(v0.3.0 사례 — 스토어엔 나갔는데 태그 없이 19일 방치됨) 후 새 버전 릴리즈 진행
+- 미커밋: `docs/영상-소개-대본.md`(검토 대기)뿐 — 조건 묶음·검색칸 버그 수정은 `c58e200`으로 develop 푸시 완료
+- **라이브 확인 대기 3건**(모두 거래소 로그인 세션 필요 — 개발 환경에서 불가): ① 조건 묶음 칩 클릭 → 조건이 얹힌 검색이 뜨는지 ② Alt+F 검색칸이 지워지는지 ③ 리그 이관 실제 동작(미완료 6번)
+- 배포: **0.4.0 스토어 심사 통과·게시 중**(리그 이관·투어 데모·내 리그 설정) / 다음 릴리즈(0.5.0) 후보 = 조건 묶음 + 검색칸 삭제 버그 수정 — **아직 버전 범프·zip 생성 안 함**
+- **GitHub 릴리즈·태그**: `v0.1.0`·`v0.2.0`·`v0.3.0`(`0f80dae`)·**`v0.4.0`(`9064d03`, 2026-07-27 publish — 스토어 심사 통과 후, 現 `Latest`)** 전부 공개. 다음은 `v0.5.0`. **릴리즈 절차**: ① 릴리즈 커밋에서 버전 범프+빌드+zip ② `gh release create vX.Y.Z --draft --target <full-sha> --title "vX.Y.Z" --notes-file <md>`(전체 SHA 필수 — 단축 SHA는 target_commitish 거부) ③ 스토어 심사 통과 후 draft를 publish. 노트는 사용자 관점 기능 중심으로 묶어 작성(개발 커밋 나열 X). **이전 버전 draft가 게시 안 됐으면 그것부터 publish**(v0.3.0 사례 — 스토어엔 나갔는데 태그 없이 19일 방치됨) 후 새 버전 릴리즈 진행
 - 빌드: `npm run build` → dist/ (해시 변경 시 확장 리로드+F5). dist/·deploy/ gitignore.
 - 하네스: `.claude/launch.json`의 `harness`(포트 5199), `test-harness/harness.mjs` 참조. content-main.js(페이지 주입 로직·PoB 버튼·환산 칩)는 하네스가 실행 안 함 — 이 부분은 `preview_eval`로 실제 로직을 인라인 재현해 모의 검증(라이브 로그인 세션 접근 불가)
 - 검증 제약: 거래소는 **로그인 세션 탭에서만** 패널 마운트 → 라이브 검증은 확장 리로드+F5 수동. 확장은 **dist 폴더** 로드.
