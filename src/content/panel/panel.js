@@ -521,7 +521,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     showNameInput, showSaveInput, showFolderPick, showConflict, toast, game, league,
     getLeagueMap: getLeagueMap || (() => ({})),
     migrateSearch, // 저장된 조건을 현재 리그로 다시 검색(renderList의 지난 리그 북마크 흐름에서 사용)
-    // registerConditionSet은 아래에서 정의된 뒤 ui에 붙인다 — 여기서 참조하면 TDZ(초기화 전 접근)로 터진다
+    // 아래에서 const로 정의되는 콜백들은 화살표로 감싸 '호출 시점'에 해석한다.
+    // 여기서 직접 참조하면 TDZ로 터지고, 반대로 mountPanel 뒷부분에서 ui에 붙이면
+    // 그 지점까지 실행이 도달하지 못했을 때 조용히 falsy가 되어 버튼이 무반응이 된다(실측 사례 있음).
+    registerConditionSet: (id) => registerConditionSet(id),
+    saveCurrentSearch: (folderId) => doSave(folderId),
     userLeague: null, // 설정에서 직접 고른 리그(빈 값 = 자동 판정). 아래 setUserLeague/저장소 로드에서 채운다
   }
   const refresh = () => renderList($('ba-list'), root, ui)
@@ -612,7 +616,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     await renderSets()
     toast(`"${saved.name}" 묶음을 만들었어요 — ${conditionSetSummary(saved)}`)
   }
-  ui.registerConditionSet = registerConditionSet // renderList의 ⋯ 액션이 호출(doSave와 같은 지연 배선 패턴)
 
   // 내 리그 설정 — 게임별로 따로 보관(poe1·poe2는 리그 이름이 다르다). 빈 값 = 자동 판정.
   let userLeague = ''
@@ -663,7 +666,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     toast('북마크에 저장했습니다.')
   }
   $('ba-save').onclick = () => doSave() // 클릭 이벤트가 presetFolderId로 새지 않게 래핑
-  ui.saveCurrentSearch = doSave // 폴더 헤더 +에서 renderList가 폴더 id와 함께 호출
   $('ba-foot-guide').onclick = () => startTour()
   const gearBtn = $('ba-gear'); if (gearBtn) gearBtn.onclick = () => showSettings()
   // 영문 거래소 전환 버튼 — 상단 공간 절약을 위해 현재 마크업을 숨김(head 템플릿에서 제거).
