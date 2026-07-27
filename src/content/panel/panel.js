@@ -443,11 +443,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           folders.map((f) => chip(f.id, f.name)).join('') +
           `<span class="chip new ${creating ? 'active' : ''}" data-new="1">+ 새 폴더</span>` +
           (creating ? '<input class="ba-newfolder-input" placeholder="새 폴더 이름" maxlength="40" />' : '')
-        if (multi) {
-          renderList2(); syncCount()
-          pick.querySelector('.ba-moveall').addEventListener('click', () => { bookmarks.forEach((b) => picked.add(b.id)); renderList2(); syncCount() })
-          pick.querySelector('.ba-movenone').addEventListener('click', () => { picked.clear(); renderList2(); syncCount() })
-        }
         pick.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
           if (c.dataset.new) {
             creating = true; render()
@@ -543,6 +538,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           folders.map((f) => chip(f.id, f.name)).join('') +
           `<span class="chip new ${creating ? 'active' : ''}" data-new="1">+ 새 폴더</span>` +
           (creating ? '<input class="ba-newfolder-input" placeholder="새 폴더 이름" maxlength="40" />' : '')
+        if (multi) { // 목록·개수는 innerHTML 을 갈아끼운 뒤 채운다(폴더 칩을 다시 그릴 때마다 재부착)
+          renderList2(); syncCount()
+          pick.querySelector('.ba-moveall').addEventListener('click', () => { bookmarks.forEach((b) => picked.add(b.id)); renderList2(); syncCount() })
+          pick.querySelector('.ba-movenone').addEventListener('click', () => { picked.clear(); renderList2(); syncCount() })
+        }
         pick.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
           if (c.dataset.new) {
             creating = true; render()
