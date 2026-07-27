@@ -229,22 +229,33 @@ function bindPageTip(el) {
   })
   el.addEventListener('mouseleave', () => { if (pageTip) pageTip.classList.remove('show') })
 }
-// 기본 화폐(엑잘/카오스) 아이콘 — 확장 내부 URL은 페이지 CSP·dynamic URL 제약으로 깨질 수 있어
-// GGG 공식 static API의 CDN 이미지(사이트 자체가 쓰는 것과 동일)를 1회 가져와 사용한다.
+// 거래소 static API에서 화폐 정보 1회 로드 — 두 가지에 쓴다.
+//  ① 기본 화폐(엑잘/카오스) 아이콘: 확장 내부 URL은 페이지 CSP·dynamic URL 제약으로 깨질 수 있어
+//     GGG 공식 CDN 이미지(사이트 자체가 쓰는 것과 동일)를 쓴다.
+//  ② 화폐 id → 한글명 맵: 경제 API의 items가 Metadata 경로를 키로 쓰므로, 한글명이 두 데이터를 잇는
+//     유일한 공통 키다(lib/currencyRates.js indexItemsByName 참조). 이게 있어야 색채의 오브처럼
+//     큐레이션 밖 화폐도 환산된다.
 let curIcon = null // CDN 이미지 URL — 로드 전엔 칩이 텍스트 단위로 폴백
-let curIconTried = false
-function ensureCurIcon() {
-  if (curIconTried) return
-  curIconTried = true
+let curNames = null // { 화폐id: 한글명 } — 로드 전엔 큐레이션 4종만 환산
+let curStaticTried = false
+function ensureCurrencyStatic() {
+  if (curStaticTried) return
+  curStaticTried = true
   const path = game === 'poe2' ? 'trade2' : 'trade'
   fetch(`https://poe.kakaogames.com/api/${path}/data/static`) // 콘텐츠 스크립트 = 동일 출처
     .then((r) => r.json())
     .then((s) => {
       const cur = (s.result || []).find((g) => g.id === 'Currency')
-      const entry = (cur?.entries || []).find((e) => e.id === baseCurrencyOf(game))
-      if (entry?.image) { curIcon = 'https://web.poecdn.com' + entry.image; injectPobButtons() } // 도착 즉시 칩 패스
+      const entries = cur?.entries || []
+      const names = {}
+      for (const e of entries) if (e && e.id && typeof e.text === 'string' && e.text) names[e.id] = e.text
+      if (Object.keys(names).length) curNames = names
+      const entry = entries.find((e) => e.id === baseCurrencyOf(game))
+      if (entry?.image) curIcon = 'https://web.poecdn.com' + entry.image
+      LOG('화폐 static —', Object.keys(names).length, '종, 아이콘', !!curIcon)
+      injectPobButtons() // 도착 즉시 칩 패스(이름 맵이 생겨 새로 환산되는 행이 있다)
     })
-    .catch((err) => LOG('기본 화폐 아이콘 로드 실패(텍스트 폴백)', String(err)))
+    .catch((err) => LOG('화폐 static 로드 실패(큐레이션 4종만 환산)', String(err)))
 }
 
 // '제시 가격'(협상가)·'정가'(고정가) 라벨을 포함한 리프 요소의 부모(가격 블록) — 클래스명 추측 대신 텍스트 앵커
@@ -276,7 +287,7 @@ function injectExrChip(row, id) {
     if (curIcon && !existing.querySelector('img') && existing.dataset.v && existing.parentElement) renderChipContent(existing, existing.parentElement, label)
     return false
   }
-  const v = baseFromPrice(pobPrices.get(id), lastRates, game)
+  const v = baseFromPrice(pobPrices.get(id), lastRates, game, curNames)
   if (v == null) return false
   const host = findPriceHost(row)
   if (!host) return false
@@ -366,7 +377,7 @@ function pobEnsureObserver() {
 }
 let pobTimers = []
 function schedulePobInject() {
-  ensureCurIcon() // 기본 화폐 아이콘을 첫 fetch 시점에 미리 로드(환율 도착 전에 준비 — 텍스트 폴백 최소화)
+  ensureCurrencyStatic() // 화폐 아이콘·한글명 맵을 첫 fetch 시점에 미리 로드(환율 도착 전에 준비)
   try { pobEnsureObserver() } catch (err) { LOG('PoB 옵저버 실패', String(err)) }
   pobTimers.forEach(clearTimeout)
   pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(injectPobButtons, ms))
