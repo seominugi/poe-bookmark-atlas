@@ -561,6 +561,24 @@
 .ba-act.relg:hover   { color: #a7f3d0; }
 .ba-act.cset:hover   { color: #d8b4fe; }
 
+/* ---- 선택 모드 (여러 북마크 → 한 번에 폴더 이동) ---- */
+.ba-select-toggle { display: inline-flex; align-items: center; gap: 4px; }
+.ba-select-toggle.on { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+.ba-select-bar { display: flex; align-items: center; gap: 6px; margin: 0 2px 10px; padding: 7px 9px;
+  background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); border-radius: 9px; }
+.ba-select-count { font-size: 11.5px; color: var(--ba-text); margin-right: auto; }
+.ba-select-count b { color: var(--ba-violet-2); font-variant-numeric: tabular-nums; }
+.ba-select-bar button { font-size: 11px; font-weight: 600; padding: 5px 9px; border-radius: 7px; cursor: pointer;
+  color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-border); }
+.ba-select-bar button:disabled { opacity: .45; cursor: default; }
+.ba-select-move { display: inline-flex; align-items: center; gap: 4px; }
+.ba-select-move:not(:disabled) { color: #0b0a16 !important; background: var(--ba-violet-2) !important; border-color: var(--ba-violet-2) !important; }
+/* 체크박스 — 드래그 손잡이 자리를 그대로 쓴다(레이아웃 흔들림 없음) */
+.ba-pick { flex: none; box-sizing: border-box; width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 5px; cursor: pointer; color: #0b0a16; background: rgba(255,255,255,0.06); border: 1.5px solid var(--ba-border); }
+.ba-pick.on { background: var(--ba-violet-2); border-color: var(--ba-violet-2); }
+.ba-row--picked { background: var(--ba-violet-soft); }
+
 /* 클릭 가능한 조건 칩 — 누르면 그 능력치를 지금 검색에 추가. 평소엔 툴팁 대상이라 힌트가 필요하다 */
 .ba-cond--add { cursor: pointer; }
 @media (hover: hover) and (pointer: fine) {

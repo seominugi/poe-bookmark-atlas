@@ -6,7 +6,7 @@ import {
   listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
   backfillQuery, migrateBookmarkLeague, needsTourDemo, seedDemoData, clearDemoData,
-  listConditionSets, addConditionSet, removeConditionSet, renameConditionSet, moveConditionSet,
+  listConditionSets, addConditionSet, removeConditionSet, renameConditionSet, moveConditionSet, moveBookmarks,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -262,6 +262,55 @@ describe('needsTourDemo', () => {
     expect(await needsTourDemo('poe2')).toBe(true)
     await clearDemoData()
     expect((await listByKind('bookmark', 'poe2')).length).toBe(0) // 실제 저장소는 오염되지 않는다
+  })
+})
+
+// ── 북마크 일괄 폴더 이동 ──
+describe('moveBookmarks (일괄 폴더 이동)', () => {
+  it('여러 북마크를 한 번에 옮기고 옮긴 개수를 돌려준다', async () => {
+    const f = await addFolder('무기', 'poe2')
+    const a = await addBookmark(rec({ dedupeKey: 'k1' }), 'A')
+    const b = await addBookmark(rec({ dedupeKey: 'k2' }), 'B')
+    await addBookmark(rec({ dedupeKey: 'k3' }), 'C')
+    expect(await moveBookmarks([a.id, b.id], f.id)).toBe(2)
+    const all = await listByKind('bookmark', 'poe2')
+    expect(all.filter((x) => x.folderId === f.id).map((x) => x.name).sort()).toEqual(['A', 'B'])
+    expect(all.find((x) => x.name === 'C').folderId).toBeNull()
+  })
+
+  it('대상 폴더 맨 뒤에 붙이되 서로의 상대 순서는 유지한다', async () => {
+    const f = await addFolder('무기', 'poe2')
+    const first = await addBookmark(rec({ dedupeKey: 'k0' }), '먼저있던것')
+    await moveBookmarks([first.id], f.id)
+    const a = await addBookmark(rec({ dedupeKey: 'k1' }), 'A')
+    const b = await addBookmark(rec({ dedupeKey: 'k2' }), 'B')
+    // 목록상 B가 A보다 앞(새 북마크가 앞으로 저장됨) — 그 순서가 이동 후에도 유지돼야
+    const before = (await listByKind('bookmark', 'poe2')).filter((x) => x.folderId === null).map((x) => x.name)
+    await moveBookmarks([a.id, b.id], f.id)
+    const after = (await listByKind('bookmark', 'poe2')).filter((x) => x.folderId === f.id).map((x) => x.name)
+    expect(after[0]).toBe('먼저있던것')
+    expect(after.slice(1)).toEqual(before)
+  })
+
+  it('미분류(null)로도 옮길 수 있다', async () => {
+    const f = await addFolder('무기', 'poe2')
+    const a = await addBookmark(rec(), 'A')
+    await moveBookmarks([a.id], f.id)
+    expect(await moveBookmarks([a.id], null)).toBe(1)
+    expect((await listByKind('bookmark', 'poe2'))[0].folderId).toBeNull()
+  })
+
+  it('없는 id·히스토리는 무시하고 실제 옮긴 것만 센다', async () => {
+    const f = await addFolder('무기', 'poe2')
+    const a = await addBookmark(rec({ dedupeKey: 'k1' }), 'A')
+    const h = await addHistory(rec({ dedupeKey: 'k9' }))
+    expect(await moveBookmarks([a.id, h.id, '없는id'], f.id)).toBe(1)
+    expect((await listByKind('history', 'poe2'))[0].folderId).toBeUndefined()
+  })
+
+  it('빈 목록이면 아무것도 하지 않는다', async () => {
+    expect(await moveBookmarks([], 'f1')).toBe(0)
+    expect(await moveBookmarks(null, 'f1')).toBe(0)
   })
 })
 

@@ -2,7 +2,7 @@ import {
   listByKind, listFolders, moveBookmark, overwriteBookmark,
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, setNote, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
-  migrateBookmarkLeague,
+  migrateBookmarkLeague, moveBookmarks,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
@@ -29,6 +29,10 @@ let bmSort = 'recent' // 북마크 정렬 기본: recent(최근·저장 순 → 
 let oneline = false // 북마크 간략(한 줄) 보기 — 이름·가격만 표시. 기본 끔(상세). storage 영속.
 const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
 const collapsedLeagues = new Set() // 리그 기본 접힘(현재 펼침/지난 접힘)에서 토글한 키('L:'+league)
+// 선택 모드 — 북마크를 여러 개 골라 한 번에 폴더로 옮긴다(하나씩 ⋯ → 이동은 반복이 심하다는 제보).
+// 평소엔 체크박스를 숨겨 카드가 복잡해지지 않게 하고, 모드를 켤 때만 노출한다.
+let selectMode = false
+const selectedIds = new Set()
 
 // 정렬·접힌 폴더 선호는 chrome.storage에 영속(재로드 후 유지). 검색어는 의도적으로 휘발(매 세션 초기화).
 let uiHydrated = false
@@ -367,9 +371,12 @@ function rowHtml(r, kind, lg) {
   const migrateAct = migratable(r)
     ? `<span class="ba-act relg ba-migrate" data-id="${r.id}">${icon('trophy', 13)}내 리그로 다시 검색</span>`
     : ''
-  return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
+  const pick = selectMode
+    ? `<span class="ba-pick${selectedIds.has(r.id) ? ' on' : ''}" data-id="${r.id}">${selectedIds.has(r.id) ? icon('check', 12) : ''}</span>`
+    : `<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>`
+  return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}${selectMode && selectedIds.has(r.id) ? ' ba-row--picked' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
-      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-l1l">${pick}${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
     <div class="ba-meta-row">${attn}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
@@ -446,7 +453,19 @@ export async function renderList(listEl, root, ui = {}) {
     ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}</button>`
     : ''
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
-  html += `<div class="ba-action-row">${onelineBtn}${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
+  const selectBtn = bookmarks.length
+    ? `<button class="ba-select-toggle${selectMode ? ' on' : ''}" data-tip="${selectMode ? '선택 모드 끄기' : '여러 북마크를 골라 한 번에 폴더로 이동'}">${icon('check', 13)}선택</button>`
+    : ''
+  html += `<div class="ba-action-row">${onelineBtn}${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${selectBtn}${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
+  // 북마크가 0개면 토글 버튼도 없으므로 바를 띄우면 빠져나갈 방법이 없어진다(테스트가 적발)
+  if (selectMode && bookmarks.length) {
+    html += `<div class="ba-select-bar">
+      <span class="ba-select-count"><b>${selectedIds.size}</b>개 선택</span>
+      <button class="ba-select-all">전체 선택</button>
+      <button class="ba-select-none">해제</button>
+      <button class="ba-select-move"${selectedIds.size ? '' : ' disabled'}>${icon('folder', 12)}폴더로 이동</button>
+    </div>`
+  }
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const sortItems = (arr) => {
     if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
@@ -576,6 +595,7 @@ function bindAll(listEl, ui, ctx) {
     s.addEventListener('click', async (e) => {
       e.stopPropagation()
       const row = s.closest('.ba-row')
+      if (selectMode) { togglePick(row.dataset.id); return } // 선택 중엔 이름을 눌러도 열지 않고 선택만
       const url = decodeURIComponent(row.dataset.url)
       if (row.dataset.past !== '1' || e.ctrlKey || e.metaKey || !ui.showConflict) { openTradeUrl(url, toast, e); return }
       const id = row.dataset.id
@@ -649,6 +669,54 @@ function bindAll(listEl, ui, ctx) {
         toast('검색 링크를 복사했습니다.')
       }
     }))
+
+  // ☑ 선택 모드 — 여러 북마크를 골라 한 번에 폴더로 이동
+  const selToggle = listEl.querySelector('.ba-select-toggle')
+  if (selToggle) selToggle.addEventListener('click', () => {
+    selectMode = !selectMode
+    if (!selectMode) selectedIds.clear()
+    changed()
+  })
+  // 체크박스는 재렌더 없이 즉시 반영한다 — 재렌더하면 스크롤이 맨 위로 튀어 연속 선택이 불가능해진다
+  const syncSelectBar = () => {
+    const cnt = listEl.querySelector('.ba-select-count b')
+    if (cnt) cnt.textContent = String(selectedIds.size)
+    const mv = listEl.querySelector('.ba-select-move')
+    if (mv) mv.disabled = selectedIds.size === 0
+  }
+  const togglePick = (id) => {
+    if (selectedIds.has(id)) selectedIds.delete(id)
+    else selectedIds.add(id)
+    listEl.querySelectorAll(`.ba-pick[data-id="${CSS.escape(id)}"]`).forEach((el) => {
+      const on = selectedIds.has(id)
+      el.classList.toggle('on', on)
+      el.innerHTML = on ? icon('check', 12) : ''
+      const row = el.closest('.ba-row')
+      if (row) row.classList.toggle('ba-row--picked', on)
+    })
+    syncSelectBar()
+  }
+  listEl.querySelectorAll('.ba-pick').forEach((c) =>
+    c.addEventListener('click', (e) => { e.stopPropagation(); togglePick(c.dataset.id) }))
+  const allBtn = listEl.querySelector('.ba-select-all')
+  if (allBtn) allBtn.addEventListener('click', () => {
+    listEl.querySelectorAll('.ba-pick').forEach((el) => { if (!selectedIds.has(el.dataset.id)) togglePick(el.dataset.id) })
+  })
+  const noneBtn = listEl.querySelector('.ba-select-none')
+  if (noneBtn) noneBtn.addEventListener('click', () => {
+    ;[...selectedIds].forEach((id) => togglePick(id))
+  })
+  const moveSelBtn = listEl.querySelector('.ba-select-move')
+  if (moveSelBtn) moveSelBtn.addEventListener('click', async () => {
+    if (!selectedIds.size || !ui.showFolderPick) return
+    const fid = await ui.showFolderPick(null)
+    if (fid === false) return // 취소
+    const n = await moveBookmarks([...selectedIds], fid ?? null)
+    selectedIds.clear()
+    selectMode = false
+    changed()
+    toast(`${n}개를 옮겼습니다.`)
+  })
 
   // ➕ 조건 칩 클릭 → 그 검색의 능력치만 지금 검색에 추가 (북마크·히스토리 공통)
   listEl.querySelectorAll('.ba-cond--add').forEach((c) =>

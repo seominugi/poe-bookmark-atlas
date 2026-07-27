@@ -204,6 +204,29 @@ export async function moveBookmark(id, patch) {
 }
 
 /**
+ * 여러 북마크를 한 폴더로 한 번에 옮긴다(대상 폴더 맨 뒤에 붙이되 서로의 상대 순서는 유지).
+ * 하나씩 moveBookmark를 부르면 매번 저장소 읽기·쓰기가 반복되고 중간 상태가 노출되므로 한 번에 쓴다.
+ * @param {string[]} ids @param {string|null} folderId
+ * @returns {Promise<number>} 실제로 옮긴 개수
+ */
+export async function moveBookmarks(ids, folderId) {
+  const wanted = new Set(Array.isArray(ids) ? ids : [])
+  if (!wanted.size) return 0
+  const all = await readAll()
+  const target = folderId ?? null
+  let order = all.reduce((m, r) => (r.kind === 'bookmark' && (r.folderId ?? null) === target ? Math.max(m, r.order ?? 0) : m), 0)
+  // 화면에 보이던 순서(order 오름차순) 그대로 뒤에 붙인다
+  const moving = all
+    .filter((r) => r.kind === 'bookmark' && wanted.has(r.id))
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  if (!moving.length) return 0
+  const now = Date.now()
+  for (const r of moving) { r.folderId = target; r.order = ++order; r.updatedAt = now }
+  await writeAll(all)
+  return moving.length
+}
+
+/**
  * 저장된 검색을 열어 결과가 실제 로드되면 호출 — 해당 URL 북마크의 lastUsedAt 갱신(만료 경고 해제),
  * 스냅샷·아이콘 갱신. fields가 오면 검색 조건을 최신 파서 형식으로 재기록한다
  * (구 북마크에 능력치 수치 등 반영 = 하위호환 업그레이드). 표시명(name)·폴더·순서·id·생성시각은 보존.
