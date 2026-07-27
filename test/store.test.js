@@ -293,6 +293,22 @@ describe('조건 묶음', () => {
     expect(await listConditionSets('poe2')).toHaveLength(0)
   })
 
+  it('능력치 그룹 구조(groups)를 함께 보관한다 — 없으면 검색 의미가 바뀐다', async () => {
+    const r = await addConditionSet('그룹묶음', 'poe2', {
+      stats: [{ id: 'a', text: 'A' }, { id: 'b', text: 'B' }],
+      groups: [{ type: 'count', value: { min: 1 }, filters: [{ id: 'a', text: 'A' }, { id: 'b', text: 'B' }] }],
+      itemType: null,
+    })
+    expect(r.groups).toHaveLength(1)
+    expect(r.groups[0]).toMatchObject({ type: 'count', value: { min: 1 } })
+    expect((await listConditionSets('poe2'))[0].groups[0].filters).toHaveLength(2)
+  })
+
+  it('groups 없는 입력도 저장된다(빈 배열 — 구 버전 호환)', async () => {
+    const r = await addConditionSet('구묶음', 'poe2', { stats: [{ id: 'a', text: 'A' }], itemType: null })
+    expect(r.groups).toEqual([])
+  })
+
   it('id 없는 잘못된 조건은 걸러낸다', async () => {
     const r = await addConditionSet('일부불량', 'poe2', { stats: [{ text: 'x' }, { id: 'ok', text: 'ok' }], itemType: null })
     expect(r.stats).toEqual([{ id: 'ok', text: 'ok' }])

@@ -380,9 +380,12 @@ export async function addConditionSet(name, game, set) {
   if (!stats.length && !itemType) return null
   const sets = await readSets()
   const maxOrder = sets.reduce((m, s) => Math.max(m, s.order ?? 0), 0)
+  // groups(능력치 그룹 구조)는 검색 의미 그 자체라 반드시 함께 보관한다 —
+  // 평탄 stats만 남기면 '숫자 N' 그룹이 and 로 합쳐져 훨씬 좁은 검색이 된다(lib/conditionSet.js 참조).
+  const groups = Array.isArray(set && set.groups) ? set.groups : []
   const record = {
     id: uid('cs_'), name: name || itemType || '새 묶음', game: game ?? null,
-    stats, itemType, order: maxOrder + 1, createdAt: Date.now(),
+    stats, groups, itemType, order: maxOrder + 1, createdAt: Date.now(),
   }
   sets.push(record)
   await writeSets(sets)

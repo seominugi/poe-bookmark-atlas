@@ -178,3 +178,76 @@ describe('conditionSetSummary', () => {
     expect(conditionSetSummary(null)).toBe('')
   })
 })
+
+describe('능력치 그룹 보존 (사용자 제보 — 그룹이 사라지면 검색 의미가 바뀐다)', () => {
+  // 스크린샷 재현: '숫자 ≥1' 그룹과 '숫자 ≥2' 그룹으로 나뉜 검색.
+  // count 그룹은 "이 중 N개만 만족" 이므로, 평탄화해 and 로 합치면 전부 만족해야 하는 훨씬 좁은 검색이 된다.
+  const recGroups = () => ({
+    query: { query: { type: '목걸이', stats: [
+      { type: 'count', value: { min: 1 }, filters: [
+        { id: 'stat.dot', value: { min: 12 } }, { id: 'stat.fire_dot', value: { min: 12 } } ] },
+      { type: 'count', value: { min: 2 }, filters: [
+        { id: 'stat.life', value: { min: 80 } }, { id: 'stat.cast', value: { min: 10 } }, { id: 'stat.gem' } ] },
+    ] } },
+  })
+  const MAP = { 'stat.dot': '지속 피해 배율 +#%', 'stat.life': '생명력 최대치 +#' }
+
+  it('그룹 타입과 그룹 값(숫자 N)까지 담는다', () => {
+    const set = extractConditionSet(recGroups(), MAP)
+    expect(set.groups).toHaveLength(2)
+    expect(set.groups[0]).toMatchObject({ type: 'count', value: { min: 1 } })
+    expect(set.groups[1]).toMatchObject({ type: 'count', value: { min: 2 } })
+    expect(set.groups[0].filters.map((f) => f.id)).toEqual(['stat.dot', 'stat.fire_dot'])
+    expect(set.groups[1].filters).toHaveLength(3)
+  })
+
+  it('평탄 stats도 함께 둔다(칩 개수 표시·구 버전 호환)', () => {
+    const set = extractConditionSet(recGroups(), MAP)
+    expect(set.stats).toHaveLength(5)
+    expect(set.stats[0].text).toBe('지속 피해 배율 +#%')
+  })
+
+  it('얹을 때 count 그룹이 and 로 합쳐지지 않고 그대로 유지된다', () => {
+    const set = extractConditionSet(recGroups(), MAP)
+    const body = mergeConditionSet(null, set)
+    const counts = body.query.stats.filter((g) => g.type === 'count')
+    expect(counts).toHaveLength(2)
+    expect(counts[0].value).toEqual({ min: 1 })
+    expect(counts[1].value).toEqual({ min: 2 })
+    expect(body.query.stats.some((g) => g.type === 'and' && g.filters.length)).toBe(false)
+  })
+
+  it('현재 검색의 기존 그룹은 건드리지 않고 묶음 그룹만 더한다', () => {
+    const base = { query: { stats: [{ type: 'and', filters: [{ id: 'stat.keep', value: { min: 5 } }] }] } }
+    const body = mergeConditionSet(base, extractConditionSet(recGroups(), MAP))
+    const and = body.query.stats.find((g) => g.type === 'and')
+    expect(and.filters.map((f) => f.id)).toEqual(['stat.keep']) // 원래 and 그룹 그대로
+    expect(body.query.stats.filter((g) => g.type === 'count')).toHaveLength(2)
+  })
+
+  it('and 그룹은 기존대로 현재 검색의 and 에 병합(중복은 갱신)', () => {
+    const set = extractConditionSet({ query: { query: { stats: [
+      { type: 'and', filters: [{ id: 'stat.a', value: { min: 9 } }, { id: 'stat.b' }] } ] } } }, {})
+    const base = { query: { stats: [{ type: 'and', filters: [{ id: 'stat.a', value: { min: 1 } }] }] } }
+    const body = mergeConditionSet(base, set)
+    expect(body.query.stats).toHaveLength(1)
+    expect(body.query.stats[0].filters.map((f) => f.id)).toEqual(['stat.a', 'stat.b'])
+    expect(body.query.stats[0].filters[0].value).toEqual({ min: 9 })
+  })
+
+  it('가중치 그룹의 weight 값도 보존한다', () => {
+    const set = extractConditionSet({ query: { query: { stats: [
+      { type: 'weight', value: { min: 30 }, filters: [{ id: 'stat.w', value: { weight: 3 } }] } ] } } }, {})
+    const body = mergeConditionSet(null, set)
+    const w = body.query.stats.find((g) => g.type === 'weight')
+    expect(w.value).toEqual({ min: 30 })
+    expect(w.filters[0].value).toEqual({ weight: 3 })
+  })
+
+  it('groups 없는 구 묶음은 and 그룹 하나로 취급(하위호환)', () => {
+    const legacy = { itemType: null, stats: [{ id: 'stat.x', text: 'x', value: { min: 1 } }] }
+    const body = mergeConditionSet(null, legacy)
+    expect(body.query.stats[0].type).toBe('and')
+    expect(body.query.stats[0].filters).toEqual([{ id: 'stat.x', value: { min: 1 } }])
+  })
+})
