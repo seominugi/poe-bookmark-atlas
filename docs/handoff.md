@@ -40,7 +40,7 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 - Domain Fidelity: 원본 엔트리 대조 — 색채의 오브 `primary_currency: chaos`이므로 직접관찰 `chaos_ask(1.40026)` 채택(cross 계산값 아님). 응답 `primary_unit: chaos`, `generated_at` 확인
 - 테스트 **264/264**(currencyRates 28, 실제 Metadata 키 형태로 픽스처 교체)
 
-**⚠ 라이브 미확인**: 거래소 로그인 세션이 풀려 실제 매물 화면에서 칩이 뜨는 것은 확인 못 함. 로직·데이터는 공개 API로 검증됨
+**라이브 확인 완료(2026-07-27, 사용자 직접)**: 실제 매물 화면에서 카오스 외 화폐 매물에 환산 칩이 표시되는 것 확인
 
 
 ### 조건 묶음 — 자주 쓰는 조건을 클릭 1회로 얹기 (2026-07-27, `c58e200`+`efa9011` 푸시 완료)
