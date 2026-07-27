@@ -2,6 +2,7 @@ import css from './panel.css?inline'
 import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague } from './renderList.js'
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData,
+  needsConditionSetDemo, seedDemoSets, clearDemoSets,
   listConditionSets, addConditionSet, removeConditionSet, moveConditionSet, moveBookmarks } from '../../store/store.js'
 import { extractConditionSet, conditionSetSummary } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
@@ -98,8 +99,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           <button class="ba-gear" id="ba-gear" data-tip="설정 (Alt+O)">${icon('settings', 15)}설정</button>
         </div>
       </div>
-      <div class="ba-toast" id="ba-toast" hidden></div>
     </div>
+    <!-- 토스트는 패널 밖(형제)에 둔다 — 패널 안이면 폭이 384px로 묶여 긴 안내 문구가 좌우로 잘리고,
+         접힘 시 .ba-root의 transform이 fixed 좌표계를 가로채 화면 밖으로 함께 밀려난다. -->
+    <div class="ba-toast" id="ba-toast" hidden></div>
     <div class="ba-handle" id="ba-handle">
       <div class="ba-handle-grip" id="ba-handle-grip" data-tip="드래그하면 핸들 위치를 위아래로 옮겨요">${icon('grip', 14)}</div>
       <div class="ba-handle-toggle" id="ba-handle-toggle" data-tip="클릭하면 패널을 접고 펼쳐요 (Alt+B)"><span class="ba-handle-glint"></span><span class="ba-handle-body"><span class="ba-handle-label">북마크</span><span class="ba-handle-badge" id="ba-handle-badge" hidden></span></span></div>
@@ -650,6 +653,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     if (applyingSet) return
     const set = (await listConditionSets(game)).find((s) => s.id === id)
     if (!set) return
+    // 투어 중 예시 묶음을 눌러도 실제 검색을 만들지 않는다 — 거래소가 모르는 스탯 id라 400으로 끝난다.
+    if (set.__demo) { toast('투어용 예시 묶음이에요. 투어를 마치면 직접 만든 묶음으로 쓸 수 있어요.'); return }
     await applyAndGo(set, set.name)
   }
 
@@ -660,6 +665,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const addStatsToSearch = async (recId) => {
     if (applyingSet) return
     const rec = [...(await listByKind('bookmark', game)), ...(await listByKind('history', game))].find((r) => r.id === recId)
+    if (rec && rec.__demo) { toast('투어용 예시 카드예요. 실제 북마크의 조건 칩에서 눌러보세요.'); return }
     const set = extractConditionSet(rec, getStatMap ? getStatMap() : {})
     if (!set || !set.stats.length) { toast('이 검색에는 넣을 능력치가 없어요.'); return }
     await applyAndGo({ ...set, itemType: null }, `${rec.name || rec.title || '검색'} 능력치`)
@@ -756,12 +762,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // ── 사용법 가이드 코치마크 (4스텝) ──
   const TOUR = [
     { sel: '#ba-save', title: '자주하는 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 자주 쓰는 검색은 "현재 검색 저장"으로 영구 보관하고, 저장할 때 폴더도 바로 고를 수 있어요.' },
+    { sel: '#ba-sets', title: '조건 묶음 — 클릭 1회로 조건 얹기', body: '자주 쓰는 조건 뭉치를 "묶음"으로 저장해두고, 칩을 누르면 지금 검색 위에 통째로 얹어요. 거래소에서 손으로 넣으면 조건 하나당 드롭다운·타이핑·선택·수치 입력이 반복되는데, 여기선 클릭 1회입니다. 가격·정렬은 그대로 두고 조건만 더해요. 묶음은 카드의 ⋯ → "조건 묶음으로 등록"으로 만듭니다.' },
     { sel: '.ba-pob-btn', global: true, demo: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요.' },
     { sel: '.ba-exr-chip', global: true, demo: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준.' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },
     { sel: '.ba-open', title: '한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
+    { sel: '.ba-cond--add', sel2: '.ba-cond', title: '조건 칩으로 능력치만 빌리기', body: '카드의 "조건 N개" 칩을 누르면 그 검색의 능력치가 지금 검색에 더해져요. 묶음으로 등록할 정도는 아니고 저 조건 하나만 가져오고 싶을 때 씁니다. 마우스를 올리면 어떤 조건인지 미리 볼 수 있어요.' },
     { sel: '.ba-price-pill', title: '검색 시점 시세', body: '가격에 마우스를 올리면 검색 당시 매물 기준 시세(빠르게 팔리는 가격)를 보여줘요. 북마크를 열면 최신 시세로 갱신됩니다.' },
-    { sel: '.ba-more', title: '카드 액션 모음', body: '⋯ 를 누르면 검색 링크 복사, 내 리그로 다시 검색, 최근 검색으로 갱신, 이름 변경, 다른 폴더로 이동, 삭제 메뉴가 떠요. 리그가 바뀌어 깨진 북마크는 "내 리그로 다시 검색"으로 되살립니다.' },
+    { sel: '.ba-more', title: '카드 액션 모음', body: '⋯ 를 누르면 검색 링크 복사, 내 리그로 다시 검색, 최근 검색으로 갱신, 조건 묶음으로 등록, 이름 변경, 다른 폴더로 이동, 삭제 메뉴가 떠요. "다른 폴더로 이동"은 전체 북마크가 뜨는 창이 열려서, 누른 것 말고 다른 북마크도 체크해 한 번에 옮길 수 있어요. 리그가 바뀌어 깨진 북마크는 "내 리그로 다시 검색"으로 되살립니다.' },
     { sel: '.ba-folder-ic[data-id]', title: '폴더 색상 구분', body: '폴더 아이콘을 클릭하면 색을 바꿀 수 있어요. 색으로 분류하면 원하는 폴더를 한눈에 찾습니다.' },
     { sel: '.ba-action-row', title: '정리 도구', body: '모든 폴더 접기·펼치기와 새 폴더 추가가 여기 모여 있어요.' },
     { sel: '.ba-io-group', title: '백업 · 공유 (JSON)', body: '북마크를 JSON 파일로 내보내 백업하거나 다른 사람과 공유할 수 있어요. 받은 JSON은 가져오기로 합쳐집니다. 특정 폴더만 내보내려면 폴더 헤더의 ⬇ 아이콘을 쓰세요.' },
@@ -789,6 +797,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         leagueInfo(ui.getLeagueMap()),
       ) || '예전 리그'
     try { if (await needsTourDemo(game)) { await seedDemoData(game, demoLeague); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
+    // 조건 묶음 줄은 묶음이 0개면 hidden — 북마크 데모와 판정이 달라 따로 심는다(store.needsConditionSetDemo 주석 참조).
+    let setDemoOn = false
+    try { if (await needsConditionSetDemo(game)) { await seedDemoSets(game); setDemoOn = true; await renderSets(); await new Promise((r) => setTimeout(r, 60)) } } catch (_) {}
     let i = 0
     const card = document.createElement('div')
     card.className = 'ba-tour-card'
@@ -800,7 +811,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     root.appendChild(box)
     root.appendChild(arrow)
     root.appendChild(card)
-    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
     const goNext = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
     const goPrev = () => { if (i > 0) { i -= 1; render() } }
     // 방향키로도 이전/다음 이동 — 페이지 검색창 등에 포커스가 있으면(텍스트 커서 이동 용도) 가로채지 않는다
@@ -880,7 +891,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       // global: 패널(shadow root) 밖 — 거래소 페이지에 주입한 PoB 버튼·환산 칩처럼 document 쪽 대상.
       // 검색 결과 없이 투어를 시작하면 아직 안 떠 있을 수 있어(스포트라이트만 자동 숨김, place()의 기존 0-rect 처리로 대응).
       const scope = step.global ? document : root
-      let target = scope.querySelector(step.sel)
+      // sel2: 1순위 대상이 없을 때의 대체 선택자. 조건 칩 스텝처럼 "클릭 가능한 형태(.ba-cond--add)"가
+      // 원본 query를 가진 카드에만 붙는 경우, 옛 북마크만 있는 사용자에게도 최소한 같은 칩을 가리키게 한다.
+      let target = scope.querySelector(step.sel) || (step.sel2 ? scope.querySelector(step.sel2) : null)
       // 페이지 쪽 대상(PoB 버튼·환산 칩)이 없으면 = 검색 결과가 없는 화면 → 투어 동안만 '예시' 요소를 놓고 그걸 가리킨다.
       // (패널이 빈 목록에서 seedDemoData로 예시를 띄우는 것과 같은 처리) 예시가 필요 없는 스텝에선 즉시 치운다.
       if (tourDemo) {

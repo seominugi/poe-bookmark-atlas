@@ -6,6 +6,7 @@ import {
   listFolders, addFolder, renameFolder, deleteFolder, markUsedByUrl, removeStaleBookmarks, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, setFolderColor, FOLDER_PALETTE,
   backfillQuery, migrateBookmarkLeague, needsTourDemo, seedDemoData, clearDemoData,
+  needsConditionSetDemo, seedDemoSets, clearDemoSets,
   listConditionSets, addConditionSet, removeConditionSet, renameConditionSet, moveConditionSet, moveBookmarks,
 } from '../src/store/store.js'
 
@@ -262,6 +263,48 @@ describe('needsTourDemo', () => {
     expect(await needsTourDemo('poe2')).toBe(true)
     await clearDemoData()
     expect((await listByKind('bookmark', 'poe2')).length).toBe(0) // 실제 저장소는 오염되지 않는다
+  })
+  it('데모 북마크는 raw query를 갖는다 — 없으면 조건 칩 스텝(.ba-cond--add)이 가리킬 대상이 없다', async () => {
+    await seedDemoData('poe2', 'Standard')
+    const bms = (await listByKind('bookmark', 'poe2')).filter((b) => b.__demo)
+    expect(bms.length).toBeGreaterThan(0)
+    expect(bms.some((b) => b.query && b.query.query && (b.query.query.stats || []).length)).toBe(true)
+    await clearDemoData()
+  })
+})
+
+// ── 가이드 투어 데모 조건 묶음 ──
+// 묶음 줄(#ba-sets)은 묶음이 0개면 hidden이라, 신규 사용자가 투어를 돌리면 가리킬 대상이 없다.
+// 북마크 데모와 판정 조건이 달라(북마크가 많아도 묶음은 0개일 수 있다) 별도로 둔다.
+describe('조건 묶음 투어 데모', () => {
+  it('묶음이 하나도 없으면 데모가 필요하다', async () => {
+    expect(await needsConditionSetDemo('poe2')).toBe(true)
+  })
+  it('실제 묶음이 있으면 데모가 필요 없다', async () => {
+    await addConditionSet('내 묶음', 'poe2', { stats: [{ id: 'explicit.stat_life' }], itemType: null })
+    expect(await needsConditionSetDemo('poe2')).toBe(false)
+  })
+  it('다른 게임의 묶음은 세지 않는다', async () => {
+    await addConditionSet('내 묶음', 'poe1', { stats: [{ id: 'explicit.stat_life' }], itemType: null })
+    expect(await needsConditionSetDemo('poe2')).toBe(true)
+  })
+  it('데모 묶음은 조건이 담긴 채로 목록에 뜬다', async () => {
+    await seedDemoSets('poe2')
+    const sets = await listConditionSets('poe2')
+    expect(sets.length).toBeGreaterThan(0)
+    expect(sets.every((s) => s.__demo)).toBe(true)
+    expect(sets[0].stats.length).toBeGreaterThan(0)
+  })
+  it('데모 묶음 자체는 판정에서 제외한다(중복 주입 방지)', async () => {
+    await seedDemoSets('poe2')
+    expect(await needsConditionSetDemo('poe2')).toBe(true)
+  })
+  it('투어가 끝나면 데모 묶음만 지우고 실제 묶음은 남긴다', async () => {
+    const mine = await addConditionSet('내 묶음', 'poe2', { stats: [{ id: 'explicit.stat_life' }], itemType: null })
+    await seedDemoSets('poe2')
+    await clearDemoSets()
+    const sets = await listConditionSets('poe2')
+    expect(sets.map((s) => s.id)).toEqual([mine.id])
   })
 })
 

@@ -67,7 +67,9 @@ export async function seedDemoData(game, league) {
   const snap = (v, n, low) => ({ valueDiv: v, value: v, unit: 'divine', sampleN: n, lowestAsk: low, method: 'sellable_p25', capturedAt: now })
   const base = { game, league, createdAt: now, updatedAt: now, snapshotAt: now, __demo: true }
   const records = [
-    { ...base, id: '__demo_b1', kind: 'bookmark', name: '예시 — 화염 저항 반지', title: '반지', itemType: '반지', url: u('b1'), stats: ['화염 저항 #%', '최대 생명력 #'], otherFilters: [{ key: 'category', label: '유형', value: '반지' }], snapshot: snap(2.3, 12, 1.8), folderId: DEMO_FOLDER_ID, order: -1, lastUsedAt: now, note: '예시 메모 — 위치·빌드·용도' },
+    // query(원본 검색 바디)를 함께 넣는다 — 없으면 조건 칩이 '클릭해서 능력치 추가'(.ba-cond--add)로 살아나지 않아
+    // 조건 칩 스텝과 ⋯ → "조건 묶음으로 등록" 액션이 데모 카드에서 통째로 사라진다.
+    { ...base, id: '__demo_b1', kind: 'bookmark', name: '예시 — 화염 저항 반지', title: '반지', itemType: '반지', url: u('b1'), stats: ['화염 저항 #%', '최대 생명력 #'], otherFilters: [{ key: 'category', label: '유형', value: '반지' }], snapshot: snap(2.3, 12, 1.8), folderId: DEMO_FOLDER_ID, order: -1, lastUsedAt: now, note: '예시 메모 — 위치·빌드·용도', query: { query: { status: { option: 'online' }, type: '반지', stats: [{ type: 'and', filters: [{ id: 'explicit.stat_demo_fire_res', value: { min: 30 } }, { id: 'explicit.stat_demo_life', value: { min: 80 } }] }] } } },
     { ...base, id: '__demo_b2', kind: 'bookmark', name: '예시 — 카오스 단검', title: '단검', itemType: '단검', url: u('b2'), stats: ['물리 피해 #', '공격 속도 #%', '치명타 확률 #%'], snapshot: snap(0.5, 8, 0.3), folderId: null, order: -2, lastUsedAt: now },
     { ...base, id: '__demo_h1', kind: 'history', name: '예시 검색 — 생명력 갑옷', title: '갑옷', itemType: '갑옷', url: u('h1'), stats: ['최대 생명력 #', '방어도 #'], snapshot: snap(1.1, 7, 0.9), dedupeKey: '__demo_h1' },
   ]
@@ -79,6 +81,43 @@ export async function clearDemoData() {
   if (all.some((r) => r.__demo)) await writeAll(all.filter((r) => !r.__demo))
   const folders = await readFolders()
   if (folders.some((f) => f.__demo)) await writeFolders(folders.filter((f) => !f.__demo))
+}
+
+/**
+ * 조건 묶음 줄(#ba-sets)은 묶음이 0개면 hidden이라 투어가 가리킬 대상이 없다.
+ * 북마크 데모(needsTourDemo)와 판정을 합치면 안 된다 — 북마크가 잔뜩 있어도 묶음은 0개일 수 있고,
+ * 그때 북마크 데모까지 주입하면 멀쩡한 목록에 '예시' 카드가 끼어든다.
+ */
+export async function needsConditionSetDemo(game) {
+  return !(await readSets()).some((s) => s && !s.__demo && (!game || s.game === game))
+}
+
+export async function seedDemoSets(game) {
+  const sets = await readSets()
+  if (sets.some((s) => s.__demo)) return // 이미 주입됨
+  const now = Date.now()
+  const maxOrder = sets.reduce((m, s) => Math.max(m, s.order ?? 0), 0)
+  // 스탯 id는 '__demo_' 접두 — 실수로 얹혀도 거래소가 모르는 id라 검색이 바뀌지 않는다.
+  const demo = [
+    { name: '예시 — 저항 묶음', itemType: null, stats: [
+      { id: 'explicit.stat_demo_fire_res', text: '화염 저항 #%', value: { min: 35 } },
+      { id: 'explicit.stat_demo_cold_res', text: '냉기 저항 #%', value: { min: 35 } },
+    ] },
+    { name: '예시 — 생명력', itemType: null, stats: [{ id: 'explicit.stat_demo_life', text: '최대 생명력 #', value: { min: 90 } }] },
+  ]
+  await writeSets([
+    ...sets,
+    ...demo.map((d, n) => ({
+      id: `__demo_cs${n + 1}`, name: d.name, game: game ?? null,
+      stats: d.stats, groups: [{ type: 'and', filters: d.stats }], itemType: d.itemType,
+      order: maxOrder + 1 + n, createdAt: now, __demo: true,
+    })),
+  ])
+}
+
+export async function clearDemoSets() {
+  const sets = await readSets()
+  if (sets.some((s) => s.__demo)) await writeSets(sets.filter((s) => !s.__demo))
 }
 
 // URL 안전성(거래소 도메인만 허용)의 정본은 lib/tradeSearch.js — 그쪽이 이관용 URL 조립에도 쓰기 때문에
