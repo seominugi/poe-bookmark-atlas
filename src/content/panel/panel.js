@@ -2,7 +2,7 @@ import css from './panel.css?inline'
 import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague } from './renderList.js'
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData,
-  listConditionSets, addConditionSet, removeConditionSet, moveConditionSet } from '../../store/store.js'
+  listConditionSets, addConditionSet, removeConditionSet, moveConditionSet, moveBookmarks } from '../../store/store.js'
 import { extractConditionSet, conditionSetSummary } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
@@ -443,6 +443,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           folders.map((f) => chip(f.id, f.name)).join('') +
           `<span class="chip new ${creating ? 'active' : ''}" data-new="1">+ 새 폴더</span>` +
           (creating ? '<input class="ba-newfolder-input" placeholder="새 폴더 이름" maxlength="40" />' : '')
+        if (multi) {
+          renderList2(); syncCount()
+          pick.querySelector('.ba-moveall').addEventListener('click', () => { bookmarks.forEach((b) => picked.add(b.id)); renderList2(); syncCount() })
+          pick.querySelector('.ba-movenone').addEventListener('click', () => { picked.clear(); renderList2(); syncCount() })
+        }
         pick.querySelectorAll('.chip').forEach((c) => c.addEventListener('click', () => {
           if (c.dataset.new) {
             creating = true; render()
@@ -465,8 +470,20 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
 
   // 이동 다이얼로그 — 폴더만 선택(이름 입력 없음). showSaveInput의 폴더 피커 UI 재사용.
   // @returns {Promise<string|null|false>} 폴더 id | null(미분류) | false(취소). null과 취소를 구분해야 미분류로 이동 가능.
-  async function showFolderPick(currentFolderId = null, title = '다른 폴더로 이동') {
+  /**
+   * 폴더 이동 모달. pickIds가 오면 **옮길 북마크를 여러 개 고르는 목록**을 함께 띄운다
+   * (하나씩 ⋯ → 이동을 반복하는 게 너무 번거롭다는 제보). 진입점은 기존 카드 액션 그대로라
+   * 새 버튼을 늘리지 않는다 — 액션 행은 이미 꽉 차 있다.
+   * @param {string|null} currentFolderId 현재 폴더(칩 기본 선택)
+   * @param {string} title
+   * @param {{id:string}|null} multi 여러 개 모드 — { preselectId } 를 주면 그 북마크를 미리 체크
+   * @returns {Promise<false | string|null | {ids:string[], folderId:string|null}>}
+   */
+  async function showFolderPick(currentFolderId = null, title = '다른 폴더로 이동', multi = null) {
     const folders = await listFolders(game)
+    const bookmarks = multi ? await listByKind('bookmark', game) : []
+    const folderName = (fid) => (fid ? (folders.find((f) => f.id === fid) || {}).name || '?' : '미분류')
+    const picked = new Set(multi && multi.preselectId ? [multi.preselectId] : [])
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     return new Promise((resolve) => {
       const bar = $('ba-namebar'); const input = $('ba-name-input')
@@ -477,7 +494,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         ok.removeEventListener('click', onOk); cancel.removeEventListener('click', onCancel)
         bar.removeEventListener('click', onOverlay)
         bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
-        input.hidden = false; ok.textContent = '저장' // 다른 다이얼로그를 위해 namebar 원복
+        input.hidden = false; ok.textContent = '저장'; ok.disabled = false // 다른 다이얼로그를 위해 namebar 원복
       }
       const onOk = async () => {
         let fid = folderId
@@ -485,14 +502,42 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           const nname = (pick.querySelector('.ba-newfolder-input')?.value || '').trim()
           fid = nname ? (await addFolder(nname, game)).id : null
         }
-        cleanup(); resolve(fid)
+        cleanup(); resolve(multi ? { ids: [...picked], folderId: fid } : fid)
       }
       const onCancel = () => { cleanup(); resolve(false) }
       const onOverlay = (e) => { if (e.target === bar) onCancel() } // 어두운 배경 클릭 = 취소
+      // 옮길 북마크 목록(여러 개 모드) — 체크는 목록만 다시 그려 폴더 칩 선택 상태가 흔들리지 않게 한다
+      const renderList2 = () => {
+        const box = pick.querySelector('.ba-movelist')
+        if (!box) return
+        box.innerHTML = bookmarks.map((b) => `
+          <label class="ba-moveitem${picked.has(b.id) ? ' on' : ''}" data-id="${b.id}">
+            <span class="ba-movecb">${picked.has(b.id) ? icon('check', 11) : ''}</span>
+            <span class="ba-movename">${esc(b.name || b.title || '검색')}</span>
+            <span class="ba-movefolder">${esc(folderName(b.folderId ?? null))}</span>
+          </label>`).join('')
+        box.querySelectorAll('.ba-moveitem').forEach((el) => el.addEventListener('click', (e) => {
+          e.preventDefault()
+          const id = el.dataset.id
+          if (picked.has(id)) picked.delete(id); else picked.add(id)
+          renderList2(); syncCount()
+        }))
+      }
+      const syncCount = () => {
+        const c = pick.querySelector('.ba-movecount')
+        if (c) c.textContent = `${picked.size}개 선택`
+        ok.disabled = multi ? picked.size === 0 : false
+      }
       const render = () => {
         const chip = (fid, label, extra = '') =>
           `<span class="chip ${extra} ${!creating && (folderId ?? null) === (fid ?? null) ? 'active' : ''}" data-fid="${fid ?? ''}">${esc(label)}</span>`
         pick.innerHTML =
+          (multi
+            ? '<span class="lbl">옮길 북마크</span>'
+              + '<div class="ba-movelist"></div>'
+              + '<div class="ba-moverow"><span class="ba-movecount">0개 선택</span>'
+              + '<button class="ba-moveall">전체</button><button class="ba-movenone">해제</button></div>'
+            : '') +
           '<span class="lbl">이동할 폴더</span>' +
           chip(null, '미분류') +
           folders.map((f) => chip(f.id, f.name)).join('') +
@@ -525,6 +570,13 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 여기서 직접 참조하면 TDZ로 터지고, 반대로 mountPanel 뒷부분에서 ui에 붙이면
     // 그 지점까지 실행이 도달하지 못했을 때 조용히 falsy가 되어 버튼이 무반응이 된다(실측 사례 있음).
     registerConditionSet: (id) => registerConditionSet(id),
+    bulkMove: async (preselectId) => {
+      const res = await showFolderPick(null, '폴더로 이동', { preselectId })
+      if (!res || !res.ids || !res.ids.length) return
+      const n = await moveBookmarks(res.ids, res.folderId ?? null)
+      document.dispatchEvent(new CustomEvent('ba:records-changed'))
+      toast(`${n}개를 옮겼습니다.`)
+    },
     addStatsToSearch: (id) => addStatsToSearch(id),
     saveCurrentSearch: (folderId) => doSave(folderId),
     userLeague: null, // 설정에서 직접 고른 리그(빈 값 = 자동 판정). 아래 setUserLeague/저장소 로드에서 채운다
