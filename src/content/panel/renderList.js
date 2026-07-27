@@ -314,7 +314,11 @@ function rowHtml(r, kind, lg) {
   const condTipWithLeague = escapeHtml([leagueLine, condTipText(r)].filter(Boolean).join('\n────────\n'))
   // 북마크 카드: '조건 N개' 대신 입력 수치까지 담은 조건 요약(호버 시 전체 상세는 동일 툴팁). 긴 조건은 CSS 말줄임.
   // 조건 0개여도 칩은 항상 렌더 — 아니면 리그 정보(위 condTipWithLeague)를 걸어둘 곳이 없다.
-  const condSummaryChip = `<span class="ba-cond ba-cond--summary" data-tip="${condTipWithLeague}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span><span class="ba-cond-tx">${escapeHtml(condSummaryText(r))}</span></span>`
+  // 조건 칩은 조건 그 자체를 보여주는 요소라, 클릭하면 그 능력치를 지금 검색에 넣는다(등록 불필요).
+  // raw query 가 있어야 정확한 그룹까지 재현되므로 그때만 클릭 가능하게 한다.
+  const canAddStats = !!(r.query && stats.length)
+  const addTip = canAddStats ? '\n────────\n클릭하면 이 능력치를 지금 검색에 추가' : ''
+  const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span><span class="ba-cond-tx">${escapeHtml(condSummaryText(r))}</span></span>`
   // 가격 툴팁 — snapshot 기준 "검색 시점 시세(빠른 판매가 p25)" + 표본 수
   const priceAt = r.snapshotAt || (r.snapshot && r.snapshot.capturedAt)
   const sampleN = r.snapshot && r.snapshot.sampleN
@@ -326,7 +330,10 @@ function rowHtml(r, kind, lg) {
   if (kind === 'history') {
     // 히스토리는 모든 리그 통합 렌더라 그룹으로 구분이 안 됨 — 리그는 별도 칩(말줄임 문제 있었음) 대신
     // 조건 칩(+ 조건이 없으면 날짜 칩) 툴팁 맨 위에 얹는다(leagueLine·condTipWithLeague는 위에서 공용 계산).
-    const histCondChip = condCount ? `<span class="ba-cond" data-tip="${condTipWithLeague}">${icon('search', 12)}조건 ${condCount}개</span>` : ''
+    const canAdd = !!(r.query && stats.length)
+    const histCondChip = condCount
+      ? `<span class="ba-cond${canAdd ? ' ba-cond--add' : ''}"${canAdd ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${canAdd ? escapeHtml('\n────────\n클릭하면 이 능력치를 지금 검색에 추가') : ''}">${icon('search', 12)}조건 ${condCount}개</span>`
+      : ''
     const whenChip = `<span class="ba-hist-when"${condTipWithLeague && !condCount ? ` data-tip="${condTipWithLeague}"` : ''}>${icon('clock', 11)}${fmtTime(when)}</span>`
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
       <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b>${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
@@ -480,10 +487,13 @@ export async function renderList(listEl, root, ui = {}) {
         <span class="ba-league-count">${lgBm.length}</span>
       </div>
       <div class="ba-league-body">`
-      // 폴더 그룹 (이 리그 북마크). 빈 폴더는 숨김 — 단 현재 리그 미분류는 드롭 타깃으로 유지
+      // 폴더 그룹 (이 리그 북마크).
+      // 현재 리그 섹션은 **빈 폴더도 보여준다** — 새로 만든 폴더는 항상 비어 있어서, 숨기면
+      // '폴더 추가'가 아무 일도 안 한 것처럼 보이고 드래그해 넣을 대상조차 없어진다(사용자 제보).
+      // 지난 리그 섹션은 아카이브라 빈 폴더를 넣지 않는다(조작 대상이 아니고 목록만 길어진다).
       for (const g of groups) {
         const items = sortItems(lgBm.filter((b) => (b.folderId ?? null) === g.id))
-        if (!items.length && !(isCurrent && g.id === null)) continue
+        if (!items.length && !isCurrent) continue
         html += folderHtml(g, items, lg)
       }
       html += `</div></div>`
@@ -639,6 +649,10 @@ function bindAll(listEl, ui, ctx) {
         toast('검색 링크를 복사했습니다.')
       }
     }))
+
+  // ➕ 조건 칩 클릭 → 그 검색의 능력치만 지금 검색에 추가 (북마크·히스토리 공통)
+  listEl.querySelectorAll('.ba-cond--add').forEach((c) =>
+    c.addEventListener('click', (e) => { e.stopPropagation(); if (ui.addStatsToSearch) ui.addStatsToSearch(c.dataset.id) }))
 
   // 📚 조건 묶음으로 등록 (북마크·히스토리 공통) — 패널 컨텍스트에서만 동작
   listEl.querySelectorAll('.ba-cset').forEach((b) =>

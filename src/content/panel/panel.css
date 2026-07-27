@@ -561,6 +561,12 @@
 .ba-act.relg:hover   { color: #a7f3d0; }
 .ba-act.cset:hover   { color: #d8b4fe; }
 
+/* 클릭 가능한 조건 칩 — 누르면 그 능력치를 지금 검색에 추가. 평소엔 툴팁 대상이라 힌트가 필요하다 */
+.ba-cond--add { cursor: pointer; }
+@media (hover: hover) and (pointer: fine) {
+  .ba-cond--add:hover { color: #ddd6fe; background: var(--ba-violet-soft); border-color: var(--ba-violet-2); }
+}
+
 /* ---- 조건 묶음 칩 줄 (리스트 위 고정) ----
    자주 쓰는 조건 뭉치를 클릭 1회로 현재 검색에 얹는다. 묶음이 없으면 hidden이라 자리를 안 차지한다. */
 /* 묶음이 많아도 목록 영역을 잠식하지 않게 3줄 남짓에서 자체 스크롤 */

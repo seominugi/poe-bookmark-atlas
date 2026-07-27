@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 // 히스토리 통합 — 리그별로 나뉘던 히스토리 섹션을 하나로 합친다(북마크는 기존대로 리그별 유지).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { addBookmark, addHistory } from '../src/store/store.js'
+import { addBookmark, addHistory, addFolder } from '../src/store/store.js'
 import { renderList } from '../src/content/panel/renderList.js'
 
 if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = function () {}
@@ -144,5 +144,35 @@ describe('renderList — 히스토리 통합(모든 리그), 북마크는 리그
     const list = await render()
     const row = [...list.querySelectorAll('.ba-row[data-kind="bookmark"]')].find((r) => r.querySelector('b')?.textContent === '북마크가격없음')
     expect(row.querySelector('.ba-price-pill')).toBeFalsy()
+  })
+})
+
+describe('빈 폴더 표시 (사용자 제보 — 폴더를 추가해도 안 보인다)', () => {
+  // 새로 만든 폴더는 당연히 비어 있다. 빈 폴더를 숨기면 '폴더 추가'가 아무 일도 안 한 것처럼 보이고,
+  // 드래그해 넣을 대상 자체가 없어 폴더 기능을 시작할 수가 없다.
+  it('현재 리그 섹션에는 빈 폴더도 보인다', async () => {
+    await addBookmark(baseRec({ league: 'A', title: '북마크' }), '북마크')
+    await addFolder('새 폴더', 'poe2')
+    const list = await render()
+    const names = [...list.querySelectorAll('.ba-folder-name')].map((e) => e.textContent)
+    expect(names).toContain('새 폴더')
+  })
+
+  it('빈 폴더에도 드롭 타깃(본문)이 렌더된다', async () => {
+    await addBookmark(baseRec({ league: 'A' }), '북마크')
+    const f = await addFolder('빈폴더', 'poe2')
+    const list = await render()
+    const body = list.querySelector(`.ba-folder-body[data-folder="${f.id}"]`)
+    expect(body).toBeTruthy()
+    expect(body.textContent).toContain('여기로 드래그')
+  })
+
+  it('현재가 아닌 리그 섹션에는 빈 폴더를 넣지 않는다 — 조작 대상이 아니고 목록만 길어진다', async () => {
+    await addBookmark(baseRec({ league: 'B', title: '다른리그' }), '다른리그') // 살아있지만 현재(A)가 아닌 리그
+    await addFolder('새 폴더', 'poe2')
+    const list = await render()
+    const dead = list.querySelector('.ba-league[data-league="B"]')
+    expect(dead).toBeTruthy()
+    expect([...dead.querySelectorAll('.ba-folder-name')].map((e) => e.textContent)).not.toContain('새 폴더')
   })
 })

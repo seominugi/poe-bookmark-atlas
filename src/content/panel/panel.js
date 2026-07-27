@@ -525,6 +525,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 여기서 직접 참조하면 TDZ로 터지고, 반대로 mountPanel 뒷부분에서 ui에 붙이면
     // 그 지점까지 실행이 도달하지 못했을 때 조용히 falsy가 되어 버튼이 무반응이 된다(실측 사례 있음).
     registerConditionSet: (id) => registerConditionSet(id),
+    addStatsToSearch: (id) => addStatsToSearch(id),
     saveCurrentSearch: (folderId) => doSave(folderId),
     userLeague: null, // 설정에서 직접 고른 리그(빈 값 = 자동 판정). 아래 setUserLeague/저장소 로드에서 채운다
   }
@@ -577,21 +578,39 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     network: '거래소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
     http: '거래소가 이 조건을 받아주지 않았어요.',
   }
-  // 칩 클릭 → 현재 검색에 얹어 새 검색 생성 → 이동. 무엇에 얹었는지는 이동 후 토스트로 알린다
-  // (이동 전에 띄우면 페이지가 바뀌면서 사라진다). 되돌리기는 브라우저 뒤로가기.
-  const runConditionSet = async (id) => {
+  // 조건 얹기 공통 실행 — 현재 검색에 병합해 새 검색을 만들고 이동한다.
+  // 무엇에 얹었는지는 이동 후 토스트로 알린다(이동 전에 띄우면 페이지가 바뀌며 사라진다).
+  // 되돌리기는 브라우저 뒤로가기. 연타는 막는다 — 요청이 몰리면 거래소 요청 제한(429)에 걸린다.
+  const applyAndGo = async (set, label) => {
     if (applyingSet) return
-    if (!applyConditionSet) { toast('이 화면에서는 조건 묶음을 쓸 수 없어요.'); return }
+    if (!applyConditionSet) { toast('이 화면에서는 조건을 넣을 수 없어요.'); return }
     applyingSet = true
     try {
-      const set = (await listConditionSets(game)).find((s) => s.id === id)
-      if (!set) return
-      toast(`"${set.name}" 얹는 중…`)
+      toast(`"${label}" 넣는 중…`)
       const res = await applyConditionSet(set)
-      if (!res || !res.ok) { toast(SET_FAIL[res && res.reason] || '조건을 얹지 못했어요.'); return }
-      try { await chrome.storage.local.set({ baSetApplied: { name: set.name, merged: res.merged, at: Date.now() } }) } catch (_) {}
+      if (!res || !res.ok) { toast(SET_FAIL[res && res.reason] || '조건을 넣지 못했어요.'); return }
+      try { await chrome.storage.local.set({ baSetApplied: { name: label, merged: res.merged, at: Date.now() } }) } catch (_) {}
       location.href = res.url
     } finally { applyingSet = false }
+  }
+
+  const runConditionSet = async (id) => {
+    if (applyingSet) return
+    const set = (await listConditionSets(game)).find((s) => s.id === id)
+    if (!set) return
+    await applyAndGo(set, set.name)
+  }
+
+  // 조건 칩 클릭 → 그 북마크·히스토리의 **능력치만** 지금 검색에 추가한다.
+  // 조건 묶음(칩 줄)과 달리 등록이 필요 없고, 매번 레코드의 원본 query를 새로 읽으므로
+  // 추출 로직이 개선되면 저장된 묶음과 달리 자동으로 반영된다.
+  // 유형(아이템 종류)은 일부러 뺀다 — 지금 보던 검색의 유형을 덮으면 '얹기'가 아니라 '바꾸기'가 된다.
+  const addStatsToSearch = async (recId) => {
+    if (applyingSet) return
+    const rec = [...(await listByKind('bookmark', game)), ...(await listByKind('history', game))].find((r) => r.id === recId)
+    const set = extractConditionSet(rec, getStatMap ? getStatMap() : {})
+    if (!set || !set.stats.length) { toast('이 검색에는 넣을 능력치가 없어요.'); return }
+    await applyAndGo({ ...set, itemType: null }, `${rec.name || rec.title || '검색'} 능력치`)
   }
 
   // 이동 후 1회 안내 — 새로 만든 검색인지, 보던 검색에 얹은 것인지 밝힌다(뒤로가기로 되돌릴 수 있음)
