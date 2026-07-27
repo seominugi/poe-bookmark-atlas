@@ -251,3 +251,43 @@ describe('능력치 그룹 보존 (사용자 제보 — 그룹이 사라지면 �
     expect(body.query.stats[0].filters).toEqual([{ id: 'stat.x', value: { min: 1 } }])
   })
 })
+
+describe('같은 그룹 중복 방지 (라이브에서 발견 — 이미 있는 그룹에 얹으면 두 개가 된다)', () => {
+  const setWithCount = {
+    itemType: null,
+    stats: [{ id: 'a' }, { id: 'b' }],
+    groups: [{ type: 'count', value: { min: 1 }, filters: [{ id: 'a', value: { min: 12 } }, { id: 'b', value: { min: 12 } }] }],
+  }
+
+  it('완전히 같은 그룹이 이미 있으면 추가하지 않는다', () => {
+    const base = { query: { stats: [{ type: 'count', value: { min: 1 }, filters: [{ id: 'a', value: { min: 12 } }, { id: 'b', value: { min: 12 } }] }] } }
+    const body = mergeConditionSet(base, setWithCount)
+    expect(body.query.stats.filter((g) => g.type === 'count')).toHaveLength(1)
+  })
+
+  it('필터 순서만 다른 같은 그룹도 중복으로 보지 않는다', () => {
+    const base = { query: { stats: [{ type: 'count', value: { min: 1 }, filters: [{ id: 'b', value: { min: 12 } }, { id: 'a', value: { min: 12 } }] }] } }
+    expect(mergeConditionSet(base, setWithCount).query.stats.filter((g) => g.type === 'count')).toHaveLength(1)
+  })
+
+  it('그룹 값이 다르면 별개 그룹으로 추가한다(숫자 1 vs 숫자 2)', () => {
+    const base = { query: { stats: [{ type: 'count', value: { min: 2 }, filters: [{ id: 'a', value: { min: 12 } }, { id: 'b', value: { min: 12 } }] }] } }
+    expect(mergeConditionSet(base, setWithCount).query.stats.filter((g) => g.type === 'count')).toHaveLength(2)
+  })
+
+  it('조건 수치가 다르면 별개 그룹으로 추가한다', () => {
+    const base = { query: { stats: [{ type: 'count', value: { min: 1 }, filters: [{ id: 'a', value: { min: 20 } }, { id: 'b', value: { min: 12 } }] }] } }
+    expect(mergeConditionSet(base, setWithCount).query.stats.filter((g) => g.type === 'count')).toHaveLength(2)
+  })
+
+  it('같은 묶음을 두 번 얹어도 그룹이 늘지 않는다', () => {
+    const once = mergeConditionSet(null, setWithCount)
+    const twice = mergeConditionSet(once, setWithCount)
+    expect(twice.query.stats.filter((g) => g.type === 'count')).toHaveLength(1)
+  })
+
+  it('비활성 그룹과는 비교하지 않는다(검색에 적용 안 되므로 새로 추가)', () => {
+    const base = { query: { stats: [{ type: 'count', disabled: true, value: { min: 1 }, filters: [{ id: 'a', value: { min: 12 } }, { id: 'b', value: { min: 12 } }] }] } }
+    expect(mergeConditionSet(base, setWithCount).query.stats.filter((g) => g.type === 'count' && !g.disabled)).toHaveLength(1)
+  })
+})

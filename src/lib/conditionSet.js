@@ -71,6 +71,17 @@ function groupsOf(set) {
   return stats.length ? [{ type: 'and', filters: stats }] : []
 }
 
+// 그룹 동일성 키 — 타입·그룹 값·조건(순서 무관)이 모두 같으면 같은 그룹으로 본다.
+function groupKey(g) {
+  const type = (g && g.type) || 'and'
+  const v = g && g.value ? `${g.value.min ?? ''}~${g.value.max ?? ''}` : ''
+  const fs = (g && Array.isArray(g.filters) ? g.filters : [])
+    .filter((f) => f && f.id)
+    .map((f) => `${f.id}=${f.value ? `${f.value.min ?? ''}~${f.value.max ?? ''}~${f.value.weight ?? ''}` : ''}`)
+    .sort()
+  return `${type}|${v}|${fs.join(',')}`
+}
+
 // 현재 검색이 없을 때 쓸 최소 골격. status online은 거래소 기본값과 같다.
 const emptyBody = () => ({ query: { status: { option: 'online' }, stats: [{ type: 'and', filters: [] }] } })
 
@@ -112,10 +123,12 @@ export function mergeConditionSet(base, set) {
         else target.filters.push(f)
       }
     } else {
-      // count·weight 등은 그룹 자체가 하나의 조건(예: "이 중 1개")이라 합치면 의미가 깨진다 → 통째로 추가
+      // count·weight 등은 그룹 자체가 하나의 조건(예: "이 중 1개")이라 합치면 의미가 깨진다 → 통째로 추가.
+      // 단 똑같은 그룹이 이미 있으면 건너뛴다 — 없으면 같은 검색에 얹을 때마다 동일 그룹이 쌓인다(라이브에서 발견).
       const ng = { type: g.type, filters }
       if (g.value && Object.keys(g.value).length) ng.value = { ...g.value }
-      q.stats.push(ng)
+      const key = groupKey(ng)
+      if (!q.stats.some((x) => x && !x.disabled && groupKey(x) === key)) q.stats.push(ng)
     }
   }
   return body
