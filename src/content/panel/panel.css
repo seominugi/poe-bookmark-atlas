@@ -470,7 +470,8 @@
 /* 패널(384px) 안이 아니라 화면 기준으로 띄운다 — 조건 묶음·능력치 추가 안내처럼 문장이 길어지면
    패널 폭에 갇혀 좌우가 잘렸다(사용자 제보). 줄바꿈도 허용해 길이에 상관없이 전문이 보이게. */
 .ba-toast {
-  position: fixed; top: 22px; left: 50%; transform: translateX(-50%);
+  /* 정중앙보다 살짝 위(42%) — 시선이 먼저 닿는 높이이면서, 정중앙처럼 결과 목록 한가운데를 덮지 않는다. */
+  position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
   max-width: min(560px, calc(100vw - 48px)); z-index: 2147483400;
   background: rgba(8, 7, 16, 0.97);
   border: 1px solid var(--ba-violet-line); border-left: 3px solid var(--ba-violet);
@@ -482,8 +483,8 @@
 }
 .ba-toast[hidden] { display: none; }
 .ba-toast.out { animation: ba-toast-out .3s var(--ba-ease) forwards; }
-@keyframes ba-toast-in  { from { opacity: 0; transform: translate(-50%, -8px); } to { opacity: 1; transform: translate(-50%, 0); } }
-@keyframes ba-toast-out { from { opacity: 1; transform: translate(-50%, 0); } to { opacity: 0; transform: translate(-50%, -8px); } }
+@keyframes ba-toast-in  { from { opacity: 0; transform: translate(-50%, calc(-50% - 8px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
+@keyframes ba-toast-out { from { opacity: 1; transform: translate(-50%, -50%); } to { opacity: 0; transform: translate(-50%, calc(-50% - 8px)); } }
 
 /* ---- 커스텀 툴팁 ---- */
 .ba-tip {
