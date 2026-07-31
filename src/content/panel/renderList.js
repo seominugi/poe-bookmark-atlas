@@ -10,6 +10,7 @@ import { suggestName } from '../../lib/suggestName.js'
 import { buildAutoNote } from '../../lib/autoNote.js'
 import { findNearDuplicate, formatStatText, optionText } from '../../lib/searchParser.js'
 import { searchHashFromUrl } from '../../lib/tradeSearch.js'
+import { leagueDisplayName } from '../../lib/leagueMap.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
@@ -206,11 +207,16 @@ export function leagueInfo(leagueMap) {
   const known = Object.keys(map).length > 0
   const names = new Set(Object.values(map))
   const inMap = (l) => !!map[l] || names.has(l)
+  // 표시명만 한글화한다(하드코어·무자비 변형). 생존 판정(inMap)·역변환은 거래소 원본 표기 기준 그대로 —
+  // 여기서 값을 바꾸면 그 표기로 저장된 기존 레코드가 "끝난 리그"로 오판된다.
+  const display = {}
+  const byText = {}
+  for (const [id, text] of Object.entries(map)) { display[id] = leagueDisplayName(id, text, map); byText[text] = display[id] }
   return {
     known,
     isLive: (l) => !known || (!!l && inMap(l)),
     isDead: (l) => !!l && known && !inMap(l),
-    name: (l) => (l ? map[l] || l : ''),
+    name: (l) => (l ? display[l] || byText[l] || l : ''),
   }
 }
 
@@ -441,7 +447,7 @@ export async function renderList(listEl, root, ui = {}) {
     </span>`
   const onelineBtn = `<button class="ba-oneline-toggle" data-tip="${oneline ? '북마크를 상세히 보기 (조건·메모·액션 표시)' : '북마크를 한 줄로 간략히 보기 (이름만 — 스크롤 절약)'}">${icon(oneline ? 'chevronDown' : 'chevronRight', 12)}${oneline ? '상세히' : '간략히'}</button>`
   let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${sortToggle}</span></div>`
-  html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크·히스토리 검색 (이름·조건)" value="${escapeHtml(bmSearch)}" /></span></div>`
+  html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크·히스토리 검색 (Alt+K)" data-tip="이름·조건으로 찾기 — Alt+K로 어디서나 여기에 포커스" value="${escapeHtml(bmSearch)}" /></span></div>`
   // 모든 폴더 접기/펼치기 토글 — 실폴더가 있을 때만(미분류 포함 2개 이상). 라벨은 현재 접힘 상태로 결정.
   const allKeys = ['', ...folders.map((f) => f.id)]
   const allCollapsed = allKeys.every((k) => collapsedFolders.has(k))

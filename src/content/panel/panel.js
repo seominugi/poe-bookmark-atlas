@@ -370,7 +370,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     const render = () => {
       // 내 리그 — 리그 이관 대상이자 '현재' 배지의 기준. 자동(페이지 URL → 최근 검색)으로도 대부분 맞지만,
       // 오래된 북마크 링크로 들어오면 URL이 끝난 리그라 자동 판정이 흔들린다. 그때 사용자가 못 박을 수 있게 한다.
-      const leagues = Object.entries(ui.getLeagueMap())
+      // 표시명은 목록·카드와 같은 규칙으로(하드코어·무자비 변형 한글화). 값(option value)은 리그 id 그대로.
+      const lgDisp = leagueInfo(ui.getLeagueMap())
+      const leagues = Object.keys(ui.getLeagueMap()).map((id) => [id, lgDisp.name(id)])
       // 저장된 값이 목록에 없어도(리그 목록 로드 전·끝난 리그) 선택지에 남긴다 — 안 그러면 설정이 조용히 사라진 것처럼 보인다
       if (userLeague && !leagues.some(([id]) => id === userLeague)) leagues.push([userLeague, userLeague])
       const leagueRow =

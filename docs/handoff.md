@@ -25,7 +25,19 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 완료된 작업
 
-### 변형(discriminator) 아이템 북마크명이 "[object Object]"가 되던 버그 수정 (2026-07-31, 미커밋)
+### 하드코어·무자비 변형 리그명 한글화 (2026-07-31, 미커밋)
+- 거래소 `/data/leagues`는 영구 리그·챌린지 **본명만** 한글로 주고 변형은 영문 그대로 준다("Hardcore Allflame"·"HC Ruthless Allflame"·"Hardcore Ruthless")
+- `leagueMap.js`에 `leagueDisplayName(id, text, map)` 추가 — id 앞의 변형 토큰(HC Ruthless / Hardcore Ruthless / Hardcore / HC / Ruthless)만 한글화하고 베이스는 **API가 준 한글명**으로 채운다(베이스는 직접 번역 안 함 → 신규 리그도 자동 대응)
+- **표시 전용**이다: `leagueInfo`의 `isLive`/`isDead`·`inMap`과 content-main의 역변환은 거래소 원본 표기 그대로 — 여기 값을 바꾸면 그 표기로 저장된 기존 레코드가 "끝난 리그"로 오판된다(테스트로 고정)
+- 적용처: 카드/섹션 리그 라벨(`leagueInfo.name`) + 설정 '내 리그' 드롭다운(`panel.js`, option value는 id 유지)
+- 검증: 테스트 306/306(신규 8건), 하네스 라이브 확인 — 드롭다운 8개 리그 전부 한글(`하드코어 무자비 올플레임` 등), value는 id 그대로, 콘솔 에러 없음
+
+### 북마크 검색 단축키 = 기존 Alt+K (2026-07-31, 미커밋)
+- 사용자 요청("북마크 검색 단축키가 있으면") → **이미 `panel.js`에 Alt+K로 구현돼 있었다**(⌨ 칩 팝오버에도 표기). 사용자 확인 결과 "그게 그거였다" → 신규 구현 없이 **발견성만** 개선
+- 검색창 placeholder `북마크·히스토리 검색 (이름·조건)` → `(Alt+K)`, 원래 힌트는 `data-tip`으로 이동
+- 논의된 미채택 안: ↑/↓+Enter로 결과까지 키보드 선택(실익 크나 포커스 링·스크롤 추적 구현 필요), Alt+1~9 북마크 즉시 실행(암기 부담·거래소 Alt 단축키 충돌 검토 필요) — **추후 후보**
+
+### 변형(discriminator) 아이템 북마크명이 "[object Object]"가 되던 버그 수정 (2026-07-31, `51ad667` develop push 완료)
 - **원인**: 거래소는 변형이 있는 아이템(해안 교두보 등)의 `query.name`·`query.type`을 문자열이 아니라 `{option, discriminator}` **객체**로 보낸다. `parseSearchQuery`가 그대로 담아 → 저장 다이얼로그 기본 이름·목록 표시가 `[object Object]`
 - `searchParser.js`에 `optionText(v)` 추가(문자열/`{option}`만 표시명으로, 알 수 없는 객체는 `null` → 기존 폴백 유지) → `parseSearchQuery`의 name·itemType에 적용
 - `searchIdentity`는 `identityText`로 **discriminator까지 키에 포함** — 종전엔 변형이 다른 검색이 모두 `[object Object]`로 뭉개져 히스토리 중복 제거가 오판했다
