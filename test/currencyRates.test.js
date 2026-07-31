@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseExaltedPerDivine, RatesCache, baseFromPrice, baseCurrencyOf, fmtCurAmount, itemsRate, indexItemsByName } from '../src/lib/currencyRates.js'
+import { parseExaltedPerDivine, RatesCache, baseFromPrice, baseCurrencyOf, fmtCurAmount, itemsRate, indexItemsByName, divineFromPrice } from '../src/lib/currencyRates.js'
 
 describe('parseExaltedPerDivine', () => {
   it('exchange_rates에서 가격 추출', () => {
@@ -9,6 +9,29 @@ describe('parseExaltedPerDivine', () => {
   it('없으면 null', () => {
     expect(parseExaltedPerDivine({})).toBeNull()
     expect(parseExaltedPerDivine({ exchange_rates: {} })).toBeNull()
+  })
+})
+
+describe('divineFromPrice — 기본 화폐 가격 → 신성한 오브 (역방향 환산)', () => {
+  const poe1 = { exchange_rates: { chaos_per_divine: { price: 346 } } }
+  const poe2 = { exchange_rates: { exalted_per_divine: { price: 715 } } }
+
+  it('poe1: 카오스 → 신성한', () => {
+    expect(divineFromPrice({ amount: 346, currency: 'chaos' }, poe1, 'poe1')).toBe(1)
+    expect(divineFromPrice({ amount: 173, currency: 'chaos' }, poe1, 'poe1')).toBe(0.5)
+  })
+  it('poe2: 엑잘 → 신성한', () => {
+    expect(divineFromPrice({ amount: 1430, currency: 'exalted' }, poe2, 'poe2')).toBe(2)
+  })
+  it('기본 화폐가 아니면 null — 그쪽은 baseFromPrice가 담당한다(칩 중복 방지)', () => {
+    expect(divineFromPrice({ amount: 2, currency: 'divine' }, poe1, 'poe1')).toBeNull()
+    expect(divineFromPrice({ amount: 2, currency: 'exalted' }, poe1, 'poe1')).toBeNull()
+  })
+  it('환율이 없거나 0이면 null', () => {
+    expect(divineFromPrice({ amount: 350, currency: 'chaos' }, { exchange_rates: {} }, 'poe1')).toBeNull()
+    expect(divineFromPrice({ amount: 350, currency: 'chaos' }, { exchange_rates: { chaos_per_divine: { price: 0 } } }, 'poe1')).toBeNull()
+    expect(divineFromPrice({ amount: 350, currency: 'chaos' }, null, 'poe1')).toBeNull()
+    expect(divineFromPrice(null, poe1, 'poe1')).toBeNull()
   })
 })
 

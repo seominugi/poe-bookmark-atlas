@@ -88,6 +88,25 @@ export function baseFromPrice(price, rateData, game, currencyNames) {
   return typeof per === 'number' && per > 0 ? price.amount * per : null
 }
 
+/**
+ * 기본 화폐(poe2 엑잘 / poe1 카오스)로 매겨진 가격 → 신성한 오브 환산. baseFromPrice의 반대 방향이다.
+ *
+ * 한 목록에 "350 카오스"와 "2 신성한"이 섞이면 한쪽 축으로만 환산해서는 비교가 안 된다 —
+ * 신성한 쪽엔 카오스 환산이 붙지만 카오스 쪽엔 붙을 게 없어(이미 기본 화폐라) 사용자가
+ * 큰 카오스 숫자와 작은 신성한 숫자를 머릿속으로 나눠야 했다(2026-08-01 사용자 제보).
+ * 기본 화폐가 아니거나 환율이 없으면 null.
+ * @param {{amount:number, currency:string}|null} price @param {any} rateData @param {string} game
+ * @returns {number|null}
+ */
+export function divineFromPrice(price, rateData, game) {
+  if (!price || !rateData || typeof price.amount !== 'number') return null
+  if (price.currency !== baseCurrencyOf(game)) return null
+  const ex = rateData.exchange_rates || {}
+  const per = game === 'poe1' ? ex.chaos_per_divine?.price : ex.exalted_per_divine?.price
+  if (typeof per !== 'number' || per <= 0) return null
+  return price.amount / per
+}
+
 /** 환산 수치 표기 — 10 이상 반올림+천단위 콤마, 10 미만 소수 1자리(정수면 생략) */
 export function fmtCurAmount(n) {
   if (n >= 10) return Math.round(n).toLocaleString('en-US')

@@ -6,7 +6,7 @@ import { buildFilterMap } from '../lib/filterMap.js'
 import { buildLeagueMap } from '../lib/leagueMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
-import { parseExaltedPerDivine, baseFromPrice, baseCurrencyOf, fmtCurAmount } from '../lib/currencyRates.js'
+import { parseExaltedPerDivine, baseFromPrice, divineFromPrice, baseCurrencyOf, fmtCurAmount } from '../lib/currencyRates.js'
 import { searchApiPath, searchResultPath, isSafeSearchId, sanitizeQuery, searchHashFromUrl, isAllowedTradeUrl } from '../lib/tradeSearch.js'
 import { mergeConditionSet } from '../lib/conditionSet.js'
 import { addHistory, markUsedByUrl, ensureSchema, backfillQuery } from '../store/store.js'
@@ -235,7 +235,8 @@ function bindPageTip(el) {
 //  ② 화폐 id → 한글명 맵: 경제 API의 items가 Metadata 경로를 키로 쓰므로, 한글명이 두 데이터를 잇는
 //     유일한 공통 키다(lib/currencyRates.js indexItemsByName 참조). 이게 있어야 색채의 오브처럼
 //     큐레이션 밖 화폐도 환산된다.
-let curIcon = null // CDN 이미지 URL — 로드 전엔 칩이 텍스트 단위로 폴백
+let curIcon = null // 기본 화폐(카오스/엑잘) CDN 이미지 URL — 로드 전엔 칩이 텍스트 단위로 폴백
+let divIcon = null // 신성한 오브 CDN 이미지 URL — 역방향 환산 칩용
 let curNames = null // { 화폐id: 한글명 } — 로드 전엔 큐레이션 4종만 환산
 let curStaticTried = false
 function ensureCurrencyStatic() {
@@ -252,7 +253,9 @@ function ensureCurrencyStatic() {
       if (Object.keys(names).length) curNames = names
       const entry = entries.find((e) => e.id === baseCurrencyOf(game))
       if (entry?.image) curIcon = 'https://web.poecdn.com' + entry.image
-      LOG('화폐 static —', Object.keys(names).length, '종, 아이콘', !!curIcon)
+      const div = entries.find((e) => e.id === 'divine')
+      if (div?.image) divIcon = 'https://web.poecdn.com' + div.image
+      LOG('화폐 static —', Object.keys(names).length, '종, 아이콘', !!curIcon, '신성한', !!divIcon)
       injectPobButtons() // 도착 즉시 칩 패스(이름 맵이 생겨 새로 환산되는 행이 있다)
     })
     .catch((err) => LOG('화폐 static 로드 실패(큐레이션 4종만 환산)', String(err)))
@@ -265,38 +268,57 @@ function findPriceHost(row) {
   }
   return null
 }
+// 칩 종류 — 'base'는 다른 화폐 → 기본 화폐(카오스/엑잘), 'divine'은 기본 화폐 → 신성한 오브(역방향).
+// 한 목록에 두 표기가 섞여도 어느 쪽이든 상대 축 값이 보이게 하는 게 목적이다.
+const chipKindOf = (kind) => (kind === 'divine'
+  ? { icon: divIcon, label: '신성한 오브', short: '신성한' }
+  : { icon: curIcon, label: game === 'poe1' ? '카오스 오브' : '엑잘티드 오브', short: game === 'poe1' ? '카오스' : '엑잘' })
+
 // 칩 내용 렌더 — 제시 가격 줄의 화폐 아이콘 크기를 실측해 칩 아이콘·글자를 그에 맞춘다(작아서 안 보이는 문제).
 // 사이트 전역 img 규칙을 이기도록 인라인 !important. 아이콘 로드 전엔 텍스트 단위 폴백.
-function renderChipContent(chip, host, label) {
+function renderChipContent(chip, host) {
+  const { icon: curIconOf, label, short } = chipKindOf(chip.dataset.kind)
   const v = chip.dataset.v // fmtCurAmount 결과(숫자 문자열) — 안전
-  if (!curIcon) { chip.textContent = `≈ ${v} ${game === 'poe1' ? '카오스' : '엑잘'}`; return }
+  if (!curIconOf) { chip.textContent = `≈ ${v} ${short}`; return }
   const priceImg = [...host.querySelectorAll('img')].find((im) => !im.closest('.ba-exr-chip') && im.getBoundingClientRect().height >= 14)
   const h = priceImg ? Math.min(40, Math.max(15, Math.round(priceImg.getBoundingClientRect().height))) : 15
-  chip.innerHTML = `≈ ${v} <img src="${curIcon}" alt="${label}">`
+  chip.innerHTML = `≈ ${v} <img src="${curIconOf}" alt="${label}">`
   const im = chip.querySelector('img')
   im.style.setProperty('width', h + 'px', 'important')
   im.style.setProperty('height', h + 'px', 'important')
   chip.style.fontSize = Math.max(11, Math.round(h * 0.42)) + 'px'
 }
+// 기본 화폐 가격에 신성한 오브 환산을 붙이는 최소 기준. 이보다 잘면(예: 20카오스 = 0.06신성한)
+// "≈ 0.1 신성한"처럼 정보가 되지 않고 칩만 늘어난다 — 비교가 필요한 큰 가격에서만 붙인다.
+const MIN_DIVINE_CHIP = 0.5
+
 function injectExrChip(row, id) {
   if (!lastRates) return false
-  const label = game === 'poe1' ? '카오스 오브' : '엑잘티드 오브'
   const existing = row.querySelector('.ba-exr-chip')
   if (existing) {
     // 아이콘보다 칩이 먼저 주입돼 텍스트 폴백으로 굳는 문제 — 아이콘 도착 후 패스에서 업그레이드
-    if (curIcon && !existing.querySelector('img') && existing.dataset.v && existing.parentElement) renderChipContent(existing, existing.parentElement, label)
+    const { icon: ic } = chipKindOf(existing.dataset.kind)
+    if (ic && !existing.querySelector('img') && existing.dataset.v && existing.parentElement) renderChipContent(existing, existing.parentElement)
     return false
   }
-  const v = baseFromPrice(pobPrices.get(id), lastRates, game, curNames)
+  const price = pobPrices.get(id)
+  let v = baseFromPrice(price, lastRates, game, curNames)
+  let kind = 'base'
+  if (v == null) {
+    // 이미 기본 화폐로 매겨진 가격 — 반대 방향으로 환산해, 신성한 오브로 표기된 매물과 같은 축에서 비교하게 한다.
+    const d = divineFromPrice(price, lastRates, game)
+    if (d != null && d >= MIN_DIVINE_CHIP) { v = d; kind = 'divine' }
+  }
   if (v == null) return false
   const host = findPriceHost(row)
   if (!host) return false
   const chip = document.createElement('div')
   chip.className = 'ba-exr-chip'
   chip.dataset.v = fmtCurAmount(v)
-  chip.setAttribute('data-tip', `${label} 환산 — 서미누기 환율 API 기준`) // 테마 툴팁(::after) — 네이티브 title 미사용
+  chip.dataset.kind = kind
+  chip.setAttribute('data-tip', `${chipKindOf(kind).label} 환산 — 서미누기 환율 API 기준`) // 테마 툴팁(::after) — 네이티브 title 미사용
   host.appendChild(chip) // host에 먼저 붙여야 renderChipContent가 가격 아이콘 크기를 실측 가능
-  renderChipContent(chip, host, label)
+  renderChipContent(chip, host)
   return true
 }
 let pobMissLogged = false
