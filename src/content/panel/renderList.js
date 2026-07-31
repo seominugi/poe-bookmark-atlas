@@ -8,7 +8,7 @@ import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
 import { suggestName } from '../../lib/suggestName.js'
 import { buildAutoNote } from '../../lib/autoNote.js'
-import { findNearDuplicate, formatStatText } from '../../lib/searchParser.js'
+import { findNearDuplicate, formatStatText, optionText } from '../../lib/searchParser.js'
 import { searchHashFromUrl } from '../../lib/tradeSearch.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
@@ -299,10 +299,13 @@ function condSummaryText(r) {
 
 function rowHtml(r, kind, lg) {
   const price = priceHtml(r.snapshot)
-  const title = escapeHtml(r.name || r.title)
+  // optionText: 변형(discriminator) 아이템의 {option,...} 객체를 이름으로 쓰던 옛 레코드 보정 — "[object Object]" 방지
+  const nameText = optionText(r.name) || ''
+  const titleText = optionText(r.title) || ''
+  const title = escapeHtml(nameText || titleText)
   const stats = r.stats || []
   const when = r.lastUsedAt || r.updatedAt
-  const searchText = escapeHtml(`${r.name || ''} ${r.title || ''} ${r.note || ''} ${stats.join(' ')}`.toLowerCase())
+  const searchText = escapeHtml(`${nameText} ${titleText} ${r.note || ''} ${stats.join(' ')}`.toLowerCase())
   const condTip = escapeHtml(condTipText(r))
   // 조건 칩 카운트 = 비능력치 필터(유형·가격·레벨 등) + 능력치 수 — 히스토리·북마크 공통
   const condCount = (Array.isArray(r.otherFilters) ? r.otherFilters.length : 0) + stats.length

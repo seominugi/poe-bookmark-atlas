@@ -18,6 +18,11 @@ describe('suggestName', () => {
   it('이름·스탯 없으면 title', () => {
     expect(suggestName({ title: '목걸이 검색' })).toBe('목걸이 검색')
   })
+  it('구 레코드의 객체 name·itemType도 문자열로 (→ "[object Object]" 방지)', () => {
+    expect(suggestName({ name: { discriminator: 'warlord', option: '해안 교두보' }, title: 't' })).toBe('해안 교두보')
+    expect(suggestName({ itemType: { option: '선구자의 지도' }, stats: ['생명'], title: 't' })).toBe('선구자의 지도 - 능력치 필터')
+    expect(suggestName({ name: { foo: 1 }, title: '목걸이 검색' })).toBe('목걸이 검색')
+  })
   it('빈 입력은 기본 폴백', () => {
     expect(suggestName(null)).toBe('북마크')
     expect(suggestName({})).toBe('북마크')

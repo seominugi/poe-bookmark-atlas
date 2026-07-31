@@ -176,3 +176,17 @@ describe('빈 폴더 표시 (사용자 제보 — 폴더를 추가해도 안 보
     expect([...dead.querySelectorAll('.ba-folder-name')].map((e) => e.textContent)).not.toContain('새 폴더')
   })
 })
+
+describe('renderList — 변형(discriminator) 아이템 이름', () => {
+  it('정규화 이전에 저장된 객체 name/title도 "[object Object]" 대신 아이템명으로 렌더', async () => {
+    await addHistory(baseRec({
+      league: 'A', dedupeKey: 'kobj',
+      name: { discriminator: 'warlord', option: '해안 교두보' },
+      title: { discriminator: 'warlord', option: '해안 교두보' },
+    }))
+    const list = await render()
+    const row = list.querySelector('.ba-row[data-kind="history"]')
+    expect(row.querySelector('b').textContent).toBe('해안 교두보')
+    expect(row.outerHTML).not.toContain('[object Object]')
+  })
+})

@@ -53,6 +53,19 @@ describe('parseSearchQuery', () => {
     const q = { query: { stats: [{ type: 'and', filters: [] }, { type: 'not', filters: [{ id: 'explicit.stat_life' }] }] } }
     expect(parseSearchQuery(q, statMap).statGroups.map((g) => g.label)).toEqual(['제외'])
   })
+  it('변형(discriminator) 아이템: name·type이 객체여도 문자열로 (→ "[object Object]" 방지)', () => {
+    const q = { query: { name: { discriminator: 'warlord', option: '해안 교두보' }, type: { discriminator: 'warlord', option: '선구자의 지도' } } }
+    const r = parseSearchQuery(q, statMap)
+    expect(r.name).toBe('해안 교두보')
+    expect(r.itemType).toBe('선구자의 지도')
+    expect(r.title).toBe('해안 교두보')
+  })
+  it('알 수 없는 형태의 name 객체는 버린다(폴백 유지)', () => {
+    const q = { query: { name: { foo: 1 }, type: '목걸이' } }
+    const r = parseSearchQuery(q, statMap)
+    expect(r.name).toBe(null)
+    expect(r.title).toBe('목걸이')
+  })
 })
 
 describe('formatStatText — 능력치 텍스트에 입력 수치 결합', () => {

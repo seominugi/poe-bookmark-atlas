@@ -23,15 +23,36 @@ export function formatStatText(f) {
 }
 
 /**
+ * 거래소는 변형(discriminator)이 있는 아이템의 name·type을 문자열이 아니라
+ * {option, discriminator} 객체로 보낸다(예: 해안 교두보·선구자의 지도). 그대로 쓰면
+ * 표시·저장 이름이 "[object Object]"가 되므로 표시용 문자열만 뽑는다.
+ * 알 수 없는 형태의 객체는 null → 상위 폴백(유형·스탯·title)이 동작한다.
+ * @returns {string|null}
+ */
+export function optionText(v) {
+  if (typeof v === 'string') return v || null
+  if (v && typeof v === 'object' && v.option != null && typeof v.option !== 'object') return String(v.option) || null
+  return null
+}
+
+// 동일성 키용 — 표시명이 같아도 변형(discriminator)이 다르면 다른 검색이다.
+function identityText(v) {
+  const t = optionText(v)
+  if (!t) return ''
+  const d = v && typeof v === 'object' && v.discriminator != null ? `~${v.discriminator}` : ''
+  return t + d
+}
+
+/**
  * @param {any} payload 캡처한 검색 요청 바디
  * @param {Record<string,string>} statMap stat id → 텍스트
  */
 export function parseSearchQuery(payload, statMap = {}, filterMeta = { label: {}, options: {} }) {
   const q = payload?.query ?? {}
-  const name = q.name || null
+  const name = optionText(q.name)
   // 유형: q.type(베이스 타입) 우선, 없으면 type_filters.category 옵션의 한글 라벨
   const catOpt = q.filters?.type_filters?.filters?.category?.option
-  const itemType = q.type || (catOpt != null ? ((filterMeta.options?.category || {})[String(catOpt)] || String(catOpt)) : null)
+  const itemType = optionText(q.type) || (catOpt != null ? ((filterMeta.options?.category || {})[String(catOpt)] || String(catOpt)) : null)
   const title = name || itemType || '검색'
 
   // stats: 전체 평탄화(개수·요약·구 레코드 호환) / statGroups: 그룹 타입별 구조(툴팁 상세)
@@ -98,7 +119,7 @@ function filterParts(query) {
  */
 export function searchIdentity(payload) {
   const q = payload?.query ?? {}
-  const parts = [`t:${q.type || ''}`, `n:${q.name || ''}`]
+  const parts = [`t:${identityText(q.type)}`, `n:${identityText(q.name)}`]
   const p = q.filters?.trade_filters?.filters?.price
   if (p && (p.min != null || p.max != null)) parts.push(`p:${p.min ?? ''}/${p.max ?? ''}/${p.option ?? ''}`)
   const groups = []

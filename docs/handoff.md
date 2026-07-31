@@ -1,5 +1,5 @@
 ---
-timestamp: 2026-07-28 01:05 (Asia/Seoul)
+timestamp: 2026-07-31 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
@@ -24,6 +24,13 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 0.2.0 스토어 심사 **통과**(2026-07-04 확인). 피드백 3건(작업1·2·3) 모두 기능 구현 완료. **사용자 방침(2026-07-04): "번역 100% 완벽 안 된 상태 인정하고, 미진한 부분은 추후 보완"** — Shift+클릭 수동 제보 기능이 그 보완 파이프라인. 이후 가이드 투어 화살표·키보드 네비·리그 노출 라운드까지 마침. **0.3.0 준비 완료** — 버전 범프(manifest·package 0.3.0)·`deploy/poe-bookmark-atlas-0.3.0.zip`·GitHub 릴리즈 3종 생성. **다음: 사용자가 스토어에 0.3.0 심사 제출 예정.**
 
 ## 완료된 작업
+
+### 변형(discriminator) 아이템 북마크명이 "[object Object]"가 되던 버그 수정 (2026-07-31, 미커밋)
+- **원인**: 거래소는 변형이 있는 아이템(해안 교두보 등)의 `query.name`·`query.type`을 문자열이 아니라 `{option, discriminator}` **객체**로 보낸다. `parseSearchQuery`가 그대로 담아 → 저장 다이얼로그 기본 이름·목록 표시가 `[object Object]`
+- `searchParser.js`에 `optionText(v)` 추가(문자열/`{option}`만 표시명으로, 알 수 없는 객체는 `null` → 기존 폴백 유지) → `parseSearchQuery`의 name·itemType에 적용
+- `searchIdentity`는 `identityText`로 **discriminator까지 키에 포함** — 종전엔 변형이 다른 검색이 모두 `[object Object]`로 뭉개져 히스토리 중복 제거가 오판했다
+- `suggestName`·`renderList.rowHtml`에도 `optionText` 적용 — 이미 저장된(정규화 이전) 레코드의 표시도 즉시 복구. 단 사용자가 그 이름으로 확정 저장한 북마크는 문자열 `"[object Object]"`라 코드로 못 고침(이름변경 필요)
+- 검증: 테스트 **298/298** 통과(신규 4건: 파서 2·suggestName 1·렌더 1), 빌드 통과
 
 ### 0.5.0 릴리즈 게시 (2026-07-28, `13dd975` / 태그 `v0.5.0`)
 - `manifest.json`·`package.json` 0.4.0 → **0.5.0** 범프 (`b491848`)
