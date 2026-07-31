@@ -108,7 +108,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       <div class="ba-handle-grip" id="ba-handle-grip" data-tip="드래그하면 핸들 위치를 위아래로 옮겨요">${icon('grip', 14)}</div>
       <div class="ba-handle-toggle" id="ba-handle-toggle" data-tip="클릭하면 패널을 접고 펼쳐요 (Alt+B)"><span class="ba-handle-glint"></span><span class="ba-handle-body"><span class="ba-handle-label">북마크</span><span class="ba-handle-badge" id="ba-handle-badge" hidden></span></span></div>
     </div>
-    <div class="ba-tip" id="ba-tip" hidden></div>`
+    <div class="ba-tip" id="ba-tip" hidden></div>
+    <!-- 칩 재배치 프리뷰 — 칩 줄 위에 fixed로 띄운다(줄 안에 넣으면 폭이 바뀌며 칩들이 밀린다) -->
+    <div class="ba-set-preview" id="ba-set-preview" hidden></div>`
   root.appendChild(wrap)
 
   const $ = (id) => root.getElementById(id)
@@ -239,7 +241,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
 
   // 커스텀 툴팁 — 네이티브 title 대신 패널 안(Shadow DOM)에서 렌더. 우측 도킹이라 요소 왼쪽에 표시.
   const tipEl = $('ba-tip')
+  let tipSuppressed = false // 드래그 중 억제 — 큰 툴팁이 놓을 자리를 가린다(조건 묶음 칩 재배치)
   root.addEventListener('mouseover', (e) => {
+    if (tipSuppressed) return
     const el = e.target.closest && e.target.closest('[data-tip]')
     if (!el) return
     const raw = el.getAttribute('data-tip')
@@ -604,6 +608,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
   let applyingSet = false // 연타 차단 — 요청이 몰리면 거래소 요청 제한(429)에 걸려 검색 자체가 막힌다
   let focusSetId = null // 키보드로 순서를 바꾼 뒤 재렌더돼도 그 칩에 포커스를 돌려준다
+  // 접힘 — 묶음이 늘면 칩 줄이 상단을 최대 3줄까지 점유해 목록을 잠식한다. 접으면 그 공간을 목록에 돌려준다.
+  // 접혀도 라벨과 개수 배지는 남긴다 — 완전히 사라지면 "클릭 1회로 조건 얹기"라는 기능 자체가 잊힌다.
+  let setsCollapsed = false
+  const saveSetsCollapsed = () => { try { chrome.storage.local.set({ uiSetsCollapsed: setsCollapsed }) } catch (_) {} }
 
   const renderSets = async () => {
     const el = $('ba-sets')
@@ -617,7 +625,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         + `<span class="ba-set-go" role="button" tabindex="0">${icon('plus', 12)}${esc(s.name)}</span>`
         + `<span class="ba-set-del" data-id="${s.id}" data-tip="묶음 삭제">${icon('x', 11)}</span></span>`
     }).join('')
-    el.innerHTML = `<span class="ba-sets-lbl">${icon('layers', 12)}조건 묶음</span>${chips}`
+    el.classList.toggle('ba-sets--collapsed', setsCollapsed)
+    el.innerHTML = `<span class="ba-sets-lbl" role="button" tabindex="0" data-tip="${setsCollapsed ? '조건 묶음 펼치기' : '조건 묶음 접기 — 목록 공간을 넓혀요'}">`
+      + `<span class="ba-sets-chevron">${icon('chevronRight', 12)}</span>${icon('layers', 12)}조건 묶음`
+      + `<span class="ba-sets-count">${sets.length}</span></span>${chips}`
+
+    const lbl = el.querySelector('.ba-sets-lbl')
+    const toggleCollapsed = async () => { setsCollapsed = !setsCollapsed; saveSetsCollapsed(); await renderSets(); el.querySelector('.ba-sets-lbl').focus() }
+    lbl.addEventListener('click', toggleCollapsed)
+    lbl.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggleCollapsed() } })
 
     el.querySelectorAll('.ba-set-go').forEach((c) => {
       const id = c.closest('.ba-set').dataset.id
@@ -657,6 +673,28 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const bindSetsDnD = (el) => {
     let dragId = null
     const clearOver = () => el.querySelectorAll('.ba-set--over, .ba-set--over-end').forEach((x) => x.classList.remove('ba-set--over', 'ba-set--over-end'))
+    // 놓을 자리 프리뷰 — 칩 줄 바로 위에 "〈옮기는 칩〉 → 〈어디에〉"를 띄운다. 삽입선만으로는
+    // 좁은 칩 사이에서 어느 칩 기준인지 읽기 어렵다(사용자 제보). 이름은 textContent로만 넣는다.
+    const preview = $('ba-set-preview')
+    const nameOf = (chip) => chip.querySelector('.ba-set-go').textContent.trim()
+    let dragName = ''
+    const showPreview = (dst) => {
+      preview.textContent = ''
+      const s = document.createElement('b'); s.className = 'ba-set-preview-src'; s.textContent = dragName
+      const arrow = document.createElement('span'); arrow.className = 'ba-set-preview-arrow'; arrow.innerHTML = icon('chevronRight', 12)
+      const d = document.createElement('span'); d.className = 'ba-set-preview-dst'; d.textContent = dst
+      preview.append(s, arrow, d)
+      preview.hidden = false
+      const r = el.getBoundingClientRect()
+      preview.style.left = Math.round(r.left) + 'px'
+      preview.style.top = Math.max(6, Math.round(r.top - preview.offsetHeight - 6)) + 'px'
+    }
+    const hidePreview = () => { preview.hidden = true; preview.textContent = '' }
+    // 포인터가 칩의 오른쪽 절반이면 '뒤', 왼쪽 절반이면 '앞'에 넣는다. 항상 '앞'이면
+    // 오른쪽으로 옮길 때 "옮길 자리의 다음 칩"을 노려야 해서 결과가 예상과 어긋난다(사용자 제보).
+    const afterSide = (chip, x) => { const r = chip.getBoundingClientRect(); return x > r.left + r.width / 2 }
+    // '이 칩 뒤' = DOM상 다음 칩 앞. 다음 칩이 없으면 맨 뒤(null).
+    const nextIdOf = (chip) => { const n = chip.nextElementSibling; return n && n.classList.contains('ba-set') ? n.dataset.id : null }
     const chips = [...el.querySelectorAll('.ba-set')]
     chips.forEach((chip) => {
       chip.addEventListener('dragstart', (e) => {
@@ -664,19 +702,32 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         e.dataTransfer.effectAllowed = 'move'
         try { e.dataTransfer.setData('text/plain', dragId) } catch (_) {} // 일부 환경은 데이터가 없으면 드래그를 취소한다
         chip.classList.add('ba-set--dragging')
+        // 조건 묶음 툴팁은 조건 전체가 들어가 크다 — 드래그 내내 떠 있으면 놓을 자리를 가린다.
+        // 드래그가 끝날 때까지 툴팁을 끈다(드래그 중엔 mouseout이 안 와 그대로 굳기도 한다).
+        tipSuppressed = true
+        tipEl.hidden = true
+        dragName = nameOf(chip)
+        showPreview('옮길 자리로 끌어 놓으세요')
       })
-      chip.addEventListener('dragend', () => { chip.classList.remove('ba-set--dragging'); dragId = null; clearOver() })
+      chip.addEventListener('dragend', () => {
+        chip.classList.remove('ba-set--dragging'); dragId = null; clearOver()
+        tipSuppressed = false
+        hidePreview()
+      })
       chip.addEventListener('dragover', (e) => {
         if (!dragId) return
         e.preventDefault(); e.stopPropagation()
-        if (dragId === chip.dataset.id) { clearOver(); return } // 자기 위에서는 아무 표시도 하지 않는다
+        if (dragId === chip.dataset.id) { clearOver(); showPreview('제자리 — 변화 없음'); return }
         e.dataTransfer.dropEffect = 'move'
-        clearOver(); chip.classList.add('ba-set--over') // 이 칩 '앞'에 들어간다
+        clearOver()
+        const after = afterSide(chip, e.clientX)
+        chip.classList.add(after ? 'ba-set--over-end' : 'ba-set--over')
+        showPreview(`"${nameOf(chip)}" ${after ? '뒤로' : '앞으로'}`)
       })
       chip.addEventListener('drop', async (e) => {
-        e.preventDefault(); e.stopPropagation(); clearOver()
+        e.preventDefault(); e.stopPropagation(); clearOver(); hidePreview()
         if (!dragId || dragId === chip.dataset.id) return
-        await moveConditionSetBefore(dragId, chip.dataset.id)
+        await moveConditionSetBefore(dragId, afterSide(chip, e.clientX) ? nextIdOf(chip) : chip.dataset.id)
         await renderSets()
       })
     })
@@ -686,10 +737,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       e.preventDefault()
       clearOver()
       const last = chips[chips.length - 1]
-      if (last && last.dataset.id !== dragId) last.classList.add('ba-set--over-end')
+      if (last && last.dataset.id !== dragId) { last.classList.add('ba-set--over-end'); showPreview('맨 뒤로') }
     })
     el.addEventListener('drop', async (e) => {
-      e.preventDefault(); clearOver()
+      e.preventDefault(); clearOver(); hidePreview()
       if (!dragId) return
       await moveConditionSetBefore(dragId, null)
       await renderSets()
@@ -868,6 +919,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     try { if (await needsTourDemo(game)) { await seedDemoData(game, demoLeague); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
     // 조건 묶음 줄은 묶음이 0개면 hidden — 북마크 데모와 판정이 달라 따로 심는다(store.needsConditionSetDemo 주석 참조).
     let setDemoOn = false
+    // 접혀 있으면 투어가 가리킬 칩이 없다 — 투어 동안은 펼친다(사용자가 접어둔 상태는 저장값에 그대로 남는다)
+    const setsWasCollapsed = setsCollapsed
+    if (setsCollapsed) { setsCollapsed = false; await renderSets() }
     try { if (await needsConditionSetDemo(game)) { await seedDemoSets(game); setDemoOn = true; await renderSets(); await new Promise((r) => setTimeout(r, 60)) } } catch (_) {}
     let i = 0
     const card = document.createElement('div')
@@ -880,7 +934,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     root.appendChild(box)
     root.appendChild(arrow)
     root.appendChild(card)
-    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
+    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setsWasCollapsed) setsCollapsed = true; if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } else if (setsWasCollapsed) { renderSets() } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
     const goNext = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
     const goPrev = () => { if (i > 0) { i -= 1; render() } }
     // 방향키로도 이전/다음 이동 — 페이지 검색창 등에 포커스가 있으면(텍스트 커서 이동 용도) 가로채지 않는다
@@ -1021,7 +1075,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   })()
 
   document.addEventListener('ba:records-changed', () => { refresh(); updateHandleBadge() })
-  renderSets()
+  // 접힘 상태를 먼저 읽고 그린다 — 나중에 읽으면 펼친 채로 한 번 그려졌다가 접히며 목록이 튄다
+  ;(async () => {
+    try { const r = await chrome.storage.local.get('uiSetsCollapsed'); setsCollapsed = !!(r && r.uiSetsCollapsed) } catch (_) {}
+    renderSets()
+  })()
   // 팝업에서 패널 좌/우 배치를 바꾸면 즉시 반영
   try {
     chrome.storage.onChanged.addListener((changes, area) => {

@@ -40,6 +40,10 @@
   --ba-danger-soft:  rgba(251, 113, 133, 0.14);
   --ba-danger-line:  rgba(251, 113, 133, 0.45);
   --ba-gold:         #fde68a;                      /* 화폐 가치 */
+  /* drop: 라임 — 드래그로 놓을 자리 전용. 패널이 보라 일색이라 보라 계열 강조는 배경에 묻힌다(사용자 제보).
+     자수정 바이올렛의 보색(색상환 반대편)이면서 앰버(별)·골드(화폐)·로즈(위험)·시안(공유)과 의미가 겹치지 않는다. */
+  --ba-drop:         #d9f99d;
+  --ba-drop-soft:    rgba(217, 249, 157, 0.18);
   --ba-r-card:       14px;
   --ba-r-box:        9px;
   --ba-r-chip:       8px;
@@ -605,7 +609,17 @@
 .ba-sets { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 9px 14px 0;
   max-height: 104px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 .ba-sets[hidden] { display: none; }
-.ba-sets-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: var(--ba-violet-2); margin-right: 2px; }
+/* 접힘 — 라벨(+개수)만 남기고 칩을 감춰 목록에 공간을 돌려준다. 폴더 접기와 같은 언어(회전 셰브론+개수 배지) */
+.ba-sets--collapsed { max-height: none; overflow: visible; }
+.ba-sets--collapsed .ba-set { display: none; }
+.ba-sets-lbl { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: var(--ba-violet-2); margin-right: 2px;
+  padding: 3px 6px; margin-left: -6px; border-radius: 7px; cursor: pointer; transition: background .15s, color .15s; }
+.ba-sets-lbl:focus-visible { outline: 2px solid var(--ba-violet-2); outline-offset: 1px; }
+@media (hover: hover) and (pointer: fine) { .ba-sets-lbl:hover { background: var(--ba-violet-soft); color: #fff; } }
+.ba-sets-chevron { display: inline-flex; flex: none; color: var(--ba-text-muted); transform: rotate(90deg); transition: transform .18s var(--ba-ease-out); }
+.ba-sets--collapsed .ba-sets-chevron { transform: rotate(0deg); }
+.ba-sets-count { font-weight: 700; font-size: 10px; padding: 1px 7px; border-radius: 9px; background: var(--ba-violet-soft); color: var(--ba-violet-2); }
+@media (prefers-reduced-motion: reduce) { .ba-sets-chevron { transition: none; } }
 .ba-set { display: inline-flex; align-items: center; gap: 3px; max-width: 100%; border-radius: 999px;
   background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line);
   transition: background .15s, border-color .15s; }
@@ -629,13 +643,32 @@
   .ba-set:hover .ba-set-del { opacity: 1; }
   .ba-set-del:hover { color: #fda4af; background: rgba(224, 138, 138, 0.18); }
 }
-/* 드래그 재배치 — 목록(.ba-row)과 같은 언어: 원본은 흐려지고, 들어갈 자리에 보라 선.
-   칩은 가로 배열이라 선도 세로(왼쪽 = 이 칩 앞, 오른쪽 = 맨 뒤). */
+/* 드래그 재배치 — 원본은 흐려지고, 들어갈 자리에 라임 선(--ba-drop).
+   칩은 가로 배열이라 선도 세로 — 포인터가 칩의 왼쪽 절반이면 왼쪽 선(이 칩 앞),
+   오른쪽 절반이면 오른쪽 선(이 칩 뒤). 놓을 자리가 곧 선이 그어진 자리다. */
 .ba-set--dragging { opacity: .45; }
-.ba-set--over { box-shadow: inset 2px 0 0 var(--ba-violet); border-color: var(--ba-violet); }
-.ba-set--over-end { box-shadow: inset -2px 0 0 var(--ba-violet); border-color: var(--ba-violet); }
+.ba-set--over, .ba-set--over-end { border-color: var(--ba-drop); background: var(--ba-drop-soft); }
+.ba-set--over { box-shadow: inset 3px 0 0 var(--ba-drop); }
+.ba-set--over-end { box-shadow: inset -3px 0 0 var(--ba-drop); }
+/* 놓을 자리 프리뷰 — 칩 줄 바로 위. 좁은 칩 사이에서는 삽입선만으로 "어느 칩 기준인지"가 안 읽힌다.
+   fixed라 칩 줄 레이아웃에 영향이 없고, 드래그 중 포인터를 가리지 않도록 pointer-events도 끈다. */
+.ba-set-preview {
+  position: fixed; z-index: 2147483500; display: inline-flex; align-items: center; gap: 6px;
+  max-width: min(360px, calc(100vw - 24px)); padding: 5px 10px; border-radius: 8px;
+  background: rgba(8, 7, 16, 0.97); border: 1px solid var(--ba-drop);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.5);
+  font-size: 11px; font-weight: 600; color: var(--ba-text); white-space: nowrap;
+  pointer-events: none; animation: ba-set-preview-in .16s var(--ba-ease-out);
+}
+.ba-set-preview[hidden] { display: none; }
+/* 옮기는 칩은 기존 UI 색(보라), 목적지는 드롭 색(라임) — 색만으로도 "무엇을 → 어디로"가 갈린다 */
+.ba-set-preview-src { min-width: 0; max-width: 150px; overflow: hidden; text-overflow: ellipsis; color: var(--ba-violet-2); }
+.ba-set-preview-dst { min-width: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; color: var(--ba-drop); font-weight: 700; }
+.ba-set-preview-arrow { display: inline-flex; flex: none; color: var(--ba-drop); }
+@keyframes ba-set-preview-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .ba-set-go:active, .ba-set-del:active { transform: none; }
+  .ba-set-preview { animation: none; }
 }
 /* ⋯ 카드 액션 버튼(메타 행 우측) + 액션 팝오버 — 간략히/상세히 공통, 팝오버는 fixed(.ba-root 기준)로 overflow 회피 */
 .ba-more { flex: none; margin-left: auto; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 24px; border-radius: 7px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
