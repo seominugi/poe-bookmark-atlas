@@ -454,8 +454,21 @@ export async function addConditionSet(name, game, set) {
   return record
 }
 
+/** @returns {Promise<object|null>} 삭제한 레코드 — 실행취소로 되살릴 때 그대로 넘긴다 */
 export async function removeConditionSet(id) {
-  await writeSets((await readSets()).filter((s) => s.id !== id))
+  const sets = await readSets()
+  const removed = sets.find((s) => s.id === id) || null
+  if (removed) await writeSets(sets.filter((s) => s.id !== id))
+  return removed
+}
+
+/** 삭제 실행취소 — order까지 그대로 되살려 원래 자리로 돌아오게 한다. 이미 있으면 무시. */
+export async function restoreConditionSet(record) {
+  if (!record || !record.id) return
+  const sets = await readSets()
+  if (sets.some((s) => s.id === record.id)) return
+  sets.push(record)
+  await writeSets(sets)
 }
 
 export async function renameConditionSet(id, name) {
@@ -481,6 +494,31 @@ export async function moveConditionSet(id, dir) {
   const t = target.order ?? 0
   target.order = cur.order ?? 0
   cur.order = t
+  await writeSets(sets)
+}
+
+/**
+ * 칩 순서 재배치(드래그) — beforeId 칩의 **앞**에 끼워 넣는다. beforeId가 null이면 맨 뒤로.
+ * 인접 스왑(moveConditionSet)과 달리 원거리 이동을 한 번에 하므로 앞뒤 order 사이의
+ * 중간값을 새 order로 쓴다(북마크 재정렬과 같은 방식 — 다른 칩의 order는 건드리지 않는다).
+ */
+export async function moveConditionSetBefore(id, beforeId) {
+  if (!id || id === beforeId) return
+  const sets = await readSets()
+  const cur = sets.find((s) => s.id === id)
+  if (!cur) return
+  const scope = cur.game ?? null
+  const rest = sets
+    .filter((s) => (s.game ?? null) === scope && s.id !== id)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+  const at = beforeId ? rest.findIndex((s) => s.id === beforeId) : rest.length
+  if (at < 0) return // 다른 게임 스코프의 칩 위에 놓은 경우 — 섞이면 검색이 깨진다
+  const prev = rest[at - 1]
+  const next = rest[at]
+  if (prev && next) cur.order = ((prev.order ?? 0) + (next.order ?? 0)) / 2
+  else if (next) cur.order = (next.order ?? 0) - 1
+  else if (prev) cur.order = (prev.order ?? 0) + 1
+  else cur.order = 0
   await writeSets(sets)
 }
 

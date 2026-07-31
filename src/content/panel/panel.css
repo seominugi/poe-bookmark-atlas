@@ -45,6 +45,8 @@
   --ba-r-chip:       8px;
   --ba-shadow-card:  0 6px 22px rgba(0, 0, 0, 0.34);
   --ba-ease:         cubic-bezier(0.4, 0, 0.2, 1);
+  /* 누름·진입처럼 "즉시 반응"이 중요한 곳 — 시작이 빨라 손가락을 따라오는 느낌을 준다 */
+  --ba-ease-out:     cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 .ba-root {
@@ -482,6 +484,14 @@
   animation: ba-toast-in .22s var(--ba-ease);
 }
 .ba-toast[hidden] { display: none; }
+/* 실행취소 등 토스트 액션 — 문장 끝에 붙는 링크형 버튼 */
+.ba-toast-act { margin-left: 10px; padding: 2px 8px; border-radius: 6px;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ba-violet-2);
+  background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); cursor: pointer;
+  transition: color .15s, background .15s, transform .16s var(--ba-ease-out); }
+.ba-toast-act:hover { color: #fff; background: rgba(167, 139, 250, 0.28); }
+.ba-toast-act:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) { .ba-toast-act:active { transform: none; } }
 .ba-toast.out { animation: ba-toast-out .3s var(--ba-ease) forwards; }
 @keyframes ba-toast-in  { from { opacity: 0; transform: translate(-50%, calc(-50% - 8px)); } to { opacity: 1; transform: translate(-50%, -50%); } }
 @keyframes ba-toast-out { from { opacity: 1; transform: translate(-50%, -50%); } to { opacity: 0; transform: translate(-50%, calc(-50% - 8px)); } }
@@ -606,17 +616,27 @@
   .ba-set:hover { background: rgba(167, 139, 250, 0.26); border-color: var(--ba-violet-2); }
   .ba-set:hover .ba-set-go { color: #fff; }
 }
-.ba-set.editing .ba-set-go { cursor: default; }
-/* 편집 모드에서만 노출 — 평소엔 오클릭으로 묶음이 사라지지 않게 숨긴다 */
-.ba-set-del, .ba-set-mv { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px;
-  border-radius: 50%; color: var(--ba-text-muted); cursor: pointer; }
-.ba-set-mv[data-dir="-1"] { transform: rotate(180deg); }
-.ba-set-del:hover { color: #fda4af; background: rgba(224, 138, 138, 0.18); }
-.ba-set-mv:hover { color: var(--ba-violet-2); background: rgba(167, 139, 250, 0.18); }
-.ba-set-del { margin-right: 5px; }
-.ba-sets-edit { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
-  margin-left: auto; border-radius: 7px; color: var(--ba-text-muted); cursor: pointer; transition: color .15s, background .15s; }
-.ba-sets-edit:hover, .ba-sets-edit.on { color: var(--ba-violet-2); background: var(--ba-violet-soft); }
+.ba-set-go:focus-visible { outline: 2px solid var(--ba-violet-2); outline-offset: 1px; }
+/* 누른 즉시 반응 — 이 클릭은 페이지 이동(검색 실행)이라 "눌렸다"는 확인이 필요하다 */
+.ba-set-go { transition: transform .16s var(--ba-ease-out); }
+.ba-set-go:active { transform: scale(0.97); }
+/* 삭제는 상시 노출하되 평소엔 물러나 있는다 — 자리는 늘 차지해 hover 시 칩 폭이 흔들리지 않는다 */
+.ba-set-del { display: inline-flex; align-items: center; justify-content: center; width: 18px; height: 18px; margin-right: 5px;
+  border-radius: 50%; color: var(--ba-text-muted); opacity: .5; cursor: pointer;
+  transition: opacity .15s, color .15s, background .15s, transform .16s var(--ba-ease-out); }
+.ba-set-del:active { transform: scale(0.95); }
+@media (hover: hover) and (pointer: fine) {
+  .ba-set:hover .ba-set-del { opacity: 1; }
+  .ba-set-del:hover { color: #fda4af; background: rgba(224, 138, 138, 0.18); }
+}
+/* 드래그 재배치 — 목록(.ba-row)과 같은 언어: 원본은 흐려지고, 들어갈 자리에 보라 선.
+   칩은 가로 배열이라 선도 세로(왼쪽 = 이 칩 앞, 오른쪽 = 맨 뒤). */
+.ba-set--dragging { opacity: .45; }
+.ba-set--over { box-shadow: inset 2px 0 0 var(--ba-violet); border-color: var(--ba-violet); }
+.ba-set--over-end { box-shadow: inset -2px 0 0 var(--ba-violet); border-color: var(--ba-violet); }
+@media (prefers-reduced-motion: reduce) {
+  .ba-set-go:active, .ba-set-del:active { transform: none; }
+}
 /* ⋯ 카드 액션 버튼(메타 행 우측) + 액션 팝오버 — 간략히/상세히 공통, 팝오버는 fixed(.ba-root 기준)로 overflow 회피 */
 .ba-more { flex: none; margin-left: auto; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; width: 27px; height: 24px; border-radius: 7px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
 .ba-more:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }

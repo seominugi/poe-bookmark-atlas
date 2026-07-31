@@ -8,6 +8,7 @@ import {
   backfillQuery, migrateBookmarkLeague, needsTourDemo, seedDemoData, clearDemoData,
   needsConditionSetDemo, seedDemoSets, clearDemoSets,
   listConditionSets, addConditionSet, removeConditionSet, renameConditionSet, moveConditionSet, moveBookmarks,
+  moveConditionSetBefore, restoreConditionSet,
 } from '../src/store/store.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
@@ -372,6 +373,53 @@ describe('조건 묶음', () => {
     await addConditionSet('P1', 'poe1', set())
     expect((await listConditionSets('poe2')).map((s) => s.name)).toEqual(['P2'])
     expect((await listConditionSets('poe1')).map((s) => s.name)).toEqual(['P1'])
+  })
+
+  // 드래그 재배치 — 인접 스왑(moveConditionSet)과 달리 원거리 이동을 한 번에 한다
+  const names = async () => (await listConditionSets('poe2')).map((s) => s.name)
+  const seed3 = async () => {
+    const a = await addConditionSet('A', 'poe2', set())
+    const b = await addConditionSet('B', 'poe2', set())
+    const c = await addConditionSet('C', 'poe2', set())
+    return { a, b, c }
+  }
+
+  it('드래그 재배치 — 대상 칩 앞에 끼워 넣는다(원거리 포함)', async () => {
+    const { a, c } = await seed3()
+    await moveConditionSetBefore(c.id, a.id)
+    expect(await names()).toEqual(['C', 'A', 'B'])
+  })
+
+  it('드래그 재배치 — beforeId가 null이면 맨 뒤로', async () => {
+    const { a } = await seed3()
+    await moveConditionSetBefore(a.id, null)
+    expect(await names()).toEqual(['B', 'C', 'A'])
+  })
+
+  it('드래그 재배치 — 자기 자신·없는 대상·다른 게임 칩 위면 순서가 그대로', async () => {
+    const { a, b } = await seed3()
+    const other = await addConditionSet('P1', 'poe1', set())
+    await moveConditionSetBefore(a.id, a.id)
+    await moveConditionSetBefore(a.id, 'nope')
+    await moveConditionSetBefore(a.id, other.id) // 게임이 섞이면 스탯 id 체계가 달라 검색이 깨진다
+    expect(await names()).toEqual(['A', 'B', 'C'])
+    await moveConditionSetBefore(b.id, a.id)
+    expect(await names()).toEqual(['B', 'A', 'C']) // 이후 정상 이동은 계속 먹는다
+  })
+
+  it('삭제는 지운 레코드를 돌려주고, 실행취소하면 원래 자리로 돌아온다', async () => {
+    const { b } = await seed3()
+    const removed = await removeConditionSet(b.id)
+    expect(removed.name).toBe('B')
+    expect(await names()).toEqual(['A', 'C'])
+    await restoreConditionSet(removed)
+    expect(await names()).toEqual(['A', 'B', 'C'])
+    await restoreConditionSet(removed) // 두 번 눌러도 복제되지 않는다
+    expect(await names()).toEqual(['A', 'B', 'C'])
+  })
+
+  it('없는 묶음 삭제는 null', async () => {
+    expect(await removeConditionSet('nope')).toBe(null)
   })
 
   it('이름을 안 주면 유형을 이름으로 쓴다', async () => {

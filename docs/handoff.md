@@ -1,5 +1,5 @@
 ---
-timestamp: 2026-07-31 (Asia/Seoul)
+timestamp: 2026-08-01 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
@@ -25,7 +25,20 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 완료된 작업
 
-### 하드코어·무자비 변형 리그명 한글화 (2026-07-31, 미커밋)
+### 조건 묶음 칩 — 드래그 재배치 + 상시 삭제 버튼 (2026-08-01, 미커밋)
+- **편집 모드(연필 토글 + 앞/뒤 화살표) 제거**. 드래그와 상시 `×`가 같은 일을 하게 되어 경로가 둘로 갈렸다
+- 칩 자체가 드래그 핸들(칩이 작아 별도 그립을 넣으면 이름이 더 잘린다). 클릭=조건 얹기와는 dragstart/click으로 갈려 충돌 없음
+- 드롭: 다른 칩 위 → 그 칩 **앞**, 칩 줄 빈 공간 → **맨 뒤**. 삽입 위치는 세로 보라선(왼쪽/오른쪽)으로 표시
+- `store.js`: `moveConditionSetBefore(id, beforeId)` 신규(order 중간값 삽입 — 북마크 재정렬과 같은 방식), `removeConditionSet`이 **삭제 레코드 반환**, `restoreConditionSet` 신규. 인접 스왑 `moveConditionSet`은 키보드용으로 유지
+- **다른 game 스코프 칩 위 드롭은 무시** — poe1/poe2는 스탯 id 체계가 달라 섞이면 검색이 깨진다
+- 삭제는 확인 없이 즉시 + **실행취소 토스트**(6초). 원 설계가 "오클릭 방지"로 삭제를 숨겨뒀던 것을 상시 노출로 바꾸는 대신 둔 안전장치 — 확인 다이얼로그는 매번 마찰이지만 실행취소는 실수했을 때만 비용이 든다
+- `toast(msg, action)` 확장 — 액션 버튼은 DOM API로 생성(묶음 이름이 들어가므로 innerHTML 금지)
+- 키보드 대안 **Alt+←/→**(목록·폴더의 Alt+↑/↓와 같은 언어), 이동 후 포커스 복귀. `.ba-set-go`에 role=button·tabindex=0·focus-visible
+- 모션: `--ba-ease-out`(0.23,1,0.32,1) 토큰 신설, 누름 스케일 0.97/0.95·160ms, hover는 `(hover: hover)` 게이팅, reduced-motion에서 transform 제거. 드래그 표시는 **의도적으로 transition 없음**(포인터보다 늦게 따라오면 안 됨). `review-animations` **Approve**
+- 검증: 테스트 311/311(신규 5건), 하네스 라이브 — 드래그(원거리·맨뒤)·Alt+←/→·삭제→실행취소(순서 보존)·칩 클릭 무충돌·420px 2줄 wrap·콘솔 에러 없음
+- 남은 관찰: `panel.css:150`에 기존 `transition: all .15s`(세그먼트 컨트롤) — 이번 범위 밖
+
+### 하드코어·무자비 변형 리그명 한글화 (2026-07-31, `39931d8` develop push 완료)
 - 거래소 `/data/leagues`는 영구 리그·챌린지 **본명만** 한글로 주고 변형은 영문 그대로 준다("Hardcore Allflame"·"HC Ruthless Allflame"·"Hardcore Ruthless")
 - `leagueMap.js`에 `leagueDisplayName(id, text, map)` 추가 — id 앞의 변형 토큰(HC Ruthless / Hardcore Ruthless / Hardcore / HC / Ruthless)만 한글화하고 베이스는 **API가 준 한글명**으로 채운다(베이스는 직접 번역 안 함 → 신규 리그도 자동 대응)
 - **표시 전용**이다: `leagueInfo`의 `isLive`/`isDead`·`inMap`과 content-main의 역변환은 거래소 원본 표기 그대로 — 여기 값을 바꾸면 그 표기로 저장된 기존 레코드가 "끝난 리그"로 오판된다(테스트로 고정)

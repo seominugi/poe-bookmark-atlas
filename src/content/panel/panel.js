@@ -3,7 +3,8 @@ import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, ove
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData,
   needsConditionSetDemo, seedDemoSets, clearDemoSets,
-  listConditionSets, addConditionSet, removeConditionSet, moveConditionSet, moveBookmarks } from '../../store/store.js'
+  listConditionSets, addConditionSet, removeConditionSet, restoreConditionSet, moveConditionSet, moveConditionSetBefore,
+  moveBookmarks } from '../../store/store.js'
 import { extractConditionSet, conditionSetSummary } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
@@ -202,9 +203,18 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   window.addEventListener('resize', updateHandleGrad)
 
   let toastTimer = null
-  const toast = (msg) => {
-    const t = $('ba-toast'); t.textContent = msg; t.hidden = false
-    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, 2200)
+  // action({label, onClick})을 주면 토스트에 되돌리기 버튼이 붙고, 누를 시간을 벌기 위해 더 오래 머문다.
+  // 텍스트·버튼 모두 DOM API로 넣는다 — 묶음 이름 등 사용자 입력이 들어오므로 innerHTML은 쓰지 않는다.
+  const toast = (msg, action = null) => {
+    const t = $('ba-toast'); t.textContent = msg
+    if (action) {
+      const b = document.createElement('button')
+      b.type = 'button'; b.className = 'ba-toast-act'; b.textContent = action.label
+      b.addEventListener('click', () => { clearTimeout(toastTimer); t.hidden = true; action.onClick() })
+      t.appendChild(b)
+    }
+    t.hidden = false
+    clearTimeout(toastTimer); toastTimer = setTimeout(() => { t.hidden = true }, action ? 6000 : 2200)
   }
 
   // 패널 내 북마크 검색창 포커스 단축키 (Alt+K) — 접혀 있으면 펼친 뒤 포커스
@@ -592,8 +602,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 자주 쓰는 조건 뭉치를 클릭 1회로 현재 검색에 얹는다. 거래소에서 조건 7개를 손으로 넣으면
   // 상호작용 30회가 넘는데, 여기선 1회다(lib/conditionSet.js 헤더 참조).
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-  let setsEditing = false // 편집 모드 — 평소엔 삭제·이동 버튼을 숨겨 오클릭으로 묶음이 사라지지 않게
   let applyingSet = false // 연타 차단 — 요청이 몰리면 거래소 요청 제한(429)에 걸려 검색 자체가 막힌다
+  let focusSetId = null // 키보드로 순서를 바꾼 뒤 재렌더돼도 그 칩에 포커스를 돌려준다
 
   const renderSets = async () => {
     const el = $('ba-sets')
@@ -602,31 +612,88 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     if (!sets.length) { el.hidden = true; el.innerHTML = ''; return } // 없으면 자리 차지 안 함
     el.hidden = false
     const chips = sets.map((s) => {
-      const tip = esc([s.name, conditionSetSummary(s), '────────', ...s.stats.map((x) => x.text + (x.value ? ` ${x.value.min != null ? '≥' + x.value.min : ''}${x.value.max != null ? ' ≤' + x.value.max : ''}` : ''))].filter(Boolean).join('\n'))
-      const edit = setsEditing
-        ? `<span class="ba-set-mv" data-id="${s.id}" data-dir="-1" data-tip="앞으로">${icon('chevronRight', 11)}</span>`
-          + `<span class="ba-set-mv" data-id="${s.id}" data-dir="1" data-tip="뒤로">${icon('chevronRight', 11)}</span>`
-          + `<span class="ba-set-del" data-id="${s.id}" data-tip="묶음 삭제">${icon('x', 11)}</span>`
-        : ''
-      return `<span class="ba-set${setsEditing ? ' editing' : ''}" data-id="${s.id}" data-tip="${tip}">`
-        + `<span class="ba-set-go">${icon('plus', 12)}${esc(s.name)}</span>${edit}</span>`
+      const tip = esc([s.name, conditionSetSummary(s), '────────', ...s.stats.map((x) => x.text + (x.value ? ` ${x.value.min != null ? '≥' + x.value.min : ''}${x.value.max != null ? ' ≤' + x.value.max : ''}` : '')), '────────', '드래그해서 순서 변경 (Alt+←/→)'].filter(Boolean).join('\n'))
+      return `<span class="ba-set" data-id="${s.id}" draggable="true" data-tip="${tip}">`
+        + `<span class="ba-set-go" role="button" tabindex="0">${icon('plus', 12)}${esc(s.name)}</span>`
+        + `<span class="ba-set-del" data-id="${s.id}" data-tip="묶음 삭제">${icon('x', 11)}</span></span>`
     }).join('')
     el.innerHTML = `<span class="ba-sets-lbl">${icon('layers', 12)}조건 묶음</span>${chips}`
-      + `<span class="ba-sets-edit${setsEditing ? ' on' : ''}" data-tip="${setsEditing ? '편집 끝내기' : '묶음 삭제·순서 변경'}">${icon(setsEditing ? 'check' : 'pencil', 12)}</span>`
 
-    el.querySelectorAll('.ba-set-go').forEach((c) => c.addEventListener('click', (e) => {
-      e.stopPropagation()
-      if (setsEditing) return
-      runConditionSet(c.closest('.ba-set').dataset.id)
-    }))
+    el.querySelectorAll('.ba-set-go').forEach((c) => {
+      const id = c.closest('.ba-set').dataset.id
+      c.addEventListener('click', (e) => { e.stopPropagation(); runConditionSet(id) })
+      c.addEventListener('keydown', async (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); runConditionSet(id); return }
+        // 드래그 대안 — 목록·폴더의 Alt+↑/↓와 같은 언어(칩은 가로 배열이라 ←/→)
+        if (!e.altKey || (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight')) return
+        e.preventDefault()
+        focusSetId = id
+        await moveConditionSet(id, e.key === 'ArrowLeft' ? -1 : 1)
+        await renderSets()
+      })
+    })
+    // 삭제는 확인 없이 즉시 — 대신 실행취소를 준다. 확인 다이얼로그는 매번 마찰이지만
+    // 실행취소는 실수했을 때만 비용이 든다(묶음은 북마크에서 다시 등록해야 해 복구가 비싸다).
     el.querySelectorAll('.ba-set-del').forEach((b) => b.addEventListener('click', async (e) => {
-      e.stopPropagation(); await removeConditionSet(b.dataset.id); await renderSets(); toast('묶음을 삭제했습니다.')
+      e.stopPropagation()
+      const removed = await removeConditionSet(b.dataset.id)
+      await renderSets()
+      if (!removed) return
+      toast(`"${removed.name}" 묶음을 삭제했어요.`, {
+        label: '실행취소',
+        onClick: async () => { await restoreConditionSet(removed); await renderSets(); toast(`"${removed.name}" 묶음을 되살렸어요.`) },
+      })
     }))
-    el.querySelectorAll('.ba-set-mv').forEach((b) => b.addEventListener('click', async (e) => {
-      e.stopPropagation(); await moveConditionSet(b.dataset.id, Number(b.dataset.dir)); await renderSets()
-    }))
-    const editBtn = el.querySelector('.ba-sets-edit')
-    if (editBtn) editBtn.addEventListener('click', async () => { setsEditing = !setsEditing; await renderSets() })
+    bindSetsDnD(el)
+    if (focusSetId) {
+      const go = el.querySelector(`.ba-set[data-id="${CSS.escape(focusSetId)}"] .ba-set-go`)
+      if (go) go.focus()
+      focusSetId = null
+    }
+  }
+
+  // 칩 드래그 재배치 — 칩 자체가 핸들이다(칩이 작아 별도 그립을 넣으면 이름이 더 잘린다).
+  // 클릭(조건 얹기)과는 충돌하지 않는다: 드래그는 dragstart, 실행은 click으로 갈린다.
+  const bindSetsDnD = (el) => {
+    let dragId = null
+    const clearOver = () => el.querySelectorAll('.ba-set--over, .ba-set--over-end').forEach((x) => x.classList.remove('ba-set--over', 'ba-set--over-end'))
+    const chips = [...el.querySelectorAll('.ba-set')]
+    chips.forEach((chip) => {
+      chip.addEventListener('dragstart', (e) => {
+        dragId = chip.dataset.id
+        e.dataTransfer.effectAllowed = 'move'
+        try { e.dataTransfer.setData('text/plain', dragId) } catch (_) {} // 일부 환경은 데이터가 없으면 드래그를 취소한다
+        chip.classList.add('ba-set--dragging')
+      })
+      chip.addEventListener('dragend', () => { chip.classList.remove('ba-set--dragging'); dragId = null; clearOver() })
+      chip.addEventListener('dragover', (e) => {
+        if (!dragId) return
+        e.preventDefault(); e.stopPropagation()
+        if (dragId === chip.dataset.id) { clearOver(); return } // 자기 위에서는 아무 표시도 하지 않는다
+        e.dataTransfer.dropEffect = 'move'
+        clearOver(); chip.classList.add('ba-set--over') // 이 칩 '앞'에 들어간다
+      })
+      chip.addEventListener('drop', async (e) => {
+        e.preventDefault(); e.stopPropagation(); clearOver()
+        if (!dragId || dragId === chip.dataset.id) return
+        await moveConditionSetBefore(dragId, chip.dataset.id)
+        await renderSets()
+      })
+    })
+    // 칩 줄의 빈 공간에 놓으면 맨 뒤로 — 마지막 칩 오른쪽에 삽입선을 보여준다
+    el.addEventListener('dragover', (e) => {
+      if (!dragId) return
+      e.preventDefault()
+      clearOver()
+      const last = chips[chips.length - 1]
+      if (last && last.dataset.id !== dragId) last.classList.add('ba-set--over-end')
+    })
+    el.addEventListener('drop', async (e) => {
+      e.preventDefault(); clearOver()
+      if (!dragId) return
+      await moveConditionSetBefore(dragId, null)
+      await renderSets()
+    })
   }
 
   const SET_FAIL = {
