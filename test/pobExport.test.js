@@ -58,13 +58,31 @@ describe('translateMod — 캡처 아이템(공허 경고)의 실제 mod → 영
 })
 
 describe('translateMod — # 미치환 잔존은 실패로 취급 (텍스트형 옵션 mod)', () => {
-  // 클러스터 주얼류 "Allocates #"(할당 #)는 #가 숫자가 아니라 특성 이름 자리 — extractValues는 숫자만 찾아서
-  // 못 채운다. 미치환 "#"가 그대로 남으면 PoB가 파싱 못 하므로, en=null(실패)로 처리해 조립기가 KR로 폴백·집계하게 한다.
-  it('실제 poe1 인챈트("할당 #") — 값 없는 텍스트형 옵션은 en=null', () => {
-    expect(translateMod('enchant.stat_2954116742', '할당 골렘의 피', poe1Map).en).toBeNull()
+  // "Allocates #" 류는 #가 숫자가 아니라 특성 이름 자리 — extractValues는 숫자만 찾아서 못 채운다.
+  // 미치환 "#"가 그대로 남으면 PoB가 파싱 못 하므로, en=null(실패)로 처리해 조립기가 KR로 폴백·집계하게 한다.
+  // (실제 번들 맵엔 이런 통합 템플릿이 없다 — 아래 '옵션형 stat id' 블록 참조. 그래서 합성 맵으로 동작만 고정한다.)
+  it('값 없는 텍스트형 옵션은 en=null', () => {
+    expect(translateMod('enchant.stat_x', '할당 골렘의 피', { 'enchant.stat_x': 'Allocates #' }).en).toBeNull()
   })
   it('값이 있는 정상 mod는 그대로 채워짐(회귀 방지)', () => {
     expect(translateMod('explicit.stat_1037193709', '냉기 피해 2~3 추가', poe1Map).en).toBe('Adds 2 to 3 Cold Damage')
+  })
+})
+
+describe('translateMod — 옵션형 stat id("id|옵션번호") — 2026-08-02 회귀', () => {
+  // 거래소 stats API는 선택지가 있는 mod를 "enchant.stat_3948993189|42"처럼 옵션 번호까지 붙은 별개 id로 준다
+  // (아이템 extended.hashes도 같은 형태). 번들 맵이 옵션 번호 없는 통합 id만 담고 있던 동안에는 조회가 실패해
+  // 클러스터 주얼 인챈트가 통째로 KR로 남았다 — 사용자 제보로 확인된 실제 증상.
+  it('소형 클러스터 주얼 인챈트 — 옵션 번호까지 붙은 id로 영문 변환', () => {
+    expect(translateMod('enchant.stat_3948993189|42', '추가된 소형 패시브 스킬 효과: 방어도 15% 증가', poe1Map).en)
+      .toBe('Added Small Passive Skills grant: 15% increased Armour')
+  })
+  it('특성 할당 인챈트도 옵션 번호로 해결 — 값이 아니라 이름이라 통합 템플릿으론 불가능했던 케이스', () => {
+    expect(translateMod('enchant.stat_2954116742|1325', '할당 골렘의 피', poe1Map).en).toBe("Allocates Golem's Blood")
+  })
+  it('통합 id는 맵에서 제외 — 그 템플릿의 #는 숫자 자리가 아니라 엉뚱한 값이 채워진다', () => {
+    expect(poe1Map['enchant.stat_3948993189']).toBeUndefined()
+    expect(poe1Map['enchant.stat_2954116742']).toBeUndefined()
   })
 })
 

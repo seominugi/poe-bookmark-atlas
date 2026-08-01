@@ -2,7 +2,8 @@
 //   { "explicit.stat_XXX": "EN #-패턴" }                              // 단일 변형
 //   { "explicit.stat_YYY": [{ en, ko }, ...] }                        // 다중 변형(Area/Map 등) — 아이템 KR 설명으로 택1
 //
-// 입력 raw JSON은 **비-KR 환경(VPN 등)**에서 curl로 1회 받아둔다 (EN=pathofexile.com은 KR IP geo-block):
+// 입력 raw JSON은 curl로 1회 받아둔다. **EN도 KR IP에서 그대로 받힌다**(2026-08-02 확인 — geo-redirect는
+// 거래소 *사이트*이지 data API가 아니다. 예전 주석의 "VPN 필요"는 낡은 정보):
 //   curl -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" https://www.pathofexile.com/api/trade2/data/stats -o en-stats.json
 //   curl -A "Mozilla/5.0"                                https://poe.kakaogames.com/api/trade2/data/stats  -o kr-stats.json
 // (Node fetch는 Cloudflare 봇차단에 걸려 curl 사용.) KR·EN 모두 그룹·순서 동일(8202개)해 인덱스로 페어링.
@@ -46,6 +47,20 @@ for (const [id, variants] of byId) {
   map[id] = uniqEn.length === 1 ? uniqEn[0] : variants // 단일 → 문자열, 다중 → [{en,ko}]
 }
 
+// 기존 맵 병합 — stats API는 '지금 검색 가능한' mod만 준다. 삭제된 리그 mod를 단 레거시 아이템은 계속
+// 거래되므로, 새 데이터에 없는 기존 항목은 남긴다(사전은 누적, 같은 id는 항상 새 데이터가 승).
+// 단 옵션형(id|N)으로 쪼개진 구 통합 id는 버린다 — 그 템플릿의 #는 숫자가 아니라 옵션 텍스트 자리라
+// (예: "Added Small Passive Skills grant: #") 값 치환이 엉뚱한 숫자를 밀어 넣는다.
+let prev = {}
+try { prev = JSON.parse(await readFile(out, 'utf8')) } catch { /* 최초 생성 */ }
+const optBase = new Set(Object.keys(map).filter((k) => k.includes('|')).map((k) => k.split('|')[0]))
+let kept = 0
+for (const [id, v] of Object.entries(prev)) {
+  if (id in map || optBase.has(id)) continue
+  map[id] = v
+  kept++
+}
+
 await writeFile(out, JSON.stringify(map), 'utf8')
 const multi = Object.values(map).filter(Array.isArray).length
-console.log(`${outName} 생성: ${Object.keys(map).length} ids (다중변형 ${multi}, KR 미페어링 ${unpaired}) → ${out}`)
+console.log(`${outName} 생성: ${Object.keys(map).length} ids (다중변형 ${multi}, KR 미페어링 ${unpaired}, 레거시 유지 ${kept}) → ${out}`)

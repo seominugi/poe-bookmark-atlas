@@ -9,6 +9,8 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
+**PoB 영문 복사 — 옵션형 stat id 미매핑 수정 (2026-08-02, `develop` 미커밋)** — 사용자 제보(소형 클러스터 주얼 인챈트가 한글로 남음)로 번들 stat 맵이 **2년치 stale**임을 확인. `pobStatMap.poe1.json` 14,969 → 17,684 ids, `pobStatMap.json` 8,086 → 8,127 ids로 재생성. 최신 stats API 대비 미매핑 **poe1 2,733건 / poe2 41건 → 양쪽 0건**. 아래 완료 항목 참조. **커밋·릴리즈는 사용자 요청 대기.**
+
 **0.6.1 릴리즈 게시 완료 · 스토어 심사 대기 (2026-08-01)** — 조건 묶음 드래그 재배치·삭제, 카오스↔신성한 양방향 환산 칩, 하드코어 리그명 한글화, 변형 아이템 북마크명 버그 수정(v0.6.0, `cd5dbc4`) + 사용자 실사용 제보로 정비한 드래그 사용성·칩 줄 접기(0.6.1).
 `develop` → `main` FF 머지·푸시(`cd5dbc4..8bcd0b9`) → **`v0.6.1` 태그 즉시 publish(`8bcd0b9`, 現 `Latest`)**. `deploy/poe-bookmark-atlas-0.6.1.zip`(29파일) 생성.
 **사용자가 0.6.1 스토어 심사 요청 완료(2026-08-01). 남은 것: 심사 결과 회신.**
@@ -32,6 +34,17 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 0.2.0 스토어 심사 **통과**(2026-07-04 확인). 피드백 3건(작업1·2·3) 모두 기능 구현 완료. **사용자 방침(2026-07-04): "번역 100% 완벽 안 된 상태 인정하고, 미진한 부분은 추후 보완"** — Shift+클릭 수동 제보 기능이 그 보완 파이프라인. 이후 가이드 투어 화살표·키보드 네비·리그 노출 라운드까지 마침. **0.3.0 준비 완료** — 버전 범프(manifest·package 0.3.0)·`deploy/poe-bookmark-atlas-0.3.0.zip`·GitHub 릴리즈 3종 생성. **다음: 사용자가 스토어에 0.3.0 심사 제출 예정.**
 
 ## 완료된 작업
+
+### PoB 영문 복사 — 옵션형 stat id(`id|N`) 미매핑 수정 (2026-08-02, 미커밋)
+- **제보 증상**: 소형 클러스터 주얼을 PoB 복사하면 `Adds 2 Passive Skills (enchant)`는 영문인데 바로 다음 줄이 `추가된 소형 패시브 스킬 효과: 방어도 15% 증가 (enchant)`로 한글로 남았다
+- **원인**: 거래소 stats API는 **선택지가 있는 mod를 옵션 번호까지 붙인 별개 id**로 준다 — `enchant.stat_3948993189|42` = "Added Small Passive Skills grant: 15% increased Armour". 아이템 `extended.hashes`도 같은 형태다. 그런데 번들 맵에는 옵션 번호 없는 통합 id(`enchant.stat_3948993189` → `"...grant: #"`)만 있어 조회가 실패 → KR 폴백
+  - 통합 템플릿의 `#`는 **숫자 자리가 아니라 옵션 텍스트 자리**라, 설령 조회에 성공했어도 `extractValues`가 KR 문장의 "15"를 집어 `grant: 15`라는 **조용히 틀린 결과**가 나온다. 옵션형 id 도입은 그 구조적 결함까지 없앤다
+- **맵 재생성**(EN/KR stats 최신본으로 `scripts/build-pob-statmap.mjs` 재실행): poe1 14,969 → **17,684 ids**, poe2 8,086 → **8,127 ids**. 최신 stats API 대비 미매핑 poe1 2,733(그중 옵션형 1,603 · `mercenary` 그룹 534 통째로 누락) / poe2 41 → **양쪽 0건**
+  - EN stats(`pathofexile.com/api/trade|trade2/data/stats`)는 **KR IP에서도 200으로 받힌다** — 스크립트 주석의 "VPN 필요"는 낡은 정보(거래소 *사이트*만 geo-redirect). 이번엔 VPN 없이 4종 다 받았다
+- **`build-pob-statmap.mjs`에 레거시 병합 추가** — stats API는 "지금 검색 가능한" mod만 준다. 그대로 덮으면 삭제된 리그 mod(예: `While a Unique Enemy is in your Presence, …` 계열) 281건을 잃는데, 그런 아이템은 여전히 거래된다. 새 데이터에 없는 기존 항목은 유지하되 **옵션형으로 쪼개진 통합 id는 버린다**(위의 조용히 틀린 결과 방지). 결과적으로 유실 0
+- 검증: 테스트 **318/318**(신규 3건 — 옵션형 id 변환·특성 할당 인챈트·통합 id 부재), 번들 맵으로 제보 아이템을 `buildPobText`에 통과시켜 `Added Small Passive Skills grant: 15% increased Armour (enchant)` + `missing: []` 확인, `npm run build` 성공(dist 2.9MB, poe1 맵 청크 1.50MB — PoB 버튼 클릭 시 lazy 로드라 초기 로드 무영향)
+- ⚠ **기존 테스트 하나가 무의미해질 뻔했다**: `translateMod('enchant.stat_2954116742', '할당 골렘의 피')`가 `null`인지 보던 테스트는 재생성 후에도 통과하지만 이유가 "# 미치환"이 아니라 "id 자체가 사라짐"으로 바뀌었다 → 합성 맵으로 동작을 고정하고, 실데이터 케이스는 옵션형 블록으로 옮겼다
+- **베이스 맵은 손대지 않았다** — `pobBaseMap*.json`은 별도 repo(poe-i18n 생성기) 입력이고 제보 아이템의 베이스는 정상 변환됐다
 
 ### 0.6.1 준비 — 조건 묶음 드래그 사용성 정비 + 칩 줄 접기 (2026-08-01, `d432957`)
 - **0.6.0을 실사용한 사용자 제보**: 칩 드래그로 자리를 옮기기 어렵다. 원인이 셋이었다
