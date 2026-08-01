@@ -40,14 +40,30 @@ export function pickTemplate(id, koDesc, map) {
 // 인게임 아이템 텍스트엔 없다. PoB는 인게임 텍스트만 인식하므로 남아 있으면 그 mod를 통째로 못 읽는다.
 const TRADE_ONLY_SUFFIX = /\s*\((?:Local|Global)\)\s*$/
 
+// 유니크 mod 폴백용 KR 키 정규화 — 태그 제거 → 값(범위 "(80 — 120)" 포함)을 #로 → 공백 제거.
+// 굴린 값이 달라도, 사전 쪽 범위 표기·공백 관례가 달라도 같은 mod면 같은 키가 되게 한다.
+const KO_VALUE_RANGE = /\(\s*-?\d+(?:\.\d+)?\s*[—–~]\s*-?\d+(?:\.\d+)?\s*\)/g
+export function normKo(s) {
+  return stripTags(s).replace(KO_VALUE_RANGE, '#').replace(/-?\d+(?:\.\d+)?/g, '#').replace(/\s+/g, '')
+}
+
 // mod(stat id + KR 설명) → { en, ko }. en=null이면 미매핑 또는 미완성 변환(조립기가 폴백·집계).
-export function translateMod(id, koDesc, map) {
+// modMap: KR 원문 기준 유니크 mod 폴백 사전(pobUniqueModMap) — stat id 경로가 실패했을 때만 본다.
+export function translateMod(id, koDesc, map, modMap = {}) {
+  const values = extractValues(stripTags(koDesc))
   const tpl = pickTemplate(id, koDesc, map)?.replace(TRADE_ONLY_SUFFIX, '')
-  if (tpl == null) return { en: null, ko: koDesc }
-  const en = fillValues(tpl, extractValues(stripTags(koDesc)))
   // 클러스터 주얼류 "Allocates #" 같은 텍스트형(특성 이름) 옵션은 #가 숫자가 아니라 extractValues가 못 채운다.
-  // 미치환 "#"가 그대로 남으면 PoB가 그 줄을 통째로 못 읽으므로 실패로 취급(en=null → 조립기가 KR로 폴백·집계).
-  return { en: en.includes('#') ? null : en, ko: koDesc }
+  // 미치환 "#"가 그대로 남으면 PoB가 그 줄을 통째로 못 읽으므로 실패로 취급한다.
+  const en = tpl == null ? null : fillValues(tpl, values)
+  if (en != null && !en.includes('#')) return { en, ko: koDesc }
+  // stat id 경로 실패 — 거래소가 유니크 전용 문구에 별도 stat을 안 주고 다른 stat에 얹어두는 경우가 있다
+  // (예: "물리 피해 없음"의 id가 "물리 피해 #% 증가"라 채울 값이 없어 #가 남는다). KR 원문으로 한 번 더 찾는다.
+  const alt = modMap[normKo(koDesc)]
+  if (alt != null) {
+    const filled = fillValues(alt, values)
+    if (!filled.includes('#')) return { en: filled, ko: koDesc }
+  }
+  return { en: null, ko: koDesc }
 }
 
 /**
@@ -57,9 +73,10 @@ export function translateMod(id, koDesc, map) {
  * 이름: 유니크는 uniqueMap으로 EN 번역(PoB가 유니크를 EN 이름으로 매칭 — 기능 필수).
  *       희귀는 절차 생성 이름(Words 조합)인데 KR↔EN 공개 데이터가 없고 PoB 폰트에 한글도 없어(□) —
  *       ASCII 플레이스홀더 `seominugi-bookmark-item-<classId 슬러그>`로 치환(PoB는 이름을 파싱 안 함 — 표시용).
+ * modMap: 유니크 mod 폴백 사전(KR 원문 → EN 템플릿) — stat id 경로가 실패한 줄에만 쓰인다.
  * @returns {{ text: string, missing: string[] }}
  */
-export function buildPobText(item, statMap, baseMap, uniqueMap = {}) {
+export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}) {
   const missing = []
   const base = baseMap[item.baseType]
   if (!base) missing.push('base:' + item.baseType)
@@ -85,8 +102,10 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}) {
     ;(list || []).forEach((m, i) => {
       const ko = typeof m === 'string' ? m : m.description
       const id = typeof m === 'object' && m.hash ? m.hash.replace(/^stat\./, '') : hashAt(i) // explicitMods[].hash는 "stat." 접두
-      const t = id ? translateMod(id, ko, statMap) : { en: null }
-      if (t.en == null) missing.push(kind + ':' + (id || '?'))
+      const t = translateMod(id, ko, statMap, modMap) // id가 없어도 KR 원문 폴백은 시도한다
+      // KR 원문까지 남긴다 — stat id가 실제 문구와 어긋나는 부류(유니크 전용 mod)에선 id만으론
+      // 무엇을 고쳐야 할지 알 수 없고, 폴백 사전(pobUniqueModMap)의 키가 KR 원문 기준이라 그렇다.
+      if (t.en == null) missing.push(`${kind}:${id || '?'} — ${stripTags(ko).replace(/\s*\n\s*/g, ' / ')}`)
       const txt = t.en != null ? t.en : stripTags(ko)
       txt.split('\n').forEach((l) => { const s = l.trim(); if (s) outLines.push(s + suffix) })
     })

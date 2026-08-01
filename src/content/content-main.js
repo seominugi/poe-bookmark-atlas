@@ -107,17 +107,17 @@ function pobFlash(btn, title, sub) {
 }
 async function ensurePobMaps() {
   if (!pobMaps) {
-    const [s, b, u] = await Promise.all(game === 'poe1'
-      ? [import('../lib/pobStatMap.poe1.json'), import('../lib/pobBaseMap.poe1.json'), import('../lib/pobUniqueMap.poe1.json')]
-      : [import('../lib/pobStatMap.json'), import('../lib/pobBaseMap.json'), import('../lib/pobUniqueMap.json')])
-    pobMaps = { statMap: s.default, baseMap: b.default, uniqueMap: u.default }
+    const [s, b, u, m] = await Promise.all(game === 'poe1'
+      ? [import('../lib/pobStatMap.poe1.json'), import('../lib/pobBaseMap.poe1.json'), import('../lib/pobUniqueMap.poe1.json'), import('../lib/pobUniqueModMap.poe1.json')]
+      : [import('../lib/pobStatMap.json'), import('../lib/pobBaseMap.json'), import('../lib/pobUniqueMap.json'), import('../lib/pobUniqueModMap.json')])
+    pobMaps = { statMap: s.default, baseMap: b.default, uniqueMap: u.default, modMap: m.default }
   }
   return pobMaps
 }
 async function pobCopy(item, btn) {
   try {
     const maps = await ensurePobMaps()
-    const { text, missing } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap)
+    const { text, missing } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap)
     await pobCopyText(text)
     pobFlash(btn, '복사됨', missing.length ? `미변환 ${missing.length}` : '✓')
     if (missing.length) LOG('PoB 미변환 항목:', missing)
@@ -129,7 +129,7 @@ const DISCORD_URL = 'https://discord.gg/kEm2G2qcZQ'
 async function reportMissing(item, btn) {
   try {
     const maps = await ensurePobMaps()
-    const { missing } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap)
+    const { missing } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap)
     const report = buildReportText(item, missing, game)
     if (!report) { pobFlash(btn, '제보할 내용 없음', '번역 정상 ✓'); return }
     await pobCopyText(report)

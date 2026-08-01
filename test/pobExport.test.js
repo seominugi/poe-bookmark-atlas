@@ -1,9 +1,10 @@
 // 작업3 — 영문 PoB 조립기 핵심 로직. 캡처한 실제 아이템(공허 경고 · 사원 서판)의 mod로 검증.
 // stat id → 번들 EN 맵 조회 → 값 치환 → 영문 라인. 다중변형(Area/Map)은 KR 설명으로 택1.
 import { describe, it, expect } from 'vitest'
-import { stripTags, digitsToHash, extractValues, fillValues, pickTemplate, translateMod, buildPobText, buildReportText } from '../src/lib/pobExport.js'
+import { stripTags, digitsToHash, extractValues, fillValues, pickTemplate, normKo, translateMod, buildPobText, buildReportText } from '../src/lib/pobExport.js'
 import map from '../src/lib/pobStatMap.json'
 import baseMap from '../src/lib/pobBaseMap.json'
+import modMap from '../src/lib/pobUniqueModMap.json'
 import poe1Map from '../src/lib/pobStatMap.poe1.json'
 import poe1BaseMap from '../src/lib/pobBaseMap.poe1.json'
 
@@ -86,6 +87,35 @@ describe('translateMod — 옵션형 stat id("id|옵션번호") — 2026-08-02 �
   })
 })
 
+describe('normKo — 유니크 mod 폴백 사전의 KR 키 정규화', () => {
+  it('태그 제거 + 값 → # + 공백 제거', () => {
+    expect(normKo('[Lightning|번개] 피해 1~88 추가')).toBe('번개피해#~#추가')
+  })
+  it('사전 쪽 범위 표기 "(80 — 120)"도 아이템의 확정값과 같은 키가 된다', () => {
+    expect(normKo('번개 피해 (1 — 3) ~ (80 — 120) 추가')).toBe(normKo('번개 피해 1~88 추가'))
+  })
+  it('음수·소수도 값으로 취급', () => expect(normKo('이동 속도 -2.5% 감소')).toBe('이동속도#%감소'))
+})
+
+describe('translateMod — 유니크 전용 문구 KR 원문 폴백 (2026-08-02 회귀)', () => {
+  // 하늘의 편린(Skysliver)의 "물리 피해 없음"은 hash가 explicit.stat_1509134228("물리 피해 #% 증가")이다 —
+  // 거래소가 유니크 전용 문구에 별도 stat을 안 주고 성격이 비슷한 stat에 얹어둔 것. 채울 값이 없어 #가 남아
+  // stat id 경로가 실패하므로, KR 원문 기준 유니크 mod 사전으로 한 번 더 찾는다.
+  it('stat id가 엉뚱한 템플릿을 가리켜도 KR 원문으로 해결', () => {
+    expect(translateMod('explicit.stat_1509134228', '[Physical|물리] 피해 없음', map, modMap).en).toBe('No Physical Damage')
+  })
+  it('폴백 사전이 없으면 종전대로 실패(KR 폴백은 조립기가 처리)', () => {
+    expect(translateMod('explicit.stat_1509134228', '[Physical|물리] 피해 없음', map).en).toBeNull()
+  })
+  it('stat id 경로가 성공하면 폴백을 보지 않는다', () => {
+    const trap = { [normKo('물리 피해 10% 증가')]: 'WRONG' }
+    expect(translateMod('explicit.stat_1509134228', '물리 피해 10% 증가', map, trap).en).toBe('10% increased Physical Damage')
+  })
+  it('사전이 정렬 어긋난 짝을 걸렀다 — the-sentry의 "Adds # to # Fire Damage"가 아니어야 한다', () => {
+    expect(modMap['물리피해없음']).toBe('No Physical Damage')
+  })
+})
+
 describe('translateMod — (Local) 접미사 제거 (poe1 무기 지역 mod)', () => {
   // "(Local)"·KR "(특정)"은 거래소 필터 목록이 로컬/글로벌 동명 mod를 구분하려고 붙인 표시일 뿐 —
   // 실제 인게임 아이템 텍스트엔 없다. PoB는 인게임 텍스트만 파싱해서 이 문구가 있으면 mod를 인식 못 한다.
@@ -136,11 +166,12 @@ describe('buildPobText — 전체 아이템 → PoB import 텍스트 (캡처 실
     expect(text).not.toContain('Item Class:') // classId 없음 → 라인 생략
     expect(missing).toContain('base:존재하지않는베이스')
   })
-  it('미매핑 mod — KR 라인 유지(태그 제거) + missing 기록', () => {
+  it('미매핑 mod — KR 라인 유지(태그 제거) + missing에 id·KR 원문 기록', () => {
     const it2 = { ...captured, explicitMods: [{ description: '알 수 없는 [X|속성] 5% 증가', hash: 'stat.explicit.stat_00000' }] }
     const { text, missing } = buildPobText(it2, map, baseMap)
     expect(text).toContain('알 수 없는 속성 5% 증가')
-    expect(missing).toContain('explicit:explicit.stat_00000')
+    // KR 원문이 함께 있어야 폴백 사전(KR 키 기준)에 넣을 수 있다 — 제보만 보고 정정 가능해야 한다
+    expect(missing).toContain('explicit:explicit.stat_00000 — 알 수 없는 속성 5% 증가')
   })
   it('이름 없는 아이템(마법 등) — 이름 라인 생략', () => {
     const { text } = buildPobText({ ...captured, name: '' }, map, baseMap)
@@ -215,6 +246,37 @@ describe('buildPobText — 전체 아이템 → PoB import 텍스트 (캡처 실
     expect(text).toContain('Adds 2 to 3 Cold Damage')
     expect(text).toContain('Adds 1 to 6 Lightning Damage')
     expect(text).not.toContain('(Local)') // PoB는 이 문구가 있으면 mod를 인식 못 함
+    expect(missing).toEqual([])
+  })
+  it('poe2 유니크 "하늘의 편린" — 유니크 전용 문구까지 전부 영문(라이브 캡처)', () => {
+    // 2026-08-02 거래소 API 실캡처(사용자 제보 아이템). "물리 피해 없음"만 KR로 남던 케이스.
+    const skysliver = {
+      name: '하늘의 편린', baseType: '날개 달린 창', rarity: 'Unique', ilvl: 71, corrupted: true,
+      explicitMods: [
+        { description: '[Physical|물리] 피해 없음', hash: 'stat.explicit.stat_1509134228' },
+        { description: '[Lightning|번개] 피해 1~88 추가', hash: 'stat.explicit.stat_3336890334' },
+        { description: '[Attack|공격] 속도 16% 증가', hash: 'stat.explicit.stat_210067635' },
+        { description: '[Shock|감전] 확률 95% 증가', hash: 'stat.explicit.stat_293638271' },
+        { description: '[DamageTypes|피해 유형]별 [BooleanDamageRoll|피해 수치를 최솟값과 최댓값 둘 중의 하나로만 판정]', hash: 'stat.explicit.stat_3108672983' },
+      ],
+    }
+    const { text, missing } = buildPobText(skysliver, map, baseMap, { '하늘의 편린': 'Skysliver' }, modMap)
+    expect(text).toBe([
+      'Item Class: Spears',
+      'Rarity: Unique',
+      'Skysliver',
+      'Winged Spear',
+      '--------',
+      'Item Level: 71',
+      '--------',
+      'No Physical Damage',
+      'Adds 1 to 88 Lightning Damage',
+      '16% increased Attack Speed',
+      '95% increased chance to Shock',
+      'Rolls only the minimum or maximum Damage value for each Damage Type',
+      '--------',
+      'Corrupted',
+    ].join('\n'))
     expect(missing).toEqual([])
   })
 })
