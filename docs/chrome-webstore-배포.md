@@ -10,9 +10,12 @@ POE POE 북마크 아틀라스 확장의 Chrome Web Store 등록 가이드. 업�
 npm run build   # dist/ 갱신 (이미 완료)
 ```
 
-zip 생성 방법(이 환경은 PowerShell이 deny라 자동화 불가):
+zip 생성 방법:
+- **PowerShell**(권장 — Claude Code에서도 `powershell.exe -NoProfile -Command`로 실행된다. 2026-08-02 0.6.2에서 확인. Git Bash에는 `zip`이 없다):
+  ```
+  Compress-Archive -Path dist\* -DestinationPath deploy\poe-bookmark-atlas-X.Y.Z.zip -Force
+  ```
 - **탐색기**: `dist` 폴더 안으로 들어가 → 내용물 전체(`assets`, `manifest.json`, `service-worker-loader.js`, `src`) 선택 → 우클릭 → "압축(zip)"
-- **PowerShell**(직접 실행): `Compress-Archive -Path dist\* -DestinationPath poe-bookmark-atlas-0.1.0.zip -Force`
 
 확인: 압축 파일을 열었을 때 최상위에 `manifest.json`이 보이면 정상.
 
