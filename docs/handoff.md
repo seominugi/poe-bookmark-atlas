@@ -1,5 +1,5 @@
 ---
-timestamp: 2026-08-01 (Asia/Seoul)
+timestamp: 2026-08-02 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
@@ -11,8 +11,8 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 **0.6.2 릴리즈 게시 완료 · 스토어 제출 대기 (2026-08-02)** — 사용자 제보(소형 클러스터 주얼 인챈트가 한글로 남음)로 번들 stat 맵이 stale함을 확인하고 재생성했다(`1e9bdba`). 최신 stats API 대비 미매핑 **poe1 2,733건 / poe2 41건 → 양쪽 0건**. 아래 완료 항목 참조.
 버전 범프 0.6.1 → **0.6.2**(`49fb1b4`) → `develop` → `main` FF 머지·푸시(`8bcd0b9..49fb1b4`, 4커밋) → **`v0.6.2` 태그 즉시 publish(`49fb1b4`, 現 `Latest`)**. `deploy/poe-bookmark-atlas-0.6.2.zip`(29파일·788KB, manifest.json 루트 확인) 생성 완료.
-**남은 것: 사용자가 스토어에 `deploy/poe-bookmark-atlas-0.6.2.zip` 제출.**
-⚠ **0.6.1이 아직 스토어 심사 중이다**(2026-08-01 제출). 0.6.2를 올리면 심사 대기 중인 0.6.1을 **대체**한다 — 이 수정이 더 빨리 나가므로 대체가 낫지만, 0.6.1 항목이 심사 큐에서 사라진다는 점은 알고 진행할 것.
+**사용자가 0.6.2 스토어 심사 요청 완료(2026-08-02). 남은 것: 심사 결과 회신.** 로컬 태그도 `git fetch origin --tags`로 v0.6.2까지 동기화 완료(`gh release create`는 태그를 원격에만 만든다 — 릴리즈 직후 fetch 습관화할 것).
+⚠ **0.6.1 제출분은 0.6.2로 대체됐다** — 0.6.1은 심사 중이었고 스토어는 한 번에 한 버전만 큐에 둔다. 스토어로 나가는 버전은 0.6.2, `v0.6.1` 태그는 GitHub에만 남는다(v0.6.0과 같은 처지).
 ⚠ zip이 745KB → 788KB로 늘었다(stat 맵 증가분). PoB 버튼 클릭 시 lazy 로드라 초기 로드 성능엔 영향 없다.
 
 **0.6.1 릴리즈 게시 완료 · 스토어 심사 대기 (2026-08-01)** — 조건 묶음 드래그 재배치·삭제, 카오스↔신성한 양방향 환산 칩, 하드코어 리그명 한글화, 변형 아이템 북마크명 버그 수정(v0.6.0, `cd5dbc4`) + 사용자 실사용 제보로 정비한 드래그 사용성·칩 줄 접기(0.6.1).
@@ -408,12 +408,13 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 ## 현재 상태
 
 - **브랜치 전략 (2026-07-22 신설)**: 통합 브랜치 `develop`, `main`은 릴리즈 전용(직접 커밋 금지). 정본은 루트 `CLAUDE.md`. 릴리즈 시 `develop` → `main` 머지 후 태그.
-- 브랜치: `main`·`develop` 둘 다 tip `13dd975`(origin 동기화 `0 0`, fast-forward 완료)
+- 브랜치(2026-08-02): `main`·`develop` 둘 다 `49fb1b4` 이상, origin 동기화 `0 0`. develop tip은 이 핸드오프 커밋
 - 미커밋: `docs/영상-소개-대본.md`(신규, 사용자 검토 대기 — 0.5.0 조건 묶음·일괄 이동·투어 개편 반영 여부 확인 필요)
-- 테스트: **294/294**(vitest, jsdom 포함) · 빌드 통과
+- 테스트: **318/318**(vitest, jsdom 포함) · 빌드 통과
 - **라이브 확인 전부 완료(2026-07-28)**: 이동 모달(목록 렌더·미리 체크·2건 이동·복원) ✓ / 저장 다이얼로그 ✓ / 투어 17스텝 전 구간 ✓(신규 2·7스텝 실제 요소 스포트라이트 확인) / 토스트 화면 중앙·줄바꿈 ✓ — **대기 중인 라이브 검증 없음**
-- 배포: **0.5.0 릴리즈 게시 + 스토어 제출 완료**(태그 `v0.5.0`, `13dd975`, 現 `Latest`) — 심사 결과 대기 중. 스토어에 게시 중인 버전은 심사 통과 전까지 0.4.0
-- **GitHub 릴리즈·태그**: `v0.1.0`·`v0.2.0`·`v0.3.0`(`0f80dae`)·`v0.4.0`(`9064d03`)·**`v0.5.0`(`13dd975`, 2026-07-28 publish, 現 `Latest`)** 전부 공개. 다음은 `v0.6.0`. **릴리즈 절차**: ① 릴리즈 커밋에서 버전 범프+빌드+zip ② `gh release create vX.Y.Z --draft --target <full-sha> --title "vX.Y.Z" --notes-file <md>`(전체 SHA 필수 — 단축 SHA는 target_commitish 거부) ③ publish(`gh release edit vX.Y.Z --draft=false --latest`). 노트는 사용자 관점 기능 중심으로 묶어 작성(개발 커밋 나열 X). **publish 시점은 사용자 판단** — 0.4.0까지는 "스토어 심사 통과 후", 0.5.0은 사용자 요청으로 제출 전 게시했다. 물어보고 정할 것. **이전 버전 draft가 게시 안 됐으면 그것부터 publish**(v0.3.0 사례 — 스토어엔 나갔는데 태그 없이 19일 방치됨) 후 새 버전 릴리즈 진행
+- 배포: **0.6.2 릴리즈 게시 + 스토어 제출 완료**(태그 `v0.6.2`, `49fb1b4`, 現 `Latest`) — 심사 결과 대기 중. 스토어에 게시 중인 버전은 심사 통과 전까지 이전 승인분
+- **GitHub 릴리즈·태그**: `v0.1.0`~`v0.5.0`(`13dd975`)·`v0.6.0`(`cd5dbc4`)·`v0.6.1`(`8bcd0b9`)·**`v0.6.2`(`49fb1b4`, 2026-08-02 publish, 現 `Latest`)** 전부 공개. 로컬·origin 태그 동기 확인 완료. **릴리즈 절차**: ① 릴리즈 커밋에서 버전 범프+빌드+zip ② `gh release create vX.Y.Z --target <full-sha> --title "vX.Y.Z" --notes-file <md>`(전체 SHA 필수 — 단축 SHA는 target_commitish 거부. draft로 만들 거면 `--draft`, 즉시 게시면 `--latest`) ③ **`git fetch origin --tags`** — `gh release create`는 태그를 원격에만 만들어서 안 하면 로컬 태그가 뒤처진다 ④ draft였다면 publish(`gh release edit vX.Y.Z --draft=false --latest`). 노트는 사용자 관점 기능 중심으로 묶어 작성(개발 커밋 나열 X). **publish 시점은 사용자 판단** — 0.4.0까지는 "스토어 심사 통과 후", 0.5.0부터는 제출 전 즉시 게시를 택하고 있다. 물어보고 정할 것. **이전 버전 draft가 게시 안 됐으면 그것부터 publish**(v0.3.0 사례 — 스토어엔 나갔는데 태그 없이 19일 방치됨) 후 새 버전 릴리즈 진행
+- **zip 생성**: Git Bash에 `zip`이 없다. `powershell.exe -NoProfile -Command "Compress-Archive -Path dist\* -DestinationPath deploy\poe-bookmark-atlas-X.Y.Z.zip -Force"` (Claude Code에서 실행됨, 2026-08-02 확인). `dist/*`여야 manifest.json이 zip 루트에 온다
 - 빌드: `npm run build` → dist/ (해시 변경 시 확장 리로드+F5). dist/·deploy/ gitignore.
 - 하네스: `.claude/launch.json`의 `harness`(포트 5199), `test-harness/harness.mjs` 참조. content-main.js(페이지 주입 로직·PoB 버튼·환산 칩)는 하네스가 실행 안 함 — 이 부분은 `preview_eval`로 실제 로직을 인라인 재현해 모의 검증(라이브 로그인 세션 접근 불가)
 - 검증 제약: 거래소는 **로그인 세션 탭에서만** 패널 마운트 → 라이브 검증은 확장 리로드+F5 수동. 확장은 **dist 폴더** 로드.
