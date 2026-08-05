@@ -7,6 +7,8 @@ import baseMap from '../src/lib/pobBaseMap.json'
 import modMap from '../src/lib/pobUniqueModMap.json'
 import poe1Map from '../src/lib/pobStatMap.poe1.json'
 import poe1BaseMap from '../src/lib/pobBaseMap.poe1.json'
+import poe1UniqueMap from '../src/lib/pobUniqueMap.poe1.json'
+import poe1ModMap from '../src/lib/pobUniqueModMap.poe1.json'
 
 describe('stripTags — [Key|표시텍스트] 마크업 제거', () => {
   it('[Rarity|희귀도] → 희귀도', () => {
@@ -278,6 +280,71 @@ describe('buildPobText — 전체 아이템 → PoB import 텍스트 (캡처 실
       'Corrupted',
     ].join('\n'))
     expect(missing).toEqual([])
+  })
+})
+
+describe('군단 주얼 — 검색 stat이 mod의 첫 줄만 덮는 경우 (사용자 제보 2026-08-05)', () => {
+  // 거래소는 군단 주얼 mod를 **두 줄 한 덩어리**로 준다. 검색 stat(pseudo_timeless_jewel_*)은 첫 줄뿐이라
+  // 예전엔 #가 다 채워졌다는 이유로 성공 처리하고 둘째 줄(정복자)이 조용히 사라졌다 — missing[]에도 안 남아
+  // Shift+클릭 제보로도 안 드러났다. 게다가 properties(반경)는 아예 읽지 않았다.
+  const ko = '카스피로를 기념하기 위해 제작한 주화 20820개\n반경 내 패시브 스킬은 영원한 제국의 지배를 받음'
+  const jewel = {
+    name: '고상한 오만', baseType: '무궁한 주얼', rarity: 'Unique', ilvl: 84,
+    explicitMods: [{ description: ko, hash: 'stat.explicit.pseudo_timeless_jewel_caspiro' }],
+    properties: [{ name: '반경', values: [['대형', 0]] }],
+  }
+  const build = (it) => buildPobText(it, poe1Map, poe1BaseMap, poe1UniqueMap, poe1ModMap)
+
+  it('전체 조립 — 인게임 Ctrl+C 순서(헤더 → 반경 → ilvl → mod), 두 줄 모두 영문', () => {
+    const { text, missing } = build(jewel)
+    expect(text).toBe([
+      'Item Class: Jewels',
+      'Rarity: Unique',
+      'Elegant Hubris',
+      'Timeless Jewel',
+      '--------',
+      'Radius: Large',
+      '--------',
+      'Item Level: 84',
+      '--------',
+      'Commissioned 20820 coins to commemorate Caspiro',
+      'Passives in radius are Conquered by the Eternal Empire', // 예전엔 이 줄이 통째로 사라졌다
+    ].join('\n'))
+    expect(missing).toEqual([])
+  })
+
+  it('정복자 5진영 모두 폴백 사전으로 영문화된다', () => {
+    const 진영 = [
+      ['바알', 'Passives in radius are Conquered by the Vaal'],
+      ['카루이', 'Passives in radius are Conquered by the Karui'],
+      ['마라케스', 'Passives in radius are Conquered by the Maraketh'],
+      ['템플러', 'Passives in radius are Conquered by the Templars'],
+      ['영원한 제국', 'Passives in radius are Conquered by the Eternal Empire'],
+    ]
+    for (const [kr, en] of 진영) {
+      const t = translateMod('explicit.pseudo_timeless_jewel_caspiro',
+        `카스피로를 기념하기 위해 제작한 주화 20820개\n반경 내 패시브 스킬은 ${kr}의 지배를 받음`, poe1Map, poe1ModMap)
+      expect(t.en).toContain(en)
+    }
+  })
+
+  it('뒷줄을 사전에서 못 찾으면 KR로 남기되 그 줄만 missing[]에 보고한다(조용한 유실 방지)', () => {
+    const unknown = { ...jewel, explicitMods: [{ description: '카스피로를 기념하기 위해 제작한 주화 20820개\n알 수 없는 신규 문구', hash: 'stat.explicit.pseudo_timeless_jewel_caspiro' }] }
+    const { text, missing } = build(unknown)
+    expect(text).toContain('Commissioned 20820 coins to commemorate Caspiro') // 앞줄은 살린다
+    expect(text).toContain('알 수 없는 신규 문구') // 줄 자체를 버리지 않는다
+    expect(missing).toEqual(['explicit:explicit.pseudo_timeless_jewel_caspiro — 알 수 없는 신규 문구'])
+  })
+
+  it('모르는 반경 표기는 그대로 내보내되 제보에 남긴다', () => {
+    const { text, missing } = build({ ...jewel, properties: [{ name: '반경', values: [['초대형', 0]] }] })
+    expect(text).toContain('Radius: 초대형')
+    expect(missing).toContain('radius:초대형')
+  })
+
+  it('반경 속성이 없는 아이템은 Radius 줄을 만들지 않는다(회귀)', () => {
+    const { text } = build({ ...jewel, properties: undefined })
+    expect(text).not.toContain('Radius:')
   })
 })
 

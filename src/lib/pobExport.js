@@ -49,13 +49,37 @@ export function normKo(s) {
 
 // mod(stat id + KR 설명) → { en, ko }. en=null이면 미매핑 또는 미완성 변환(조립기가 폴백·집계).
 // modMap: KR 원문 기준 유니크 mod 폴백 사전(pobUniqueModMap) — stat id 경로가 실패했을 때만 본다.
+const nonEmptyLines = (s) => String(s).split('\n').map((l) => l.trim()).filter(Boolean)
+
+// 거래소 stat 템플릿이 mod의 '검색 가능한 앞부분'만 덮는 경우가 있다 — 군단 주얼이 대표적이다.
+// 아이템 mod는 두 줄인데(주화 수 + 정복자) 검색 stat(pseudo_timeless_jewel_*)은 첫 줄뿐이라,
+// 채울 #가 없다는 이유로 그대로 성공 처리하면 둘째 줄이 출력에서 **조용히 사라진다**
+// (missing[]에도 안 남아 Shift+클릭 제보로도 영영 안 드러난다 — 사용자 제보로 발견).
+// 남은 KR 줄을 각각 폴백 사전으로 한 번 더 번역하고, 그래도 안 되면 KR을 남기고 missingLines로 보고한다.
+// 템플릿이 '앞줄부터' 덮는다고 가정한다 — 검색 stat은 mod 선두 문구에서 만들어지기 때문이다.
+function withTrailingLines(en, koText, modMap, koDesc) {
+  const koLines = nonEmptyLines(koText)
+  const enLines = nonEmptyLines(en)
+  if (koLines.length <= enLines.length) return { en, ko: koDesc }
+  const missingLines = []
+  const rest = koLines.slice(enLines.length).map((l) => {
+    const alt = modMap[normKo(l)]
+    const filled = alt != null ? fillValues(alt, extractValues(l)) : null
+    if (filled != null && !filled.includes('#')) return filled
+    missingLines.push(l) // 줄을 버리지 않고 KR로 남긴다 — 사라지는 것보다 눈에 띄는 편이 낫다
+    return l
+  })
+  return { en: [...enLines, ...rest].join('\n'), ko: koDesc, missingLines }
+}
+
 export function translateMod(id, koDesc, map, modMap = {}) {
-  const values = extractValues(stripTags(koDesc))
+  const koText = stripTags(koDesc)
+  const values = extractValues(koText)
   const tpl = pickTemplate(id, koDesc, map)?.replace(TRADE_ONLY_SUFFIX, '')
   // 클러스터 주얼류 "Allocates #" 같은 텍스트형(특성 이름) 옵션은 #가 숫자가 아니라 extractValues가 못 채운다.
   // 미치환 "#"가 그대로 남으면 PoB가 그 줄을 통째로 못 읽으므로 실패로 취급한다.
   const en = tpl == null ? null : fillValues(tpl, values)
-  if (en != null && !en.includes('#')) return { en, ko: koDesc }
+  if (en != null && !en.includes('#')) return withTrailingLines(en, koText, modMap, koDesc)
   // stat id 경로 실패 — 거래소가 유니크 전용 문구에 별도 stat을 안 주고 다른 stat에 얹어두는 경우가 있다
   // (예: "물리 피해 없음"의 id가 "물리 피해 #% 증가"라 채울 값이 없어 #가 남는다). KR 원문으로 한 번 더 찾는다.
   const alt = modMap[normKo(koDesc)]
@@ -64,6 +88,18 @@ export function translateMod(id, koDesc, map, modMap = {}) {
     if (!filled.includes('#')) return { en: filled, ko: koDesc }
   }
   return { en: null, ko: koDesc }
+}
+
+// 주얼 반경 — PoB가 '반경 내' 효과 계산에 실제로 쓴다. 거래소는 properties에 담아 보내는데
+// buildPobText가 properties를 통째로 안 읽고 있었다(사용자 제보 — 군단 주얼에 Radius가 빠짐).
+const RADIUS_EN = { 대형: 'Large', 중형: 'Medium', 소형: 'Small' }
+export function radiusLine(item) {
+  const p = ((item && item.properties) || []).find((x) => /반경|Radius/.test(String((x && x.name) || '')))
+  const raw = p && p.values && p.values[0] && p.values[0][0]
+  if (!raw) return null
+  const key = stripTags(String(raw)).trim()
+  const en = RADIUS_EN[key]
+  return { line: 'Radius: ' + (en || key), known: en != null, raw: key }
 }
 
 /**
@@ -106,6 +142,8 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
       // KR 원문까지 남긴다 — stat id가 실제 문구와 어긋나는 부류(유니크 전용 mod)에선 id만으론
       // 무엇을 고쳐야 할지 알 수 없고, 폴백 사전(pobUniqueModMap)의 키가 KR 원문 기준이라 그렇다.
       if (t.en == null) missing.push(`${kind}:${id || '?'} — ${stripTags(ko).replace(/\s*\n\s*/g, ' / ')}`)
+      // 템플릿이 덮지 못한 뒷줄 — 줄 단위로 보고한다(mod 전체가 아니라 그 줄만 사전에 넣으면 되므로)
+      else if (t.missingLines) t.missingLines.forEach((l) => missing.push(`${kind}:${id || '?'} — ${l}`))
       const txt = t.en != null ? t.en : stripTags(ko)
       txt.split('\n').forEach((l) => { const s = l.trim(); if (s) outLines.push(s + suffix) })
     })
@@ -123,6 +161,12 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
   ]
 
   const sections = [head]
+  // 인게임 Ctrl+C 순서: 헤더 → 속성(반경 등) → Item Level → mod
+  const rad = radiusLine(item)
+  if (rad) {
+    if (!rad.known) missing.push('radius:' + rad.raw) // 모르는 표기는 그대로 내보내되 제보에 남긴다
+    sections.push([rad.line])
+  }
   if (item.ilvl != null) sections.push(['Item Level: ' + item.ilvl])
   if (ench.length) sections.push(ench)
   if (impl.length) sections.push(impl)
