@@ -348,6 +348,89 @@ describe('군단 주얼 — 검색 stat이 mod의 첫 줄만 덮는 경우 (사�
   })
 })
 
+describe('조용한 실패 가시화 — warnings (번역은 됐지만 확인 필요)', () => {
+  // 군단 주얼과 같은 부류: "채울 게 다 채워졌다"가 "정보가 다 옮겨졌다"를 뜻하지 않는다.
+  // 실패로 처리하지는 않는다 — 번들 데이터 실측상 진짜 유실이 0건이라 실패로 만들면 정상 번역이 한글로 떨어진다.
+  it('값이 템플릿 #보다 많으면 초과분이 버려진다 — 경고로 남긴다', () => {
+    const m = { 'explicit.stat_x': 'Adds # Fire Damage' }
+    const t = translateMod('explicit.stat_x', '화염 피해 5~10 추가', m)
+    expect(t.en).toBe('Adds 5 Fire Damage') // fillValues가 10을 조용히 버린다
+    expect(t.warnings).toEqual([expect.stringContaining('값 초과')])
+  })
+
+  it('EN이 고정 문구(#=0)면 경고하지 않는다 — 한국어 어법상의 1이라 유실이 아니다', () => {
+    // 번들 실측: 초과 122건 중 120건이 이 부류("추가 1명" → "an additional")
+    const m = { 'explicit.stat_y': 'Area is inhabited by an additional Rogue Exile' }
+    const t = translateMod('explicit.stat_y', '지역에 탈주 유배자 추가 1명이 서식', m)
+    expect(t.en).toBe('Area is inhabited by an additional Rogue Exile')
+    expect(t.warnings).toBeUndefined()
+  })
+
+  it('다중변형에서 KR이 어느 변형과도 안 맞으면 첫 변형을 쓰되 경고한다', () => {
+    const m = { 'explicit.stat_z': [{ ko: '방어도 #% 증가', en: '#% increased Armour' }, { ko: '방어도 # 증가', en: '# increased Armour' }] }
+    const t = translateMod('explicit.stat_z', '전혀 다른 문구 5% 증가', m)
+    expect(t.en).toBe('5% increased Armour') // 동작은 유지 — 조용하지만 않게 한다
+    expect(t.warnings).toEqual([expect.stringContaining('변형 추정')])
+  })
+
+  it('변형이 정확히 맞으면 경고하지 않는다(회귀)', () => {
+    const m = { 'explicit.stat_z': [{ ko: '방어도 #% 증가', en: '#% increased Armour' }, { ko: '방어도 # 증가', en: '# increased Armour' }] }
+    expect(translateMod('explicit.stat_z', '방어도 12% 증가', m).warnings).toBeUndefined()
+  })
+
+  it('warnings는 missing과 분리된다 — 정상 복사가 실패처럼 보이면 안 된다', () => {
+    const item = { name: '', baseType: '녹슨 손도끼', rarity: 'Normal', ilvl: 7, explicitMods: [{ description: '화염 피해 5~10 추가', hash: 'stat.explicit.stat_x' }] }
+    const { missing, warnings } = buildPobText(item, { 'explicit.stat_x': 'Adds # Fire Damage' }, poe1BaseMap)
+    expect(missing).toEqual([]) // 미변환은 없다
+    expect(warnings).toHaveLength(1)
+  })
+})
+
+describe('PoB가 읽는데 안 만들던 아이템 필드 (품질·소켓·영향력)', () => {
+  const gear = {
+    name: '', baseType: '녹슨 손도끼', rarity: 'Rare', ilvl: 84,
+    properties: [{ name: '품질', values: [['+20%', 1]] }],
+    sockets: [{ group: 0, sColour: 'R' }, { group: 0, sColour: 'G' }, { group: 0, sColour: 'B' }, { group: 1, sColour: 'W' }],
+    influences: { shaper: true, elder: true },
+    corrupted: true,
+  }
+
+  it('품질·소켓·영향력이 인게임 Ctrl+C 순서로 들어간다', () => {
+    const { text } = buildPobText(gear, poe1Map, poe1BaseMap)
+    expect(text).toBe([
+      'Item Class: One Hand Axes',
+      'Rarity: Rare',
+      'Rusted Hatchet', // name이 빈 문자열이라 이름 줄은 안 나온다(기존 동작)
+      '--------',
+      'Quality: +20%',
+      '--------',
+      'Sockets: R-G-B W', // 같은 group은 '-', 다른 group은 공백
+      '--------',
+      'Item Level: 84',
+      '--------',
+      'Shaper Item',
+      'Elder Item',
+      '--------',
+      'Corrupted',
+    ].join('\n'))
+  })
+
+  it('해당 필드가 없으면 줄을 만들지 않는다(회귀)', () => {
+    const { text } = buildPobText({ ...gear, properties: undefined, sockets: undefined, influences: undefined, corrupted: false }, poe1Map, poe1BaseMap)
+    expect(text).not.toContain('Quality:')
+    expect(text).not.toContain('Sockets:')
+    expect(text).not.toContain('Shaper Item')
+    expect(text).not.toContain('Corrupted')
+  })
+
+  it('품질·반경이 있으면 한 속성 섹션에 함께 들어간다', () => {
+    const jewel = { name: '고상한 오만', baseType: '무궁한 주얼', rarity: 'Unique', ilvl: 84,
+      properties: [{ name: '품질', values: [['+10%', 1]] }, { name: '반경', values: [['대형', 0]] }] }
+    const { text } = buildPobText(jewel, poe1Map, poe1BaseMap, poe1UniqueMap, poe1ModMap)
+    expect(text).toContain('Quality: +10%\nRadius: Large')
+  })
+})
+
 describe('buildReportText — 미변환 수동 제보용 텍스트(디스코드에 붙여넣기)', () => {
   it('미변환 항목이 있으면 아이템·게임·미변환 목록을 담은 텍스트 생성', () => {
     const text = buildReportText({ name: '공허 경고', baseType: '사원 서판' }, ['base:골절늑골 부적', 'enchant:enchant.stat_2954116742'], 'poe1')

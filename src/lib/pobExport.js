@@ -26,14 +26,21 @@ export function fillValues(template, values) {
   return String(template).replace(/#/g, () => (i < values.length ? values[i++] : '#'))
 }
 
-// stat id → EN 템플릿. 다중변형이면 KR 설명(숫자 정규화)으로 ko를 매칭해 택1(불일치 시 첫 변형).
-export function pickTemplate(id, koDesc, map) {
+// stat id → { en, guessed }. 다중변형이면 KR 설명(숫자 정규화)으로 ko를 매칭해 택1.
+// **불일치 시 첫 변형을 쓰되 guessed로 표시한다** — 예전엔 조용히 e[0]을 썼다.
+// 잘못 고르면 (Local)/글로벌처럼 의미가 다른 영문이 나가 PoB 계산이 통째로 달라지는데
+// missing[]에 안 남아 드러나지 않았다(다중변형 poe1 233 / poe2 80건).
+function pickTemplateInfo(id, koDesc, map) {
   const e = map[id]
   if (e == null) return null
-  if (typeof e === 'string') return e
+  if (typeof e === 'string') return { en: e, guessed: false }
   const key = digitsToHash(stripTags(koDesc)).trim()
   const hit = e.find((v) => v.ko && digitsToHash(v.ko).trim() === key)
-  return (hit || e[0]).en
+  return { en: (hit || e[0]).en, guessed: !hit }
+}
+export function pickTemplate(id, koDesc, map) {
+  const info = pickTemplateInfo(id, koDesc, map)
+  return info ? info.en : null
 }
 
 // 거래소 필터 목록이 로컬/글로벌 동명 mod를 구분하려고 붙인 표시(EN "(Local)"/KR "(특정)" 등) — 실제
@@ -72,14 +79,34 @@ function withTrailingLines(en, koText, modMap, koDesc) {
   return { en: [...enLines, ...rest].join('\n'), ko: koDesc, missingLines }
 }
 
+// 값이 템플릿 #보다 많으면 fillValues가 초과분을 조용히 버린다 → 틀린 수치가 PoB로 갈 수 있다.
+// **단, EN이 고정 문구(#=0)인 경우는 유실이 아니다** — 한국어 어법상의 1("추가 1명" → "an additional")이라
+// EN 쪽이 온전하다. 번들 데이터 실측: 초과 122건 중 120건이 이 부류였다. 그래서 #가 1개 이상일 때만 본다.
+// 실패로 처리하지 않고 경고만 남긴다 — 실측상 진짜 유실은 0건이라, 실패로 만들면 정상 번역이 한글로 떨어진다.
+function valueOverflow(tpl, en, koText) {
+  const hashes = (String(tpl).match(/#/g) || []).length
+  if (!hashes) return null
+  const covered = nonEmptyLines(koText).slice(0, nonEmptyLines(en).length).join('\n')
+  const n = extractValues(covered).length
+  return n > hashes ? { hashes, values: n } : null
+}
+
 export function translateMod(id, koDesc, map, modMap = {}) {
   const koText = stripTags(koDesc)
   const values = extractValues(koText)
-  const tpl = pickTemplate(id, koDesc, map)?.replace(TRADE_ONLY_SUFFIX, '')
+  const info = pickTemplateInfo(id, koDesc, map)
+  const tpl = info ? info.en.replace(TRADE_ONLY_SUFFIX, '') : null
   // 클러스터 주얼류 "Allocates #" 같은 텍스트형(특성 이름) 옵션은 #가 숫자가 아니라 extractValues가 못 채운다.
   // 미치환 "#"가 그대로 남으면 PoB가 그 줄을 통째로 못 읽으므로 실패로 취급한다.
   const en = tpl == null ? null : fillValues(tpl, values)
-  if (en != null && !en.includes('#')) return withTrailingLines(en, koText, modMap, koDesc)
+  if (en != null && !en.includes('#')) {
+    const r = withTrailingLines(en, koText, modMap, koDesc)
+    const warn = []
+    if (info.guessed) warn.push('변형 추정(KR 문구가 어느 변형과도 일치하지 않음)')
+    const ov = valueOverflow(tpl, en, koText)
+    if (ov) warn.push(`값 초과(EN #${ov.hashes}개 < KR 값 ${ov.values}개 — 초과분 유실)`)
+    return warn.length ? { ...r, warnings: warn } : r
+  }
   // stat id 경로 실패 — 거래소가 유니크 전용 문구에 별도 stat을 안 주고 다른 stat에 얹어두는 경우가 있다
   // (예: "물리 피해 없음"의 id가 "물리 피해 #% 증가"라 채울 값이 없어 #가 남는다). KR 원문으로 한 번 더 찾는다.
   const alt = modMap[normKo(koDesc)]
@@ -93,13 +120,43 @@ export function translateMod(id, koDesc, map, modMap = {}) {
 // 주얼 반경 — PoB가 '반경 내' 효과 계산에 실제로 쓴다. 거래소는 properties에 담아 보내는데
 // buildPobText가 properties를 통째로 안 읽고 있었다(사용자 제보 — 군단 주얼에 Radius가 빠짐).
 const RADIUS_EN = { 대형: 'Large', 중형: 'Medium', 소형: 'Small' }
-export function radiusLine(item) {
-  const p = ((item && item.properties) || []).find((x) => /반경|Radius/.test(String((x && x.name) || '')))
+const propValue = (item, re) => {
+  const p = ((item && item.properties) || []).find((x) => re.test(String((x && x.name) || '')))
   const raw = p && p.values && p.values[0] && p.values[0][0]
-  if (!raw) return null
-  const key = stripTags(String(raw)).trim()
+  return raw ? stripTags(String(raw)).trim() : null
+}
+export function radiusLine(item) {
+  const key = propValue(item, /반경|Radius/)
+  if (!key) return null
   const en = RADIUS_EN[key]
   return { line: 'Radius: ' + (en || key), known: en != null, raw: key }
+}
+
+// 품질 — PoB가 로컬 mod 계산에 실제로 쓴다(20% 품질 무기와 0%는 DPS가 크게 다르다).
+export function qualityLine(item) {
+  const raw = propValue(item, /품질|Quality/)
+  const m = raw && raw.match(/-?\d+/)
+  return m ? 'Quality: +' + m[0] + '%' : null
+}
+
+// 소켓·링크 — 같은 group끼리 '-'로 잇고 그룹 사이는 공백(인게임 Ctrl+C 포맷).
+export function socketsLine(item) {
+  const list = (item && item.sockets) || []
+  if (!list.length) return null
+  const groups = []
+  for (const s of list) {
+    const g = Number(s && s.group) || 0
+    if (!groups[g]) groups[g] = []
+    groups[g].push((s && s.sColour) || 'W') // 색 미상은 화이트로 — 링크 구조가 더 중요하다
+  }
+  return 'Sockets: ' + groups.filter(Boolean).map((g) => g.join('-')).join(' ')
+}
+
+// 영향력(Shaper/Elder/…) — PoB가 "Shaper Item" 같은 줄로 인식한다.
+const INFLUENCE_EN = { shaper: 'Shaper', elder: 'Elder', crusader: 'Crusader', redeemer: 'Redeemer', hunter: 'Hunter', warlord: 'Warlord' }
+export function influenceLines(item) {
+  const inf = (item && item.influences) || {}
+  return Object.keys(INFLUENCE_EN).filter((k) => inf[k]).map((k) => INFLUENCE_EN[k] + ' Item')
 }
 
 /**
@@ -114,6 +171,7 @@ export function radiusLine(item) {
  */
 export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}) {
   const missing = []
+  const warnings = [] // 번역은 됐지만 의심스러운 것 — '미변환' 배지에는 안 세고 제보 텍스트에만 담는다
   const base = baseMap[item.baseType]
   if (!base) missing.push('base:' + item.baseType)
 
@@ -144,6 +202,8 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
       if (t.en == null) missing.push(`${kind}:${id || '?'} — ${stripTags(ko).replace(/\s*\n\s*/g, ' / ')}`)
       // 템플릿이 덮지 못한 뒷줄 — 줄 단위로 보고한다(mod 전체가 아니라 그 줄만 사전에 넣으면 되므로)
       else if (t.missingLines) t.missingLines.forEach((l) => missing.push(`${kind}:${id || '?'} — ${l}`))
+      // 번역은 성공했지만 조용히 틀렸을 수 있는 것 — 실패가 아니라 경고로 분리한다
+      if (t.warnings) t.warnings.forEach((w) => warnings.push(`${kind}:${id || '?'} — ${w} — ${stripTags(ko).replace(/\s*\n\s*/g, ' / ')}`))
       const txt = t.en != null ? t.en : stripTags(ko)
       txt.split('\n').forEach((l) => { const s = l.trim(); if (s) outLines.push(s + suffix) })
     })
@@ -161,29 +221,41 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
   ]
 
   const sections = [head]
-  // 인게임 Ctrl+C 순서: 헤더 → 속성(반경 등) → Item Level → mod
+  // 인게임 Ctrl+C 순서: 헤더 → 속성(품질·반경) → 소켓 → Item Level → mod → 영향력 → Corrupted
+  const props = []
+  const qual = qualityLine(item)
+  if (qual) props.push(qual)
   const rad = radiusLine(item)
   if (rad) {
     if (!rad.known) missing.push('radius:' + rad.raw) // 모르는 표기는 그대로 내보내되 제보에 남긴다
-    sections.push([rad.line])
+    props.push(rad.line)
   }
+  if (props.length) sections.push(props)
+  const sock = socketsLine(item)
+  if (sock) sections.push([sock])
   if (item.ilvl != null) sections.push(['Item Level: ' + item.ilvl])
   if (ench.length) sections.push(ench)
   if (impl.length) sections.push(impl)
   if (expl.length) sections.push(expl)
+  const infl = influenceLines(item)
+  if (infl.length) sections.push(infl)
   if (item.corrupted) sections.push(['Corrupted'])
-  return { text: sections.map((s) => s.join('\n')).join('\n--------\n'), missing }
+  return { text: sections.map((s) => s.join('\n')).join('\n--------\n'), missing, warnings }
 }
 
 // 미변환 mod 수동 제보용 텍스트 — 웹훅 없이 사용자가 직접 Discord에 붙여넣는 방식(클라이언트에 웹훅 시크릿을 두지 않기 위함).
-// missing 없으면 null(제보할 게 없음 — 조립기가 버튼 동작 결정).
-export function buildReportText(item, missing, game) {
-  if (!missing || !missing.length) return null
-  return [
+// missing·warnings 둘 다 없으면 null(제보할 게 없음 — 조립기가 버튼 동작 결정).
+// warnings는 '번역은 됐지만 조용히 틀렸을 수 있는 것'이라 미변환과 절을 나눠 담는다.
+export function buildReportText(item, missing, game, warnings = []) {
+  const miss = missing || []
+  const warn = warnings || []
+  if (!miss.length && !warn.length) return null
+  const out = [
     '[POE 북마크 아틀라스] PoB 번역 미변환 제보',
     `아이템: ${item.name || '(이름 없음)'} / 베이스: ${item.baseType || '(알 수 없음)'}`,
     `게임: ${game}`,
-    '미변환 항목:',
-    ...missing.map((m) => '- ' + m),
-  ].join('\n')
+  ]
+  if (miss.length) out.push('미변환 항목:', ...miss.map((m) => '- ' + m))
+  if (warn.length) out.push('의심 항목(번역은 됐으나 확인 필요):', ...warn.map((w) => '- ' + w))
+  return out.join('\n')
 }

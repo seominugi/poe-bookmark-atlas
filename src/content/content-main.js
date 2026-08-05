@@ -117,10 +117,12 @@ async function ensurePobMaps() {
 async function pobCopy(item, btn) {
   try {
     const maps = await ensurePobMaps()
-    const { text, missing } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap)
+    const { text, missing, warnings } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap)
     await pobCopyText(text)
+    // 배지는 '진짜 미변환'만 센다 — warnings(번역은 됐지만 의심스러운 것)까지 세면 정상 복사가 실패처럼 보인다
     pobFlash(btn, '복사됨', missing.length ? `미변환 ${missing.length}` : '✓')
     if (missing.length) LOG('PoB 미변환 항목:', missing)
+    if (warnings && warnings.length) LOG('PoB 의심 항목(번역은 됐으나 확인 필요):', warnings)
   } catch (err) { LOG('PoB 복사 실패', String(err)); pobFlash(btn, '복사 실패', '다시 시도') }
 }
 // Shift+클릭 — 미변환 mod를 수동으로 제보(웹훅 없이: 클라이언트에 Discord 웹훅 시크릿을 두면 추출·악용 위험이 있어
@@ -129,8 +131,8 @@ const DISCORD_URL = 'https://discord.gg/kEm2G2qcZQ'
 async function reportMissing(item, btn) {
   try {
     const maps = await ensurePobMaps()
-    const { missing } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap)
-    const report = buildReportText(item, missing, game)
+    const { missing, warnings } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap)
+    const report = buildReportText(item, missing, game, warnings)
     if (!report) { pobFlash(btn, '제보할 내용 없음', '번역 정상 ✓'); return }
     await pobCopyText(report)
     window.open(DISCORD_URL, '_blank', 'noopener')
