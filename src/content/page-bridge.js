@@ -17,9 +17,25 @@
     return b
   }
 
+  // 후킹을 네이티브와 구분되지 않게 위장한다.
+  // 왜: Cloudflare 등 봇 탐지가 `String(window.fetch)`가 "[native code]"인지 본다. 우리 후킹은
+  // 관찰 전용이라 동작엔 영향이 없는데도 봇 점수를 올려, pathofexile.com에서 챌린지가 반복되며
+  // 화면이 깜박이는 증상이 있었다(확장을 끄면 사라짐 — 사용자 A/B, 2026-08-05).
+  // toString 자신도 네이티브로 보이게 한 겹 더 덮는다(얕은 탐지는 여기까지 본다).
+  const fnToString = Function.prototype.toString
+  const mask = (patched, orig, name) => {
+    try {
+      Object.defineProperty(patched, 'name', { value: name, configurable: true })
+      Object.defineProperty(patched, 'length', { value: orig.length, configurable: true })
+      patched.toString = function () { return fnToString.call(orig) }
+      patched.toString.toString = function () { return fnToString.call(fnToString) }
+    } catch (_) {}
+    return patched
+  }
+
   // --- fetch hook ---
   const origFetch = window.fetch
-  window.fetch = function (input, init) {
+  window.fetch = mask(function (input, init) {
     const url = typeof input === 'string' ? input : input && input.url
     const p = origFetch.apply(this, arguments)
     if (url && RE.test(url)) {
@@ -30,16 +46,16 @@
         .catch(() => {})
     }
     return p
-  }
+  }, origFetch, 'fetch')
 
   // --- XHR hook ---
   const origOpen = XMLHttpRequest.prototype.open
   const origSend = XMLHttpRequest.prototype.send
-  XMLHttpRequest.prototype.open = function (method, url) {
+  XMLHttpRequest.prototype.open = mask(function (method, url) {
     this.__ba = { method: String(method || 'GET').toUpperCase(), url: String(url || '') }
     return origOpen.apply(this, arguments)
-  }
-  XMLHttpRequest.prototype.send = function (body) {
+  }, origOpen, 'open')
+  XMLHttpRequest.prototype.send = mask(function (body) {
     const meta = this.__ba
     if (meta && RE.test(meta.url)) {
       const kind = kindOf(meta.url)
@@ -51,5 +67,5 @@
       })
     }
     return origSend.apply(this, arguments)
-  }
+  }, origSend, 'send')
 })()

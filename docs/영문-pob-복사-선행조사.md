@@ -12,7 +12,7 @@
 |---|---|---|
 | 아이템 원본 JSON | **확보(전이적)** | page-bridge가 fetch 응답 가로챔 → content-main.js의 fetch 핸들러에서 `d.data.result[]`로 접근 가능. 단 현재는 `topIcon`용 `.item.icon`만 쓰고 나머지는 버림 → **결과 아이템 원본 유지 필요(구현 시)** |
 | KO stat 텍스트 | **확보** | `statMap`(라이브 `poe.kakaogames.com .../data/stats`) 보유 |
-| EN stat 텍스트/패턴 | **부재(geo-block)** | `pathofexile.com`은 한국 IP geo-redirect로 차단 → 개발자가 **비-KR 환경에서 1회 취득** 필요 (§3) |
+| EN stat 텍스트/패턴 | **확보 가능** | ~~`pathofexile.com`은 한국 IP geo-redirect로 차단~~ → **2026-08-05 정정: 오진이었다.** data API(`/api/trade|trade2/data/stats`)는 **KR IP에서 200으로 그대로 받힌다**. 챌린지는 HTML 페이지 경로에만 걸린다(`403 Cf-Mitigated: challenge`). VPN 불필요 |
 | base type KR→EN | **확보** | poe-i18n 생성기: `assets/data/poe2/json/**/*_base_types.json` → `name.{en,kr}` + `classId`. KR 이름 매칭 → EN 이름 |
 | unique KR→EN | **확보** | poe-i18n: `unique/*_unique_items.json` → `name.{en,kr}` + `baseItemId` + 고정 implicits/explicitMods |
 | mod KR→EN (생성기) | **조인 불가** | 생성기 mod id = `poe2-rings-prefix-increased_life-t1`(poe2db식). trade stat id(`explicit.stat_...`/hash)와 **다름** → id 직접 조인 불가. (effectPattern.en 텍스트/group으로만 간접 매칭 가능 — 취약) |

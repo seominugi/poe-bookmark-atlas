@@ -51,6 +51,42 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 완료된 작업
 
+### 한↔영 거래소 전환 — geo-redirect 전제 오진 정정 + 챌린지 대응 (2026-08-06, **미커밋**)
+
+**결론부터: 프로젝트가 오래 믿어온 "pathofexile.com이 한국 IP를 카카오로 geo-redirect한다"는 전제가 측정으로 뒷받침되지 않는다.** 실제로 걸리는 건 Cloudflare 봇 챌린지이고, 화면이 깜박이던 원인의 상당 부분은 **우리 확장이었다.**
+
+**측정 (KR IP, curl)**
+| 대상 | 결과 |
+|---|---|
+| `/trade` | `403` `Cf-Mitigated: challenge`, **Location 없음**, `CF-RAY: …-ICN` |
+| `/trade2` | **`/trade`와 동일** |
+| `/api/trade/data/leagues` | `200` |
+
+- **리다이렉트가 아니다** — 3xx도 `Location`도 없다. 봇 차단이다
+- **`/trade`와 `/trade2`가 동일** → `cross-site-receiver.js` 주석·`CLAUDE.md`·배포 문서의 "PoE1만 접근 가능, PoE2만 geo-redirect"는 **근거 없는 서술이었다**
+- **API는 통과** → 예전에 "API는 되는데 사이트는 안 된다"를 geo 근거로 읽었지만, 실제로는 **챌린지가 HTML 경로에만 걸리는 것**이다
+- **사용자 확인**: 확장을 끄면 깜박임이 사라지고 pathofexile에 그대로 머문다. 단 **재현율이 매우 낮아** "geo-redirect가 없다"고 확정하진 못한다
+
+**원인 A — 우리가 봇 점수를 올리고 있었다**
+`page-bridge.js`가 MAIN world·`document_start`에서 `window.fetch`·`XMLHttpRequest.prototype`을 교체한다. 관찰 전용이라 동작엔 영향이 없지만 `String(window.fetch)`가 `[native code]`가 아니게 되어 봇 탐지에 걸린다.
+- `mask()` 신설 — `name`·`length`·`toString`을 원본으로 위임하고 **`toString` 자신도 네이티브로 보이게** 한 겹 더 덮는다
+- 하네스 실측: 후킹 전후 문자열 **완전 동일**(`function fetch() { [native code] }`), fetch·XHR 캡처는 정상 유지, 무관한 요청은 미캡처
+
+**원인 B — 실패하면 복구가 불가능했다**
+`cross-site-receiver.js`가 **fetch 직전에** 페이로드를 지웠다. 챌린지에 걸리면 검색 조건이 이미 사라진 뒤라 확인 절차를 마치고 새로고침해도 영영 복구가 안 됐다.
+- **성공했을 때만 소비**하도록 바꾸고, 챌린지 루프로 새로고침이 반복될 때 POST가 무한히 나가지 않게 **시도 3회 상한**(`tries`)을 뒀다
+- 실패 시 **화면에 보이는 안내 배너**(`notify`) — 종전엔 `console.warn`뿐이라 사용자는 영문을 몰랐고, 드물게 터지는 이 실패가 아무 흔적도 안 남겨 **원인 판정이 영영 불가능했다.** 문구에 HTTP 상태·현재 호스트·시도 횟수를 담아 **다음 발생이 곧 제보 자료**가 되게 했다
+- ⚠ **`notify`를 export 하지 않는다** — 모듈이 되면 crxjs가 동적 import 로더로 바꾸는데, 챌린지 페이지의 엄격한 CSP(`script-src 'nonce-…'`)에 그 import가 막힐 수 있다. **정작 안내가 필요한 화면에서 스크립트가 안 뜨면 의미가 없다.** 빌드 산출물에서 loader가 아닌 직접 주입임을 확인했다
+
+**manifest**: `cross-site-receiver`에 `https://www.pathofexile.com/trade2/*` 추가 — 종전엔 `/trade/*`만 매치돼 **poe2 전환은 지역과 무관하게 구조적으로 불가능**했다
+
+**정정한 문서**: `CLAUDE.md`(프로젝트) · `docs/chrome-webstore-배포.md` · `docs/영문-pob-복사-선행조사.md`. 참조하던 메모리 `project_poe_bookmark_atlas_georedirect`는 **실재하지 않는다**
+
+**전환 기능은 여전히 UI에서 숨김 유지** — 근거가 "한 번 안 일어났다"뿐이라 약하다. 위 안내 배너로 사례를 몇 건 모은 뒤 복원 여부를 판단한다.
+
+검증: 테스트 **344/344**, 빌드 통과, 하네스 실측(위장·캡처·배너 렌더 560px 상한/중앙정렬/화면 안), 빌드 산출물에 핵심 문자열 포함 확인.
+**미검증**: 실제 pathofexile.com에서의 동작 — 재현율이 낮아 사용자 확인 필요. 좁은 폭(420px) 배너는 판 미표시로 뷰포트 제어가 안 먹어 상한 동작만 확인했다.
+
 ### PoB 조립기 — 조용한 실패 가시화 + 미독해 필드 3종 (2026-08-05, **미커밋**)
 
 군단 주얼 수정 뒤 "같은 부류가 더 있나" 조사에서 나온 3건을 처리했다.

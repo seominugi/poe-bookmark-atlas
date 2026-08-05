@@ -68,8 +68,8 @@ zip 생성 방법:
 ## 7. 심사 참고
 
 - `pathofexile.com/trade`(poe1) content_script가 있어 호스트 권한 경고가 뜬다 → 위 5번 사유로 정당화.
-- poe2(pathofexile/trade2)는 한국 IP 리다이렉트로 제외됨(카카오 전용).
-- 영문 거래소 전환 기능은 현재 UI에서 숨김(핸들러는 복원 대비 유지).
+- ~~poe2(pathofexile/trade2)는 한국 IP 리다이렉트로 제외됨(카카오 전용).~~ **2026-08-05 정정**: 실측 결과 `/trade`와 `/trade2`가 **동일하게** 동작한다(둘 다 `403 Cf-Mitigated: challenge`, `Location` 없음). "poe1만 접근 가능"은 근거 없는 서술이었다. `cross-site-receiver.js`의 매치에 `/trade2/*`를 추가했다.
+- 영문 거래소 전환 기능은 현재 UI에서 숨김(핸들러는 복원 대비 유지) — 재현 사례를 더 모은 뒤 복원 여부를 판단한다.
 
 ## 8. 출시 후
 
