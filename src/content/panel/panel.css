@@ -272,8 +272,10 @@
 .ba-set-league:hover { border-color: var(--ba-violet-line); }
 .ba-set-league option { color: #e6e3f5; background: #14111f; }   /* 드롭다운 목록은 OS 렌더 — 최소한 배경/글자색만 맞춘다 */
 
-/* ---- 리스트 컨테이너 ---- */
-.ba-list { overflow-y: auto; flex: 1; padding: 14px 14px 18px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px); mask-image: linear-gradient(to bottom, transparent 0, #000 18px); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+/* ---- 리스트 컨테이너 ----
+   scrollbar-gutter: stable — 항목이 늘어 스크롤바가 생기는 순간 콘텐츠 폭이 7px 줄어들며
+   카드 우측 액션 아이콘이 통째로 밀리던 문제(사용자 제보). 자리를 미리 비워 폭을 고정한다. */
+.ba-list { overflow-y: auto; scrollbar-gutter: stable; flex: 1; padding: 14px 14px 18px; -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 18px); mask-image: linear-gradient(to bottom, transparent 0, #000 18px); scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 .ba-list::-webkit-scrollbar { width: 7px; }
 .ba-list::-webkit-scrollbar-track { background: transparent; }
 .ba-list::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.12); border-radius: 4px; }
@@ -534,7 +536,11 @@
 
 /* 분절 토글 — 정렬(순서/최근/이름) · 밀도(여유/조밀) 공용 */
 .ba-seg { display: inline-flex; align-items: stretch; background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); border-radius: 9px; overflow: hidden; flex: none; font-size: 11px; font-weight: 700; }
-.ba-seg > * { display: inline-flex; align-items: center; padding: 5px 10px; cursor: pointer; color: #9b94bd; }
+.ba-seg > * { display: inline-flex; align-items: center; padding: 5px 10px; cursor: pointer; color: #9b94bd;
+  transition: transform .16s var(--ba-ease-out); }
+/* 누름 피드백 — 패널의 다른 누름 요소(.ba-set-go·.ba-set-del·.ba-toast-act)와 같은 언어. 세그먼트만 빠져 있었다 */
+.ba-seg > *:active { transform: scale(0.97); }
+@media (prefers-reduced-motion: reduce) { .ba-seg > *:active { transform: none; } }
 .ba-seg > * + * { border-left: 1px solid var(--ba-border); }
 .ba-seg > .active { background: linear-gradient(180deg, rgba(167,139,250,0.34), rgba(167,139,250,0.18)); color: #f3efff; font-weight: 800; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12); }
 
@@ -607,7 +613,7 @@
    자주 쓰는 조건 뭉치를 클릭 1회로 현재 검색에 얹는다. 묶음이 없으면 hidden이라 자리를 안 차지한다. */
 /* 묶음이 많아도 목록 영역을 잠식하지 않게 3줄 남짓에서 자체 스크롤 */
 .ba-sets { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 9px 14px 0;
-  max-height: 104px; overflow-y: auto; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
+  max-height: 104px; overflow-y: auto; scrollbar-gutter: stable; scrollbar-width: thin; scrollbar-color: rgba(255, 255, 255, 0.18) transparent; }
 .ba-sets[hidden] { display: none; }
 /* 접힘 — 라벨(+개수)만 남기고 칩을 감춰 목록에 공간을 돌려준다. 폴더 접기와 같은 언어(회전 셰브론+개수 배지) */
 .ba-sets--collapsed { max-height: none; overflow: visible; }

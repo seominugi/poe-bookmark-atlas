@@ -11,6 +11,15 @@
 //    첫 키 입력 시점의 input 핸들러가 "~"를 보강한다(라이브 trusted 입력으로 검증).
 
 const PREFIX = '~'
+const SETTING_KEY = 'uiFuzzyPrefix'
+
+// 퍼지 접두사 강제 on/off (설정 → 기본 켬). 정확히 일치하는 스탯만 찾으려는 사용자에겐
+// "~"가 방해가 된다는 제보로 도입.
+// 리스너는 항상 붙이고 '동작'만 이 플래그로 가른다 — initFuzzyPrefix를 async로 만들면
+// 아래 1.2초 자동포커스 가드 창을 저장소 응답 대기에 갉아먹혀 기존 동작에 회귀가 난다.
+// 끄더라도 '페이지 로드 시 자동 포커스 해제'는 유지한다 — 제보와 무관한 별개 편의 기능이라
+// 한 토글에 묶으면 "~"만 끄려던 사용자가 그것까지 잃는다.
+let enabled = true
 
 // 스탯 필터("+ 능력치 필터 추가") · 아이템 검색("아이템 검색…")만 대상.
 // "+ 능력치 그룹 추가"는 정규식상 자동 제외된다.
@@ -37,6 +46,17 @@ function prependTilde(el) {
 }
 
 export function initFuzzyPrefix() {
+  // 0) 설정 로드 + 변경 구독(설정 모달에서 끄면 새로고침 없이 즉시 반영).
+  //    chrome이 없는 환경(테스트)에서는 조용히 기본값(켬)을 유지한다.
+  try {
+    chrome.storage.local.get(SETTING_KEY).then((r) => {
+      if (r && typeof r[SETTING_KEY] === 'boolean') enabled = r[SETTING_KEY]
+    }).catch(() => {})
+    chrome.storage.onChanged.addListener((ch, area) => {
+      if (area === 'local' && ch[SETTING_KEY]) enabled = ch[SETTING_KEY].newValue !== false
+    })
+  } catch (_) {}
+
   // 1) 포커스 처리
   //    - 페이지 로드 직후(1.2초) "제스처 없는 자동 포커스"는 해제한다 → 새로고침해도
   //      검색칸에 포커스/드롭다운이 잡히지 않는다. 사이트가 다시 포커스해도 최대 10회만 대응(무한 루프 방지).
@@ -50,7 +70,7 @@ export function initFuzzyPrefix() {
       if (!isTarget(el)) return
       const active = !!(navigator.userActivation && navigator.userActivation.isActive)
       if (!active && Date.now() < guardUntil && autoBlurs < 10) { autoBlurs++; el.blur(); return }
-      if (active && el.value === '') prependTilde(el)
+      if (enabled && active && el.value === '') prependTilde(el)
     },
     true,
   )
@@ -63,7 +83,7 @@ export function initFuzzyPrefix() {
   document.addEventListener(
     'input',
     (e) => {
-      if (busy || e.isComposing || !isTarget(e.target)) return
+      if (!enabled || busy || e.isComposing || !isTarget(e.target)) return
       if (e.target.value === '') return
       if (!e.target.value.startsWith(PREFIX)) prependTilde(e.target)
     },
@@ -73,7 +93,7 @@ export function initFuzzyPrefix() {
   document.addEventListener(
     'compositionend',
     (e) => {
-      if (busy || !isTarget(e.target)) return
+      if (!enabled || busy || !isTarget(e.target)) return
       if (e.target.value === '') return
       if (!e.target.value.startsWith(PREFIX)) prependTilde(e.target)
     },
@@ -87,7 +107,7 @@ export function initFuzzyPrefix() {
     'keydown',
     (e) => {
       const el = e.target
-      if (!isTarget(el) || !el.value.startsWith(PREFIX)) return
+      if (!enabled || !isTarget(el) || !el.value.startsWith(PREFIX)) return
       const s = el.selectionStart ?? 0
       const end = el.selectionEnd ?? 0
       if (e.key === 'Backspace' && s === 1 && end === 1 && el.value.length > PREFIX.length) { e.preventDefault(); return }

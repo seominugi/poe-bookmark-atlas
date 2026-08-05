@@ -119,6 +119,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 접기/펼치기 = 표시/숨김 (핸들·✕·툴바 아이콘 공통, 상태 유지). 핸들은 항상 보여 다시 열 수 있음.
   const isCollapsed = () => elRoot.classList.contains('collapsed')
   let panelSide = 'right' // 패널 좌/우 배치 (uiPanelSide 선호)
+  let fuzzyOn = true // 거래소 필터칸 "~" 퍼지 접두사 강제 (uiFuzzyPrefix, 기본 켬 — fuzzyPrefix.js가 실제 동작 담당)
   // 펼쳤을 때 페이지 콘텐츠를 패널 반대쪽으로 밀어 자리를 확보(도킹) → 검색 영역과 겹침 방지. 좌/우 배치에 따라 방향 반전.
   const applyPagePush = (collapsed) => {
     try {
@@ -151,8 +152,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
   applyPagePush(isCollapsed())
   try {
-    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide']).then((r) => {
+    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix']).then((r) => {
       if (r && r.uiPanelSide) applySide(r.uiPanelSide)
+      if (r && typeof r.uiFuzzyPrefix === 'boolean') fuzzyOn = r.uiFuzzyPrefix
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
       updateHandleBadge()
     })
@@ -403,10 +405,22 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         `<span class="ba-seg ba-set-seg">
           <span class="ba-set-opt${panelSide === 'left' ? ' active' : ''}" data-side="left">왼쪽</span>
           <span class="ba-set-opt${panelSide === 'right' ? ' active' : ''}" data-side="right">오른쪽</span>
+        </span>` +
+        // 거래소 필터칸의 "~"(부분 일치) 강제. 정확히 일치하는 스탯만 찾을 때는 방해가 된다는 제보로 추가.
+        '<span class="lbl">필터 퍼지 검색 (~)</span>' +
+        `<span class="ba-seg ba-set-seg" title="켜면 거래소 검색칸 맨 앞에 ~를 자동으로 넣어 입력한 단어가 포함된 항목을 모두 찾습니다. 끄면 거래소 기본 동작 그대로입니다.">
+          <span class="ba-set-opt${fuzzyOn ? ' active' : ''}" data-fz="1">켬</span>
+          <span class="ba-set-opt${fuzzyOn ? '' : ' active'}" data-fz="0">끔</span>
         </span>`
-      pick.querySelectorAll('.ba-set-opt').forEach((o) => o.addEventListener('click', async () => {
+      // 두 세그먼트가 .ba-set-opt를 공유하므로 각자의 data 속성으로 갈라 잡는다(안 그러면 서로의 클릭까지 받는다)
+      pick.querySelectorAll('.ba-set-opt[data-side]').forEach((o) => o.addEventListener('click', async () => {
         applySide(o.dataset.side)
         try { await chrome.storage.local.set({ uiPanelSide: o.dataset.side }) } catch (_) {}
+        render()
+      }))
+      pick.querySelectorAll('.ba-set-opt[data-fz]').forEach((o) => o.addEventListener('click', async () => {
+        fuzzyOn = o.dataset.fz === '1'
+        try { await chrome.storage.local.set({ uiFuzzyPrefix: fuzzyOn }) } catch (_) {}
         render()
       }))
       const sel = pick.querySelector('.ba-set-league')
@@ -1085,6 +1099,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return
       if (changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
+      if (changes.uiFuzzyPrefix) fuzzyOn = changes.uiFuzzyPrefix.newValue !== false // 다른 탭에서 바꾸면 설정 모달 표시도 따라간다
       // 다른 탭에서 리그를 바꾸면 이 탭도 따라간다(같은 게임일 때만)
       if (changes.uiLeague) {
         const v = (changes.uiLeague.newValue || {})[game] || ''

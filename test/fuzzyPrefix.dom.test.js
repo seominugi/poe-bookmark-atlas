@@ -114,6 +114,45 @@ describe('아이템 검색칸 — 기본 접두사 동작(기존 회귀 방지)'
   })
 })
 
+describe('설정으로 끄면 "~"를 강제하지 않는다 (uiFuzzyPrefix, 2026-08-05 제보)', () => {
+  // 저장소 변경 이벤트로 직접 뒤집는다 — 모듈이 실제로 쓰는 경로이고, 비동기 get을 기다릴 필요가 없다.
+  const setFuzzy = (on) => globalThis.__fireStorageChange({ uiFuzzyPrefix: { newValue: on } }, 'local')
+  afterEach(() => setFuzzy(true)) // enabled는 모듈 레벨 상태 — 다음 테스트로 새지 않게 되돌린다
+
+  it('꺼져 있으면 빈 칸을 클릭해도 "~"가 붙지 않는다', () => {
+    setFuzzy(false)
+    expect(makeInput('아이템 검색…', '').value).toBe('')
+  })
+
+  it('꺼져 있으면 "~" 없이 값이 채워져도 보강하지 않는다', () => {
+    setFuzzy(false)
+    const input = makeInput('아이템 검색…', '')
+    input.value = 'abc'
+    fireInput(input)
+    expect(input.value).toBe('abc')
+  })
+
+  it('꺼져 있으면 "~" 보호(Backspace·ArrowLeft 차단)도 하지 않는다', () => {
+    setFuzzy(false)
+    const input = makeInput('아이템 검색…', '~abc')
+    input.selectionStart = input.selectionEnd = 1
+    expect(keydown(input, 'Backspace')).toBe(false)
+    expect(keydown(input, 'ArrowLeft')).toBe(false)
+  })
+
+  it('능력치 필터칸도 함께 꺼진다', () => {
+    setFuzzy(false)
+    expect(makeInput('+ 능력치 필터 추가', '').value).toBe('')
+  })
+
+  it('다시 켜면 새로고침 없이 즉시 원래대로 동작한다', () => {
+    setFuzzy(false)
+    expect(makeInput('아이템 검색…', '').value).toBe('')
+    setFuzzy(true)
+    expect(makeInput('아이템 검색…', '').value).toBe('~')
+  })
+})
+
 describe('대상이 아닌 입력은 건드리지 않는다', () => {
   it('placeholder가 안 맞는 입력은 무시한다', () => {
     const input = makeInput('가격', '100')

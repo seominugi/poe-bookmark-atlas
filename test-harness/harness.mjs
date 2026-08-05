@@ -1,16 +1,24 @@
 // 패널 하네스 — 목 chrome + 시드 북마크로 mountPanel 하고, 저장 충돌·⋯ 팝오버를 트리거하는 헬퍼를 노출.
 // window.__panel / __triggerConflict / __ready 로 브라우저 자동 검증(preview_eval)에서 조작한다.
 const mem = new Map()
+const changeListeners = [] // 실제 확장의 chrome.storage.onChanged 를 흉내낸다(set 이 통지까지 한다)
 mem.set('tourDone', true) // 투어 자동 시작 스킵
 globalThis.chrome = {
   storage: {
     local: {
       async get(keys) { if (keys == null) return Object.fromEntries(mem); const k = Array.isArray(keys) ? keys : [keys]; const o = {}; for (const key of k) if (mem.has(key)) o[key] = mem.get(key); return o },
-      async set(obj) { for (const [k, v] of Object.entries(obj)) mem.set(k, v) },
+      async set(obj) {
+        const changes = {}
+        for (const [k, v] of Object.entries(obj)) { changes[k] = { oldValue: mem.get(k), newValue: v }; mem.set(k, v) }
+        changeListeners.forEach((fn) => fn(changes, 'local')) // 실제 확장은 set 하면 onChanged 가 온다 — 탭 간 동기화 경로가 여기서만 재현된다
+      },
       async remove(keys) { (Array.isArray(keys) ? keys : [keys]).forEach((k) => mem.delete(k)) },
       async clear() { mem.clear() },
     },
-    onChanged: { addListener() {} },
+    onChanged: {
+      addListener(fn) { changeListeners.push(fn) },
+      removeListener(fn) { const i = changeListeners.indexOf(fn); if (i >= 0) changeListeners.splice(i, 1) },
+    },
   },
   runtime: { sendMessage: async () => ({ ok: false }), onMessage: { addListener() {} }, getURL: (p) => p, getManifest: () => ({ version: '0.0.0-harness' }) },
 }
@@ -105,5 +113,27 @@ globalThis.__dumpBookmarks = async () => {
   const { listByKind } = await import('../src/store/store.js')
   return (await listByKind('bookmark', 'poe2')).map((b) => ({ id: b.id, name: b.name, dedupeKey: b.dedupeKey, url: b.url }))
 }
+// 거래소 입력칸 흉내 — fuzzyPrefix.js("~" 퍼지 접두사 강제)를 실제 브라우저에서 검증한다.
+// isTarget()이 placeholder만 보므로 vue-multiselect까지 흉내낼 필요는 없다.
+// 이게 필요한 이유: jsdom 테스트는 document.execCommand를 목으로 대체한다 —
+// 진짜 insertText 경로와 userActivation 게이팅은 실제 브라우저인 여기서만 확인된다.
+const { initFuzzyPrefix } = await import('../src/content/fuzzyPrefix.js')
+const tradeBox = document.createElement('div')
+tradeBox.id = 'trade-inputs'
+tradeBox.style.cssText = 'display:flex;flex-direction:column;gap:8px;max-width:420px;margin-top:16px'
+const mkInput = (id, ph) => {
+  const i = document.createElement('input')
+  i.id = id; i.placeholder = ph
+  i.style.cssText = 'padding:8px;border-radius:6px;border:1px solid #4b4368;background:#141020;color:#ddd6fe;font-family:system-ui;font-size:13px'
+  return i
+}
+tradeBox.append(
+  mkInput('tf-item', '아이템 검색…'),
+  mkInput('tf-stat', '+ 능력치 필터 추가'),
+  mkInput('tf-other', '가격'), // 대상 아님 — 무관한 칸을 안 건드리는지 대조용
+)
+document.getElementById('page').appendChild(tradeBox)
+initFuzzyPrefix()
+
 globalThis.__ready = true
 console.log('[harness] ready')
