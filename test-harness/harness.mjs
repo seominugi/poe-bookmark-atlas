@@ -62,6 +62,23 @@ mem.set('conditionSets', [
     stats: [{ id: 'explicit.stat_x', text: '무언가 #' }] },
 ])
 
+// 찜한 매물 시드 — 상태 3종(미확인·있음·판매됨) + 다른 거래소 항목까지 한 화면에서 본다
+mem.set('watchlist', [
+  { id: 'w_1', listingId: 'L1', origin: location.host, game: 'poe2', league: 'Runes of Aldur',
+    name: '고상한 오만', baseType: '무궁한 주얼', seller: 'exile#1234',
+    price: { amount: 10, currency: 'divine' }, savedAt: 3, status: 'alive',
+    sourceUrl: 'https://poe.kakaogames.com/trade2/search/poe2/Runes%20of%20Aldur/aaa' },
+  { id: 'w_2', listingId: 'L2', origin: location.host, game: 'poe2', league: 'Runes of Aldur',
+    name: '하늘의 편린', baseType: '날개 달린 창', seller: 'trader#5678',
+    price: { amount: 3, currency: 'divine' }, lastPrice: { amount: 5, currency: 'divine' },
+    savedAt: 2, status: 'alive', checkedAt: 1,
+    sourceUrl: 'https://poe.kakaogames.com/trade2/search/poe2/Runes%20of%20Aldur/bbb' },
+  { id: 'w_3', listingId: 'L3', origin: 'www.pathofexile.com', game: 'poe2', league: 'Runes of Aldur',
+    name: '아주아주 긴 이름의 유니크 아이템 표시 확인용', baseType: '반지', seller: 'someone#9999',
+    price: { amount: 120, currency: 'chaos' }, savedAt: 1, status: 'sold', checkedAt: 1,
+    sourceUrl: 'https://poe.kakaogames.com/trade2/search/poe2/Runes%20of%20Aldur/ccc' },
+])
+
 // 거래소 API를 부를 수 없으므로 결과를 흉내낸다. __migrateResult로 성공/실패를 바꿔 토스트·갱신을 확인한다.
 globalThis.__migrateResult = { ok: false, reason: 'rate' } // 기본은 실패 — 성공은 실제 이동(location.href)이라 하네스가 떠남
 globalThis.__migrateCalls = []

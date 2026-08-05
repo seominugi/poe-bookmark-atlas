@@ -5,6 +5,7 @@ import { sanitizeQuery, isAllowedTradeUrl } from '../lib/tradeSearch.js'
 const KEY = 'records'
 const FOLDERS_KEY = 'folders'
 const SETS_KEY = 'conditionSets' // 조건 묶음 — records(북마크·히스토리)와 생명주기가 달라 folders처럼 별도 키
+const WATCH_KEY = 'watchlist' // 찜한 매물 — 팔리면 사라지므로 records와 생명주기가 다르다(같은 근거로 별도 키)
 const SCHEMA_KEY = 'schemaVersion'
 const CURRENT_SCHEMA = 1 // 데이터 스키마 버전. 구조를 바꾸면 +1 하고 MIGRATIONS에 단계 변환을 추가
 export const HISTORY_CAP = 200 // 히스토리 보관 상한. renderList "더 보기"(60+200)가 실제로 동작하도록 상향
@@ -600,4 +601,65 @@ export async function importBookmarksJSON(game, data) {
     added++
   }
   return { added, skipped, foldersAdded, blocked }
+}
+
+// ── 찜한 매물(watchlist) ─────────────────────────────────────
+// 검색 조건 북마크(records)와 달리 **개별 매물**을 저장한다. 생명주기가 완전히 달라 별도 키를 쓴다
+// (conditionSets·folders와 같은 근거) — 매물은 팔리면 사라지고, 북마크는 안 사라진다.
+//
+// 설계 판단 2건:
+//  1) origin을 키의 일부로 쓴다. 카카오와 글로벌은 **매물 id 공간이 다르다** — 합치면 한쪽에서 조회했을 때
+//     멀쩡한 매물이 null로 와서 "판매됨"으로 조용히 오판한다.
+//  2) 상태 갱신은 사용자가 트리거할 때만 한다(자동 폴링 없음). 거래소 fetch API에 rate limit이 있고,
+//     장기 보관 용도라 목록을 여는 순간이 곧 확인 시점이라 자동화 이득이 작다.
+export const WATCH_CAP = 100 // 상한 — 일괄 재조회가 rate limit을 때리지 않도록 묶어 둔다(10개씩 배치 → 최대 10요청)
+
+async function readWatch() { return (await chrome.storage.local.get(WATCH_KEY))[WATCH_KEY] ?? [] }
+async function writeWatch(list) { await chrome.storage.local.set({ [WATCH_KEY]: list }) }
+
+const watchKeyOf = (listingId, origin) => `${origin}|${listingId}`
+
+export async function listWatched(game) {
+  const all = await readWatch()
+  return all.filter((w) => !game || w.game === game).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0))
+}
+
+export async function isWatched(listingId, origin) {
+  const all = await readWatch()
+  return all.some((w) => watchKeyOf(w.listingId, w.origin) === watchKeyOf(listingId, origin))
+}
+
+// 실패를 조용히 삼키지 않는다 — 상한 초과·중복은 사유를 돌려줘 UI가 알릴 수 있게 한다.
+export async function addWatch(rec) {
+  const all = await readWatch()
+  if (all.some((w) => watchKeyOf(w.listingId, w.origin) === watchKeyOf(rec.listingId, rec.origin))) {
+    return { ok: false, reason: 'dup' }
+  }
+  if (all.length >= WATCH_CAP) return { ok: false, reason: 'cap' }
+  // 방금 화면에서 본 매물이므로 alive로 시작한다. checkedAt은 일부러 비워 둔다 — '아직 확인한 적 없음'이 드러나야 한다.
+  const saved = { ...rec, id: uid('w_'), savedAt: Date.now(), status: 'alive' }
+  all.push(saved)
+  await writeWatch(all)
+  return { ok: true, rec: saved }
+}
+
+export async function removeWatch(id) {
+  const all = await readWatch()
+  await writeWatch(all.filter((w) => w.id !== id))
+}
+
+/**
+ * 재조회 결과 반영. results = [{ id, alive, price? }] — **확인한 항목만** 넘긴다.
+ * 목록에 있어도 results에 없으면 건드리지 않는다(다른 거래소 매물은 여기서 확인할 수 없으므로,
+ * 확인 못 한 것을 'sold'로 떨어뜨리면 거짓말이 된다).
+ * 찜한 시점 가격(price)은 보존하고 현재가는 lastPrice에 따로 담는다 — 변동을 보여주려면 둘 다 필요하다.
+ */
+export async function applyWatchStatus(results, now = Date.now()) {
+  const byId = new Map((results || []).map((r) => [r.id, r]))
+  const all = await readWatch()
+  await writeWatch(all.map((w) => {
+    const r = byId.get(w.id)
+    if (!r) return w
+    return { ...w, status: r.alive ? 'alive' : 'sold', checkedAt: now, ...(r.price ? { lastPrice: r.price } : {}) }
+  }))
 }

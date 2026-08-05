@@ -1124,5 +1124,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     hide: () => setCollapsed(true),
     save: doSave,
     startTour,
+    toast, // 페이지 표면(결과 행 ★ 등)에서도 같은 토스트를 쓰기 위해 노출
   }
 }

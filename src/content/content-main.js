@@ -9,7 +9,7 @@ import { topIcon } from '../lib/topIcon.js'
 import { parseExaltedPerDivine, baseFromPrice, divineFromPrice, baseCurrencyOf, fmtCurAmount } from '../lib/currencyRates.js'
 import { searchApiPath, searchResultPath, isSafeSearchId, sanitizeQuery, searchHashFromUrl, isAllowedTradeUrl } from '../lib/tradeSearch.js'
 import { mergeConditionSet } from '../lib/conditionSet.js'
-import { addHistory, markUsedByUrl, ensureSchema, backfillQuery } from '../store/store.js'
+import { addHistory, markUsedByUrl, ensureSchema, backfillQuery, isWatched, addWatch, removeWatch, listWatched, WATCH_CAP } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText, buildReportText } from '../lib/pobExport.js'
@@ -84,6 +84,7 @@ const dedupeKey = (query) => game + '|' + searchIdentity(query)
 // ── 영문 PoB 복사 + 엑잘 환산 — 결과 아이템·가격 보관 + 행마다 'PoB' 버튼·'≈ 엑잘' 칩 주입 ──
 const pobItems = new Map() // result.id → item. 스크롤 페이지네이션 fetch 누적, 새 검색 시 초기화
 const pobPrices = new Map() // result.id → listing.price({amount, currency}) — 엑잘 환산 칩용
+const pobSellers = new Map() // result.id → listing.account.name — 찜한 매물 표시용
 let lastRates = null // BE 원본 응답({exchange_rates, items}) — 검색마다 스냅샷 fetch에서 갱신. items엔 큐레이션 4종 밖 60여 화폐(쥬얼러·색채 등) 시세
 let pobMaps = null // { statMap, baseMap } — 클릭 시 1회 lazy 로드(~775KB JSON, 초기 번들 무영향)
 
@@ -146,6 +147,19 @@ function pobEnsureStyle() {
   st.id = 'ba-pob-style'
   st.textContent = `
   .ba-pob-wrap { display: block; text-align: center; margin-top: 6px; }
+  /* PoB 버튼 + 찜(★)을 한 덩어리로 — 기존 배치 로직(3단 폴백)이 이 그룹 하나만 옮기면 되게 한다 */
+  .ba-row-btns { display: inline-flex; align-items: center; gap: 6px; }
+  .ba-watch-btn { box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; padding: 0; cursor: pointer; font-family: inherit; font-size: 14px; line-height: 1;
+    color: #b9adf1; background: rgba(167, 139, 250, 0.10); backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px);
+    border: 1px solid rgba(167, 139, 250, 0.4); border-radius: 10px;
+    transition: background .15s, color .15s, transform .16s cubic-bezier(0.23, 1, 0.32, 1); z-index: 5; }
+  .ba-watch-btn:hover { background: rgba(167, 139, 250, 0.24); color: #fff; }
+  .ba-watch-btn:active { transform: scale(0.95); } /* 작은 아이콘 버튼 = 0.95 (.ba-set-del과 같은 값) */
+  /* 찜된 상태 — 앰버(패널의 즐겨찾기 색과 같은 언어) */
+  .ba-watch-btn.on { color: #fbbf24; border-color: rgba(251, 191, 36, 0.55); background: rgba(251, 191, 36, 0.14); }
+  .ba-watch-btn.on:hover { background: rgba(251, 191, 36, 0.26); }
+  @media (prefers-reduced-motion: reduce) { .ba-watch-btn:active { transform: none; } }
   .ba-pob-btn { box-sizing: border-box; position: relative;
     display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
     padding: 6px 11px; cursor: pointer; white-space: nowrap;
@@ -323,6 +337,47 @@ function injectExrChip(row, id) {
   renderChipContent(chip, host)
   return true
 }
+// ── 찜(★) 버튼 — 결과 행에서 개별 매물을 담아 둔다 ──
+// 매물 id는 거래소별(카카오/글로벌)로 공간이 달라 origin을 함께 저장한다. 안 그러면 나중에 재조회할 때
+// 멀쩡한 매물이 null로 와서 "판매됨"으로 조용히 오판한다.
+function makeWatchButton(id, item) {
+  const star = document.createElement('button')
+  star.type = 'button'
+  star.className = 'ba-watch-btn'
+  star.textContent = '★'
+  const setState = (on) => {
+    star.classList.toggle('on', on)
+    star.setAttribute('data-tip', on
+      ? '찜 해제\n패널의 《찜한 매물》에서 빼요'
+      : '이 매물을 찜하기\n나중에 패널에서 《아직 있는지》 확인할 수 있어요')
+  }
+  setState(false)
+  bindPageTip(star)
+  isWatched(id, location.host).then(setState).catch(() => {})
+  star.addEventListener('click', async (ev) => {
+    ev.preventDefault(); ev.stopPropagation()
+    try {
+      if (await isWatched(id, location.host)) {
+        const mine = (await listWatched(game)).find((w) => w.listingId === id && w.origin === location.host)
+        if (mine) await removeWatch(mine.id)
+        setState(false)
+      } else {
+        const r = await addWatch({
+          listingId: id, origin: location.host, game, league: leagueFromUrl(),
+          name: item.name || item.typeLine || '', baseType: item.baseType || item.typeLine || '',
+          icon: item.icon || null, seller: pobSellers.get(id) || '', price: pobPrices.get(id) || null,
+          sourceUrl: location.href, // 죽으면 이 검색을 다시 연다 — 아이템→조건 역추출을 만들지 않기 위함
+        })
+        if (r.ok) setState(true)
+        else if (r.reason === 'cap') panel.toast(`찜은 최대 ${WATCH_CAP}개까지예요. 오래된 것을 지우고 다시 시도해 주세요.`)
+        else setState(true) // dup — 이미 담겨 있음(상태만 맞춘다)
+      }
+      document.dispatchEvent(new CustomEvent('ba:records-changed'))
+    } catch (e) { LOG('찜 토글 실패', String(e)) }
+  })
+  return star
+}
+
 let pobMissLogged = false
 function injectPobButtons() {
   pobEnsureStyle()
@@ -346,6 +401,11 @@ function injectPobButtons() {
       ev.preventDefault(); ev.stopPropagation()
       if (ev.shiftKey) reportMissing(item, btn); else pobCopy(item, btn)
     })
+    // 찜(★) — PoB 버튼과 한 그룹으로 묶어 아래 3단 배치 폴백이 그룹 하나만 옮기면 되게 한다
+    const star = makeWatchButton(id, item)
+    const group = document.createElement('div')
+    group.className = 'ba-row-btns'
+    group.append(btn, star)
     // 1순위: '인증 완료' 배지 아래(왼쪽 컬럼, 자연 흐름) — 텍스트 앵커라 이미지 로딩 타이밍과 무관하고,
     // poe1 세로로 긴 무기 이미지에서 버튼이 늘어지는 문제(높이 매칭)도 없다.
     const rr = row.getBoundingClientRect()
@@ -354,7 +414,7 @@ function injectPobButtons() {
     if (badge && badge.parentElement) {
       const wrap = document.createElement('div')
       wrap.className = 'ba-pob-wrap'
-      wrap.appendChild(btn)
+      wrap.appendChild(group)
       badge.parentElement.insertBefore(wrap, badge.nextSibling)
     } else {
       // 2순위: 아이템 이미지 오른쪽(자연 높이) — 행 왼쪽 40% 안의 img 실측. 로딩 전(0폭)이면 다음 패스로.
@@ -365,18 +425,18 @@ function injectPobButtons() {
         // 인라인 지정 — 사이트의 인라인/고특이성 position에 안 지게(지면 버튼 기준이 뷰포트가 돼 엉뚱한 곳에 뜸)
         if (getComputedStyle(row).position === 'static') row.style.position = 'relative'
         const ir = img.getBoundingClientRect()
-        btn.style.position = 'absolute'; btn.style.transform = 'translateY(-50%)'
-        btn.style.left = Math.round(ir.right - rr.left + 10) + 'px'
-        btn.style.top = Math.round(ir.top + ir.height / 2 - rr.top) + 'px'
-        row.appendChild(btn)
+        group.style.position = 'absolute'; group.style.transform = 'translateY(-50%)'
+        group.style.left = Math.round(ir.right - rr.left + 10) + 'px'
+        group.style.top = Math.round(ir.top + ir.height / 2 - rr.top) + 'px'
+        row.appendChild(group)
       } else { // 3순위: 우측 버튼 줄 아래(구조 변경 대비)
         const btnRow = row.querySelector('.btns')
         if (btnRow && btnRow.parentElement) {
           const wrap = document.createElement('div')
           wrap.style.cssText = 'text-align:right;margin-top:5px'
-          wrap.appendChild(btn)
+          wrap.appendChild(group)
           btnRow.parentElement.insertBefore(wrap, btnRow.nextSibling)
-        } else { (row.querySelector('.details') || row).appendChild(btn) }
+        } else { (row.querySelector('.details') || row).appendChild(group) }
       }
     }
     injected++
@@ -418,12 +478,13 @@ window.addEventListener('message', async (e) => {
       if (!r || !r.id) continue
       if (r.item) pobItems.set(r.id, r.item)
       if (r.listing && r.listing.price) pobPrices.set(r.id, r.listing.price)
+      if (r.listing && r.listing.account) pobSellers.set(r.id, r.listing.account.name || '') // 찜한 매물 카드에 판매자 표시
     }
     schedulePobInject()
   }
 
   if (d.kind === 'search') {
-    pobItems.clear(); pobPrices.clear() // 새 검색 — 이전 결과 폐기
+    pobItems.clear(); pobPrices.clear(); pobSellers.clear() // 새 검색 — 이전 결과 폐기
     // pending을 동기적으로 먼저 설정 (await 전에) — fetch 메시지 레이스 방지
     pending = { queryId: (d.data && d.data.id) || null, query: d.query, league: leagueFromUrl(), url: location.href, done: false }
     lastQuery = d.query; lastQueryLeague = pending.league // 전환 버튼용 최근 query 보관

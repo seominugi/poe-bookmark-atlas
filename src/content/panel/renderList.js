@@ -3,6 +3,7 @@ import {
   addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, setNote, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
   migrateBookmarkLeague, moveBookmarks,
+  listWatched, removeWatch, applyWatchStatus,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
@@ -423,14 +424,62 @@ function folderHtml(g, items, lg) {
 }
 
 // 북마크 + 히스토리를 한 스크롤에 통합 렌더 (탭 없음 → 패널 전체 높이 활용)
+// 찜한 매물 카드. 죽은 매물도 지우지 않고 '판매됨'으로 남긴다 — 뭘 찜했는지가 남아야 재검색으로 이어진다.
+function watchRowHtml(w) {
+  const here = w.origin === location.host
+  const st = w.status === 'sold' ? { cls: 'sold', text: '판매됨' }
+    : w.checkedAt ? { cls: 'alive', text: '있음' }
+    : { cls: 'unknown', text: '미확인' } // 확인한 적 없음을 숨기지 않는다
+  const p = (v) => (v ? `${v.amount} ${v.currency}` : '')
+  const moved = w.lastPrice && w.price && (w.lastPrice.amount !== w.price.amount || w.lastPrice.currency !== w.price.currency)
+  const meta = [w.seller && `판매자 ${w.seller}`, p(w.price) + (moved ? ` → ${p(w.lastPrice)}` : '')].filter(Boolean).join(' · ')
+  const other = here ? '' : `<span class="ba-wbadge ba-wbadge--other" data-tip="다른 거래소의 매물이라 여기서는 상태를 확인할 수 없어요">다른 거래소</span>`
+  return `<div class="ba-wrow" data-id="${escapeHtml(w.id)}" data-url="${encodeURIComponent(w.sourceUrl || '')}">
+    <span class="ba-wtop"><span class="ba-wname">${escapeHtml(w.name || w.baseType || '(이름 없음)')}</span><span class="ba-wbadge ba-wbadge--${st.cls}">${st.text}</span>${other}</span>
+    <span class="ba-wmeta">${escapeHtml(meta)}</span>
+    <span class="ba-wacts"><button class="ba-wopen" data-tip="이 매물을 찾았던 검색을 다시 열어요">${icon('search', 11)}다시 검색</button><button class="ba-wdel" data-tip="찜 해제">${icon('x', 11)}</button></span>
+  </div>`
+}
+
+// 거래소에 직접 물어 생존을 확인한다. **지금 페이지와 origin이 같은 매물만** 대상 —
+// 다른 거래소 매물을 여기서 조회하면 무조건 null이 와서 멀쩡한 걸 '판매됨'으로 오판한다.
+const WATCH_BATCH = 10 // GGG fetch API 관례. 순차 배치로 rate limit을 피한다
+async function runWatchCheck(btn, ui, toast) {
+  const mine = (await listWatched(ui.game)).filter((w) => w.origin === location.host)
+  if (!mine.length) { toast('지금 거래소에서 확인할 수 있는 찜이 없어요.'); return }
+  const orig = btn.innerHTML
+  btn.disabled = true; btn.textContent = '확인 중…'
+  try {
+    const path = ui.game === 'poe2' ? '/api/trade2/fetch/' : '/api/trade/fetch/'
+    const results = []
+    for (let i = 0; i < mine.length; i += WATCH_BATCH) {
+      const chunk = mine.slice(i, i + WATCH_BATCH)
+      const res = await fetch(path + chunk.map((w) => encodeURIComponent(w.listingId)).join(','))
+      if (!res.ok) throw new Error('HTTP ' + res.status)
+      const arr = ((await res.json()) || {}).result || []
+      chunk.forEach((w, k) => {
+        const hit = arr[k]
+        results.push({ id: w.id, alive: !!hit, price: (hit && hit.listing && hit.listing.price) || undefined })
+      })
+    }
+    await applyWatchStatus(results)
+    const sold = results.filter((r) => !r.alive).length
+    toast(sold ? `${results.length}개 확인 — ${sold}개가 판매됐어요.` : `${results.length}개 모두 아직 있어요.`)
+    document.dispatchEvent(new CustomEvent('ba:records-changed'))
+  } catch (e) {
+    toast('상태를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.')
+  } finally { btn.disabled = false; btn.innerHTML = orig }
+}
+
 export async function renderList(listEl, root, ui = {}) {
   await hydrateUiState()
   // 리그 판정은 렌더·이벤트 양쪽에서 같은 값을 써야 한다(섹션 배지 ↔ 이관 대상이 어긋나면 사용자가 속는다)
   const lg = leagueInfo(ui.getLeagueMap ? ui.getLeagueMap() : {})
-  const [bookmarks, folders, history] = await Promise.all([
+  const [bookmarks, folders, history, watched] = await Promise.all([
     listByKind('bookmark', ui.game),
     listFolders(ui.game),
     listByKind('history', ui.game),
+    listWatched(ui.game),
   ])
   const currentLeague = resolveCurrentLeague({ userLeague: ui.userLeague, pageLeague: ui.league, history }, lg)
 
@@ -507,6 +556,13 @@ export async function renderList(listEl, root, ui = {}) {
       }
       html += `</div></div>`
     }
+    // ── 찜한 매물 — 개별 매물. 팔리면 사라지므로 '아직 있나'를 답하는 게 이 섹션의 값어치다.
+    //    상태 갱신은 자동으로 하지 않는다(거래소 fetch API에 rate limit) — 사용자가 누를 때만.
+    if (watched.length) {
+      html += `<div class="ba-sec-head ba-sec-watch"><span class="ba-sec-title">${icon('star', 14)}<span>찜한 매물</span><span class="ba-sec-count">${watched.length}</span></span>`
+        + `<span class="ba-sec-actions"><button class="ba-watch-check" data-tip="찜한 매물이 아직 살아 있는지 거래소에 확인해요.\n지금 보고 있는 거래소의 매물만 확인됩니다.">${icon('refresh', 12)}상태 확인</button></span></div>`
+      html += watched.map((w) => watchRowHtml(w)).join('')
+    }
     // ── 히스토리 — 리그 구분 없이 전체 통합(시간순, listByKind가 이미 최신순 정렬) ──
     if (history.length) {
       html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 14)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span><span class="ba-sec-actions"><button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button></span></div>`
@@ -533,6 +589,19 @@ export async function renderList(listEl, root, ui = {}) {
 
 function bindAll(listEl, ui, ctx) {
   const toast = ui.toast || (() => {})
+
+  // ── 찜한 매물 — 다시 검색 / 해제 / 상태 확인 ──
+  listEl.querySelectorAll('.ba-wopen').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation()
+    openTradeUrl(decodeURIComponent(b.closest('.ba-wrow').dataset.url || ''), toast, e)
+  }))
+  listEl.querySelectorAll('.ba-wdel').forEach((b) => b.addEventListener('click', async (e) => {
+    e.stopPropagation()
+    await removeWatch(b.closest('.ba-wrow').dataset.id)
+    document.dispatchEvent(new CustomEvent('ba:records-changed'))
+  }))
+  const wCheck = listEl.querySelector('.ba-watch-check')
+  if (wCheck) wCheck.addEventListener('click', (e) => { e.stopPropagation(); runWatchCheck(wCheck, ui, toast) })
 
   // 행 열기 — 히스토리는 카드 전체 클릭, 북마크는 이름 칩(.ba-open)만 (오클릭 방지)
   listEl.querySelectorAll('.ba-row').forEach((row) => {
