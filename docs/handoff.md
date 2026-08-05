@@ -9,15 +9,13 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
-**0.6.3 릴리즈 게시 완료 (2026-08-05)** — 0.6.2 스토어 배포 확인 후 3건을 묶어 릴리즈. 버전 범프(`aae6e4e`) → `develop` → `main` fast-forward(`49fb1b4..aae6e4e`, 6커밋) → **`v0.6.3` 태그 즉시 publish(`Latest`)**. `deploy/poe-bookmark-atlas-0.6.3.zip`(31파일·796KB, manifest 루트 확인) 생성. **남은 것: 사용자가 스토어 심사 제출.**
-담긴 것: ① 패널 스크롤바 자리 확보 ② 거래소 필터 퍼지 검색(~) on/off 설정 ③ 군단 주얼 PoB(정복자 줄 유실·반경 미출력) + 앞서 develop에 있던 유니크 전용 문구 KR 폴백.
+**0.6.4 릴리즈 게시 완료 · 스토어 제출 대기 (2026-08-05)** — 버전 범프(`6836a23`) → `develop` → `main` fast-forward(`aae6e4e..6836a23`) → **`v0.6.4` 태그 즉시 publish(現 `Latest`)**. `deploy/poe-bookmark-atlas-0.6.4.zip`(31파일·797KB, manifest 루트 확인) 생성. **남은 것: 사용자가 스토어 심사 제출.**
+담긴 것: ① 패널 스크롤바 자리 확보 ② 거래소 필터 퍼지 검색(~) on/off ③ 군단 주얼 PoB(정복자 줄 유실·반경 미출력) ④ 조용한 실패 가시화(값 초과·변형 추정 경고) ⑤ 품질·소켓·영향력 출력 + 앞서 develop에 있던 유니크 전용 문구 KR 폴백.
+**PoB 실제 붙여넣기 사용자 확인 완료** — 군단 주얼·품질·소켓·영향력 정상 동작.
 
-**⚠ 후속 조사 결과 — 군단 주얼과 같은 '조용한 실패' 부류가 더 있다 (미수정, 0.6.4 후보)**
-`missing[]` 파이프라인은 **"번역 실패"만 잡고 "번역은 됐는데 정보가 샌 것"은 못 잡는다.** 군단 주얼이 그 사각지대의 첫 사례였고 아래가 같은 자리에 있다:
-- **`fillValues` 잉여 값 무실** — 값이 템플릿 `#`보다 많으면 초과분을 버린다. `#`가 안 남으니 실패 판정도 안 걸린다. 실증: `fillValues('Adds # Fire Damage', ['5','10','99'])` → `"Adds 5 Fire Damage"`. **틀린 수치가 PoB로 가는 경로**(프로젝트 원칙상 빠진 것보다 나쁘다). 빌드 스크립트는 폴백 사전에 이 검사를 하는데(필터 ③) **런타임 statMap 경로엔 없다**
-- **`pickTemplate` 변형 불일치 시 조용히 `e[0]`** — 다중변형 poe1 233 / poe2 80건(1.0~1.3%). 주석이 의도된 동작이라 적어뒀지만 `missing[]`에 안 남는다. `(Local)`/글로벌 변형을 잘못 고르면 PoB 계산이 통째로 달라진다
-- **안 읽는 아이템 필드 12종** — Radius는 "`properties`를 안 읽는다"의 한 사례였을 뿐. `sockets`·`socketedItems`·`influences`·`identified`·`synthesised`·`duplicated`·`scourgeMods`·`veiledMods`·`crucibleMods`·`requirements` + `properties`의 나머지(**특히 품질**) 전부 참조 0회. 우선순위 **품질 > 소켓/링크 > influences**(앞의 둘은 수치 직접 영향)
-- **결백 확인**: `hashAt`의 위치 기반 매칭을 의심했으나 캡처 실데이터 대조 결과 `hashes[i] ↔ mods[i]` 대응이 맞다(`[hash, [n]]`의 `[n]`은 mod 인덱스가 아니다)
+⚠ **`v0.6.3` 태그는 GitHub에만 남는다** — 스토어 제출 전에 0.6.4가 나와 대체됐다(v0.6.0·v0.6.1과 같은 처지). 스토어로 나가는 버전은 **0.6.4**.
+
+**남은 후속(저우선, 미착수)**: PoB가 읽지만 아직 안 만드는 필드 — `requirements`·`identified`·`synthesised`·`duplicated`·`scourgeMods`·`veiledMods`·`crucibleMods`. 수치에 직접 영향 주는 품질·소켓은 0.6.4에서 처리했다.
 
 **0.6.2 릴리즈 게시 완료 · 스토어 제출 대기 (2026-08-02)** — 사용자 제보(소형 클러스터 주얼 인챈트가 한글로 남음)로 번들 stat 맵이 stale함을 확인하고 재생성했다(`1e9bdba`). 최신 stats API 대비 미매핑 **poe1 2,733건 / poe2 41건 → 양쪽 0건**. 아래 완료 항목 참조.
 버전 범프 0.6.1 → **0.6.2**(`49fb1b4`) → `develop` → `main` FF 머지·푸시(`8bcd0b9..49fb1b4`, 4커밋) → **`v0.6.2` 태그 즉시 publish(`49fb1b4`, 現 `Latest`)**. `deploy/poe-bookmark-atlas-0.6.2.zip`(29파일·788KB, manifest.json 루트 확인) 생성 완료.
