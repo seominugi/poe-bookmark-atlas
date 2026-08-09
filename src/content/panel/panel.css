@@ -306,7 +306,11 @@
 }
 .ba-add-folder { color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); }
 .ba-add-folder:hover { background: rgba(167, 139, 250, 0.22); }
-.ba-collapse-all { color: var(--ba-text); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); }
+/* 폭 고정 — 라벨이 '전체 접기'(79.5px) ↔ '전체 펼치기'(89.7px)로 바뀌어도 버튼 폭이 그대로여야 한다.
+   폭이 변하면 액션 행의 줄바꿈 위치가 상태마다 달라져 레이아웃이 흔들린다(같은 원인으로 2회 제보:
+   2026-07-27 버튼 추가로 넘침 / 2026-08-06 '펼치기' 라벨이 4px 초과해 줄바꿈). 92px = 긴 라벨 실측 + 여유. */
+.ba-collapse-all { color: var(--ba-text); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border);
+  min-width: 92px; justify-content: center; }
 .ba-collapse-all:hover { background: rgba(255,255,255,0.1); color: var(--ba-text-strong); }
 .ba-clean-stale { color: #fda4af; background: var(--ba-danger-soft); border: 1px solid var(--ba-danger-line); }
 .ba-clean-stale:hover { background: rgba(251, 113, 133, 0.24); color: #fecdd3; }

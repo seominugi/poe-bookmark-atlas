@@ -501,7 +501,9 @@ export async function renderList(listEl, root, ui = {}) {
   const allKeys = ['', ...folders.map((f) => f.id)]
   const allCollapsed = allKeys.every((k) => collapsedFolders.has(k))
   const collapseAllBtn = folders.length >= 1
-    ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}</button>`
+    // 라벨은 짧게(‘전체 …’) + CSS로 폭 고정 — 길이가 바뀌면 액션 행 줄바꿈 위치가 상태마다 달라진다.
+    // 전체 설명은 툴팁이 갖는다.
+    ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}${allCollapsed ? '전체 펼치기' : '전체 접기'}</button>`
     : ''
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
   html += `<div class="ba-action-row">${onelineBtn}${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
