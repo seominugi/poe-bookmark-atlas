@@ -434,10 +434,14 @@ function watchRowHtml(w) {
   const moved = w.lastPrice && w.price && (w.lastPrice.amount !== w.price.amount || w.lastPrice.currency !== w.price.currency)
   const meta = [w.seller && `판매자 ${w.seller}`, p(w.price) + (moved ? ` → ${p(w.lastPrice)}` : '')].filter(Boolean).join(' · ')
   const other = here ? '' : `<span class="ba-wbadge ba-wbadge--other" data-tip="다른 거래소의 매물이라 여기서는 상태를 확인할 수 없어요">다른 거래소</span>`
+  // 아이템 이미지 — 북마크 카드와 같은 .ba-thumb 재사용. 허용 CDN 외 URL은 렌더하지 않는다(기존 규칙).
+  const thumb = w.icon && isAllowedIconUrl(w.icon) ? `<img class="ba-thumb" src="${escapeHtml(w.icon)}" alt="" loading="lazy" />` : ''
+  // 언제 찜했는지 — 매물은 시간이 지날수록 죽을 확률이 커져서, 이 값이 곧 신선도 힌트다
+  const saved = w.savedAt ? `<span class="ba-wwhen" data-tip="찜한 시점">${icon('clock', 10)}${ago(w.savedAt)}</span>` : ''
   return `<div class="ba-wrow" data-id="${escapeHtml(w.id)}" data-url="${encodeURIComponent(w.sourceUrl || '')}">
-    <span class="ba-wtop"><span class="ba-wname">${escapeHtml(w.name || w.baseType || '(이름 없음)')}</span><span class="ba-wbadge ba-wbadge--${st.cls}">${st.text}</span>${other}</span>
+    <span class="ba-wtop">${thumb}<span class="ba-wname">${escapeHtml(w.name || w.baseType || '(이름 없음)')}</span><span class="ba-wbadge ba-wbadge--${st.cls}">${st.text}</span>${other}</span>
     <span class="ba-wmeta">${escapeHtml(meta)}</span>
-    <span class="ba-wacts"><button class="ba-wopen" data-tip="이 매물을 찾았던 검색을 다시 열어요">${icon('search', 11)}다시 검색</button><button class="ba-wdel" data-tip="찜 해제">${icon('x', 11)}</button></span>
+    <span class="ba-wacts">${saved}<button class="ba-wopen" data-tip="이 매물을 찾았던 검색을 다시 열어요">${icon('search', 11)}다시 검색</button><button class="ba-wdel" data-tip="찜 해제">${icon('x', 11)}</button></span>
   </div>`
 }
 

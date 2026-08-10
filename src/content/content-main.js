@@ -405,7 +405,7 @@ function injectPobButtons() {
     const star = makeWatchButton(id, item)
     const group = document.createElement('div')
     group.className = 'ba-row-btns'
-    group.append(btn, star)
+    group.append(star, btn) // ★ 를 PoB 앞에 — 사용자 요청(2026-08-06)
     // 1순위: '인증 완료' 배지 아래(왼쪽 컬럼, 자연 흐름) — 텍스트 앵커라 이미지 로딩 타이밍과 무관하고,
     // poe1 세로로 긴 무기 이미지에서 버튼이 늘어지는 문제(높이 매칭)도 없다.
     const rr = row.getBoundingClientRect()

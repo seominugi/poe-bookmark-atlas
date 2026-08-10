@@ -75,20 +75,33 @@ await addBookmark(rec('오래된 북마크(만료 배지)', { dedupeKey: 'k_stal
   if (t) { t.lastUsedAt = OLD; t.createdAt = OLD; t.updatedAt = OLD; mem.set(KEY, all) }
 }
 
+// '차단된 링크' 배지(.ba-attn--del) — 허용 도메인 밖 URL. addBookmark 는 이런 URL 을 막으므로
+// 저장소에 직접 심는다. '오래됨'(3자)보다 긴 6자라 찌그러짐 위험이 더 크다.
+{
+  const KEY = 'records'
+  const all = mem.get(KEY) || []
+  const t = all.find((x) => x.dedupeKey === 'k_bm0')
+  if (t) { t.url = 'https://evil.example.com/trade2/search/poe2/x'; mem.set(KEY, all) }
+}
+
 // 찜한 매물 시드 — 상태 3종(미확인·있음·판매됨) + 다른 거래소 항목까지 한 화면에서 본다
 mem.set('watchlist', [
+  // icon 은 web.poecdn.com 만 허용된다(isAllowedIconUrl) — 하네스에선 로드 실패해도 자리·레이아웃은 검증된다.
+  // 마지막 항목은 icon 없이 두어 '썸네일 없는 카드'도 함께 본다.
   { id: 'w_1', listingId: 'L1', origin: location.host, game: 'poe2', league: 'Runes of Aldur',
+    icon: 'https://web.poecdn.com/image/Art/2DItems/Jewels/timeless1.png',
     name: '고상한 오만', baseType: '무궁한 주얼', seller: 'exile#1234',
-    price: { amount: 10, currency: 'divine' }, savedAt: 3, status: 'alive',
+    price: { amount: 10, currency: 'divine' }, savedAt: Date.now() - 2 * 3600e3, status: 'alive',
     sourceUrl: 'https://poe.kakaogames.com/trade2/search/poe2/Runes%20of%20Aldur/aaa' },
   { id: 'w_2', listingId: 'L2', origin: location.host, game: 'poe2', league: 'Runes of Aldur',
+    icon: 'https://web.poecdn.com/image/Art/2DItems/Weapons/spear1.png',
     name: '하늘의 편린', baseType: '날개 달린 창', seller: 'trader#5678',
     price: { amount: 3, currency: 'divine' }, lastPrice: { amount: 5, currency: 'divine' },
-    savedAt: 2, status: 'alive', checkedAt: 1,
+    savedAt: Date.now() - 3 * 86400e3, status: 'alive', checkedAt: Date.now() - 3600e3,
     sourceUrl: 'https://poe.kakaogames.com/trade2/search/poe2/Runes%20of%20Aldur/bbb' },
   { id: 'w_3', listingId: 'L3', origin: 'www.pathofexile.com', game: 'poe2', league: 'Runes of Aldur',
     name: '아주아주 긴 이름의 유니크 아이템 표시 확인용', baseType: '반지', seller: 'someone#9999',
-    price: { amount: 120, currency: 'chaos' }, savedAt: 1, status: 'sold', checkedAt: 1,
+    price: { amount: 120, currency: 'chaos' }, savedAt: Date.now() - 12 * 86400e3, status: 'sold', checkedAt: Date.now() - 7200e3,
     sourceUrl: 'https://poe.kakaogames.com/trade2/search/poe2/Runes%20of%20Aldur/ccc' },
 ])
 
