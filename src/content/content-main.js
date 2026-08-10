@@ -30,8 +30,53 @@ function leagueFromUrl() {
 
 const send = (m) => new Promise((res) => chrome.runtime.sendMessage(m, res))
 
+// ── 확장 컨텍스트 무효화 대응 ──
+// 확장을 리로드·업데이트하면 **이미 열려 있던 탭**의 콘텐츠 스크립트는 고아가 된다 —
+// 이후 모든 chrome.* 호출이 "Extension context invalidated"로 던진다. 브라우저 동작상 정상이지만
+// 잡지 않으면 uncaught (in promise)로 콘솔을 채우고(사용자 제보 2026-08-06), 정작 사용자는
+// 패널이 왜 죽었는지 모른 채 남는다. 잡아서 **1회만** 안내하고 새로고침 경로를 준다.
+const isCtxInvalidated = (e) => /context invalidated|Extension context/i.test(String((e && e.message) || e))
+let ctxDeadNotified = false
+function noteExtensionDead() {
+  if (ctxDeadNotified) return
+  ctxDeadNotified = true
+  LOG('확장 컨텍스트 무효화 — 이 탭의 스크립트는 더 이상 동작하지 않는다(새로고침 필요)')
+  try {
+    if (document.getElementById('ba-ctx-dead')) return
+    const box = document.createElement('div')
+    box.id = 'ba-ctx-dead'
+    box.style.cssText = 'position:fixed;z-index:2147483647;top:16px;left:50%;transform:translateX(-50%);'
+      + 'display:flex;align-items:center;gap:10px;max-width:min(560px,calc(100vw - 32px));padding:11px 14px;'
+      + 'border-radius:12px;background:#1a1430;color:#e6e3f5;border:1px solid #6d5bd0;'
+      + 'box-shadow:0 10px 30px rgba(0,0,0,.45);font:13px/1.5 system-ui,-apple-system,sans-serif;word-break:keep-all'
+    const t = document.createElement('span')
+    t.textContent = '확장이 업데이트돼서 이 탭의 북마크 패널이 멈췄어요. 새로고침하면 다시 쓸 수 있어요.'
+    const btn = document.createElement('button')
+    btn.type = 'button'
+    btn.textContent = '새로고침'
+    btn.style.cssText = 'flex:none;font:inherit;font-weight:700;padding:5px 11px;border-radius:8px;cursor:pointer;'
+      + 'color:#ddd6fe;background:rgba(167,139,250,.18);border:1px solid rgba(167,139,250,.5)'
+    btn.addEventListener('click', () => location.reload())
+    box.append(t, btn)
+    ;(document.body || document.documentElement).appendChild(box)
+  } catch (_) {}
+}
+// 떠 있는 프라미스를 삼켜 콘솔을 더럽히지 않게 한다. 컨텍스트 무효화면 안내, 그 외는 로그만.
+const guard = (p) => Promise.resolve(p).catch((err) => {
+  if (isCtxInvalidated(err)) noteExtensionDead()
+  else LOG('처리되지 않은 오류', String(err))
+})
+// 전역 안전망 — panel.js·renderList.js 의 async 클릭 리스너가 10곳 넘고 전부 chrome.storage 를 만진다.
+// 각각을 감싸는 대신 여기서 한 번에 잡는다(앞으로 추가될 리스너까지 자동으로 덮인다).
+// 컨텍스트 무효화만 삼키고 나머지는 그대로 흘려보낸다 — 진짜 버그를 숨기면 안 된다.
+window.addEventListener('unhandledrejection', (ev) => {
+  if (!isCtxInvalidated(ev && ev.reason)) return
+  ev.preventDefault()
+  noteExtensionDead()
+})
+
 // 데이터 스키마 버전 보장 — 향후 구조 변경 시 마이그레이션 진입점 (현재 v1: 버전 마킹만)
-ensureSchema()
+guard(ensureSchema()) // 확장 리로드 직후엔 여기서 바로 던진다 — 잡지 않으면 uncaught
 
 // statMap은 검색 흐름과 독립적으로 1회 로드(레이스 방지)
 let statMap = {}
@@ -373,7 +418,7 @@ function makeWatchButton(id, item) {
         else setState(true) // dup — 이미 담겨 있음(상태만 맞춘다)
       }
       document.dispatchEvent(new CustomEvent('ba:records-changed'))
-    } catch (e) { LOG('찜 토글 실패', String(e)) }
+    } catch (e) { if (isCtxInvalidated(e)) noteExtensionDead(); else LOG('찜 토글 실패', String(e)) }
   })
   return star
 }
@@ -467,7 +512,10 @@ function schedulePobInject() {
   pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(injectPobButtons, ms))
 }
 
-window.addEventListener('message', async (e) => {
+// 리스너를 async 로 두면 내부에서 던진 순간 unhandled rejection 이 된다(확장 리로드 시 addHistory·
+// markUsedByUrl 이 chrome.storage 로 던진다). 본문을 함수로 빼고 guard 로 감싼다.
+window.addEventListener('message', (e) => guard(handleBridgeMessage(e)))
+async function handleBridgeMessage(e) {
   if (e.origin !== location.origin) return
   const d = e.data
   if (!d || d.__baSource !== 'ba-bridge') return
@@ -547,7 +595,7 @@ window.addEventListener('message', async (e) => {
     LOG('히스토리 저장됨:', rec && rec.id, parsed.title)
     document.dispatchEvent(new CustomEvent('ba:records-changed'))
   }
-})
+}
 
 // ── 리그 이관 — 저장된 검색을 목표 리그에서 다시 열 수 있게 만든다 ──
 // 1순위: 저장된 URL의 리그 세그먼트만 교체. 검색 해시는 조건만 담고 리그는 경로가 정하므로(사용자 확인,

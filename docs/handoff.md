@@ -53,6 +53,24 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 완료된 작업
 
+### "Extension context invalidated" 콘솔 오류 + 죽은 패널 무안내 (2026-08-06, **미커밋**)
+
+**제보**: 확장 리로드 후 `Uncaught (in promise) Error: Extension context invalidated.` × 4 (`content-main.js`).
+
+**성격**: 확장을 리로드·업데이트하면 **이미 열려 있던 탭**의 콘텐츠 스크립트는 고아가 되고 이후 모든 `chrome.*` 호출이 던진다 — **브라우저 동작상 정상**이다. 문제는 우리가 그걸 **안 잡아서** ① 콘솔이 uncaught 로 더럽혀지고 ② **사용자는 패널이 왜 죽었는지 모른 채 남는다**는 것.
+
+**샌 곳 2군데(자동 실행 경로라 클릭 없이도 터진다)**
+- `ensureSchema()` — 최상위에서 캐치 없이 호출. 리로드 직후 바로 던진다
+- `window.addEventListener('message', async …)` — **async 리스너**라 내부에서 던지면 그대로 unhandled rejection. 안에서 `addHistory`·`markUsedByUrl`·`backfillQuery`가 `chrome.storage`를 만진다. **검색할 때마다 발생**해서 오류가 여러 개였던 것도 이걸로 설명된다
+
+**수정**
+- `isCtxInvalidated()` + `noteExtensionDead()` — 무효화를 식별해 **1회만** 안내. 배너에 **[새로고침] 버튼**을 달아 복구 경로를 준다(값은 전부 `textContent`)
+- `guard(p)` — 자동 실행 진입점 2곳(`ensureSchema`, bridge 핸들러)에 적용. 리스너 본문은 `handleBridgeMessage()`로 분리해 감쌌다
+- **전역 안전망 `unhandledrejection` 리스너** — `renderList.js`에만 async 클릭 리스너가 10곳 넘고 전부 `chrome.storage`를 만진다. 각각 감싸는 대신 한 곳에서 잡는다(앞으로 추가될 리스너까지 자동으로 덮인다). **컨텍스트 무효화만 삼키고 나머지는 그대로 흘려보낸다** — 진짜 버그를 숨기면 안 되므로
+
+검증: 테스트 357/357, 빌드 통과, 산출물에 `unhandledrejection`·`ba-ctx-dead`·안내 문구 포함 확인.
+**⚠ 실동작 미검증** — 재현하려면 ① 확장 리로드(새 코드 적재) ② 거래소 탭 새로고침 ③ **확장을 한 번 더 리로드**해야 그 탭이 무효화된다. 사용자 확인 필요.
+
 ### 찜한 매물 보강(썸네일·날짜) + '상태 확인' 버튼 CSS 누락 + 조건부 UI 전수 점검 (2026-08-06, **미커밋**)
 
 **⚠ '상태 확인' 버튼은 내가 만든 결함이다.** `.ba-watch-check`에 **CSS를 아예 안 써서** 브라우저 기본 버튼으로 렌더됐고, 아이콘(SVG block)이 윗줄로 줄바꿈돼 2줄로 찌그러졌다(제보 스크린샷).
