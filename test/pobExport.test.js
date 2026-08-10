@@ -336,6 +336,21 @@ describe('군단 주얼 — 검색 stat이 mod의 첫 줄만 덮는 경우 (사�
     expect(missing).toEqual(['explicit:explicit.pseudo_timeless_jewel_caspiro — 알 수 없는 신규 문구'])
   })
 
+  it("반경 '작게'가 Small 로 나온다 — 실측(불가능한 탈출, 2026-08-06 제보)", () => {
+    // 처음엔 대형/중형/소형으로 **추측**해 넣어서 '작게'가 번역되지 않았다.
+    // 거래소 filters·stats 에 값 열거가 없어 실아이템이 유일한 출처다 — 표본을 여기 고정한다.
+    const esc = { name: '불가능한 탈출', baseType: '진청록색 주얼', rarity: 'Unique', ilvl: 87, corrupted: true,
+      properties: [{ name: '중복 사용 제한', values: [['1', 0]] }, { name: '적용 반경', values: [['작게', 0]], type: 24 }] }
+    const { text, missing } = build(esc)
+    expect(text).toContain('Radius: Small')
+    expect(missing).not.toContain('radius:작게')
+  })
+
+  it("속성 이름이 '적용 반경'이어도 잡는다(거래소 실제 표기)", () => {
+    const { text } = build({ ...jewel, properties: [{ name: '적용 반경', values: [['대형', 0]], type: 24 }] })
+    expect(text).toContain('Radius: Large')
+  })
+
   it('모르는 반경 표기는 그대로 내보내되 제보에 남긴다', () => {
     const { text, missing } = build({ ...jewel, properties: [{ name: '반경', values: [['초대형', 0]] }] })
     expect(text).toContain('Radius: 초대형')

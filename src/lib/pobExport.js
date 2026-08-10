@@ -119,7 +119,14 @@ export function translateMod(id, koDesc, map, modMap = {}) {
 
 // 주얼 반경 — PoB가 '반경 내' 효과 계산에 실제로 쓴다. 거래소는 properties에 담아 보내는데
 // buildPobText가 properties를 통째로 안 읽고 있었다(사용자 제보 — 군단 주얼에 Radius가 빠짐).
-const RADIUS_EN = { 대형: 'Large', 중형: 'Medium', 소형: 'Small' }
+// ⚠ KR 값은 **실측한 것만** 넣는다.
+// 처음엔 대형/중형/소형으로 추측해 넣었는데 실제 값이 '작게'라서 번역이 안 됐다(사용자 제보 2026-08-06).
+// 거래소 국지화는 어형이 일관되지 않다 — 같은 '적용 반경' 속성에 '작게'(부사형)와 '대형'(명사형)이 섞여 쓰인다.
+// 거래소 `data/filters`·`data/stats` 어디에도 이 값의 열거가 없어(2026-08-06 확인) **실아이템 표본이 유일한 출처**다.
+// 그래서 모르는 값은 **추측해 채우지 않는다** — 원문 그대로 내보내고 missing 에 `radius:<원문>` 으로 남긴다.
+// 제보가 오면 그 값을 여기 추가하면 된다.
+// 실측 출처: 작게 = '불가능한 탈출'(진청록색 주얼) / 대형 = '완력 해결' 등(코발트색 주얼)
+const RADIUS_EN = { 작게: 'Small', 대형: 'Large' }
 const propValue = (item, re) => {
   const p = ((item && item.properties) || []).find((x) => re.test(String((x && x.name) || '')))
   const raw = p && p.values && p.values[0] && p.values[0][0]
