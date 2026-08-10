@@ -69,6 +69,13 @@ const guard = (p) => Promise.resolve(p).catch((err) => {
 // 전역 안전망 — panel.js·renderList.js 의 async 클릭 리스너가 10곳 넘고 전부 chrome.storage 를 만진다.
 // 각각을 감싸는 대신 여기서 한 번에 잡는다(앞으로 추가될 리스너까지 자동으로 덮인다).
 // 컨텍스트 무효화만 삼키고 나머지는 그대로 흘려보낸다 — 진짜 버그를 숨기면 안 된다.
+//
+// ⚠ **이 리스너는 아직 실동작으로 검증되지 않았다**(2026-08-06). 재현하려면 거래소 탭을 살려둔 채
+//   확장만 무효화해야 하는데(비활성화가 확실), 시도 3회 모두 탭이 새로 뜨면서 컨텍스트가 살아 있었다.
+//   **신고된 오류 4건은 이 리스너가 아니라 위의 guard() 두 곳(ensureSchema·bridge 핸들러)에서 나온 것**이라
+//   그쪽은 일반 Promise .catch 라 확실하다. 이 전역 net 은 "사용자가 무효화 이후 패널 버튼을 누른" 더 좁은
+//   경우를 위한 보강이다. 만약 무효화 상황에서 renderList 클릭이 여전히 uncaught 로 샌다면,
+//   이 net 대신 renderList.js 의 async 리스너 15곳을 직접 감싸는 방식으로 바꿔야 한다.
 window.addEventListener('unhandledrejection', (ev) => {
   if (!isCtxInvalidated(ev && ev.reason)) return
   ev.preventDefault()

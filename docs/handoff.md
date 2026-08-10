@@ -68,8 +68,14 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 - `guard(p)` — 자동 실행 진입점 2곳(`ensureSchema`, bridge 핸들러)에 적용. 리스너 본문은 `handleBridgeMessage()`로 분리해 감쌌다
 - **전역 안전망 `unhandledrejection` 리스너** — `renderList.js`에만 async 클릭 리스너가 10곳 넘고 전부 `chrome.storage`를 만진다. 각각 감싸는 대신 한 곳에서 잡는다(앞으로 추가될 리스너까지 자동으로 덮인다). **컨텍스트 무효화만 삼키고 나머지는 그대로 흘려보낸다** — 진짜 버그를 숨기면 안 되므로
 
-검증: 테스트 357/357, 빌드 통과, 산출물에 `unhandledrejection`·`ba-ctx-dead`·안내 문구 포함 확인.
-**⚠ 실동작 미검증** — 재현하려면 ① 확장 리로드(새 코드 적재) ② 거래소 탭 새로고침 ③ **확장을 한 번 더 리로드**해야 그 탭이 무효화된다. 사용자 확인 필요.
+**검증 (2026-08-06 라이브, 'POE 브라우저')**
+- 새 번들 적재 확인(`content-main.js-CFsWzSGy.js`), 검색 3회 전부 `히스토리 저장됨` — **리스너를 `handleBridgeMessage()`로 분리한 리팩터가 정상 경로를 안 깼다는 직접 증거**(`addHistory`가 `chrome.storage`까지 도달). 콘솔 오류 0
+- 테스트 357/357, 빌드 통과, 산출물에 `unhandledrejection`·`ba-ctx-dead`·안내 문구 포함
+
+**⚠ 전역 `unhandledrejection` net 은 실동작 미검증** — 재현하려면 거래소 탭을 **살려둔 채** 확장만 무효화해야 하는데(비활성화가 확실한 트리거), 시도 3회 모두 탭·브라우저가 새로 뜨면서 컨텍스트가 살아 있었다(`간략히` 토글이 정상 동작 = `chrome.storage.local.set` 성공으로 확인).
+합성 `PromiseRejectionEvent` 로도 못 잰다 — **콘텐츠 스크립트는 격리 월드라 페이지 컨텍스트에서 던진 이벤트가 닿지 않는다.**
+**다만 신고된 오류 4건은 이 net 이 아니라 `guard()` 두 곳에서 나온 것**이고(스택의 `content-main.js`와 일치), 그쪽은 일반 Promise `.catch` 라 월드와 무관하게 확실하다. **즉 제보된 문제 자체는 해결됐다.**
+net 은 "무효화 이후 사용자가 패널 버튼을 누른" 더 좁은 경우용 보강이다. 그 경우에도 uncaught 가 새면 net 대신 `renderList.js` 의 async 리스너 15곳을 직접 감싸는 방식으로 교체할 것(코드 주석에도 남김).
 
 ### 찜한 매물 보강(썸네일·날짜) + '상태 확인' 버튼 CSS 누락 + 조건부 UI 전수 점검 (2026-08-06, **미커밋**)
 
