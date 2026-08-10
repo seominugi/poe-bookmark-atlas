@@ -543,8 +543,10 @@
 
 /* 분절 토글 — 정렬(순서/최근/이름) · 밀도(여유/조밀) 공용 */
 .ba-seg { display: inline-flex; align-items: stretch; background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); border-radius: 9px; overflow: hidden; flex: none; font-size: 11px; font-weight: 700; }
+/* nowrap 필수 — 세그먼트가 압축되면 '순 서'처럼 한글이 글자 단위로 세로 줄바꿈된다(실측: 27px→43px).
+   .ba-attn(오래됨 배지)이 같은 원인으로 제보됐고, 이 프로젝트에서 같은 결함이 3회 반복됐다. */
 .ba-seg > * { display: inline-flex; align-items: center; padding: 5px 10px; cursor: pointer; color: #9b94bd;
-  transition: transform .16s var(--ba-ease-out); }
+  white-space: nowrap; transition: transform .16s var(--ba-ease-out); }
 /* 누름 피드백 — 패널의 다른 누름 요소(.ba-set-go·.ba-set-del·.ba-toast-act)와 같은 언어. 세그먼트만 빠져 있었다 */
 .ba-seg > *:active { transform: scale(0.97); }
 @media (prefers-reduced-motion: reduce) { .ba-seg > *:active { transform: none; } }
@@ -552,7 +554,11 @@
 .ba-seg > .active { background: linear-gradient(180deg, rgba(167,139,250,0.34), rgba(167,139,250,0.18)); color: #f3efff; font-weight: 800; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12); }
 
 /* 리그 불일치 / soft-stale 통합 배지 (클릭 = 갱신·재검색) — 앰버 */
-.ba-attn { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; color: var(--ba-warn); background: var(--ba-warn-soft); border: 1px solid var(--ba-warn-line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
+/* flex: none + nowrap 필수 — 없으면 옆의 조건 칩이 길 때 이 배지만 찌그러져 '오 래 됨'처럼
+   한글이 글자 단위로 세로 줄바꿈된다(사용자 제보 2026-08-06. 2026-07-27 '선택' 버튼과 같은 원인).
+   같은 행의 .ba-more 는 flex: none 을 갖고 있었는데 이 배지만 빠져 있었다.
+   대신 줄어드는 쪽은 .ba-cond--summary 이고, 거기엔 이미 말줄임(text-overflow)이 걸려 있다. */
+.ba-attn { flex: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 800; color: var(--ba-warn); background: var(--ba-warn-soft); border: 1px solid var(--ba-warn-line); border-radius: 6px; padding: 3px 8px; cursor: pointer; }
 .ba-attn:hover { background: rgba(251,191,36,0.28); }
 /* 흐림 처리된 행 (갱신/리그 필요) */
 .ba-row.ba-attn-dim { opacity: .6; }

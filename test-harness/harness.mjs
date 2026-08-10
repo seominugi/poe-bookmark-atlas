@@ -62,6 +62,19 @@ mem.set('conditionSets', [
     stats: [{ id: 'explicit.stat_x', text: '무언가 #' }] },
 ])
 
+// 조건부로만 나타나는 상태들을 반드시 한 화면에 띄운다.
+// 왜: 2026-08-06 레이아웃 전수 점검이 '오래됨'(.ba-attn) 배지가 찌그러지는 결함을 놓쳤다 —
+// 하네스에 오래된 북마크가 없어 그 배지가 **렌더된 적이 없었기 때문**이다.
+// 조건부 요소를 안 띄운 채로 잰 측정은 그 요소를 검증하지 못한다.
+const OLD = Date.now() - 30 * 24 * 60 * 60 * 1000 // 30일 전 = STALE_MS(14일) 초과 → '오래됨' 배지
+await addBookmark(rec('오래된 북마크(만료 배지)', { dedupeKey: 'k_stale' }), '오래된 북마크(만료 배지)')
+{
+  const KEY = 'records'
+  const all = mem.get(KEY) || []
+  const t = all.find((x) => x.dedupeKey === 'k_stale')
+  if (t) { t.lastUsedAt = OLD; t.createdAt = OLD; t.updatedAt = OLD; mem.set(KEY, all) }
+}
+
 // 찜한 매물 시드 — 상태 3종(미확인·있음·판매됨) + 다른 거래소 항목까지 한 화면에서 본다
 mem.set('watchlist', [
   { id: 'w_1', listingId: 'L1', origin: location.host, game: 'poe2', league: 'Runes of Aldur',
