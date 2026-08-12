@@ -86,6 +86,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           </div>
         </div>
       </div>
+      <div class="ba-resize" id="ba-resize" data-tip="드래그해 패널 너비 조절
+최소 너비 아래로는 줄지 않아요"></div>
       <div class="ba-sets" id="ba-sets" hidden></div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-foot">
@@ -119,11 +121,22 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 접기/펼치기 = 표시/숨김 (핸들·✕·툴바 아이콘 공통, 상태 유지). 핸들은 항상 보여 다시 열 수 있음.
   const isCollapsed = () => elRoot.classList.contains('collapsed')
   let panelSide = 'right' // 패널 좌/우 배치 (uiPanelSide 선호)
+  // 패널 폭 — 최소는 기존 고정폭(384px). 이번 세션 실측상 액션 행이 가용 342px 중 336px 를 쓰므로
+  // 더 좁히면 레이아웃이 흔들린다. 넓히기만 허용해 기존 예산·회귀 가드를 하한으로 유지한다(사용자 결정).
+  const MIN_W = 384
+  const maxW = () => Math.max(MIN_W, Math.min(880, window.innerWidth - 160)) // 거래소 화면을 완전히 덮지 않게
+  let panelW = MIN_W
+  // 폭에 의존하는 값은 전부 여기서 파생시킨다 — CSS 는 --ba-w(패널 width·핸들 위치), JS 는 페이지 밀어내기.
+  const applyWidth = (w) => {
+    panelW = Math.round(Math.max(MIN_W, Math.min(maxW(), Number(w) || MIN_W)))
+    host.style.setProperty('--ba-w', panelW + 'px') // :host 선언을 인라인으로 덮는다(그림자 안 전체가 따라간다)
+    applyPagePush(isCollapsed())
+  }
   let fuzzyOn = true // 거래소 필터칸 "~" 퍼지 접두사 강제 (uiFuzzyPrefix, 기본 켬 — fuzzyPrefix.js가 실제 동작 담당)
   // 펼쳤을 때 페이지 콘텐츠를 패널 반대쪽으로 밀어 자리를 확보(도킹) → 검색 영역과 겹침 방지. 좌/우 배치에 따라 방향 반전.
   const applyPagePush = (collapsed) => {
     try {
-      const push = collapsed ? '' : '412px'
+      const push = collapsed ? '' : (panelW + 28) + 'px' // 패널 폭 + 좌우 여백(14+14)
       document.documentElement.style.setProperty('margin-left', panelSide === 'left' ? push : '', 'important')
       document.documentElement.style.setProperty('margin-right', panelSide === 'right' ? push : '', 'important')
       document.documentElement.style.setProperty('transition', 'margin .25s ease', 'important')
@@ -152,7 +165,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
   applyPagePush(isCollapsed())
   try {
-    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix']).then((r) => {
+    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth']).then((r) => {
+      if (r && r.uiPanelWidth) applyWidth(r.uiPanelWidth)
       if (r && r.uiPanelSide) applySide(r.uiPanelSide)
       if (r && typeof r.uiFuzzyPrefix === 'boolean') fuzzyOn = r.uiFuzzyPrefix
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
@@ -160,6 +174,39 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     })
   } catch (_) {}
   updateHandleBadge()
+
+  // ── 폭 조절 드래그 ──
+  // 포인터를 즉시 따라가야 하므로 전환 없이 반영하고, **저장은 놓을 때 한 번만** 한다 —
+  // 드래그 중 chrome.storage 에 쓰면 다른 탭의 onChanged 가 매 프레임 깨어나 재렌더된다.
+  ;(() => {
+    const grip = $('ba-resize')
+    if (!grip) return
+    let startX = 0, startW = 0, dragging = false
+    grip.addEventListener('pointerdown', (e) => {
+      dragging = true; startX = e.clientX; startW = panelW
+      grip.classList.add('on')
+      try { grip.setPointerCapture(e.pointerId) } catch (_) {}
+      e.preventDefault() // 드래그 중 텍스트 선택 방지
+    })
+    grip.addEventListener('pointermove', (e) => {
+      if (!dragging) return
+      // 잡는 곳이 패널 **안쪽** 변이라 방향이 배치에 따라 뒤집힌다.
+      // 우측 배치: 왼쪽으로 끌수록 넓어짐 / 좌측 배치: 오른쪽으로 끌수록 넓어짐.
+      const delta = panelSide === 'left' ? (e.clientX - startX) : (startX - e.clientX)
+      applyWidth(startW + delta) // applyWidth 가 MIN_W~maxW() 로 클램프한다
+    })
+    const end = (e) => {
+      if (!dragging) return
+      dragging = false
+      grip.classList.remove('on')
+      try { grip.releasePointerCapture(e.pointerId) } catch (_) {}
+      try { chrome.storage.local.set({ uiPanelWidth: panelW }) } catch (_) {}
+    }
+    grip.addEventListener('pointerup', end)
+    grip.addEventListener('pointercancel', end)
+  })()
+  // 창이 좁아지면 상한이 내려간다 — 현재 폭을 다시 클램프해 패널이 화면을 다 덮지 않게 한다
+  window.addEventListener('resize', () => applyWidth(panelW))
 
   // 핸들 테두리를 패널 그라데이션의 '그 위치 색'으로 동적 일치
   // (panel.css의 fixed border-box 그라데이션이 콘텐츠 스크립트 컨텍스트에서 불안정 → JS로 계산해 inline 적용)
@@ -1099,6 +1146,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return
       if (changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
+      if (changes.uiPanelWidth) applyWidth(changes.uiPanelWidth.newValue)
       if (changes.uiFuzzyPrefix) fuzzyOn = changes.uiFuzzyPrefix.newValue !== false // 다른 탭에서 바꾸면 설정 모달 표시도 따라간다
       // 다른 탭에서 리그를 바꾸면 이 탭도 따라간다(같은 게임일 때만)
       if (changes.uiLeague) {

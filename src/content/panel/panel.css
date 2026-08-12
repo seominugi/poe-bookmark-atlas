@@ -8,6 +8,12 @@
  * ============================================================ */
 :host {
   all: initial;
+  /* 패널 폭 — 드래그로 조정하고 uiPanelWidth 에 저장한다. 최소 384px(=기존 고정폭)로 제한한다:
+     이번 세션 실측에서 액션 행이 가용 342px 중 336px 를 쓰고 있어(최악 폰트 기준) 더 좁히면 레이아웃이
+     흔들린다. 넓히기만 허용하면 기존 예산·회귀 가드가 그대로 하한으로 유효하다.
+     ⚠ 폭에 의존하는 값은 전부 이 변수에서 파생시킬 것 — 예전엔 width·핸들 right·페이지 밀어내기가
+     각각 384/398/412 로 하드코딩돼 한 곳만 고치면 틈이 생겼다. */
+  --ba-w: 384px;
   --ba-panel-bg:     rgba(24, 21, 42, 0.97);     /* 단색 통일 패널 배경 (성능: backdrop-filter 제거, 불투명도 상향) */
   --ba-surface:      rgba(20, 18, 34, 0.55);     /* 카드/행 표면 */
   --ba-surface-hi:   rgba(30, 26, 52, 0.78);     /* hover 표면 */
@@ -55,7 +61,7 @@
 
 .ba-root {
   /* 플로팅 패널: 화면 모서리에서 14px 띄우고 전 모서리 라운딩 */
-  position: fixed; top: 14px; bottom: 14px; right: 14px; width: 384px;
+  position: fixed; top: 14px; bottom: 14px; right: 14px; width: var(--ba-w);
   display: flex; flex-direction: column;
   font-family: 'Pretendard', 'Inter', 'Noto Sans KR', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px; line-height: 1.5; color: var(--ba-text);
@@ -80,9 +86,10 @@
 }
 
 /* 접힘 핸들 — 고정 위치, 패널 좌측에 '딱 붙는' 탭. 세로 드래그로 위치 이동 + 클릭으로 접기.
-   ⚠ right 값이 패널 좌측 모서리(=right 14 + width 384 = 398px)와 정확히 일치해야 틈이 안 생김 */
+   ⚠ right 값이 패널 안쪽 모서리(= 화면 여백 14px + 패널 폭)와 정확히 일치해야 틈이 안 생긴다.
+   폭이 가변이 된 뒤로는 계산식으로 묶어 뒀다 — 예전엔 398px 로 하드코딩돼 폭을 바꾸면 틈이 벌어졌다. */
 .ba-handle {
-  position: fixed; right: 398px; top: 50%; margin-top: -58px; width: 30px; height: 116px;
+  position: fixed; right: calc(14px + var(--ba-w)); top: 50%; margin-top: -58px; width: 30px; height: 116px;
   display: flex; flex-direction: column; align-items: center;
   background:
     linear-gradient(rgba(24, 21, 42, 0.96), rgba(24, 21, 42, 0.96)) padding-box,
@@ -100,7 +107,7 @@
 .ba-root[data-side="left"] { right: auto; left: 14px; }
 .ba-root[data-side="left"].collapsed { transform: translateX(-132%); }   /* 좌측 화면 밖으로 슬라이드 아웃 */
 .ba-root[data-side="left"] ~ .ba-handle {
-  right: auto; left: 398px;                               /* 패널(좌) 우측 모서리(14+384)에 딱 붙음 */
+  right: auto; left: calc(14px + var(--ba-w));            /* 패널(좌) 우측 모서리에 딱 붙음 — 폭을 따라간다 */
   border: 1.5px solid transparent; border-left: none;
   border-radius: 0 12px 12px 0;
   box-shadow: 6px 0 18px rgba(0, 0, 0, 0.34);
@@ -975,3 +982,17 @@
   .ba-wdel:hover  { color: var(--ba-danger); background: var(--ba-danger-soft); }
 }
 @media (prefers-reduced-motion: reduce) { .ba-wopen:active, .ba-wdel:active { transform: none; } }
+
+/* ---- 폭 조절 그립 ----
+   패널 **안쪽** 가장자리(우측 배치면 왼쪽 변)에 붙는 얇은 띠. 평소엔 거의 안 보이고 hover 로 드러난다.
+   드래그 중에는 전환을 걸지 않는다 — 포인터보다 늦게 따라오면 안 된다(조건 묶음 드래그와 같은 원칙). */
+.ba-resize { position: absolute; top: 0; bottom: 0; left: 0; width: 8px; z-index: 6;
+  cursor: ew-resize; touch-action: none; }
+.ba-root[data-side="left"] .ba-resize { left: auto; right: 0; }
+.ba-resize::before { content: ''; position: absolute; top: 50%; margin-top: -26px; height: 52px;
+  left: 3px; width: 2px; border-radius: 2px; background: transparent; transition: background .15s; }
+.ba-root[data-side="left"] .ba-resize::before { left: auto; right: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .ba-resize:hover::before { background: var(--ba-violet-line); }
+}
+.ba-resize.on::before { background: var(--ba-violet-2); }
