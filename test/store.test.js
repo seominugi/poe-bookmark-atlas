@@ -10,6 +10,7 @@ import {
   listConditionSets, addConditionSet, removeConditionSet, renameConditionSet, moveConditionSet, moveBookmarks,
   moveConditionSetBefore, restoreConditionSet,
 } from '../src/store/store.js'
+import { searchIdentity } from '../src/lib/searchParser.js'
 
 beforeEach(() => globalThis.__resetChromeMock())
 
@@ -555,5 +556,59 @@ describe('리그 이관', () => {
     expect(list.find((b) => b.dedupeKey === 'i1').query).toEqual(Q)
     expect(list.find((b) => b.dedupeKey === 'i2').query).toBeUndefined()
     expect(list.find((b) => b.dedupeKey === 'i3').query).toBeUndefined()
+  })
+})
+
+// 검색 시점 선기록 + fetch 시점 보강이 성립하려면 addHistory 가 dedupeKey 로 **병합**해야 한다.
+// 이게 깨지면 매물 0건 검색이 히스토리에 안 남고, 저장 버튼(히스토리 맨 위를 집는다)이
+// 직전 검색을 대신 저장한다 — 사용자 제보 2026-08-13의 원인.
+describe('addHistory — 같은 검색을 두 번 기록해도 병합된다 (검색 선기록 → fetch 보강)', () => {
+  const base = { game: 'poe2', league: 'A', url: 'https://poe.kakaogames.com/trade2/x', title: '지도', dedupeKey: 'same' }
+
+  it('선기록 뒤 시세·아이콘이 얹히고 항목은 하나로 유지된다', async () => {
+    await addHistory({ ...base, stats: ['a'] })                                   // 검색 시점(시세 없음)
+    await addHistory({ ...base, stats: ['a'], snapshot: { value: 12 }, icon: 'i' }) // fetch 시점
+    const list = await listByKind('history', 'poe2')
+    expect(list).toHaveLength(1)
+    expect(list[0].snapshot).toEqual({ value: 12 })
+    expect(list[0].icon).toBe('i')
+  })
+
+  it('나중 기록에 snapshot 키가 없으면 먼저 있던 값을 지우지 않는다', async () => {
+    // fetch 가 먼저 오고 검색 선기록이 뒤에 올 수도 있다(await 순서 역전).
+    // 그때 선기록이 snapshot: undefined 를 넣으면 시세가 날아간다 → 키 자체를 넣지 않는 게 전제.
+    await addHistory({ ...base, snapshot: { value: 9 }, icon: 'i' })
+    await addHistory({ ...base, stats: ['a'] })
+    const [rec] = await listByKind('history', 'poe2')
+    expect(rec.snapshot).toEqual({ value: 9 })
+    expect(rec.icon).toBe('i')
+    expect(rec.stats).toEqual(['a'])
+  })
+
+  it('조건이 다르면 별개 항목으로 남는다(선기록이 서로 덮어쓰지 않는다)', async () => {
+    await addHistory({ ...base, dedupeKey: 'k1', title: '검색1' })
+    await addHistory({ ...base, dedupeKey: 'k2', title: '검색2' })
+    const list = await listByKind('history', 'poe2')
+    expect(list).toHaveLength(2)
+    expect(list[0].title).toBe('검색2') // 최신이 맨 위 — 저장 버튼이 집는 자리
+  })
+})
+
+// 조건 없는 검색이 한 키로 뭉개지던 문제(사용자 제보 2026-08-13).
+// 링크로 열면 거래소 앱이 GET /api/trade/search/<hash> 를 부르는데 본문이 없어 raw query 가
+// 안 잡혔고, dedupeKey 가 searchIdentity({}) = "t:|n:" 로 계산돼 서로 다른 링크가 한 항목으로
+// 병합됐다. content-main 은 이제 GET 응답 본문의 query 를 폴백으로 쓴다. 여기서는 그 전제인
+// "조건이 없으면 키가 붕괴한다"를 고정해, 폴백이 사라지면 테스트가 먼저 깨지게 한다.
+describe('searchIdentity — 조건이 없으면 키가 붕괴한다(폴백이 필요한 이유)', () => {
+  it('query 가 없으면 서로 다른 검색이 같은 키가 된다', () => {
+    expect(searchIdentity(undefined)).toBe('t:|n:')
+    expect(searchIdentity(null)).toBe('t:|n:')
+    expect(searchIdentity({})).toBe('t:|n:')
+  })
+
+  it('query 가 있으면 조건이 다른 검색은 키도 다르다', () => {
+    const a = { query: { stats: [{ type: 'and', filters: [{ id: 'x' }] }] } }
+    const b = { query: { stats: [{ type: 'and', filters: [{ id: 'x' }, { id: 'y' }] }] } }
+    expect(searchIdentity(a)).not.toBe(searchIdentity(b))
   })
 })

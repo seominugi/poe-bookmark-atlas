@@ -519,6 +519,44 @@ function schedulePobInject() {
   pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(injectPobButtons, ms))
 }
 
+// 검색이 실행된 **그 순간** 히스토리에 남긴다.
+//
+// 왜: 결과가 0건이면 거래소가 /api/trade/fetch 를 호출하지 않아 아래 fetch 분기가 영영 안 돈다.
+// 그러면 그 검색은 히스토리에 없는데, 저장 버튼(panel.js doSave)은 **'히스토리 맨 위'** 를 집는다
+// (`listByKind('history', game)[0]`). 결과가 이렇게 된다 — 사용자 제보 2026-08-13:
+//   ① 매물 0건 검색을 처음 하면 → 히스토리가 비어 "먼저 거래소에서 검색을 실행하세요"
+//   ② 그 뒤 다른 검색을 하고 저장하면 → **직전 검색이 대신 저장된다**
+//   ③ 그렇게 저장된 북마크 둘이 실제로 같은 조건이 되어 "같은 조건으로 인식"처럼 보인다
+// 시세·아이콘은 결과가 있어야 나오므로 fetch 가 오면 그때 얹는다. addHistory 는 dedupeKey 로
+// **병합**하므로(있으면 {...기존, ...새것} 후 맨 위로) 두 번 불러도 항목이 늘지 않는다.
+// 여기서는 icon·snapshot 키를 **아예 넣지 않는다** — undefined 로 넣으면 나중에 온 값이 아니라
+// 먼저 있던 값을 덮어버릴 수 있다.
+async function recordSearch() {
+  if (!pending) return
+  // query 를 못 얻었으면 기록하지 않는다 — dedupeKey 가 "t:|n:" 로 뭉개져
+  // 서로 다른 검색이 한 항목으로 합쳐진다(위 pending 주석 참조). 안 남기는 편이 낫다.
+  if (!pending.query) { LOG('검색 조건을 못 읽어 히스토리 선기록 생략'); return }
+  await Promise.all([ensureStatMap(), ensureFilterMap()])
+  const parsed = parseSearchQuery(pending.query, statMap, filterMap)
+  const key = dedupeKey(pending.query)
+  const rec = await addHistory({
+    game,
+    league: pending.league,
+    url: pending.url,
+    title: parsed.title,
+    itemType: parsed.itemType,
+    name: parsed.name,
+    stats: parsed.stats,
+    statGroups: parsed.statGroups,
+    otherFilters: parsed.otherFilters,
+    priceFilter: parsed.priceFilter,
+    dedupeKey: key,
+    query: pending.query || undefined,
+  })
+  LOG('히스토리 선기록(검색 시점):', rec && rec.id, parsed.title)
+  document.dispatchEvent(new CustomEvent('ba:records-changed'))
+}
+
 // 리스너를 async 로 두면 내부에서 던진 순간 unhandled rejection 이 된다(확장 리로드 시 addHistory·
 // markUsedByUrl 이 chrome.storage 로 던진다). 본문을 함수로 빼고 guard 로 감싼다.
 window.addEventListener('message', (e) => guard(handleBridgeMessage(e)))
@@ -541,9 +579,16 @@ async function handleBridgeMessage(e) {
   if (d.kind === 'search') {
     pobItems.clear(); pobPrices.clear(); pobSellers.clear() // 새 검색 — 이전 결과 폐기
     // pending을 동기적으로 먼저 설정 (await 전에) — fetch 메시지 레이스 방지
-    pending = { queryId: (d.data && d.data.id) || null, query: d.query, league: leagueFromUrl(), url: location.href, done: false }
+    // query 출처가 둘이다. 거래소에서 직접 검색하면 POST 본문(d.query)에 있지만,
+    // **링크로 열면 앱이 GET /api/trade/search/<hash> 를 호출해 본문이 없다** → d.query 가 undefined.
+    // 그러면 dedupeKey(undefined) 가 searchIdentity({}) = "t:|n:" 로 계산돼
+    // **링크로 연 모든 검색이 같은 키가 되고 addHistory 가 한 항목으로 병합한다**
+    // (서로 다른 두 링크가 "같은 조건"으로 보이던 원인 — 사용자 제보 2026-08-13).
+    // 다행히 GET 응답 본문에 query 가 그대로 들어 있다({id, query}) → 그걸 폴백으로 쓴다.
+    pending = { queryId: (d.data && d.data.id) || null, query: d.query || (d.data && d.data.query) || null, league: leagueFromUrl(), url: location.href, done: false }
     lastQuery = d.query; lastQueryLeague = pending.league // 전환 버튼용 최근 query 보관
     LOG('pending 설정:', { queryId: pending.queryId, league: pending.league })
+    await recordSearch() // 결과가 0건이어도 이 검색이 히스토리에 남게 한다(저장 버튼이 집는 대상)
     return
   }
 
