@@ -7,7 +7,7 @@ import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, nee
   moveBookmarks } from '../../store/store.js'
 import { extractConditionSet, conditionSetSummary, conditionSetTip, SET_FAIL } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
-import { clampPanelWidth, widthBand, NARROW_MAX } from '../../lib/panelWidth.js'
+import { clampPanelWidth, MIN_W } from '../../lib/panelWidth.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
 import ytIcon from '../../icons/yt_icon_rgb.png'
 import discordIcon from '../../icons/icon_clyde_white_RGB.png'
@@ -125,13 +125,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 패널 폭 — 최소는 기존 고정폭(384px). 이번 세션 실측상 액션 행이 가용 342px 중 336px 를 쓰므로
   // 더 좁히면 레이아웃이 흔들린다. 넓히기만 허용해 기존 예산·회귀 가드를 하한으로 유지한다(사용자 결정).
   let fitRaf = 0 // 조건 요약 재측정 rAF — applyWidth 가 드래그 매 프레임 불려도 한 번만 돌게
-  let panelW = NARROW_MAX // 기본 = 폭 조절 도입 전의 고정폭
-  // 폭에 의존하는 값은 전부 여기서 파생시킨다 — CSS 는 --ba-w(패널 width·핸들 위치)와
-  // data-w(폭 밴드: 액션 행 라벨·카드 층수), JS 는 페이지 밀어내기.
+  let panelW = MIN_W // 기본 = 최소폭(= 폭 조절 도입 전의 고정폭)
+  // 폭에 의존하는 값은 전부 여기서 파생시킨다 — CSS 는 --ba-w(패널 width·핸들 위치), JS 는 페이지 밀어내기.
   const applyWidth = (w) => {
     panelW = clampPanelWidth(w, window.innerWidth)
     host.style.setProperty('--ba-w', panelW + 'px') // :host 선언을 인라인으로 덮는다(그림자 안 전체가 따라간다)
-    elRoot.setAttribute('data-w', widthBand(panelW))
     applyPagePush(isCollapsed())
     // 조건 요약은 '조건 경계'에서 끊으므로 폭이 바뀌면 다시 맞춰야 한다(넓히면 더 보이고, 좁히면 덜 보인다).
     // 드래그 중에는 매 프레임 재계산하지 않고 rAF 한 번으로 묶는다 — 카드가 수십 개다.
@@ -177,13 +175,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   }
   // 초기 상태: 좁은 화면은 접힘(검색 영역 겹침 방지), 넓으면 펼침. 사용자 토글 선호는 기억.
   if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
-  // 저장값을 읽기 전에 한 번 — data-w(폭 밴드)를 여기서 붙인다. 저장값이 오면 아래에서 덮어쓴다.
-  // storage 읽기가 실패해도(확장 컨텍스트 문제 등) 밴드 없이 뜨는 일이 없어야 한다.
-  applyWidth(panelW)
+  applyWidth(panelW) // 저장값을 읽기 전에 한 번 — 폭 파생값(핸들 위치·페이지 밀기)을 초기화한다
   try {
     chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth']).then((r) => {
-      // 저장값이 없어도 한 번은 부른다 — data-w(폭 밴드)가 여기서만 붙기 때문이다.
-      // 안 부르면 첫 사용자는 밴드 없이 뜨고, CSS 의 좁게/넓게 규칙이 통째로 죽는다.
       applyWidth((r && r.uiPanelWidth) || panelW)
       if (r && r.uiPanelSide) applySide(r.uiPanelSide)
       if (r && typeof r.uiFuzzyPrefix === 'boolean') fuzzyOn = r.uiFuzzyPrefix

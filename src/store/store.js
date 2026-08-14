@@ -1,5 +1,4 @@
 // src/store/store.js
-import { buildAutoNote } from '../lib/autoNote.js'
 import { sanitizeQuery, isAllowedTradeUrl } from '../lib/tradeSearch.js'
 
 const KEY = 'records'
@@ -7,7 +6,7 @@ const FOLDERS_KEY = 'folders'
 const SETS_KEY = 'conditionSets' // 조건 묶음 — records(북마크·히스토리)와 생명주기가 달라 folders처럼 별도 키
 const WATCH_KEY = 'watchlist' // 찜한 매물 — 팔리면 사라지므로 records와 생명주기가 다르다(같은 근거로 별도 키)
 const SCHEMA_KEY = 'schemaVersion'
-const CURRENT_SCHEMA = 1 // 데이터 스키마 버전. 구조를 바꾸면 +1 하고 MIGRATIONS에 단계 변환을 추가
+const CURRENT_SCHEMA = 2 // 데이터 스키마 버전. 구조를 바꾸면 +1 하고 MIGRATIONS에 단계 변환을 추가
 export const HISTORY_CAP = 200 // 히스토리 보관 상한. renderList "더 보기"(60+200)가 실제로 동작하도록 상향
 
 function uid(prefix) { return (prefix || 'r_') + Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -23,7 +22,12 @@ async function writeFolders(folders) { await chrome.storage.local.set({ [FOLDERS
 // 향후 구조를 바꿀 때: CURRENT_SCHEMA를 올리고 MIGRATIONS[새버전] = async (s) => {...} 단계 변환을 추가하면 순차 적용된다.
 // 주의: 실제 변환 단계를 넣으면 데이터를 읽기 전에 await ensureSchema()가 끝나도록 호출부를 조정해야 한다.
 const MIGRATIONS = {
-  // 2: async (s) => { /* v1 → v2: s.records / s.folders 변환 후 반환 */ return s },
+  // v2 (2026-08-13): 북마크 메모 기능 제거 — 저장된 note 필드를 지운다(사용자 결정: 되돌리지 않음).
+  //   대부분 저장 시 자동 요약으로 채워진 값이었고 조건 요약 칩과 내용이 겹쳤다.
+  2: async (s) => {
+    for (const r of s.records) delete r.note
+    return s
+  },
 }
 export async function ensureSchema() {
   const got = (await chrome.storage.local.get(SCHEMA_KEY))[SCHEMA_KEY]
@@ -70,7 +74,7 @@ export async function seedDemoData(game, league) {
   const records = [
     // query(원본 검색 바디)를 함께 넣는다 — 없으면 조건 칩이 '클릭해서 능력치 추가'(.ba-cond--add)로 살아나지 않아
     // 조건 칩 스텝과 ⋯ → "조건 묶음으로 등록" 액션이 데모 카드에서 통째로 사라진다.
-    { ...base, id: '__demo_b1', kind: 'bookmark', name: '예시 — 화염 저항 반지', title: '반지', itemType: '반지', url: u('b1'), stats: ['화염 저항 #%', '최대 생명력 #'], otherFilters: [{ key: 'category', label: '유형', value: '반지' }], snapshot: snap(2.3, 12, 1.8), folderId: DEMO_FOLDER_ID, order: -1, lastUsedAt: now, note: '예시 메모 — 위치·빌드·용도', query: { query: { status: { option: 'online' }, type: '반지', stats: [{ type: 'and', filters: [{ id: 'explicit.stat_demo_fire_res', value: { min: 30 } }, { id: 'explicit.stat_demo_life', value: { min: 80 } }] }] } } },
+    { ...base, id: '__demo_b1', kind: 'bookmark', name: '예시 — 화염 저항 반지', title: '반지', itemType: '반지', url: u('b1'), stats: ['화염 저항 #%', '최대 생명력 #'], otherFilters: [{ key: 'category', label: '유형', value: '반지' }], snapshot: snap(2.3, 12, 1.8), folderId: DEMO_FOLDER_ID, order: -1, lastUsedAt: now, query: { query: { status: { option: 'online' }, type: '반지', stats: [{ type: 'and', filters: [{ id: 'explicit.stat_demo_fire_res', value: { min: 30 } }, { id: 'explicit.stat_demo_life', value: { min: 80 } }] }] } } },
     { ...base, id: '__demo_b2', kind: 'bookmark', name: '예시 — 카오스 단검', title: '단검', itemType: '단검', url: u('b2'), stats: ['물리 피해 #', '공격 속도 #%', '치명타 확률 #%'], snapshot: snap(0.5, 8, 0.3), folderId: null, order: -2, lastUsedAt: now },
     { ...base, id: '__demo_h1', kind: 'history', name: '예시 검색 — 생명력 갑옷', title: '갑옷', itemType: '갑옷', url: u('h1'), stats: ['최대 생명력 #', '방어도 #'], snapshot: snap(1.1, 7, 0.9), dedupeKey: '__demo_h1' },
   ]
@@ -174,7 +178,6 @@ export async function promoteToBookmark(id, name) {
   r.name = name ?? r.name ?? r.title
   r.folderId = r.folderId ?? null
   r.order = minBookmarkOrder(all) - 1
-  if (!r.note) r.note = buildAutoNote(r) || undefined // 빈 메모면 검색 조건 요약 자동 채움
   r.updatedAt = Date.now()
   await writeAll(all)
 }
@@ -183,13 +186,6 @@ export async function rename(id, name) {
   const all = await readAll()
   const r = all.find((x) => x.id === id)
   if (r) { r.name = name; r.updatedAt = Date.now(); await writeAll(all) }
-}
-
-/** 북마크 메모 설정 — 빈 문자열이면 제거 */
-export async function setNote(id, note) {
-  const all = await readAll()
-  const r = all.find((x) => x.id === id)
-  if (r) { r.note = note || undefined; r.updatedAt = Date.now(); await writeAll(all) }
 }
 
 export async function remove(id) {
@@ -203,7 +199,6 @@ export async function addBookmark(rec, name) {
   const record = {
     ...rec, id: uid(), kind: 'bookmark', name: name ?? rec.title,
     folderId: rec.folderId ?? null, order: minBookmarkOrder(all) - 1,
-    note: rec.note || buildAutoNote(rec) || undefined, // 빈 메모면 검색 조건 요약 자동 채움
     createdAt: now, updatedAt: now,
   }
   await writeAll([...all, record])

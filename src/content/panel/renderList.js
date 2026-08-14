@@ -1,6 +1,6 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark,
-  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, setNote, findBookmark,
+  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
   migrateBookmarkLeague, moveBookmarks,
   listWatched, removeWatch, applyWatchStatus,
@@ -8,7 +8,6 @@ import {
 import { formatPrice } from '../../lib/formatPrice.js'
 import { icon } from '../../lib/icons.js'
 import { suggestName } from '../../lib/suggestName.js'
-import { buildAutoNote } from '../../lib/autoNote.js'
 import { findNearDuplicate, formatStatText, optionText } from '../../lib/searchParser.js'
 import { searchHashFromUrl } from '../../lib/tradeSearch.js'
 import { leagueDisplayName } from '../../lib/leagueMap.js'
@@ -29,7 +28,6 @@ export const researcherUrl = chrome.runtime.getURL(researcherIcon)
 let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보기"로 +200씩 (모듈 레벨 유지)
 let bmSearch = '' // 통합 빠른 검색어 (북마크·히스토리 동시 필터, 모듈 레벨 — 재렌더 후에도 유지)
 let bmSort = 'recent' // 북마크 정렬 기본: recent(최근·저장 순 → 저장하면 상단). order(수동)·name도 선택 가능
-let oneline = false // 북마크 간략(한 줄) 보기 — 이름·가격만 표시. 기본 끔(상세). storage 영속.
 const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
 const collapsedLeagues = new Set() // 리그 기본 접힘(현재 펼침/지난 접힘)에서 토글한 키('L:'+league)
 
@@ -39,20 +37,18 @@ async function hydrateUiState() {
   if (uiHydrated) return
   uiHydrated = true
   try {
-    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders', 'uiOneline'])
+    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders'])
     if (r.uiBmSort) bmSort = r.uiBmSort
-    if (typeof r.uiOneline === 'boolean') oneline = r.uiOneline
     if (Array.isArray(r.uiCollapsedFolders)) { collapsedFolders.clear(); r.uiCollapsedFolders.forEach((k) => collapsedFolders.add(k)) }
   } catch (_) {}
 }
 const saveCollapsed = () => { try { chrome.storage.local.set({ uiCollapsedFolders: [...collapsedFolders] }) } catch (_) {} }
 const saveSort = () => { try { chrome.storage.local.set({ uiBmSort: bmSort }) } catch (_) {} }
-const saveOneline = () => { try { chrome.storage.local.set({ uiOneline: oneline }) } catch (_) {} }
 let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
 let focusBookmarkId = null // 저장·승격 후 스크롤·강조 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
-const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-note-btn, .ba-note, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export'
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export'
 function applyA11y(listEl) {
   listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
     if (el.matches('button, a, input')) return
@@ -313,7 +309,13 @@ function rowHtml(r, kind, lg) {
   const title = escapeHtml(nameText || titleText)
   const stats = r.stats || []
   const when = r.lastUsedAt || r.updatedAt
-  const searchText = escapeHtml(`${nameText} ${titleText} ${r.note || ''} ${stats.join(' ')}`.toLowerCase())
+  // 검색 인덱스. note 는 기능째 제거됐지만(2026-08-13) **검색 범위는 줄이지 않는다** —
+  // note 에 자동으로 담기던 것(유형 + 비능력치 필터 label/value)을 원본에서 직접 넣는다.
+  // 옛 buildAutoNote 와 같은 재료라 '반지'·'아이템 레벨'로 찾던 것이 그대로 동작한다.
+  // 사라지는 건 직접 손으로 쓴 메모로 찾던 경우뿐이고, 그 데이터는 사용자 결정으로 함께 지웠다.
+  const otherText = (Array.isArray(r.otherFilters) ? r.otherFilters : [])
+    .map((f) => (f ? `${f.label ?? ''} ${f.value ?? ''}` : '')).join(' ')
+  const searchText = escapeHtml(`${nameText} ${titleText} ${r.itemType || ''} ${otherText} ${stats.join(' ')}`.toLowerCase())
   const condTip = escapeHtml(condTipText(r))
   // 조건 칩 카운트 = 비능력치 필터(유형·가격·레벨 등) + 능력치 수 — 히스토리·북마크 공통
   const condCount = (Array.isArray(r.otherFilters) ? r.otherFilters.length : 0) + stats.length
@@ -370,7 +372,6 @@ function rowHtml(r, kind, lg) {
       : ''
   // 능력치 미리보기 칩은 텍스트 길이에 따라 줄바꿈돼 호버(+n) 위치가 흔들림 →
   // 고정 폭 '조건 N개' 단일 칩(호버 시 전체 상세) + 상시 메모로 대체.
-  const noteText = r.note || buildAutoNote(r) // 빈 메모면 조건 요약을 렌더 시점에 폴백 표시(저장 X, 편집하면 그때 저장)
   // 리그 이관 — 저장 당시 리그가 '이미 끝난 리그'일 때만 열 때 다시 검색을 제안한다.
   // 지금 보고 있는 페이지의 리그와 다르다는 것만으론 부족하다: 스탠다드↔하드코어처럼 둘 다 열려 있으면 안 깨졌다.
   // 검색 해시는 조건만 담고 리그는 URL이 정하므로, 조건(query)을 저장하지 않은 옛 북마크도 이관 대상이다.
@@ -384,7 +385,6 @@ function rowHtml(r, kind, lg) {
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
     <div class="ba-meta-row">${attn}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
-    <div class="ba-note-slot" data-id="${r.id}" data-note="${escapeHtml(noteText)}">${noteText ? `<span class="ba-note${r.note ? '' : ' ba-note--auto'}" data-tip="${r.note ? '클릭해 메모 편집' : '검색 조건 자동 요약 — 클릭해 메모로 저장·편집'}">${icon('chat', 11)}<span>${escapeHtml(noteText)}</span></span>` : `<span class="ba-note ba-note--empty" data-tip="클릭해 메모 추가">${icon('chat', 11)}<span>+ 메모</span></span>`}</div>
     <div class="ba-actions-pop" hidden>
       <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
       <span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}">${icon('link', 13)}링크 복사</span>
@@ -494,14 +494,13 @@ export async function renderList(listEl, root, ui = {}) {
   const now = Date.now()
   const staleN = bookmarks.filter((b) => now - (b.lastUsedAt || b.createdAt || b.updatedAt || 0) > STALE_MS).length
   const cleanupBtn = staleN > 0
-    ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요.\n오래된 검색은 거래소 필터·파라미터가 바뀌면\n더 이상 불러오지 못할 수 있거든요.">${icon('broom', 13)}<span class="ba-btn-lbl">오래된 ${staleN}</span></button>`
+    ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요.\n오래된 검색은 거래소 필터·파라미터가 바뀌면\n더 이상 불러오지 못할 수 있거든요.">${icon('broom', 13)}오래된 ${staleN}</button>`
     : ''
   const sortToggle = `<span class="ba-seg">
       <span class="ba-sort-seg ${bmSort === 'order' ? 'active' : ''}" data-sort="order" data-tip="수동 순서">순서</span>
       <span class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</span>
       <span class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</span>
     </span>`
-  const onelineBtn = `<button class="ba-oneline-toggle" data-tip="${oneline ? '북마크를 상세히 보기 (조건·메모·액션 표시)' : '북마크를 한 줄로 간략히 보기 (이름만 — 스크롤 절약)'}">${icon(oneline ? 'chevronDown' : 'chevronRight', 12)}<span class="ba-btn-lbl">${oneline ? '상세히' : '간략히'}</span></button>`
   let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${sortToggle}</span></div>`
   html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크·히스토리 검색 (Alt+K)" data-tip="이름·조건으로 찾기 — Alt+K로 어디서나 여기에 포커스" value="${escapeHtml(bmSearch)}" /></span></div>`
   // 모든 폴더 접기/펼치기 토글 — 실폴더가 있을 때만(미분류 포함 2개 이상). 라벨은 현재 접힘 상태로 결정.
@@ -510,10 +509,10 @@ export async function renderList(listEl, root, ui = {}) {
   const collapseAllBtn = folders.length >= 1
     // 라벨은 짧게(‘전체 …’) + CSS로 폭 고정 — 길이가 바뀌면 액션 행 줄바꿈 위치가 상태마다 달라진다.
     // 전체 설명은 툴팁이 갖는다.
-    ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}<span class="ba-btn-lbl">${allCollapsed ? '전체 펼치기' : '전체 접기'}</span></button>`
+    ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}${allCollapsed ? '전체 펼치기' : '전체 접기'}</button>`
     : ''
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
-  html += `<div class="ba-action-row">${onelineBtn}${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}<span class="ba-btn-lbl">폴더 추가</span></button></div>`
+  html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const sortItems = (arr) => {
     if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
@@ -581,7 +580,6 @@ export async function renderList(listEl, root, ui = {}) {
   }
 
   listEl.innerHTML = html
-  listEl.classList.toggle('ba-oneline', oneline) // 북마크 간략(한 줄) 보기 영속 반영
   bindAll(listEl, ui, { lg, currentLeague })
   applyFilters(listEl) // 재렌더 후 현재 검색어로 필터 재적용
   if (focusGripId) { // 키보드 재정렬 후 포커스 복원 (연속 이동 가능)
@@ -767,19 +765,6 @@ function bindAll(listEl, ui, ctx) {
   listEl.querySelectorAll('.ba-move').forEach((m) =>
     m.addEventListener('click', (e) => { e.stopPropagation(); if (ui.bulkMove) ui.bulkMove(m.dataset.id) }))
 
-  // 📝 메모 편집 (인라인) — 메모 줄·메모 버튼 공통
-  const startNoteEdit = (slot) => {
-    if (!slot || slot.querySelector('.ba-note-edit')) return
-    const id = slot.dataset.id
-    slot.innerHTML = `<input class="ba-note-edit" value="${escapeHtml(slot.dataset.note || '')}" placeholder="메모 (위치·빌드·용도 등)" maxlength="120" />`
-    const inp = slot.querySelector('.ba-note-edit'); inp.focus(); inp.select()
-    let done = false
-    const commit = async (save) => { if (done) return; done = true; if (save) await setNote(id, inp.value.trim()); changed() }
-    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); commit(true) } else if (e.key === 'Escape') { e.preventDefault(); commit(false) } })
-    inp.addEventListener('blur', () => commit(true))
-  }
-  listEl.querySelectorAll('.ba-note').forEach((n) => n.addEventListener('click', (e) => { e.stopPropagation(); startNoteEdit(n.closest('.ba-note-slot')) }))
-
   // ☆ 히스토리 → 북마크 승격 (같은 조건 북마크가 있으면 중복 저장 방지)
   listEl.querySelectorAll('.ba-star').forEach((s) =>
     s.addEventListener('click', async () => {
@@ -926,16 +911,6 @@ function bindAll(listEl, ui, ctx) {
   }))
   // 정렬 토글 — 재렌더
   listEl.querySelectorAll('.ba-sort-seg').forEach((b) => b.addEventListener('click', () => { bmSort = b.dataset.sort; saveSort(); changed() }))
-  // 간략(한 줄) 보기 토글 — 재렌더 없이 클래스만 전환(검색·스크롤 유지), 영속 저장
-  const onelineToggle = listEl.querySelector('.ba-oneline-toggle')
-  if (onelineToggle) onelineToggle.addEventListener('click', () => {
-    oneline = !oneline; saveOneline()
-    listEl.classList.toggle('ba-oneline', oneline)
-    // 라벨 래퍼(.ba-btn-lbl)를 반드시 유지한다 — narrow 폭에서 라벨을 숨기는 기준이라, 빠지면 좁은 폭에서 되살아난다.
-    onelineToggle.innerHTML = `${icon(oneline ? 'chevronDown' : 'chevronRight', 12)}<span class="ba-btn-lbl">${oneline ? '상세히' : '간략히'}</span>`
-    onelineToggle.dataset.tip = oneline ? '북마크를 상세히 보기 (조건·메모·액션 표시)' : '북마크를 한 줄로 간략히 보기 (이름만 — 스크롤 절약)'
-  })
-
   // 폴더 하단 칩 → 현재 검색을 그 폴더에 바로 저장 (해당 폴더가 선택된 저장 다이얼로그)
   listEl.querySelectorAll('.ba-folder-savechip').forEach((s) => s.addEventListener('click', (e) => {
     e.stopPropagation()
