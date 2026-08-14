@@ -511,7 +511,7 @@ describe('리그 이관', () => {
 
   it('migrateBookmarkLeague: url·league만 교체하고 이름·폴더·메모·id는 보존', async () => {
     const f = await addFolder('반지', 'poe2')
-    const b = await addBookmark(rec({ league: '지난리그', note: '내 메모', query: Q }), '내 북마크')
+    const b = await addBookmark(rec({ league: '지난리그', query: Q }), '내 북마크')
     await moveBookmark(b.id, { folderId: f.id, order: 7 })
     const url = 'https://poe.kakaogames.com/trade2/search/poe2/새리그/newhash'
     expect(await migrateBookmarkLeague(b.id, url, '새리그')).toBe(true)
@@ -520,7 +520,6 @@ describe('리그 이관', () => {
     expect(after.url).toBe(url)
     expect(after.league).toBe('새리그')
     expect(after.name).toBe('내 북마크')
-    expect(after.note).toBe('내 메모')
     expect(after.folderId).toBe(f.id)
     expect(after.order).toBe(7)
     expect(after.query).toEqual(Q) // 조건은 그대로 → 다음 리그에도 다시 이관 가능

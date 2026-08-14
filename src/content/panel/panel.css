@@ -8,6 +8,12 @@
  * ============================================================ */
 :host {
   all: initial;
+  /* 패널 폭 — 드래그로 조정하고 uiPanelWidth 에 저장한다. 최소 384px(=기존 고정폭)로 제한한다:
+     이번 세션 실측에서 액션 행이 가용 342px 중 336px 를 쓰고 있어(최악 폰트 기준) 더 좁히면 레이아웃이
+     흔들린다. 넓히기만 허용하면 기존 예산·회귀 가드가 그대로 하한으로 유효하다.
+     ⚠ 폭에 의존하는 값은 전부 이 변수에서 파생시킬 것 — 예전엔 width·핸들 right·페이지 밀어내기가
+     각각 384/398/412 로 하드코딩돼 한 곳만 고치면 틈이 생겼다. */
+  --ba-w: 384px;
   --ba-panel-bg:     rgba(24, 21, 42, 0.97);     /* 단색 통일 패널 배경 (성능: backdrop-filter 제거, 불투명도 상향) */
   --ba-surface:      rgba(20, 18, 34, 0.55);     /* 카드/행 표면 */
   --ba-surface-hi:   rgba(30, 26, 52, 0.78);     /* hover 표면 */
@@ -55,7 +61,7 @@
 
 .ba-root {
   /* 플로팅 패널: 화면 모서리에서 14px 띄우고 전 모서리 라운딩 */
-  position: fixed; top: 14px; bottom: 14px; right: 14px; width: 384px;
+  position: fixed; top: 14px; bottom: 14px; right: 14px; width: var(--ba-w);
   display: flex; flex-direction: column;
   font-family: 'Pretendard', 'Inter', 'Noto Sans KR', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 13px; line-height: 1.5; color: var(--ba-text);
@@ -80,9 +86,10 @@
 }
 
 /* 접힘 핸들 — 고정 위치, 패널 좌측에 '딱 붙는' 탭. 세로 드래그로 위치 이동 + 클릭으로 접기.
-   ⚠ right 값이 패널 좌측 모서리(=right 14 + width 384 = 398px)와 정확히 일치해야 틈이 안 생김 */
+   ⚠ right 값이 패널 안쪽 모서리(= 화면 여백 14px + 패널 폭)와 정확히 일치해야 틈이 안 생긴다.
+   폭이 가변이 된 뒤로는 계산식으로 묶어 뒀다 — 예전엔 398px 로 하드코딩돼 폭을 바꾸면 틈이 벌어졌다. */
 .ba-handle {
-  position: fixed; right: 398px; top: 50%; margin-top: -58px; width: 30px; height: 116px;
+  position: fixed; right: calc(14px + var(--ba-w)); top: 50%; margin-top: -58px; width: 30px; height: 116px;
   display: flex; flex-direction: column; align-items: center;
   background:
     linear-gradient(rgba(24, 21, 42, 0.96), rgba(24, 21, 42, 0.96)) padding-box,
@@ -95,12 +102,16 @@
   transition: right .26s var(--ba-ease), left .26s var(--ba-ease);   /* 좌측 배치 시 핸들은 left로 움직이므로 left도 트랜지션(안 그러면 패널만 슬라이드·핸들은 점프) */
 }
 .ba-root.collapsed ~ .ba-handle { right: 0; }   /* 접힘 시 화면 우측 끝으로 */
+/* 폭 드래그 중에는 위 전환을 끈다 — 핸들 right/left 가 --ba-w 에 물려 있어, 드래그 매 프레임마다
+   260ms 전환이 새로 걸린다. 그러면 패널은 포인터를 즉시 따라오는데 핸들만 뒤늦게 쫓아온다(제보).
+   접기/펼치기 때는 그대로 필요하다 — 그때만 right 가 한 번에 크게 움직이기 때문. */
+.ba-root.ba-resizing ~ .ba-handle { transition: none; }
 
 /* ── 패널 좌측 배치 (data-side="left") — 우측 하드코딩 스타일 미러링 ── */
 .ba-root[data-side="left"] { right: auto; left: 14px; }
 .ba-root[data-side="left"].collapsed { transform: translateX(-132%); }   /* 좌측 화면 밖으로 슬라이드 아웃 */
 .ba-root[data-side="left"] ~ .ba-handle {
-  right: auto; left: 398px;                               /* 패널(좌) 우측 모서리(14+384)에 딱 붙음 */
+  right: auto; left: calc(14px + var(--ba-w));            /* 패널(좌) 우측 모서리에 딱 붙음 — 폭을 따라간다 */
   border: 1.5px solid transparent; border-left: none;
   border-radius: 0 12px 12px 0;
   box-shadow: 6px 0 18px rgba(0, 0, 0, 0.34);
@@ -697,17 +708,7 @@
 .ba-actpop-time { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--ba-text-muted); padding: 2px 8px 6px; margin-bottom: 3px; border-bottom: 1px solid rgba(167,139,250,0.14); font-variant-numeric: tabular-nums; }
 .ba-actions-pop .ba-act { width: auto; height: auto; justify-content: flex-start; gap: 9px; padding: 8px 10px; border: none; background: transparent; border-radius: 7px; font-size: 12px; font-weight: 600; }
 .ba-actions-pop .ba-act:hover { background: rgba(255,255,255,0.07); }
-/* 메모 — 라인은 메모 있을 때만(빈 슬롯 숨김), 클릭 시 인라인 편집 */
-.ba-note-slot:empty { display: none; }
-/* 조건 칩 + 메모를 한 행에 — 조건이 단일 칩이 된 뒤 카드 높이 압축 (칩 좌측, 메모가 우측 공간 채움) */
 .ba-meta-row { display: flex; align-items: center; gap: 6px; margin-top: 7px; min-width: 0; }
-.ba-meta-row .ba-note-slot { flex: 1; min-width: 0; }
-.ba-meta-row .ba-note { margin-top: 0; }
-.ba-note { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; font-size: 11px; color: #9b94bd; cursor: pointer; max-width: 100%; }
-.ba-note .ba-ic { flex: none; color: #7c75a3; }
-.ba-note > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ba-note--auto { opacity: .78; }   /* 빈 메모 자동 요약 폴백 — 수동 메모보다 옅게 */
-.ba-note-edit { width: 100%; box-sizing: border-box; margin-top: 8px; font-family: inherit; font-size: 11.5px; color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-violet-line); border-radius: 7px; padding: 5px 8px; outline: none; }
 
 /* 폴더 색 구분 — 헤더 좌측 3px 띠 (color는 마크업에서 인라인으로 주입) */
 .ba-folder-head { border-left: 4px solid var(--ba-violet); }   /* 기본값; 폴더별 color로 덮어쓰기 */
@@ -766,23 +767,20 @@
 .ba-folder-body > .ba-folder-savechip:first-child { margin-top: 0; margin-bottom: 8px; }
 
 /* 북마크 간략(한 줄) 보기 — 이름·가격만, 칩·메모·하단 액션 숨김 (히스토리 행은 영향 없음) */
-/* 간략(2줄) 보기 — 메모만 숨김. 조건칩·⋯(액션)은 유지해 간략히에서도 조건 툴팁·카드 액션 접근 가능 */
-.ba-list.ba-oneline .ba-row[data-kind="bookmark"] .ba-note-slot { display: none; }
 /* 간략 행은 containment 해제 — content-visibility:auto의 last-remembered-size가 상세 높이를 붙드는 문제 방지 (행이 작아 성능 영향 미미) */
-.ba-list.ba-oneline .ba-row[data-kind="bookmark"] { content-visibility: visible; contain-intrinsic-size: auto; padding-top: 7px; padding-bottom: 7px; margin-bottom: 6px; }
 /* 간략 보기 토글 버튼 (정렬 세그 옆) */
-.ba-oneline-toggle { margin-right: auto; display: inline-flex; align-items: center; gap: 4px; padding: 5px 9px; font-size: 11px; font-weight: 700; color: #9b94bd; background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); border-radius: 9px; cursor: pointer; transition: background .15s, color .15s, border-color .15s; }
 /* 빈 메모 placeholder — 메모 버튼을 없앤 대신 모든 북마크에서 메모 추가 진입점 유지 */
-.ba-note--empty { opacity: .55; }
-.ba-note--empty:hover { opacity: 1; }
-.ba-oneline-toggle:hover { color: #c4b5fd; border-color: var(--ba-violet-line); }
 
 /* 헤더 — 로고 + 부제 + 풀폭 저장 (.dc.html 렌더 구조) */
 .ba-head { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 16px 16px 0; border-bottom: none; }
 .ba-brand { display: flex; align-items: center; gap: 10px; }
 .ba-brand-logo { width: 28px; height: 28px; border-radius: 8px; flex: none; box-shadow: 0 0 16px rgba(167,139,250,.3); }
 .ba-brand-tx { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.ba-brand-tx b { font-size: 14.5px; font-weight: 800; background: linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.02em; }
+/* nowrap + 말줄임 — 제품 이름이 'POE 북 / 마크 아 / 틀라스' 처럼 쪼개지는 것보다 잘리는 게 낫다.
+   최악 폰트(system-ui·Malgun)에서는 **기본폭 384px 에서도** 2줄이 된다(하네스 실측: 필요 136 / 가용 127).
+   아래 807행 주석의 "아이콘 과밀로 타이틀을 줄바꿈" 이 폰트에 따라 아직 남아 있던 것. */
+.ba-brand-tx b { font-size: 14.5px; font-weight: 800; background: linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ba-brand-tx small { font-size: 10px; color: #a78bfa; font-weight: 700; letter-spacing: .04em; }
 /* 제작자 칩 — 헤더 타이틀 우측 (푸터에서 이동, 가시성 ↑). 푸터 칩 글린트·글로우 재사용 */
 .ba-brand-credit { flex: none; text-decoration: none; cursor: pointer; transition: filter .15s; }
@@ -975,3 +973,17 @@
   .ba-wdel:hover  { color: var(--ba-danger); background: var(--ba-danger-soft); }
 }
 @media (prefers-reduced-motion: reduce) { .ba-wopen:active, .ba-wdel:active { transform: none; } }
+
+/* ---- 폭 조절 그립 ----
+   패널 **안쪽** 가장자리(우측 배치면 왼쪽 변)에 붙는 얇은 띠. 평소엔 거의 안 보이고 hover 로 드러난다.
+   드래그 중에는 전환을 걸지 않는다 — 포인터보다 늦게 따라오면 안 된다(조건 묶음 드래그와 같은 원칙). */
+.ba-resize { position: absolute; top: 0; bottom: 0; left: 0; width: 8px; z-index: 6;
+  cursor: ew-resize; touch-action: none; }
+.ba-root[data-side="left"] .ba-resize { left: auto; right: 0; }
+.ba-resize::before { content: ''; position: absolute; top: 50%; margin-top: -26px; height: 52px;
+  left: 3px; width: 2px; border-radius: 2px; background: transparent; transition: background .15s; }
+.ba-root[data-side="left"] .ba-resize::before { left: auto; right: 3px; }
+@media (hover: hover) and (pointer: fine) {
+  .ba-resize:hover::before { background: var(--ba-violet-line); }
+}
+.ba-resize.on::before { background: var(--ba-violet-2); }

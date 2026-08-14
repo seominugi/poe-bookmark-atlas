@@ -1,12 +1,13 @@
 import css from './panel.css?inline'
-import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague } from './renderList.js'
+import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague, fitCondSummaries } from './renderList.js'
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData,
   needsConditionSetDemo, seedDemoSets, clearDemoSets,
   listConditionSets, addConditionSet, removeConditionSet, restoreConditionSet, moveConditionSet, moveConditionSetBefore,
   moveBookmarks } from '../../store/store.js'
-import { extractConditionSet, conditionSetSummary } from '../../lib/conditionSet.js'
+import { extractConditionSet, conditionSetSummary, conditionSetTip, SET_FAIL } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
+import { clampPanelWidth, MIN_W } from '../../lib/panelWidth.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
 import ytIcon from '../../icons/yt_icon_rgb.png'
 import discordIcon from '../../icons/icon_clyde_white_RGB.png'
@@ -86,6 +87,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           </div>
         </div>
       </div>
+      <div class="ba-resize" id="ba-resize" data-tip="드래그해 패널 너비 조절
+최소 너비 아래로는 줄지 않아요"></div>
       <div class="ba-sets" id="ba-sets" hidden></div>
       <div class="ba-list" id="ba-list"></div>
       <div class="ba-foot">
@@ -119,14 +122,36 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 접기/펼치기 = 표시/숨김 (핸들·✕·툴바 아이콘 공통, 상태 유지). 핸들은 항상 보여 다시 열 수 있음.
   const isCollapsed = () => elRoot.classList.contains('collapsed')
   let panelSide = 'right' // 패널 좌/우 배치 (uiPanelSide 선호)
+  // 패널 폭 — 최소는 기존 고정폭(384px). 이번 세션 실측상 액션 행이 가용 342px 중 336px 를 쓰므로
+  // 더 좁히면 레이아웃이 흔들린다. 넓히기만 허용해 기존 예산·회귀 가드를 하한으로 유지한다(사용자 결정).
+  let fitRaf = 0 // 조건 요약 재측정 rAF — applyWidth 가 드래그 매 프레임 불려도 한 번만 돌게
+  let panelW = MIN_W // 기본 = 최소폭(= 폭 조절 도입 전의 고정폭)
+  // 폭에 의존하는 값은 전부 여기서 파생시킨다 — CSS 는 --ba-w(패널 width·핸들 위치), JS 는 페이지 밀어내기.
+  const applyWidth = (w) => {
+    panelW = clampPanelWidth(w, window.innerWidth)
+    host.style.setProperty('--ba-w', panelW + 'px') // :host 선언을 인라인으로 덮는다(그림자 안 전체가 따라간다)
+    applyPagePush(isCollapsed())
+    // 조건 요약은 '조건 경계'에서 끊으므로 폭이 바뀌면 다시 맞춰야 한다(넓히면 더 보이고, 좁히면 덜 보인다).
+    // 드래그 중에는 매 프레임 재계산하지 않고 rAF 한 번으로 묶는다 — 카드가 수십 개다.
+    if (fitRaf) cancelAnimationFrame(fitRaf)
+    fitRaf = requestAnimationFrame(() => {
+      fitRaf = 0
+      // 조용히 삼키지 않는다 — 여기가 실패하면 "넓혀도 조건이 안 늘어난다"로만 보여 원인 추적이 어렵다.
+      try { fitCondSummaries($('ba-list')) } catch (err) { console.warn('[BA] 조건 요약 재측정 실패', err) }
+    })
+  }
   let fuzzyOn = true // 거래소 필터칸 "~" 퍼지 접두사 강제 (uiFuzzyPrefix, 기본 켬 — fuzzyPrefix.js가 실제 동작 담당)
   // 펼쳤을 때 페이지 콘텐츠를 패널 반대쪽으로 밀어 자리를 확보(도킹) → 검색 영역과 겹침 방지. 좌/우 배치에 따라 방향 반전.
+  // 폭 드래그 중인가 — 이 동안에는 폭에 물린 전환을 전부 끈다.
+  // 전환들은 접기/펼치기(폭이 한 번에 바뀌는 동작)를 위한 것이라 드래그에는 해가 된다:
+  // 매 프레임 새 전환이 걸려 패널만 포인터를 따라오고 핸들·페이지는 뒤늦게 쫓아온다(제보).
+  let resizing = false
   const applyPagePush = (collapsed) => {
     try {
-      const push = collapsed ? '' : '412px'
+      const push = collapsed ? '' : (panelW + 28) + 'px' // 패널 폭 + 좌우 여백(14+14)
       document.documentElement.style.setProperty('margin-left', panelSide === 'left' ? push : '', 'important')
       document.documentElement.style.setProperty('margin-right', panelSide === 'right' ? push : '', 'important')
-      document.documentElement.style.setProperty('transition', 'margin .25s ease', 'important')
+      document.documentElement.style.setProperty('transition', resizing ? 'none' : 'margin .25s ease', 'important')
     } catch (_) {}
   }
   // 패널 좌/우 배치 적용 — data-side(CSS 미러링) + 페이지 밀기 방향 갱신. (핸들 그라데이션은 세로 기준이라 재계산 불필요)
@@ -150,9 +175,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   }
   // 초기 상태: 좁은 화면은 접힘(검색 영역 겹침 방지), 넓으면 펼침. 사용자 토글 선호는 기억.
   if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
-  applyPagePush(isCollapsed())
+  applyWidth(panelW) // 저장값을 읽기 전에 한 번 — 폭 파생값(핸들 위치·페이지 밀기)을 초기화한다
   try {
-    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix']).then((r) => {
+    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth']).then((r) => {
+      applyWidth((r && r.uiPanelWidth) || panelW)
       if (r && r.uiPanelSide) applySide(r.uiPanelSide)
       if (r && typeof r.uiFuzzyPrefix === 'boolean') fuzzyOn = r.uiFuzzyPrefix
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
@@ -160,6 +186,44 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     })
   } catch (_) {}
   updateHandleBadge()
+
+  // ── 폭 조절 드래그 ──
+  // 포인터를 즉시 따라가야 하므로 전환 없이 반영하고, **저장은 놓을 때 한 번만** 한다 —
+  // 드래그 중 chrome.storage 에 쓰면 다른 탭의 onChanged 가 매 프레임 깨어나 재렌더된다.
+  ;(() => {
+    const grip = $('ba-resize')
+    if (!grip) return
+    let startX = 0, startW = 0, dragging = false
+    grip.addEventListener('pointerdown', (e) => {
+      dragging = true; startX = e.clientX; startW = panelW
+      resizing = true
+      elRoot.classList.add('ba-resizing') // 핸들 right/left 전환 차단 (panel.css)
+      grip.classList.add('on')
+      try { grip.setPointerCapture(e.pointerId) } catch (_) {}
+      e.preventDefault() // 드래그 중 텍스트 선택 방지
+    })
+    grip.addEventListener('pointermove', (e) => {
+      if (!dragging) return
+      // 잡는 곳이 패널 **안쪽** 변이라 방향이 배치에 따라 뒤집힌다.
+      // 우측 배치: 왼쪽으로 끌수록 넓어짐 / 좌측 배치: 오른쪽으로 끌수록 넓어짐.
+      const delta = panelSide === 'left' ? (e.clientX - startX) : (startX - e.clientX)
+      applyWidth(startW + delta) // applyWidth 가 clampPanelWidth 로 최소~최대 사이에 가둔다
+    })
+    const end = (e) => {
+      if (!dragging) return
+      dragging = false
+      resizing = false
+      elRoot.classList.remove('ba-resizing')
+      applyPagePush(isCollapsed()) // 꺼 뒀던 페이지 전환을 되돌린다 — 다음 접기/펼치기가 다시 부드럽게
+      grip.classList.remove('on')
+      try { grip.releasePointerCapture(e.pointerId) } catch (_) {}
+      try { chrome.storage.local.set({ uiPanelWidth: panelW }) } catch (_) {}
+    }
+    grip.addEventListener('pointerup', end)
+    grip.addEventListener('pointercancel', end)
+  })()
+  // 창이 좁아지면 상한이 내려간다 — 현재 폭을 다시 클램프해 패널이 화면을 다 덮지 않게 한다
+  window.addEventListener('resize', () => applyWidth(panelW))
 
   // 핸들 테두리를 패널 그라데이션의 '그 위치 색'으로 동적 일치
   // (panel.css의 fixed border-box 그라데이션이 콘텐츠 스크립트 컨텍스트에서 불안정 → JS로 계산해 inline 적용)
@@ -634,7 +698,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     if (!sets.length) { el.hidden = true; el.innerHTML = ''; return } // 없으면 자리 차지 안 함
     el.hidden = false
     const chips = sets.map((s) => {
-      const tip = esc([s.name, conditionSetSummary(s), '────────', ...s.stats.map((x) => x.text + (x.value ? ` ${x.value.min != null ? '≥' + x.value.min : ''}${x.value.max != null ? ' ≤' + x.value.max : ''}` : '')), '────────', '드래그해서 순서 변경 (Alt+←/→)'].filter(Boolean).join('\n'))
+      const tip = esc([conditionSetTip(s), '────────', '드래그해서 순서 변경 (Alt+←/→)'].join('\n'))
       return `<span class="ba-set" data-id="${s.id}" draggable="true" data-tip="${tip}">`
         + `<span class="ba-set-go" role="button" tabindex="0">${icon('plus', 12)}${esc(s.name)}</span>`
         + `<span class="ba-set-del" data-id="${s.id}" data-tip="묶음 삭제">${icon('x', 11)}</span></span>`
@@ -761,12 +825,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     })
   }
 
-  const SET_FAIL = {
-    rate: '거래소 요청이 잠시 제한됐어요. 30초쯤 뒤에 다시 시도해 주세요.',
-    auth: '거래소 로그인이 풀린 것 같아요. 새로고침 후 다시 시도해 주세요.',
-    network: '거래소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
-    http: '거래소가 이 조건을 받아주지 않았어요.',
-  }
   // 조건 얹기 공통 실행 — 현재 검색에 병합해 새 검색을 만들고 이동한다.
   // 무엇에 얹었는지는 이동 후 토스트로 알린다(이동 전에 띄우면 페이지가 바뀌며 사라진다).
   // 되돌리기는 브라우저 뒤로가기. 연타는 막는다 — 요청이 몰리면 거래소 요청 제한(429)에 걸린다.
@@ -795,23 +853,37 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 조건 칩 클릭 → 그 북마크·히스토리의 **능력치만** 지금 검색에 추가한다.
   // 조건 묶음(칩 줄)과 달리 등록이 필요 없고, 매번 레코드의 원본 query를 새로 읽으므로
   // 추출 로직이 개선되면 저장된 묶음과 달리 자동으로 반영된다.
-  // 유형(아이템 종류)은 일부러 뺀다 — 지금 보던 검색의 유형을 덮으면 '얹기'가 아니라 '바꾸기'가 된다.
+  // (유형을 빼는 건 이제 extract/merge 가 공통으로 한다 — 여기서 따로 지울 필요가 없다.)
   const addStatsToSearch = async (recId) => {
     if (applyingSet) return
     const rec = [...(await listByKind('bookmark', game)), ...(await listByKind('history', game))].find((r) => r.id === recId)
     if (rec && rec.__demo) { toast('투어용 예시 카드예요. 실제 북마크의 조건 칩에서 눌러보세요.'); return }
     const set = extractConditionSet(rec, getStatMap ? getStatMap() : {})
     if (!set || !set.stats.length) { toast('이 검색에는 넣을 능력치가 없어요.'); return }
-    await applyAndGo({ ...set, itemType: null }, `${rec.name || rec.title || '검색'} 능력치`)
+    await applyAndGo(set, `${rec.name || rec.title || '검색'} 능력치`)
   }
 
   // 이동 후 1회 안내 — 새로 만든 검색인지, 보던 검색에 얹은 것인지 밝힌다(뒤로가기로 되돌릴 수 있음)
+  //
+  // ⚠ 두 가지를 지킨다 (2026-08-13 제보: "새로고침되는 과정에서 이상하게 계속 보인다"):
+  //  ① 띄우기 **전에** 플래그를 지운다(await). 지우기를 안 기다린 채 거래소가 한 번 더 이동하면
+  //     남은 플래그가 다음 로드에서 또 토스트를 띄운다.
+  //  ② 거래소가 화면을 다 그린 뒤에 띄운다. 우리 패널은 document_idle 에 뜨는데 거래소 화면은
+  //     한참 뒤에 그려져서, 그 사이에 띄우면 **아무것도 없는 빈 화면 한가운데** 떠 있다(제보 스크린샷).
+  //     게다가 그동안 메인 스레드가 막혀 자동 숨김 타이머(2.2s)까지 늦게 돌아 더 오래 남는다.
+  //     load 가 너무 늦으면 3초에 그냥 띄운다 — 클릭과 안내가 너무 벌어지면 무슨 안내인지 모른다.
   try {
-    chrome.storage.local.get('baSetApplied').then((r) => {
+    chrome.storage.local.get('baSetApplied').then(async (r) => {
       const a = r && r.baSetApplied
-      if (!a || Date.now() - (a.at || 0) > 15000) return // 오래된 흔적은 무시
-      chrome.storage.local.remove('baSetApplied')
-      toast(a.merged ? `"${a.name}"을(를) 보던 검색에 얹었어요 — 되돌리려면 뒤로가기` : `"${a.name}"으로 검색했어요`)
+      if (!a) return
+      await chrome.storage.local.remove('baSetApplied') // 오래된 흔적도 여기서 함께 정리된다
+      if (Date.now() - (a.at || 0) > 15000) return // 오래된 흔적은 알리지 않는다
+      const msg = a.merged ? `"${a.name}"을(를) 보던 검색에 얹었어요 — 되돌리려면 뒤로가기` : `"${a.name}"으로 검색했어요`
+      if (document.readyState === 'complete') { toast(msg); return }
+      let shown = false
+      const show = () => { if (shown) return; shown = true; toast(msg) }
+      window.addEventListener('load', show, { once: true })
+      setTimeout(show, 3000)
     })
   } catch (_) {}
 
@@ -1099,6 +1171,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area !== 'local') return
       if (changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
+      if (changes.uiPanelWidth) applyWidth(changes.uiPanelWidth.newValue)
       if (changes.uiFuzzyPrefix) fuzzyOn = changes.uiFuzzyPrefix.newValue !== false // 다른 탭에서 바꾸면 설정 모달 표시도 따라간다
       // 다른 탭에서 리그를 바꾸면 이 탭도 따라간다(같은 게임일 때만)
       if (changes.uiLeague) {

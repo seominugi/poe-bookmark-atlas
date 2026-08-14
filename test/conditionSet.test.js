@@ -25,13 +25,25 @@ const rec = (over = {}) => ({
 })
 
 describe('extractConditionSet', () => {
-  it('raw query에서 스탯(값 포함)과 유형을 뽑는다', () => {
+  it('raw query에서 스탯(값 포함)을 뽑는다', () => {
     const set = extractConditionSet(rec(), STAT_MAP)
-    expect(set.itemType).toBe('목걸이')
     expect(set.stats).toEqual([
       { id: 'explicit.stat_life', text: '최대 생명력 #', value: { min: 80 } },
       { id: 'explicit.stat_fire_res', text: '화염 저항 #%', value: { min: 30 } },
     ])
+  })
+
+  // 제보 2026-08-13: "조건 묶음으로 저장할 때에는 능력치 필터에 관련된 정보만 저장되어야 한다."
+  it('아이템 검색 정보(q.type)는 담지 않는다 — 묶음은 능력치 필터만 담는 부품이다', () => {
+    const set = extractConditionSet(rec(), STAT_MAP)
+    expect(set.itemType).toBeUndefined()
+    expect(JSON.stringify(set)).not.toContain('목걸이')
+  })
+
+  it('능력치가 하나도 없으면 묶음이 되지 않는다 (유형만으론 만들 수 없다)', () => {
+    const r = rec()
+    r.query.query.stats = []
+    expect(extractConditionSet(r, STAT_MAP)).toBe(null)
   })
 
   it('가격 등 비-스탯 필터는 담지 않는다 — 예산은 매번 다르므로 얹을 대상이 아니다', () => {
@@ -118,14 +130,20 @@ describe('mergeConditionSet', () => {
 
   it('현재 검색이 없으면 묶음만으로 검색 바디를 만든다', () => {
     const body = mergeConditionSet(null, SET)
-    expect(body.query.type).toBe('목걸이')
+    expect(body.query.type).toBeUndefined() // 묶음은 아이템 타입을 정하지 않는다
     expect(body.query.status).toEqual({ option: 'online' }) // 거래소 기본
     expect(body.query.stats[0].filters.map((f) => f.id)).toEqual(['explicit.stat_fire_res', 'explicit.stat_cold_res'])
   })
 
-  it('묶음에 유형이 없으면 현재 검색의 유형을 유지한다', () => {
+  it('보던 검색의 아이템 타입은 그대로 둔다 — 바꾸면 얹기가 아니라 바꾸기가 된다', () => {
     const body = mergeConditionSet(rec().query, { stats: SET.stats })
     expect(body.query.type).toBe('목걸이')
+  })
+
+  // 이 기능 이전에 저장된 묶음에는 itemType 이 남아 있다. 저장분을 고치지 않고 읽는 쪽에서 무시한다.
+  it('예전 묶음에 남은 itemType 은 무시한다 (저장분 마이그레이션 불필요)', () => {
+    const body = mergeConditionSet(rec().query, { ...SET, itemType: '반지' })
+    expect(body.query.type).toBe('목걸이') // '반지'로 덮어쓰지 않는다
   })
 
   it('가중치·개수 그룹은 건드리지 않고 and 그룹에만 얹는다', () => {
@@ -165,14 +183,14 @@ describe('mergeConditionSet', () => {
 })
 
 describe('conditionSetSummary', () => {
-  it('유형과 조건 개수를 한 줄로 요약한다', () => {
-    expect(conditionSetSummary({ itemType: '목걸이', stats: [{ id: 'a' }, { id: 'b' }] })).toBe('목걸이 · 조건 2개')
-  })
-  it('유형이 없으면 조건 개수만', () => {
+  it('조건 개수를 요약한다', () => {
+    expect(conditionSetSummary({ stats: [{ id: 'a' }, { id: 'b' }] })).toBe('조건 2개')
     expect(conditionSetSummary({ stats: [{ id: 'a' }] })).toBe('조건 1개')
   })
-  it('유형만 있으면 유형만', () => {
-    expect(conditionSetSummary({ itemType: '반지', stats: [] })).toBe('반지')
+  // 예전 묶음의 itemType 은 얹을 때 무시되므로, 보여주면 "이것도 적용된다"는 잘못된 인상을 준다.
+  it('예전 묶음에 남은 itemType 은 요약에 넣지 않는다', () => {
+    expect(conditionSetSummary({ itemType: '반지', stats: [{ id: 'a' }] })).toBe('조건 1개')
+    expect(conditionSetSummary({ itemType: '반지', stats: [] })).toBe('')
   })
   it('빈 묶음은 빈 문자열', () => {
     expect(conditionSetSummary(null)).toBe('')

@@ -8,8 +8,9 @@ import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
 import { parseExaltedPerDivine, baseFromPrice, divineFromPrice, baseCurrencyOf, fmtCurAmount } from '../lib/currencyRates.js'
 import { searchApiPath, searchResultPath, isSafeSearchId, sanitizeQuery, searchHashFromUrl, isAllowedTradeUrl } from '../lib/tradeSearch.js'
-import { mergeConditionSet } from '../lib/conditionSet.js'
-import { addHistory, markUsedByUrl, ensureSchema, backfillQuery, isWatched, addWatch, removeWatch, listWatched, WATCH_CAP } from '../store/store.js'
+import { mergeConditionSet, SET_FAIL } from '../lib/conditionSet.js'
+import { renderSetsBar } from '../lib/pageSets.js'
+import { addHistory, markUsedByUrl, ensureSchema, backfillQuery, isWatched, addWatch, removeWatch, listWatched, listConditionSets, WATCH_CAP } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText, buildReportText } from '../lib/pobExport.js'
@@ -270,7 +271,33 @@ function pobEnsureStyle() {
     background: rgba(20, 17, 34, 0.97); border: 1px solid rgba(167, 139, 250, 0.5); border-radius: 9px;
     box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5), 0 0 14px rgba(167, 139, 250, 0.2);
     opacity: 0; pointer-events: none; transform: translateY(3px); transition: opacity .15s, transform .15s; z-index: 60; }
-  .ba-exr-chip:hover::after { opacity: 1; transform: translateY(0); }`
+  .ba-exr-chip:hover::after { opacity: 1; transform: translateY(0); }
+
+  /* 거래소 화면에 얹는 '조건 묶음' 줄 — 능력치 필터 그룹 맨 위 */
+  /* width: fit-content — 처음엔 필터 행과 같은 폭(740px)으로 늘렸는데 "벗어난 느낌"이라는 제보가 왔다.
+     실측하니 칩이 448px 만 쓰고 **292px(39%)가 빈 꼬리**였다. 다른 필터 행은 테두리가 없어 폭이 안 보이는데
+     우리만 상자라, 내용보다 큰 상자가 겉돌았다. 내용에 맞춰 감싸고 넘치면 max-width 에서 줄바꿈한다.
+     높이도 41px → 37px 로 낮춰 행 리듬(30px)에 가깝게.
+     좌우 들여쓰기(margin-left / max-width)는 pageSets.js 가 필터 행에서 재서 인라인으로 넣는다 —
+     체크박스 열을 침범하지 않고 스탯 이름과 같은 선에 맞추기 위해서다. */
+  .ba-page-sets { display: flex; flex-wrap: wrap; align-items: center; gap: 5px;
+    width: fit-content; max-width: 100%; margin: 0 0 6px; padding: 5px 8px;
+    font-family: inherit; letter-spacing: -0.01em;
+    background: rgba(167, 139, 250, 0.07); border: 1px solid rgba(167, 139, 250, 0.28); border-radius: 10px; }
+  .ba-page-sets-lbl { display: inline-flex; align-items: center; gap: 4px; margin-right: 2px;
+    font-size: 10.5px; font-weight: 700; color: #b9adf1; }
+  .ba-page-set { box-sizing: border-box; display: inline-flex; align-items: center; max-width: 100%;
+    padding: 4px 11px; font-family: inherit; font-size: 11.5px; font-weight: 600; line-height: 1.35;
+    color: #ddd6fe; background: rgba(167, 139, 250, 0.13); border: 1px solid rgba(167, 139, 250, 0.4);
+    border-radius: 999px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    transition: background .15s ease, border-color .15s ease, color .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-page-set:hover { background: rgba(167, 139, 250, 0.26); border-color: rgba(167, 139, 250, 0.66); color: #fff; }
+  }
+  .ba-page-set:active { transform: scale(0.97); }
+  .ba-page-set:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  .ba-page-set[disabled] { opacity: 0.55; cursor: default; }
+  @media (prefers-reduced-motion: reduce) { .ba-page-set { transition-property: background, border-color, color; } .ba-page-set:active { transform: none; } }`
   document.head.appendChild(st)
 }
 // 페이지 표면 커스텀 툴팁 — data-tip의 《...》를 강조색(시안) span으로 치환(패널 .ba-tip과 동일 관례).
@@ -503,7 +530,7 @@ let pobKickPending = false
 function pobKick() {
   if (pobKickPending) return
   pobKickPending = true
-  setTimeout(() => { pobKickPending = false; injectPobButtons() }, 100)
+  setTimeout(() => { pobKickPending = false; injectPobButtons(); renderPageSets() }, 100)
 }
 let pobBodyObserver = null
 function pobEnsureObserver() {
@@ -516,7 +543,37 @@ function schedulePobInject() {
   ensureCurrencyStatic() // 화폐 아이콘·한글명 맵을 첫 fetch 시점에 미리 로드(환율 도착 전에 준비)
   try { pobEnsureObserver() } catch (err) { LOG('PoB 옵저버 실패', String(err)) }
   pobTimers.forEach(clearTimeout)
-  pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(injectPobButtons, ms))
+  pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(() => { injectPobButtons(); renderPageSets() }, ms))
+}
+
+// ── 거래소 화면의 '조건 묶음' 칩 줄 ──
+// 왜 페이지에도 두나 · 앵커가 깨졌을 때의 계약: src/lib/pageSets.js 상단 주석.
+// 여기서는 데이터(묶음 목록)와 실행(applyConditionSet)만 잇는다.
+let pageSetBusy = false
+function renderPageSets() {
+  // 페이지 표면 스타일은 PoB 버튼과 같은 <style> 하나를 공유한다. 결과가 없는 화면에서도
+  // 조건 줄은 뜰 수 있으므로(필터만 펼친 상태) 여기서도 보장해둔다.
+  pobEnsureStyle()
+  listConditionSets(game)
+    .then((sets) => renderSetsBar(document, sets.filter((s) => !s.__demo), runPageSet, bindPageTip))
+    .catch((err) => { if (isCtxInvalidated(err)) noteExtensionDead(); else LOG('조건 묶음 줄 실패', String(err)) })
+}
+// 패널 칩과 같은 동작: 얹은 뒤 이동하고, 무엇에 얹었는지는 이동 후 패널이 토스트로 알린다.
+// 연타는 막는다 — 요청이 몰리면 거래소 요청 제한(429)에 걸린다.
+async function runPageSet(set, bar) {
+  if (pageSetBusy) return
+  pageSetBusy = true
+  const btns = [...bar.querySelectorAll('.ba-page-set')]
+  btns.forEach((b) => { b.disabled = true })
+  try {
+    const res = await applyConditionSet(set)
+    if (!res || !res.ok) { panel.toast(SET_FAIL[res && res.reason] || '조건을 넣지 못했어요.'); return }
+    try { await chrome.storage.local.set({ baSetApplied: { name: set.name, merged: res.merged, at: Date.now() } }) } catch (_) {}
+    location.href = res.url
+  } finally {
+    pageSetBusy = false
+    btns.forEach((b) => { b.disabled = false })
+  }
 }
 
 // 검색이 실행된 **그 순간** 히스토리에 남긴다.
@@ -768,6 +825,17 @@ const panel = mountPanel({
   getStatMap: () => statMap, // 조건 묶음 등록 시 스탯 id를 한글 표시명으로 바꾸는 데 쓴다
   tourDemo: { show: showTourDemo, hide: hideTourDemo },
 })
+
+// 조건 묶음 줄은 검색 결과가 없어도(필터만 펼친 상태) 필요하다. 그래서 PoB 버튼처럼 첫 fetch 를
+// 기다리지 않고 진입 직후부터 붙이고, 필터 UI 가 늦게 그려지는 경우는 body 감시가 따라잡는다.
+try { pobEnsureObserver() } catch (err) { LOG('PoB 옵저버 실패', String(err)) }
+;[200, 800, 2000].forEach((ms) => setTimeout(renderPageSets, ms))
+// 패널에서 묶음을 만들거나 지우면 화면의 칩 줄도 바로 따라간다.
+try {
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === 'local' && changes.conditionSets) renderPageSets()
+  })
+} catch (err) { LOG('storage 변경 구독 실패', String(err)) }
 
 // 팝업·단축키 명령 수신 (toggle/save/tour)
 chrome.runtime.onMessage.addListener((msg) => {
