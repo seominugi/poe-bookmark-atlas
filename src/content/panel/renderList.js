@@ -16,6 +16,7 @@ import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
 import researcherIcon from '../../icons/mascot-researcher.webp'
 import { fitCondSummaries } from '../../lib/fitSummary.js'
+import { nextDelay, retryAfterMs, waitSeconds } from '../../lib/tradeRate.js'
 
 // content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
 // import 값은 '/assets/..'(호스트 페이지 기준 절대경로)라 그대로 쓰면 poe.kakaogames.com/assets/.. → 404.
@@ -442,36 +443,52 @@ function watchRowHtml(w) {
   return `<div class="ba-wrow" data-id="${escapeHtml(w.id)}" data-url="${encodeURIComponent(w.sourceUrl || '')}">
     <span class="ba-wtop">${thumb}<span class="ba-wname">${escapeHtml(w.name || w.baseType || '(이름 없음)')}</span><span class="ba-wbadge ba-wbadge--${st.cls}">${st.text}</span>${other}</span>
     <span class="ba-wmeta">${escapeHtml(meta)}</span>
-    <span class="ba-wacts">${saved}<button class="ba-wopen" data-tip="이 매물을 찾았던 검색을 다시 열어요">${icon('search', 11)}다시 검색</button><button class="ba-wdel" data-tip="찜 해제">${icon('x', 11)}</button></span>
+    <span class="ba-wacts">${saved}${here ? `<button class="ba-wcheck" data-tip="이 매물이 아직 있는지, 가격이 바뀌었는지 확인해요">${icon('refresh', 11)}확인</button>` : ''}<button class="ba-wopen" data-tip="이 매물을 찾았던 검색을 다시 열어요">${icon('search', 11)}다시 검색</button><button class="ba-wdel" data-tip="찜 해제">${icon('x', 11)}</button></span>
   </div>`
 }
 
-// 거래소에 직접 물어 생존을 확인한다. **지금 페이지와 origin이 같은 매물만** 대상 —
-// 다른 거래소 매물을 여기서 조회하면 무조건 null이 와서 멀쩡한 걸 '판매됨'으로 오판한다.
-const WATCH_BATCH = 10 // GGG fetch API 관례. 순차 배치로 rate limit을 피한다
-async function runWatchCheck(btn, ui, toast) {
-  const mine = (await listWatched(ui.game)).filter((w) => w.origin === location.host)
-  if (!mine.length) { toast('지금 거래소에서 확인할 수 있는 찜이 없어요.'); return }
+// 거래소에 직접 물어 생존·가격을 확인한다. **찜 하나씩** 확인한다(2026-08-13 요청).
+//
+// 왜 일괄이 아닌가: 예전엔 '상태 확인' 버튼 하나가 10개씩 묶어 최대 10요청을 **대기 없이** 쏘았다.
+// 계정 규칙은 6요청/4초라(실측), 찜이 61개를 넘으면 7번째 요청이 429 를 맞고 10초 정지됐다.
+// 그 정지는 엔드포인트 단위여서 **사용자의 실제 거래소 검색까지 멈춘다.**
+// 하나씩이면 클릭 1회 = 요청 1회라 예산을 사용자가 직접 통제한다. 연타할 때만 간격을 강제하면
+// 충분하다(lib/tradeRate.js — 실측 정책값에 묶여 있다).
+//
+// 지금 페이지와 origin 이 같은 매물만 확인한다 — 다른 거래소 매물을 여기서 조회하면 무조건 null 이
+// 와서 멀쩡한 걸 '판매됨'으로 오판한다. 그래서 버튼 자체를 그리지 않는다(watchRowHtml 의 here).
+let lastWatchReqAt = 0
+let watchBlockedUntil = 0
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+async function checkOneWatch(btn, row, ui, toast) {
+  const w = (await listWatched(ui.game)).find((x) => x.id === row.dataset.id)
+  if (!w) return
+
+  const gate = nextDelay(lastWatchReqAt, Date.now(), watchBlockedUntil)
+  // 막혀 있으면 말없이 기다리지 않고 알린다 — 10초를 멈춰 있으면 고장으로 읽고, 재시도하면 더 길어진다.
+  if (gate.blocked) { toast(`거래소 요청 제한 — ${waitSeconds(gate.wait)}초 뒤에 다시 눌러 주세요.`); return }
+
   const orig = btn.innerHTML
-  btn.disabled = true; btn.textContent = '확인 중…'
+  btn.disabled = true
+  btn.textContent = '확인 중…'
   try {
+    if (gate.wait) await sleep(gate.wait) // 연타해도 계정 규칙(6요청/4초)을 넘지 않게
+    lastWatchReqAt = Date.now()
     const path = ui.game === 'poe2' ? '/api/trade2/fetch/' : '/api/trade/fetch/'
-    const results = []
-    for (let i = 0; i < mine.length; i += WATCH_BATCH) {
-      const chunk = mine.slice(i, i + WATCH_BATCH)
-      const res = await fetch(path + chunk.map((w) => encodeURIComponent(w.listingId)).join(','))
-      if (!res.ok) throw new Error('HTTP ' + res.status)
-      const arr = ((await res.json()) || {}).result || []
-      chunk.forEach((w, k) => {
-        const hit = arr[k]
-        results.push({ id: w.id, alive: !!hit, price: (hit && hit.listing && hit.listing.price) || undefined })
-      })
+    const res = await fetch(path + encodeURIComponent(w.listingId))
+    if (res.status === 429) {
+      watchBlockedUntil = Date.now() + retryAfterMs(res.headers)
+      toast(`거래소 요청 제한에 걸렸어요 — ${waitSeconds(watchBlockedUntil - Date.now())}초 뒤에 다시 눌러 주세요.`)
+      return
     }
-    await applyWatchStatus(results)
-    const sold = results.filter((r) => !r.alive).length
-    toast(sold ? `${results.length}개 확인 — ${sold}개가 판매됐어요.` : `${results.length}개 모두 아직 있어요.`)
-    document.dispatchEvent(new CustomEvent('ba:records-changed'))
-  } catch (e) {
+    if (!res.ok) { toast('상태를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.'); return }
+    const hit = (((await res.json()) || {}).result || [])[0]
+    const price = (hit && hit.listing && hit.listing.price) || undefined
+    await applyWatchStatus([{ id: w.id, alive: !!hit, price }])
+    toast(hit ? '아직 있어요.' : '판매된 것 같아요.')
+    document.dispatchEvent(new CustomEvent('ba:records-changed')) // 배지·가격 갱신
+  } catch (_) {
     toast('상태를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.')
   } finally { btn.disabled = false; btn.innerHTML = orig }
 }
@@ -568,7 +585,7 @@ export async function renderList(listEl, root, ui = {}) {
     //    상태 갱신은 자동으로 하지 않는다(거래소 fetch API에 rate limit) — 사용자가 누를 때만.
     if (watched.length) {
       html += `<div class="ba-sec-head ba-sec-watch"><span class="ba-sec-title">${icon('star', 14)}<span>찜한 매물</span><span class="ba-sec-count">${watched.length}</span></span>`
-        + `<span class="ba-sec-actions"><button class="ba-watch-check" data-tip="찜한 매물이 아직 살아 있는지 거래소에 확인해요.\n지금 보고 있는 거래소의 매물만 확인됩니다.">${icon('refresh', 12)}상태 확인</button></span></div>`
+        + `</div>`
       html += watched.map((w) => watchRowHtml(w)).join('')
     }
     // ── 히스토리 — 리그 구분 없이 전체 통합(시간순, listByKind가 이미 최신순 정렬) ──
@@ -607,8 +624,9 @@ function bindAll(listEl, ui, ctx) {
     await removeWatch(b.closest('.ba-wrow').dataset.id)
     document.dispatchEvent(new CustomEvent('ba:records-changed'))
   }))
-  const wCheck = listEl.querySelector('.ba-watch-check')
-  if (wCheck) wCheck.addEventListener('click', (e) => { e.stopPropagation(); runWatchCheck(wCheck, ui, toast) })
+  listEl.querySelectorAll('.ba-wcheck').forEach((b) => b.addEventListener('click', (e) => {
+    e.stopPropagation(); checkOneWatch(b, b.closest('.ba-wrow'), ui, toast)
+  }))
 
   // 행 열기 — 히스토리는 카드 전체 클릭, 북마크는 이름 칩(.ba-open)만 (오클릭 방지)
   listEl.querySelectorAll('.ba-row').forEach((row) => {
