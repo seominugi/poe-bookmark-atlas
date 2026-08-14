@@ -16,6 +16,7 @@ import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
 import researcherIcon from '../../icons/mascot-researcher.webp'
+import { fitCondSummaries } from '../../lib/fitSummary.js'
 
 // content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
 // import 값은 '/assets/..'(호스트 페이지 기준 절대경로)라 그대로 쓰면 poe.kakaogames.com/assets/.. → 404.
@@ -475,6 +476,8 @@ async function runWatchCheck(btn, ui, toast) {
   } finally { btn.disabled = false; btn.innerHTML = orig }
 }
 
+export { fitCondSummaries }
+
 export async function renderList(listEl, root, ui = {}) {
   await hydrateUiState()
   // 리그 판정은 렌더·이벤트 양쪽에서 같은 값을 써야 한다(섹션 배지 ↔ 이관 대상이 어긋나면 사용자가 속는다)
@@ -491,14 +494,14 @@ export async function renderList(listEl, root, ui = {}) {
   const now = Date.now()
   const staleN = bookmarks.filter((b) => now - (b.lastUsedAt || b.createdAt || b.updatedAt || 0) > STALE_MS).length
   const cleanupBtn = staleN > 0
-    ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요.\n오래된 검색은 거래소 필터·파라미터가 바뀌면\n더 이상 불러오지 못할 수 있거든요.">${icon('broom', 13)}오래된 ${staleN}</button>`
+    ? `<button class="ba-clean-stale" data-tip="14일 넘게 안 쓴 북마크를 한 번에 정리해요.\n오래된 검색은 거래소 필터·파라미터가 바뀌면\n더 이상 불러오지 못할 수 있거든요.">${icon('broom', 13)}<span class="ba-btn-lbl">오래된 ${staleN}</span></button>`
     : ''
   const sortToggle = `<span class="ba-seg">
       <span class="ba-sort-seg ${bmSort === 'order' ? 'active' : ''}" data-sort="order" data-tip="수동 순서">순서</span>
       <span class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</span>
       <span class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</span>
     </span>`
-  const onelineBtn = `<button class="ba-oneline-toggle" data-tip="${oneline ? '북마크를 상세히 보기 (조건·메모·액션 표시)' : '북마크를 한 줄로 간략히 보기 (이름만 — 스크롤 절약)'}">${icon(oneline ? 'chevronDown' : 'chevronRight', 12)}${oneline ? '상세히' : '간략히'}</button>`
+  const onelineBtn = `<button class="ba-oneline-toggle" data-tip="${oneline ? '북마크를 상세히 보기 (조건·메모·액션 표시)' : '북마크를 한 줄로 간략히 보기 (이름만 — 스크롤 절약)'}">${icon(oneline ? 'chevronDown' : 'chevronRight', 12)}<span class="ba-btn-lbl">${oneline ? '상세히' : '간략히'}</span></button>`
   let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${sortToggle}</span></div>`
   html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크·히스토리 검색 (Alt+K)" data-tip="이름·조건으로 찾기 — Alt+K로 어디서나 여기에 포커스" value="${escapeHtml(bmSearch)}" /></span></div>`
   // 모든 폴더 접기/펼치기 토글 — 실폴더가 있을 때만(미분류 포함 2개 이상). 라벨은 현재 접힘 상태로 결정.
@@ -507,10 +510,10 @@ export async function renderList(listEl, root, ui = {}) {
   const collapseAllBtn = folders.length >= 1
     // 라벨은 짧게(‘전체 …’) + CSS로 폭 고정 — 길이가 바뀌면 액션 행 줄바꿈 위치가 상태마다 달라진다.
     // 전체 설명은 툴팁이 갖는다.
-    ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}${allCollapsed ? '전체 펼치기' : '전체 접기'}</button>`
+    ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}<span class="ba-btn-lbl">${allCollapsed ? '전체 펼치기' : '전체 접기'}</span></button>`
     : ''
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
-  html += `<div class="ba-action-row">${onelineBtn}${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
+  html += `<div class="ba-action-row">${onelineBtn}${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}<span class="ba-btn-lbl">폴더 추가</span></button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const sortItems = (arr) => {
     if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
@@ -928,7 +931,8 @@ function bindAll(listEl, ui, ctx) {
   if (onelineToggle) onelineToggle.addEventListener('click', () => {
     oneline = !oneline; saveOneline()
     listEl.classList.toggle('ba-oneline', oneline)
-    onelineToggle.innerHTML = `${icon(oneline ? 'chevronDown' : 'chevronRight', 12)}${oneline ? '상세히' : '간략히'}`
+    // 라벨 래퍼(.ba-btn-lbl)를 반드시 유지한다 — narrow 폭에서 라벨을 숨기는 기준이라, 빠지면 좁은 폭에서 되살아난다.
+    onelineToggle.innerHTML = `${icon(oneline ? 'chevronDown' : 'chevronRight', 12)}<span class="ba-btn-lbl">${oneline ? '상세히' : '간략히'}</span>`
     onelineToggle.dataset.tip = oneline ? '북마크를 상세히 보기 (조건·메모·액션 표시)' : '북마크를 한 줄로 간략히 보기 (이름만 — 스크롤 절약)'
   })
 
@@ -1108,4 +1112,8 @@ function bindDnD(listEl) {
       await reorderFolder(folderDragId, beforeId); changed()
     })
   })
+
+  // 조건 요약을 '조건 경계'에서 끊는다 — 글자 중간 말줄임 대신. 근거·측정: src/lib/fitSummary.js
+  // 폭이 바뀌어도 다시 맞춰야 하므로 panel.js 가 applyWidth 에서도 부른다.
+  fitCondSummaries(listEl)
 }

@@ -102,6 +102,10 @@
   transition: right .26s var(--ba-ease), left .26s var(--ba-ease);   /* 좌측 배치 시 핸들은 left로 움직이므로 left도 트랜지션(안 그러면 패널만 슬라이드·핸들은 점프) */
 }
 .ba-root.collapsed ~ .ba-handle { right: 0; }   /* 접힘 시 화면 우측 끝으로 */
+/* 폭 드래그 중에는 위 전환을 끈다 — 핸들 right/left 가 --ba-w 에 물려 있어, 드래그 매 프레임마다
+   260ms 전환이 새로 걸린다. 그러면 패널은 포인터를 즉시 따라오는데 핸들만 뒤늦게 쫓아온다(제보).
+   접기/펼치기 때는 그대로 필요하다 — 그때만 right 가 한 번에 크게 움직이기 때문. */
+.ba-root.ba-resizing ~ .ba-handle { transition: none; }
 
 /* ── 패널 좌측 배치 (data-side="left") — 우측 하드코딩 스타일 미러링 ── */
 .ba-root[data-side="left"] { right: auto; left: 14px; }
@@ -789,7 +793,11 @@
 .ba-brand { display: flex; align-items: center; gap: 10px; }
 .ba-brand-logo { width: 28px; height: 28px; border-radius: 8px; flex: none; box-shadow: 0 0 16px rgba(167,139,250,.3); }
 .ba-brand-tx { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.ba-brand-tx b { font-size: 14.5px; font-weight: 800; background: linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.02em; }
+/* nowrap + 말줄임 — 제품 이름이 'POE 북 / 마크 아 / 틀라스' 처럼 쪼개지는 것보다 잘리는 게 낫다.
+   최악 폰트(system-ui·Malgun)에서는 **기본폭 384px 에서도** 2줄이 된다(하네스 실측: 필요 136 / 가용 127).
+   아래 807행 주석의 "아이콘 과밀로 타이틀을 줄바꿈" 이 폰트에 따라 아직 남아 있던 것. */
+.ba-brand-tx b { font-size: 14.5px; font-weight: 800; background: linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.02em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ba-brand-tx small { font-size: 10px; color: #a78bfa; font-weight: 700; letter-spacing: .04em; }
 /* 제작자 칩 — 헤더 타이틀 우측 (푸터에서 이동, 가시성 ↑). 푸터 칩 글린트·글로우 재사용 */
 .ba-brand-credit { flex: none; text-decoration: none; cursor: pointer; transition: filter .15s; }
@@ -996,3 +1004,81 @@
   .ba-resize:hover::before { background: var(--ba-violet-line); }
 }
 .ba-resize.on::before { background: var(--ba-violet-2); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   폭 밴드 — 넓게/좁게에 각각 이유를 만든다 (2026-08-13 제보: "그저 넓히기만 한다")
+   경계값·근거: src/lib/panelWidth.js
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── narrow (~383px) : 거래소 화면을 덜 가리는 쪽 ──
+   액션 행은 자식이 전부 flex:none 이라 좁아져도 축소되지 않고 그대로 줄바꿈된다
+   (test/actionRowBudget.dom.test.js — 같은 원인으로 세 번 깨졌다).
+   그래서 좁은 폭에서는 **라벨을 버리고 아이콘만** 남긴다. 뜻은 툴팁(data-tip)이 그대로 갖는다.
+   이게 MIN_W 를 384 → 300 으로 내릴 수 있는 근거다 — 라벨을 안 숨기면 즉시 줄바꿈된다. */
+.ba-root[data-w="narrow"] .ba-btn-lbl { display: none; }
+.ba-root[data-w="narrow"] .ba-collapse-all { min-width: 0; }   /* 96px 고정폭은 라벨이 있을 때의 값 */
+.ba-root[data-w="narrow"] .ba-action-row > button { padding-left: 9px; padding-right: 9px; }
+/* 정렬 세그먼트(순서·최근·이름)도 좁은 폭에선 여백을 줄인다 — 여기만 남으면 이 행이 다음 병목이다 */
+.ba-root[data-w="narrow"] .ba-sort-seg { padding-left: 7px; padding-right: 7px; }
+/* 헤더 부제('POE1 TRADE MANAGER')는 300px 에서 13px 잘린다(하네스 실측). 말줄임을 걸면
+   'POE1 TRADE MANA…' 가 되는데 그건 잘린 것보다 더 안 좋다 — 장식 문구라 통째로 감춘다.
+   제품 이름은 바로 위 줄에 그대로 남는다. */
+.ba-root[data-w="narrow"] .ba-brand-tx small { display: none; }
+/* 제품명이 'POE 북 / 마크 아 / 틀라스' 3줄로 쪼개지던 문제(300px 라이브 실측 — 제목이 50px 밖에
+   못 받았다. 필요 128px). 위 807행 주석에 이미 "아이콘 과밀로 타이틀을 줄바꿈시켜"라고 적혀 있던
+   그 문제가 좁은 폭에서 재발한 것이다.
+   → 좁은 폭에서는 제작자 칩(약 90px)을 접는다. 제작자 표기는 푸터에도 있고, 여기서 지켜야 할 건
+     제품 이름 쪽이다. 그래도 안 되면 줄바꿈 대신 말줄임으로 떨어지게 nowrap 을 건다. */
+.ba-root[data-w="narrow"] .ba-brand-credit { display: none; }
+/* (nowrap·말줄임 자체는 .ba-brand-tx b 기본 규칙으로 올렸다 — 기본폭에서도 폰트에 따라 쪼개졌다) */
+
+/* 카드 이름도 같은 병목 — 300px 에서 이름이 26px 만 받고 121px 잘렸다("반…", 라이브 실측).
+   .ba-line1 안에서 드래그 그립(23px)과 아이템 썸네일(28px)이 이름 몫을 먹는다. 둘 다 좁은 폭에서는
+   부차적이다(재정렬은 넓혀서 하면 되고, 썸네일은 장식이다) — 접어서 51px 을 이름에 돌려준다.
+   가격 칩은 그대로 둔다: 좁은 폭에서도 시세는 이름 다음으로 중요한 정보다. */
+.ba-root[data-w="narrow"] .ba-l1l > .ba-grip,
+.ba-root[data-w="narrow"] .ba-l1l > .ba-thumb { display: none; }
+/* 그것만으로는 30px 회수에 그쳐 여전히 68px 잘렸다(실측). 남은 병목은 가격 칩(72px, flex:none).
+   좁은 폭에서 카드의 핵심은 "이게 어느 북마크인가" = 이름이므로, 가격을 아랫줄로 내려 이름에 한 줄을
+   통째로 준다(실측: 이름 93 → 173px, 필요 161px 이라 완전히 보인다). 카드가 그만큼 높아지지만
+   좁게 쓰는 목적은 밀도가 아니라 '거래소를 덜 가림'이라 이 교환이 맞다. */
+.ba-root[data-w="narrow"] .ba-line1 { flex-wrap: wrap; row-gap: 4px; }
+.ba-root[data-w="narrow"] .ba-line1 > .ba-l1l { flex: 1 1 100%; }
+.ba-root[data-w="narrow"] .ba-line1 > .ba-price-pill,
+.ba-root[data-w="narrow"] .ba-line1 > .ba-hist-price { margin-left: auto; }
+
+/* 폴더 행: 액션 아이콘 3개(이름변경·내보내기·삭제)가 86px 을 먹어 300px 에서 폴더명이 16px 밖에
+   못 받았다(필요 54px — 사용자 제보 "좁히니 폴더명이 보이지 않는다").
+   → 호버할 때만 보여준다. 평소엔 그 86px 이 이름 몫이 된다(16 → 약 102px).
+   호버가 없는 환경(터치)에서는 접근 수단이 사라지므로 그대로 둔다. */
+@media (hover: hover) and (pointer: fine) {
+  .ba-root[data-w="narrow"] .ba-folder-actions { display: none; }
+  .ba-root[data-w="narrow"] .ba-folder-head:hover .ba-folder-actions,
+  .ba-root[data-w="narrow"] .ba-folder-actions:focus-within { display: inline-flex; }
+}
+
+/* ── wide (560px~) : 넓힌 대가를 돌려주는 쪽 ──
+   카드가 한 층 낮아진다(북마크 3층→2층, 히스토리 2층→1층). 카드가 낮아지면 **한 화면에 보이는
+   항목 수가 늘어난다** — 이게 넓히는 보상이다. 늘어난 폭은 가장 길고 가장 많이 잘리던
+   조건 요약(.ba-cond-tx)이 전부 가져간다.
+
+   grid 가 아니라 flex-wrap 인 이유: 이름이 아주 길면 메타 행이 스스로 다음 줄로 내려가
+   **지금과 똑같은 레이아웃으로 되돌아간다.** grid 로 칸을 못 박으면 그 경우 이름이 찌그러진다.
+   폭 예산이 세 번 깨진 영역이라 '넘치면 원래대로'가 가능한 쪽을 택했다. */
+.ba-root[data-w="wide"] .ba-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; }
+.ba-root[data-w="wide"] .ba-row > .ba-line1 { flex: 0 1 auto; min-width: 0; order: 0; }
+
+/* ⚠ 합치는 짝은 '이름 줄 + 메모' 다 — 조건 요약이 아니다.
+   처음엔 이름 줄 + 조건 요약을 합쳤는데, **599 → 600 에서 조건 요약 잘림이 0건 → 7건**이 됐다
+   (라이브 실측, 북마크 26개: 560~599 default 26/26 온전 → 600 wide 19/26). 1px 넓혔더니 나빠지는,
+   내가 피하려던 바로 그 증상이다. WIDE_MIN 근거를 기본폭 384 와만 비교해 정한 탓에 놓쳤다.
+   680px 실측 — 이름 줄 중앙값 244px / 메모 119px. 조건 요약과 폭을 나눌 짝은 **좁은 쪽**이어야 한다.
+   → 이름 줄 옆에는 메모를 두고(order 1), 조건 요약은 단독 줄로 전체 폭을 갖는다(order 2).
+     층수는 그대로 3 → 2 라 '한 화면에 더 많이'라는 보상도 유지된다. */
+.ba-root[data-w="wide"] .ba-row > .ba-note-slot { flex: 1 1 0; min-width: 120px; margin-top: 0; order: 1; }
+.ba-root[data-w="wide"] .ba-row > .ba-meta-row { flex: 1 0 100%; margin-top: 6px; order: 2; }
+/* 히스토리 카드(.ba-meta)는 메모 줄이 없고 조건 칩도 '조건 N개' 뿐이라 짧다 → 이름 줄과 합쳐 2층→1층.
+   flex-basis 0 + min-width — basis 를 크게 잡으면(처음엔 220px) 그 값이 줄바꿈 판정에 그대로 들어가
+   **항상 다음 줄로 내려간다**(하네스 실측: 이름 줄 자연폭 중앙값 192·최대 289px 이라 220 을 더하면
+   560px 에서도 안 붙었다). basis 0 으로 두고 min-width 로만 하한을 준다. */
+.ba-root[data-w="wide"] .ba-row > .ba-meta { flex: 1 1 0; min-width: 150px; margin-top: 0; }

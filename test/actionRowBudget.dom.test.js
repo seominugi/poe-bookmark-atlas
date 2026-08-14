@@ -72,4 +72,25 @@ describe('액션 행 — 폭 예산 (3회 회귀 방지)', () => {
     expect(btn.textContent.trim().length).toBeLessThanOrEqual(6)
     expect(['전체 접기', '전체 펼치기']).toContain(btn.textContent.trim())
   })
+
+  // 2026-08-13 — 최소폭을 384 → 300 으로 내렸다. 그게 가능한 유일한 이유는 narrow 밴드에서
+  // 라벨을 숨기기 때문이다(.ba-root[data-w="narrow"] .ba-btn-lbl { display: none }).
+  // 라벨이 래퍼 밖으로 새어 나오면 숨길 수 없고, 300px 에서 이 행이 즉시 줄바꿈된다 —
+  // 그런데 CSS 만 보면 아무도 눈치채지 못한다. 그래서 마크업 쪽에서 고정한다.
+  it('라벨은 전부 .ba-btn-lbl 안에 있다 — narrow 폭에서 숨길 수 있어야 최소폭 300px 이 성립한다', async () => {
+    const row = await renderRow()
+    for (const el of row.children) {
+      const outside = [...el.childNodes]
+        .filter((n) => n.nodeType === 3 /* text */)
+        .map((n) => n.textContent.trim())
+        .join('')
+      expect(outside, `${el.className} 의 라벨이 .ba-btn-lbl 밖에 있다`).toBe('')
+    }
+  })
+
+  it('라벨을 숨기면 액션 행에 글자가 남지 않는다 (아이콘만)', async () => {
+    const row = await renderRow()
+    row.querySelectorAll('.ba-btn-lbl').forEach((el) => el.remove()) // narrow 밴드의 display:none 을 흉내
+    expect(row.textContent.trim()).toBe('')
+  })
 })

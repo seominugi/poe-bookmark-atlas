@@ -32,7 +32,7 @@ function toEntry(f, statMap) {
  *   stats(평탄)는 칩 개수 표시·구 버전 호환을 위해 함께 둔다.
  * @param {any} rec query를 가진 레코드
  * @param {Record<string,string>} statMap stat id → 한글 텍스트(표시용). 없으면 id를 그대로 쓴다.
- * @returns {{stats: Array<object>, groups: Array<object>, itemType: string|null}|null}
+ * @returns {{stats: Array<object>, groups: Array<object>}|null}
  */
 export function extractConditionSet(rec, statMap = {}) {
   const q = rec && rec.query && rec.query.query
@@ -56,9 +56,12 @@ export function extractConditionSet(rec, statMap = {}) {
     if (Object.keys(gv).length) g.value = gv
     groups.push(g)
   }
-  const itemType = typeof q.type === 'string' && q.type ? q.type : null
-  if (!stats.length && !itemType) return null
-  return { stats, groups, itemType }
+  // ⚠ 아이템 검색 정보(q.type — '아이템 검색' 칸에서 고른 기본 타입)는 **담지 않는다**.
+  //   묶음은 능력치 필터만 담는 부품이다. 타입까지 담으면 얹는 순간 보던 검색의 아이템이 바뀌어
+  //   '얹기'가 아니라 '바꾸기'가 된다(2026-08-13 제보). 예전에 저장된 묶음의 itemType 은
+  //   mergeConditionSet 이 무시하므로 따로 옮길 것이 없다.
+  if (!stats.length) return null
+  return { stats, groups }
 }
 
 // 저장된 묶음 → 얹을 그룹 목록. groups가 있으면 그것이 정본이고,
@@ -97,11 +100,12 @@ const emptyBody = () => ({ query: { status: { option: 'online' }, stats: [{ type
  */
 export function mergeConditionSet(base, set) {
   const groups = groupsOf(set)
-  if (!set || (!groups.length && !set.itemType)) return null
+  if (!set || !groups.length) return null
   const src = base && typeof base === 'object' && base.query && typeof base.query === 'object' ? base : null
   const body = src ? JSON.parse(JSON.stringify(src)) : emptyBody()
   const q = body.query
-  if (set.itemType) q.type = set.itemType
+  // 아이템 타입은 건드리지 않는다 — 보던 검색의 아이템을 바꾸면 '얹기'가 아니라 '바꾸기'가 된다.
+  // 예전 묶음에 남아 있는 set.itemType 도 여기서 무시되므로 저장분을 고칠 필요가 없다.
   if (!Array.isArray(q.stats)) q.stats = []
   // 저장용 항목(text 포함) → 검색 바디 항목(id·value만)
   const toFilter = (s) => {
@@ -137,9 +141,29 @@ export function mergeConditionSet(base, set) {
 /** 칩 아래·툴팁에 쓸 한 줄 요약 — "목걸이 · 조건 2개" */
 export function conditionSetSummary(set) {
   if (!set) return ''
+  // 아이템 타입은 일부러 뺀다 — 묶음은 능력치 필터만 담고, 예전 묶음에 남은 itemType 은
+  // 얹을 때 무시되므로 여기 보여주면 "이것도 적용된다"는 잘못된 인상을 준다.
   const n = Array.isArray(set.stats) ? set.stats.length : 0
-  const parts = []
-  if (set.itemType) parts.push(set.itemType)
-  if (n) parts.push(`조건 ${n}개`)
-  return parts.join(' · ')
+  return n ? `조건 ${n}개` : ''
+}
+
+// 조건 얹기 실패 사유 → 사용자 문구. 패널 칩과 거래소 화면 칩이 같은 문구를 쓰도록 여기에 둔다.
+export const SET_FAIL = {
+  rate: '거래소 요청이 잠시 제한됐어요. 30초쯤 뒤에 다시 시도해 주세요.',
+  auth: '거래소 로그인이 풀린 것 같아요. 새로고침 후 다시 시도해 주세요.',
+  network: '거래소에 연결하지 못했어요. 잠시 후 다시 시도해 주세요.',
+  http: '거래소가 이 조건을 받아주지 않았어요.',
+}
+
+// 툴팁 본문 — 이름 · 요약 · 조건 목록. 패널 칩과 거래소 화면 칩이 **같은 내용**을 보여주도록 여기에 둔다.
+// 줄바꿈(\n) 구분 문자열: 패널은 .ba-tip, 페이지는 #ba-page-tip 이 같은 관례로 렌더한다.
+export function conditionSetTip(set) {
+  const range = (v) => {
+    if (!v) return ''
+    const lo = v.min != null ? '≥' + v.min : ''
+    const hi = v.max != null ? ' ≤' + v.max : ''
+    return lo || hi ? ` ${lo}${hi}` : ''
+  }
+  const lines = (set.stats || []).map((x) => x.text + range(x.value))
+  return [set.name, conditionSetSummary(set), ...(lines.length ? ['────────', ...lines] : [])].filter(Boolean).join('\n')
 }
