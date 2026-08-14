@@ -3,7 +3,7 @@
 Path of Exile 거래소(거래 검색)용 **검색 북마크 + 검색 히스토리** 관리 크롬 확장 프로그램.
 "아틀라스" 제품군(필터 아틀라스 · 스태시 아틀라스)의 신규 멤버입니다.
 
-> **상태: v0.1 구현 완료 (로컬 테스트 단계)** · Manifest V3 · MIT
+> **[⬇ 크롬 웹스토어에서 설치](https://chromewebstore.google.com/detail/poe-%EB%B6%81%EB%A7%88%ED%81%AC-%EC%95%84%ED%8B%80%EB%9D%BC%EC%8A%A4/kjdnpniemjhflpbgfhcjgdenngdpikeh)** · Manifest V3 · MIT
 > 설계 → [`docs/superpowers/specs/2026-06-20-poe-bookmark-atlas-design.md`](docs/superpowers/specs/2026-06-20-poe-bookmark-atlas-design.md) · 계획 → [`docs/superpowers/plans/2026-06-20-poe-bookmark-atlas.md`](docs/superpowers/plans/2026-06-20-poe-bookmark-atlas.md)
 
 ## 핵심 기능
@@ -16,6 +16,13 @@ Path of Exile 거래소(거래 검색)용 **검색 북마크 + 검색 히스토�
 ## 대상
 
 - POE1 / POE2 한국 거래소 (`poe.kakaogames.com`)
+
+## 설치 (사용자)
+
+**[크롬 웹스토어 — POE 북마크 아틀라스](https://chromewebstore.google.com/detail/poe-%EB%B6%81%EB%A7%88%ED%81%AC-%EC%95%84%ED%8B%80%EB%9D%BC%EC%8A%A4/kjdnpniemjhflpbgfhcjgdenngdpikeh)** 에서 "Chrome에 추가"를 누르면 됩니다.
+설치 후 `poe.kakaogames.com/trade`(POE1) 또는 `/trade2`(POE2)에 접속하면 우측에 패널이 나타나고, 첫 실행 시 가이드 투어가 시작됩니다.
+
+소개 영상 대본 → [`docs/영상-소개-대본.md`](docs/영상-소개-대본.md) · 촬영·업로드 메타데이터 → [`docs/영상-촬영-노트.md`](docs/영상-촬영-노트.md)
 
 ## 설치 (로컬 / 개발)
 
