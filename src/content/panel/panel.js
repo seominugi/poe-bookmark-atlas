@@ -455,10 +455,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       const leagues = Object.keys(ui.getLeagueMap()).map((id) => [id, lgDisp.name(id)])
       // 저장된 값이 목록에 없어도(리그 목록 로드 전·끝난 리그) 선택지에 남긴다 — 안 그러면 설정이 조용히 사라진 것처럼 보인다
       if (userLeague && !leagues.some(([id]) => id === userLeague)) leagues.push([userLeague, userLeague])
+      // 리그 목록은 페이지 로드 시 **비동기로** 받아온다(ensureLeagueMap). 도착 전에 설정을 열면
+      // '자동' 하나만 보여서 기능이 고장난 것처럼 읽힌다(제보 2026-08-15) — 로딩 중임을 밝히고,
+      // 도착하면 아래 구독으로 다시 그린다.
+      const loading = leagues.length === 0
       const leagueRow =
         '<span class="lbl">내 리그</span>' +
         `<select class="ba-set-league" title="북마크를 되살릴 때 이 리그로 다시 검색합니다">
           <option value=""${userLeague ? '' : ' selected'}>자동 (거래소 화면·최근 검색 기준)</option>
+          ${loading ? '<option value="" disabled>리그 목록을 불러오는 중…</option>' : ''}
           ${leagues.map(([id, name]) => `<option value="${esc(id)}"${id === userLeague ? ' selected' : ''}>${esc(name)}</option>`).join('')}
         </select>`
       pick.innerHTML =
@@ -491,8 +496,19 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       if (sel) sel.addEventListener('change', async () => { await setUserLeague(sel.value); render() })
     }
     render()
+    // 목록이 늦게 도착하면 다시 그린다. 리그 수가 바뀔 때만 — 북마크 변경으로도 이 이벤트가 오는데,
+    // 그때마다 다시 그리면 셀렉트 포커스가 튄다.
+    let lastCount = Object.keys(ui.getLeagueMap()).length
+    const onLeagues = () => {
+      const n = Object.keys(ui.getLeagueMap()).length
+      if (n === lastCount) return
+      lastCount = n
+      render()
+    }
+    document.addEventListener('ba:records-changed', onLeagues)
     pick.hidden = false; bar.hidden = false; ok.focus()
     const finish = () => {
+      document.removeEventListener('ba:records-changed', onLeagues)
       bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
       input.hidden = false; cancel.hidden = false; ok.textContent = '저장' // 다른 다이얼로그용 원복
       ok.removeEventListener('click', finish); bar.removeEventListener('click', onOverlay); root.removeEventListener('keydown', onKey, true)
