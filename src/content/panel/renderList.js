@@ -382,7 +382,7 @@ function rowHtml(r, kind, lg) {
     : ''
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
-      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
     <div class="ba-meta-row">${attn}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
@@ -494,6 +494,19 @@ async function checkOneWatch(btn, row, ui, toast) {
 }
 
 export { fitCondSummaries }
+
+// 드래그로 순서를 바꿨는데 정렬이 '최근'·'이름'이면 **저장은 되고 화면은 되돌아간다**.
+// 기본 정렬이 recent 라 대부분의 사용자가 이 상태였고, "드래그해서 놓아도 제자리로 돌아간다"는
+// 제보가 그 증상이다(2026-08-15). 그립은 정렬과 무관하게 늘 보이고 툴팁도 순서 이동을 약속하므로,
+// **되는 척하고 안 되는** 최악의 조합이었다.
+// → 드롭하면 정렬을 '순서'로 바꿔 그 자리에 고정한다. 사용자는 이미 '순서를 정하겠다'는 행동을 했다.
+//   임의로 설정을 바꾸는 셈이라 무슨 일이 일어났는지 반드시 알린다('최근'을 다시 누르면 되돌아간다).
+function ensureManualSort(toast) {
+  if (bmSort === 'order') return
+  bmSort = 'order'
+  saveSort()
+  toast("정렬을 '순서'로 바꿨어요 — 드래그한 자리가 유지됩니다.")
+}
 
 export async function renderList(listEl, root, ui = {}) {
   await hydrateUiState()
@@ -999,11 +1012,11 @@ function bindAll(listEl, ui, ctx) {
     else collapsedLeagues.add(key)
   }))
 
-  bindDnD(listEl)
+  bindDnD(listEl, toast)
   applyA11y(listEl)
 }
 
-function bindDnD(listEl) {
+function bindDnD(listEl, toast = () => {}) {
   let dragId = null
   const clearOver = () => listEl.querySelectorAll('.ba-dragover, .ba-body-dragover').forEach((x) => x.classList.remove('ba-dragover', 'ba-body-dragover'))
 
@@ -1029,7 +1042,7 @@ function bindDnD(listEl) {
       const beyond = rows[i + 2 * dir]
       const newOrder = beyond ? (targetOrder + parseFloat(beyond.dataset.order)) / 2 : targetOrder + dir
       focusGripId = row.dataset.id
-      await moveBookmark(row.dataset.id, { folderId: row.dataset.folder || null, order: newOrder }); changed()
+      await moveBookmark(row.dataset.id, { folderId: row.dataset.folder || null, order: newOrder }); ensureManualSort(toast); changed()
     })
   })
 
@@ -1045,7 +1058,7 @@ function bindDnD(listEl) {
       const prev = row.previousElementSibling
       const prevOrder = prev && prev.classList.contains('ba-row') ? parseFloat(prev.dataset.order) : null
       const newOrder = prevOrder != null ? (prevOrder + targetOrder) / 2 : targetOrder - 1
-      await moveBookmark(dragId, { folderId, order: newOrder }); changed()
+      await moveBookmark(dragId, { folderId, order: newOrder }); ensureManualSort(toast); changed()
     })
   })
 
@@ -1063,7 +1076,7 @@ function bindDnD(listEl) {
       if (!dragId) return
       const folderId = body.dataset.folder || null
       const maxOrder = [...body.querySelectorAll('.ba-row')].reduce((m, r) => Math.max(m, parseFloat(r.dataset.order) || 0), 0)
-      await moveBookmark(dragId, { folderId, order: maxOrder + 1 }); changed()
+      await moveBookmark(dragId, { folderId, order: maxOrder + 1 }); ensureManualSort(toast); changed()
     })
   })
 
