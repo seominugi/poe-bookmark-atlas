@@ -8,6 +8,7 @@ import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, nee
 import { extractConditionSet, conditionSetSummary, conditionSetTip, SET_FAIL } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
 import { clampPanelWidth, MIN_W } from '../../lib/panelWidth.js'
+import { startCollapsed } from '../../lib/startCollapsed.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
 import ytIcon from '../../icons/yt_icon_rgb.png'
 import discordIcon from '../../icons/icon_clyde_white_RGB.png'
@@ -146,19 +147,42 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 전환들은 접기/펼치기(폭이 한 번에 바뀌는 동작)를 위한 것이라 드래그에는 해가 된다:
   // 매 프레임 새 전환이 걸려 패널만 포인터를 따라오고 핸들·페이지는 뒤늦게 쫓아온다(제보).
   let resizing = false
-  const applyPagePush = (collapsed) => {
+  const applyPagePush = (collapsed, instant = false) => {
     try {
       const push = collapsed ? '' : (panelW + 28) + 'px' // 패널 폭 + 좌우 여백(14+14)
+      document.documentElement.style.setProperty('transition', (resizing || instant) ? 'none' : 'margin .25s ease', 'important')
       document.documentElement.style.setProperty('margin-left', panelSide === 'left' ? push : '', 'important')
       document.documentElement.style.setProperty('margin-right', panelSide === 'right' ? push : '', 'important')
-      document.documentElement.style.setProperty('transition', resizing ? 'none' : 'margin .25s ease', 'important')
     } catch (_) {}
   }
   // 패널 좌/우 배치 적용 — data-side(CSS 미러링) + 페이지 밀기 방향 갱신. (핸들 그라데이션은 세로 기준이라 재계산 불필요)
+  // ── 배치·폭 동기 캐시 ────────────────────────────────────────────────
+  // chrome.storage 는 **비동기**라, 저장된 배치를 알기 전에 이미 한 프레임이 그려진다.
+  // 그 사이에 여백을 걸면 반대쪽으로 밀렸다 돌아오고, 안 걸면 페이지가 다 그려진 **뒤에**
+  // 412px 이 한 번에 밀린다 — 둘 다 사용자가 "우측에서 밀리듯 로딩된다"고 느낀 그 움직임이다.
+  // localStorage 는 같은 출처에서 **동기**로 읽히므로, 첫 프레임부터 제자리를 잡을 수 있다.
+  // 정본은 여전히 chrome.storage 이고 이건 거울일 뿐이다(불일치하면 storage 가 이긴다).
+  const CACHE_KEY = 'baPanelLayout'
+  const readLayoutCache = () => {
+    try {
+      const v = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null')
+      return v && (v.side === 'left' || v.side === 'right') ? v : null
+    } catch (_) { return null }
+  }
+  const writeLayoutCache = (patch) => {
+    try {
+      const prev = readLayoutCache() || {}
+      // collapsed 는 **사용자가 직접 토글했을 때만** 기록한다(patch 로 넘어올 때).
+      // 창 폭 휴리스틱으로 접힌 상태를 취향으로 굳히면, 다음 로드에 접힌 채 남아 '패널이 사라졌다'가 된다.
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ...prev, side: panelSide, width: panelW, ...(patch || {}) }))
+    } catch (_) {}
+  }
+
   const applySide = (side) => {
     panelSide = side === 'left' ? 'left' : 'right'
     elRoot.setAttribute('data-side', panelSide)
     applyPagePush(isCollapsed())
+    writeLayoutCache()
   }
   // 접힘 시 핸들에 북마크 수 배지 표시
   const updateHandleBadge = async () => {
@@ -171,11 +195,38 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     elRoot.classList.toggle('collapsed', collapsed)
     applyPagePush(collapsed)
     try { chrome.storage.local.set({ uiCollapsed: collapsed }) } catch (_) {}
+    writeLayoutCache({ collapsedPref: collapsed })
     updateHandleBadge()
   }
-  // 초기 상태: 좁은 화면은 접힘(검색 영역 겹침 방지), 넓으면 펼침. 사용자 토글 선호는 기억.
-  if (window.innerWidth < 1700) elRoot.classList.add('collapsed')
-  applyWidth(panelW) // 저장값을 읽기 전에 한 번 — 폭 파생값(핸들 위치·페이지 밀기)을 초기화한다
+  // ── 첫 프레임에 '정답'으로 시작한다 ────────────────────────────────────
+  // 캐시가 있으면 배치·폭·접힘을 **동기로** 안다(localStorage). 감출 필요도, 나중에 고칠 필요도 없다.
+  //
+  // ⚠ 마운트가 추측(창 폭 < 1700 → 접기)으로 시작하고 storage 응답으로 펴면, 그 순간
+  //   collapsed 의 translateX(±132%) 가 .26s 동안 풀리며 **패널이 가장자리에서 밀려 들어온다.**
+  //   페이지가 바뀔 때마다 재생되는 고빈도 모션이라 넣지 않기로 한 바로 그 효과다(2026-08-15 제보로 확인).
+  //   그래서 사용자가 직접 토글한 값(collapsedPref)이 있으면 추측하지 않는다 —
+  //   layout-preload.js 도 같은 규칙을 쓰므로 선반영·마운트·storage 세 곳이 처음부터 일치한다.
+  // ⚠ collapsedPref 가 아닌 '창 폭으로 접힌 일시 상태'는 절대 캐시하지 않는다.
+  //   그게 굳으면 넓은 화면에서도 계속 접혀 있어 '패널이 사라졌다'가 된다.
+  const cached = readLayoutCache()
+  elRoot.classList.toggle('collapsed', startCollapsed(cached, window.innerWidth))
+  if (cached) {
+    panelSide = cached.side
+    elRoot.setAttribute('data-side', panelSide)
+  }
+  // 그래도 남는 한 프레임의 값 변화(폭·핸들 위치)가 애니메이션되지 않게 첫 정착까지만 전환을 끈다.
+  // ⚠ 감추지는 않는다 — 이 클래스가 영영 안 풀려도 최악이 '애니메이션 없음'이라 사용자가 막히지 않는다.
+  //   (감췄다가 못 푸는 실패가 바로 직전의 '간헐적 미표시' 원인이었다)
+  elRoot.classList.add('ba-settling')
+  // 정본(chrome.storage)이 도착해 값이 한 번 더 바뀔 수 있다 — 캐시가 없거나(첫 설치·캐시 삭제)
+  // 다른 탭에서 바꿔 뒀을 때다. 그 마지막 보정까지 애니메이션이 꺼져 있어야 밀림이 안 보인다.
+  // ⚠ 클래스만 지우면 소용없다. 브라우저는 작업(task)이 끝날 때 한 번만 스타일을 확정하므로,
+  //   같은 작업 안에서 '값 변경 + 억제 해제'를 하면 확정 시점엔 전환이 이미 켜져 있어 그대로 애니메이션된다.
+  //   그래서 억제가 걸린 상태로 **강제 리플로우(offsetHeight)** 를 일으켜 새 값을 먼저 확정시킨 뒤 푼다.
+  //   (하네스에서 실제로 이 순서 때문에 밀림이 남아 있는 걸 확인했다 — 2026-08-16)
+  const settled = () => { void elRoot.offsetHeight; elRoot.classList.remove('ba-settling') }
+  setTimeout(settled, 400) // 정본이 영영 안 와도(컨텍스트 무효화 등) 반드시 푼다 — 실패해도 '애니메이션 없음'뿐
+  applyWidth(cached ? cached.width : panelW)
   try {
     chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth']).then((r) => {
       applyWidth((r && r.uiPanelWidth) || panelW)
@@ -183,8 +234,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       if (r && typeof r.uiFuzzyPrefix === 'boolean') fuzzyOn = r.uiFuzzyPrefix
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
       updateHandleBadge()
+      writeLayoutCache() // 정본(storage)으로 거울을 맞춘다 — 다른 탭에서 바꿨을 수 있다
+      settled()
     })
-  } catch (_) {}
+  } catch (_) { settled() }
   updateHandleBadge()
 
   // ── 폭 조절 드래그 ──
@@ -218,6 +271,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       grip.classList.remove('on')
       try { grip.releasePointerCapture(e.pointerId) } catch (_) {}
       try { chrome.storage.local.set({ uiPanelWidth: panelW }) } catch (_) {}
+      writeLayoutCache()
     }
     grip.addEventListener('pointerup', end)
     grip.addEventListener('pointercancel', end)

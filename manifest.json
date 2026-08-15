@@ -25,6 +25,11 @@
     },
     {
       "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*", "https://www.pathofexile.com/trade/*"],
+      "js": ["src/content/layout-preload.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://poe.kakaogames.com/trade/*", "https://poe.kakaogames.com/trade2/*", "https://www.pathofexile.com/trade/*"],
       "js": ["src/content/content-main.js"],
       "run_at": "document_idle"
     },

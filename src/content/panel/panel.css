@@ -73,9 +73,19 @@
   border-radius: 14px;
   box-shadow: 0 15px 44px rgba(0, 0, 0, 0.55), inset 0 1px 1px rgba(255, 255, 255, 0.08);
   transform: translateX(0);
+  /* transform 전환은 **접기/펼치기 전용**이다(사용자가 직접 누른 결과라 움직임이 정당하다).
+     로드 시 등장에는 어떤 모션도 쓰지 않는다 — 이 확장은 검색할 때마다 페이지가 바뀌어 등장이 매우 잦고,
+     '열린다'는 서사도 사실이 아니다(패널은 늘 거기 있었다). 마운트 중 값 변화는 .ba-settling 이 삼킨다.
+     ※ 예전의 opacity 페이드 등장은 제거됐다 — 그 등장을 만들던 preinit 자체가 사라졌다(2026-08-16). */
   transition: transform .26s var(--ba-ease);
   z-index: 2147483000; overflow: hidden;   /* 스크롤 콘텐츠를 라운딩 안쪽으로 클립 */
 }
+/* 마운트 직후 첫 정착까지만 전환을 끈다 — 폭·배치·접힘이 자리를 잡는 한 프레임이 애니메이션되면
+   '패널이 가장자리에서 밀려 들어오는' 모션이 매 페이지 로드마다 재생된다(넣지 않기로 한 효과).
+   가시성은 절대 건드리지 않는다: 이 클래스가 안 풀려도 최악이 '애니메이션 없음'이어야 한다. */
+.ba-root.ba-settling,
+.ba-root.ba-settling *,
+.ba-root.ba-settling ~ .ba-handle { transition: none !important; }
 .ba-root.collapsed { transform: translateX(132%); }   /* 우측 화면 밖으로 슬라이드 아웃 */
 .ba-root.ba-hidden { display: none; }
 
