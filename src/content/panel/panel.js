@@ -1041,20 +1041,28 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     { sel: '.ba-pob-btn', global: true, demo: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요.' },
     { sel: '.ba-exr-chip', global: true, demo: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준.' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },
-    { sel: '.ba-open', title: '한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요.' },
+    { sel: '.ba-open', since: '0.8.0', title: '한 번에 다시 열기', body: '북마크 이름을 클릭하면 그 검색을 거래소에서 그대로 다시 엽니다. 복잡한 조건을 다시 짤 필요가 없어요. <b>Ctrl 클릭</b>은 설정과 반대로(현재 탭↔새 탭), <b>Shift 클릭</b>은 거래소 라이브 검색이 켜진 채로 새 탭에서 엽니다.' },
     { sel: '.ba-cond--add', sel2: '.ba-cond', title: '조건 칩으로 능력치만 빌리기', body: '카드의 "조건 N개" 칩을 누르면 그 검색의 능력치가 지금 검색에 더해져요. 묶음으로 등록할 정도는 아니고 저 조건 하나만 가져오고 싶을 때 씁니다. 마우스를 올리면 어떤 조건인지 미리 볼 수 있어요.' },
     { sel: '.ba-price-pill', title: '검색 시점 시세', body: '가격에 마우스를 올리면 검색 당시 매물 기준 시세(빠르게 팔리는 가격)를 보여줘요. 북마크를 열면 최신 시세로 갱신됩니다.' },
-    { sel: '.ba-more', title: '카드 액션 모음', body: '⋯ 를 누르면 검색 링크 복사, 내 리그로 다시 검색, 최근 검색으로 갱신, 조건 묶음으로 등록, 이름 변경, 다른 폴더로 이동, 삭제 메뉴가 떠요. "다른 폴더로 이동"은 전체 북마크가 뜨는 창이 열려서, 누른 것 말고 다른 북마크도 체크해 한 번에 옮길 수 있어요. 리그가 바뀌어 깨진 북마크는 "내 리그로 다시 검색"으로 되살립니다.' },
+    { sel: '.ba-more', since: '0.8.0', title: '카드 액션 모음', body: '⋯ 를 누르면 <b>라이브로 열기</b>, 검색 링크 복사, 내 리그로 다시 검색, 최근 검색으로 갱신, 조건 묶음으로 등록, 이름 변경, 다른 폴더로 이동, 삭제 메뉴가 떠요. "라이브로 열기"는 거래소의 라이브 검색을 켠 채로 새 탭에서 열어, 조건에 맞는 새 매물이 올라오면 바로 나타나요. "다른 폴더로 이동"은 전체 북마크가 뜨는 창이 열려서, 누른 것 말고 다른 북마크도 체크해 한 번에 옮길 수 있어요. 리그가 바뀌어 깨진 북마크는 "내 리그로 다시 검색"으로 되살립니다.' },
     { sel: '.ba-folder-ic[data-id]', title: '폴더 색상 구분', body: '폴더 아이콘을 클릭하면 색을 바꿀 수 있어요. 색으로 분류하면 원하는 폴더를 한눈에 찾습니다.' },
     { sel: '.ba-action-row', title: '정리 도구', body: '모든 폴더 접기·펼치기와 새 폴더 추가가 여기 모여 있어요.' },
     { sel: '.ba-io-group', title: '백업 · 공유 (JSON)', body: '북마크를 JSON 파일로 내보내 백업하거나 다른 사람과 공유할 수 있어요. 받은 JSON은 가져오기로 합쳐집니다. 특정 폴더만 내보내려면 폴더 헤더의 ⬇ 아이콘을 쓰세요.' },
     { sel: '.ba-sec-hist', title: '자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
     { sel: '.ba-econ-row', title: '시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
-    { sel: '.ba-gear', title: '설정', body: '⚙ 을 누르면 패널 위치(좌/우) 등을 바꿀 수 있어요 (Alt+O).' },
+    { sel: '.ba-gear', since: '0.8.0', title: '설정 — 내 방식대로', body: '⚙ 에서 <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>보기</b>(기본 / 간략 — 카드를 한 줄로 접어 한 화면에 약 2배), 필터 퍼지 검색을 정합니다. 각 항목 옆 <b>?</b> 에 마우스를 올리면 무슨 설정인지 알려줘요 (Alt+O).' },
     { sel: '#ba-handle', title: '언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
     { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
   ]
-  async function startTour() {
+  // ── '새로워진 기능' 안내 ────────────────────────────────────────────
+  // 투어를 이미 본 사용자(tourDone)는 스텝을 아무리 고쳐도 **영영 다시 보지 않는다.**
+  // 그래서 이번 버전에서 바뀐 스텝(since)만 골라 한 번 보여준다. 전체 투어를 다시 돌리면
+  // 이미 아는 15스텝을 또 보게 되므로, 새 것만 추린다.
+  const WHATS_NEW_VERSION = '0.8.0'
+  const whatsNewSteps = () => TOUR.filter((s) => s.since === WHATS_NEW_VERSION)
+
+  async function startTour(steps, label) {
+    const list = steps && steps.length ? steps : TOUR
     const wasCollapsed = isCollapsed()
     setCollapsed(false)
     // 패널이 접혀 있다가 열리는 거면 .ba-root의 슬라이드인(.26s)이 끝날 때까지 기다린다 — 그 전에 첫 스텝을
@@ -1089,8 +1097,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     root.appendChild(box)
     root.appendChild(arrow)
     root.appendChild(card)
-    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setsWasCollapsed) setsCollapsed = true; if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } else if (setsWasCollapsed) { renderSets() } try { chrome.storage.local.set({ tourDone: true }) } catch (_) {} }
-    const goNext = () => { i += 1; if (i >= TOUR.length) finish(); else render() }
+    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setsWasCollapsed) setsCollapsed = true; if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } else if (setsWasCollapsed) { renderSets() } try { chrome.storage.local.set({ tourDone: true, whatsNewSeen: WHATS_NEW_VERSION }) } catch (_) {} }
+    const goNext = () => { i += 1; if (i >= list.length) finish(); else render() }
     const goPrev = () => { if (i > 0) { i -= 1; render() } }
     // 방향키로도 이전/다음 이동 — 페이지 검색창 등에 포커스가 있으면(텍스트 커서 이동 용도) 가로채지 않는다
     const onKeyNav = (e) => {
@@ -1165,7 +1173,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       arrow.style.opacity = '1'
     }
     const render = () => {
-      const step = TOUR[i]
+      const step = list[i]
       // global: 패널(shadow root) 밖 — 거래소 페이지에 주입한 PoB 버튼·환산 칩처럼 document 쪽 대상.
       // 검색 결과 없이 투어를 시작하면 아직 안 떠 있을 수 있어(스포트라이트만 자동 숨김, place()의 기존 0-rect 처리로 대응).
       const scope = step.global ? document : root
@@ -1191,7 +1199,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           target = [...scope.querySelectorAll(step.sel)].find((e) => e.getBoundingClientRect().width) || target
         }
       }
-      card.innerHTML = `<div class="ba-tour-step">${i + 1} / ${TOUR.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button>${i > 0 ? '<button class="ba-tour-prev">이전</button>' : ''}<button class="ba-tour-next">${i === TOUR.length - 1 ? '완료' : '다음'}</button></div><div class="ba-tour-kbdhint">${i > 0 ? '<kbd>←</kbd>' : ''}<kbd>→</kbd> 방향키로 이동</div>`
+      card.innerHTML = `<div class="ba-tour-step">${label ? label + ' · ' : ''}${i + 1} / ${list.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button>${i > 0 ? '<button class="ba-tour-prev">이전</button>' : ''}<button class="ba-tour-next">${i === list.length - 1 ? '완료' : '다음'}</button></div><div class="ba-tour-kbdhint">${i > 0 ? '<kbd>←</kbd>' : ''}<kbd>→</kbd> 방향키로 이동</div>`
       card.querySelector('.ba-tour-next').onclick = goNext
       card.querySelector('.ba-tour-skip').onclick = finish
       const prevBtn = card.querySelector('.ba-tour-prev'); if (prevBtn) prevBtn.onclick = goPrev
@@ -1248,10 +1256,19 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   refresh()
 
   // 첫 실행 가이드(1회, tourDone) + 팝업 "다시 보기"(baTourRestart) 재실행
+  //   + 이미 투어를 본 사용자에게는 이번 버전에서 바뀐 스텝만 1회(whatsNewSeen).
+  // 순서가 중요하다: '다시 보기'는 사용자가 방금 누른 것이라 언제나 최우선이고,
+  // 첫 사용자는 전체 투어에 새 기능이 이미 들어 있으므로 '새로워진 기능'을 또 볼 이유가 없다.
   try {
-    chrome.storage.local.get(['tourDone', 'baTourRestart']).then((r) => {
-      if (r && r.baTourRestart) { chrome.storage.local.remove('baTourRestart'); setTimeout(startTour, 600) }
-      else if (!r || !r.tourDone) setTimeout(startTour, 1200)
+    chrome.storage.local.get(['tourDone', 'baTourRestart', 'whatsNewSeen']).then((r) => {
+      if (r && r.baTourRestart) { chrome.storage.local.remove('baTourRestart'); setTimeout(() => startTour(), 600); return }
+      if (!r || !r.tourDone) { setTimeout(() => startTour(), 1200); return }
+      if (r.whatsNewSeen !== WHATS_NEW_VERSION) {
+        const nw = whatsNewSteps()
+        // 보여줄 게 없으면(다음 버전에서 since 를 안 올린 경우) 조용히 표시만 남긴다 — 빈 투어를 띄우지 않는다.
+        if (!nw.length) { try { chrome.storage.local.set({ whatsNewSeen: WHATS_NEW_VERSION }) } catch (_) {} return }
+        setTimeout(() => startTour(nw, '새로워진 기능'), 1200)
+      }
     })
   } catch (_) {}
 
