@@ -167,7 +167,11 @@ export function findNearDuplicate(latest, bookmarks) {
   const sid = structuralIdentity(latest)
   return (
     bookmarks
-      .filter((b) => b && b.kind === 'bookmark' && b.dedupeKey !== latest.dedupeKey && structuralIdentity(b) === sid)
+      // 리그가 다르면 '수치만 다른 같은 검색'이 아니다 — 매물도 시세도 완전히 별개다(제보 2026-08-16).
+      // 양쪽 다 리그를 알 때만 비교한다: 옛 레코드는 league 가 비어 있을 수 있고, 그때까지 막으면
+      // 기존 사용자에게 중복 감지가 통째로 사라진다.
+      .filter((b) => b && b.kind === 'bookmark' && b.dedupeKey !== latest.dedupeKey && structuralIdentity(b) === sid
+        && !(b.league && latest.league && b.league !== latest.league))
       .sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))[0] || null
   )
 }

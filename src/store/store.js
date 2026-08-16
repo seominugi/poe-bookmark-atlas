@@ -6,7 +6,7 @@ const FOLDERS_KEY = 'folders'
 const SETS_KEY = 'conditionSets' // 조건 묶음 — records(북마크·히스토리)와 생명주기가 달라 folders처럼 별도 키
 const WATCH_KEY = 'watchlist' // 찜한 매물 — 팔리면 사라지므로 records와 생명주기가 다르다(같은 근거로 별도 키)
 const SCHEMA_KEY = 'schemaVersion'
-const CURRENT_SCHEMA = 2 // 데이터 스키마 버전. 구조를 바꾸면 +1 하고 MIGRATIONS에 단계 변환을 추가
+const CURRENT_SCHEMA = 3 // 데이터 스키마 버전. 구조를 바꾸면 +1 하고 MIGRATIONS에 단계 변환을 추가
 export const HISTORY_CAP = 200 // 히스토리 보관 상한. renderList "더 보기"(60+200)가 실제로 동작하도록 상향
 
 function uid(prefix) { return (prefix || 'r_') + Math.random().toString(36).slice(2) + Date.now().toString(36) }
@@ -28,6 +28,27 @@ const MIGRATIONS = {
     for (const r of s.records) delete r.note
     return s
   },
+  // v3 (2026-08-16): dedupeKey 에 리그를 넣는다. 옛 형식은 `game|조건`이라 리그가 달라도 같은 키가 나와,
+  //   하드코어 올플레임과 올플레임의 같은 조건 검색이 **한 북마크로 뭉개졌다**(제보).
+  //   레코드가 league 를 이미 갖고 있으므로 결정적으로 다시 쓸 수 있다: `game|리그|조건`.
+  3: async (s) => {
+    for (const r of s.records) r.dedupeKey = withLeagueKey(r.dedupeKey, r.game, r.league)
+    return s
+  },
+}
+
+/**
+ * dedupeKey 의 리그 자리를 채우거나 바꾼다. 형식은 `game|리그|조건` 이고, 조건 부분에도 '|' 가
+ * 들어가므로 **앞의 두 칸만** 잘라 낸다.
+ * 옛 형식(`game|조건`)은 리그 칸이 없으므로 game 뒤에 끼워 넣는다.
+ * 우리가 만든 키가 아니면(데모·시드 등 game 접두사가 없는 것) 손대지 않는다.
+ */
+const LEGACY_KEY_RE = /^t:/ // 옛 키는 game 바로 뒤에 조건이 온다. 조건은 searchIdentity 상 항상 `t:` 로 시작한다.
+export function withLeagueKey(key, game, league) {
+  if (!key || !game || !String(key).startsWith(game + '|')) return key
+  const rest = String(key).slice(game.length + 1)
+  const identity = LEGACY_KEY_RE.test(rest) ? rest : rest.slice(rest.indexOf('|') + 1)
+  return game + '|' + (league || '') + '|' + identity
 }
 export async function ensureSchema() {
   const got = (await chrome.storage.local.get(SCHEMA_KEY))[SCHEMA_KEY]
@@ -321,6 +342,9 @@ export async function migrateBookmarkLeague(id, url, league) {
   const now = Date.now()
   r.url = url
   r.league = league
+  // 키의 리그 칸도 함께 옮긴다 — 안 그러면 이관한 북마크가 옛 리그 이름을 단 키로 남아,
+  // 지금 리그에서 같은 조건을 저장할 때 '이미 저장된 검색'으로 잡히지 않는다.
+  r.dedupeKey = withLeagueKey(r.dedupeKey, r.game, league)
   r.updatedAt = now
   r.lastUsedAt = now
   await writeAll(all)

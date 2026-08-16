@@ -148,7 +148,11 @@ let pending = null // { queryId, query, league, url, done }
 let lastQuery = null // 최근 검색 raw query (한↔영 전환용)
 let lastQueryLeague = null
 const queryIdFromUrl = (url) => { const m = /[?&]query=([^&]+)/.exec(url); return m ? m[1] : null }
-const dedupeKey = (query) => game + '|' + searchIdentity(query)
+// ⚠ 리그가 키에 들어가야 한다. 조건이 같아도 리그가 다르면 **다른 검색**이다 —
+// 하드코어 올플레임과 올플레임은 매물도 시세도 완전히 별개다(제보 2026-08-16:
+// .../Hardcore%20Allflame/G6GzlQW8Ub 과 .../Allflame/G6GzlQW8Ub 이 한 북마크로 뭉개졌다).
+// 리그는 query 안이 아니라 URL 경로에 있어서 searchIdentity 가 볼 수 없다.
+const dedupeKey = (query, league) => game + '|' + (league || '') + '|' + searchIdentity(query)
 
 // ── 영문 PoB 복사 + 엑잘 환산 — 결과 아이템·가격 보관 + 행마다 'PoB' 버튼·'≈ 엑잘' 칩 주입 ──
 const pobItems = new Map() // result.id → item. 스크롤 페이지네이션 fetch 누적, 새 검색 시 초기화
