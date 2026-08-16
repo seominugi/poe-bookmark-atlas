@@ -89,14 +89,26 @@ window.addEventListener('unhandledrejection', (ev) => {
 // 데이터 스키마 버전 보장 — 향후 구조 변경 시 마이그레이션 진입점 (현재 v1: 버전 마킹만)
 guard(ensureSchema()) // 확장 리로드 직후엔 여기서 바로 던진다 — 잡지 않으면 uncaught
 
+// ── 거래소 데이터는 **콘텐츠 스크립트에서 직접** 받는다 (2026-08-16) ──────────
+// 예전엔 서비스 워커가 대신 받았는데, 그러면 호스트마다 host_permissions 가 필요하다.
+// 그래서 영문 거래소(pathofexile)는 사용자가 optional 권한을 켜야만 동작했고, 켜는 방법을
+// 알 길이 없던 GGG 계정 사용자는 "패널이 안 뜬다"만 겪었다(제보 2026-08-16).
+//
+// 그런데 이 데이터(stats·filters·items·leagues·static)는 전부 **거래소 페이지와 같은 출처**다.
+// 콘텐츠 스크립트에서 상대 경로로 부르면 권한이 아예 필요 없고, 어느 거래소에 있든 그 호스트의
+// 데이터를 받는다 — 언어·항목이 자동으로 맞는다(items 의 type 은 로컬라이즈된 이름이라 이게 중요하다).
+// 서비스 워커는 **진짜 cross-origin 인 환율(seominugi)만** 대행한다.
+const tradeData = (name) => fetch(`/api/${game === 'poe2' ? 'trade2' : 'trade'}/data/${name}`, { credentials: 'same-origin' })
+  .then((r) => { if (!r.ok) throw new Error(`${name} ${r.status}`); return r.json() })
+
 // statMap은 검색 흐름과 독립적으로 1회 로드(레이스 방지)
 let statMap = {}
 let statMapLoading = null
 function ensureStatMap() {
   if (Object.keys(statMap).length) return Promise.resolve()
   if (!statMapLoading) {
-    statMapLoading = send({ type: 'fetchStats', game })
-      .then((r) => { if (r && r.ok) statMap = buildStatMap(r.data); LOG('statMap', Object.keys(statMap).length, '항목') })
+    statMapLoading = tradeData('stats')
+      .then((d) => { statMap = buildStatMap(d); LOG('statMap', Object.keys(statMap).length, '항목') })
       .catch((e) => LOG('statMap 오류', String(e)))
   }
   return statMapLoading
@@ -109,8 +121,8 @@ let filterMapLoading = null
 function ensureFilterMap() {
   if (Object.keys(filterMap.label).length) return Promise.resolve()
   if (!filterMapLoading) {
-    filterMapLoading = send({ type: 'fetchFilters', game })
-      .then((r) => { if (r && r.ok) filterMap = buildFilterMap(r.data); LOG('filterMap', Object.keys(filterMap.label).length, '필터') })
+    filterMapLoading = tradeData('filters')
+      .then((d) => { filterMap = buildFilterMap(d); LOG('filterMap', Object.keys(filterMap.label).length, '필터') })
       .catch((e) => LOG('filterMap 오류', String(e)))
   }
   return filterMapLoading
@@ -124,8 +136,8 @@ let itemMapLoading = null
 function ensureItemMap() {
   if (Object.keys(itemMap).length) return Promise.resolve()
   if (!itemMapLoading) {
-    itemMapLoading = send({ type: 'fetchItems', game })
-      .then((r) => { if (r && r.ok) itemMap = buildItemMap(r.data); LOG('itemMap', Object.keys(itemMap).length, '유형') })
+    itemMapLoading = tradeData('items')
+      .then((d) => { itemMap = buildItemMap(d); LOG('itemMap', Object.keys(itemMap).length, '유형') })
       .catch((e) => LOG('itemMap 오류', String(e)))
   }
   return itemMapLoading
@@ -138,8 +150,8 @@ let leagueMapLoading = null
 function ensureLeagueMap() {
   if (Object.keys(leagueMap).length) return Promise.resolve()
   if (!leagueMapLoading) {
-    leagueMapLoading = send({ type: 'fetchLeagues', game })
-      .then((r) => { if (r && r.ok) { leagueMap = buildLeagueMap(r.data); document.dispatchEvent(new CustomEvent('ba:records-changed')) } LOG('leagueMap', Object.keys(leagueMap).length) })
+    leagueMapLoading = tradeData('leagues')
+      .then((d) => { leagueMap = buildLeagueMap(d); document.dispatchEvent(new CustomEvent('ba:records-changed')); LOG('leagueMap', Object.keys(leagueMap).length) })
       .catch((e) => LOG('leagueMap 오류', String(e)))
   }
   return leagueMapLoading

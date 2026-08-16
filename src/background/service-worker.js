@@ -1,6 +1,9 @@
 // service-worker.js (MV3 background)
-// content script의 cross-origin fetch(환율·stats)를 host_permissions로 대행한다.
-import { isAllowedTradeUrl, tradeApiOrigin } from '../lib/tradeSearch.js'
+// content script 가 못 하는 **진짜 cross-origin** 작업만 대행한다 — 환율(seominugi)·탭 열기·한↔영 전환.
+// 거래소 데이터(stats·filters·items·leagues·static)는 거래소 페이지와 같은 출처라
+// 콘텐츠 스크립트가 직접 받는다. 여기로 되돌리면 호스트마다 host_permissions 가 필요해져
+// 영문 거래소(pathofexile)가 다시 권한 없이는 동작하지 않게 된다(2026-08-16).
+import { isAllowedTradeUrl } from '../lib/tradeSearch.js'
 
 const RATES_BASE = 'https://seominugi.com' // 환율 API 베이스 (2026-06-20 라이브 확인됨)
 
@@ -10,35 +13,6 @@ async function fetchRates(game, league) {
   const url = `${RATES_BASE}/api/${game}/currency-exchange?realmName=${encodeURIComponent(realmName)}`
   const res = await fetch(url)
   if (!res.ok) throw new Error('rates ' + res.status)
-  return res.json()
-}
-
-async function fetchStats(game, origin) {
-  const path = game === 'poe2' ? 'trade2' : 'trade'
-  const res = await fetch(`${tradeApiOrigin(origin)}/api/${path}/data/stats`)
-  if (!res.ok) throw new Error('stats ' + res.status)
-  return res.json()
-}
-
-async function fetchFilters(game, origin) {
-  const path = game === 'poe2' ? 'trade2' : 'trade'
-  const res = await fetch(`${tradeApiOrigin(origin)}/api/${path}/data/filters`)
-  if (!res.ok) throw new Error('filters ' + res.status)
-  return res.json()
-}
-
-// 아이템 유형 이름 — 일부 계열(용병 소환장 등)은 type 이 내부 영문 id 라 표시 이름이 따로 있다(lib/itemMap.js)
-async function fetchItems(game, origin) {
-  const path = game === 'poe2' ? 'trade2' : 'trade'
-  const res = await fetch(`${tradeApiOrigin(origin)}/api/${path}/data/items`)
-  if (!res.ok) throw new Error('items ' + res.status)
-  return res.json()
-}
-
-async function fetchLeagues(game, origin) {
-  const path = game === 'poe2' ? 'trade2' : 'trade'
-  const res = await fetch(`${tradeApiOrigin(origin)}/api/${path}/data/leagues`)
-  if (!res.ok) throw new Error('leagues ' + res.status)
   return res.json()
 }
 
@@ -73,10 +47,6 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     try {
       if (msg && msg.type === 'fetchRates') sendResponse({ ok: true, data: await fetchRates(msg.game, msg.league) })
-      else if (msg && msg.type === 'fetchStats') sendResponse({ ok: true, data: await fetchStats(msg.game, msg.origin) })
-      else if (msg && msg.type === 'fetchFilters') sendResponse({ ok: true, data: await fetchFilters(msg.game, msg.origin) })
-      else if (msg && msg.type === 'fetchItems') sendResponse({ ok: true, data: await fetchItems(msg.game, msg.origin) })
-      else if (msg && msg.type === 'fetchLeagues') sendResponse({ ok: true, data: await fetchLeagues(msg.game, msg.origin) })
       else if (msg && msg.type === 'ba-convert') sendResponse(await handleConvert(msg))
       else if (msg && msg.type === 'ba-open-tab') sendResponse(await handleOpenTab(msg))
       else sendResponse({ ok: false, error: 'unknown message' })
