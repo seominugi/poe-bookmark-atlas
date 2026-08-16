@@ -30,7 +30,9 @@ function leagueFromUrl() {
   return decodeURIComponent(rest[0] || 'Standard')
 }
 
-const send = (m) => new Promise((res) => chrome.runtime.sendMessage(m, res))
+// 거래소 데이터는 **사용자가 보고 있는 호스트**에서 받아야 한다 — items 의 type 이 로컬라이즈된 이름이라
+// 호스트를 고정하면 유형 이름이 통째로 어긋난다(lib/tradeSearch.js tradeApiOrigin 주석 참조).
+const send = (m) => new Promise((res) => chrome.runtime.sendMessage({ origin: location.origin, ...m }, res))
 
 // ── 확장 컨텍스트 무효화 대응 ──
 // 확장을 리로드·업데이트하면 **이미 열려 있던 탭**의 콘텐츠 스크립트는 고아가 된다 —
@@ -358,7 +360,7 @@ function ensureCurrencyStatic() {
   if (curStaticTried) return
   curStaticTried = true
   const path = game === 'poe2' ? 'trade2' : 'trade'
-  fetch(`https://poe.kakaogames.com/api/${path}/data/static`) // 콘텐츠 스크립트 = 동일 출처
+  fetch(`/api/${path}/data/static`) // 콘텐츠 스크립트 = 동일 출처. 호스트 고정 금지(글로벌 거래소 지원)
     .then((r) => r.json())
     .then((s) => {
       const cur = (s.result || []).find((g) => g.id === 'Currency')

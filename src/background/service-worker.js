@@ -1,6 +1,6 @@
 // service-worker.js (MV3 background)
 // content script의 cross-origin fetch(환율·stats)를 host_permissions로 대행한다.
-import { isAllowedTradeUrl } from '../lib/tradeSearch.js'
+import { isAllowedTradeUrl, tradeApiOrigin } from '../lib/tradeSearch.js'
 
 const RATES_BASE = 'https://seominugi.com' // 환율 API 베이스 (2026-06-20 라이브 확인됨)
 
@@ -13,31 +13,31 @@ async function fetchRates(game, league) {
   return res.json()
 }
 
-async function fetchStats(game) {
+async function fetchStats(game, origin) {
   const path = game === 'poe2' ? 'trade2' : 'trade'
-  const res = await fetch(`https://poe.kakaogames.com/api/${path}/data/stats`)
+  const res = await fetch(`${tradeApiOrigin(origin)}/api/${path}/data/stats`)
   if (!res.ok) throw new Error('stats ' + res.status)
   return res.json()
 }
 
-async function fetchFilters(game) {
+async function fetchFilters(game, origin) {
   const path = game === 'poe2' ? 'trade2' : 'trade'
-  const res = await fetch(`https://poe.kakaogames.com/api/${path}/data/filters`)
+  const res = await fetch(`${tradeApiOrigin(origin)}/api/${path}/data/filters`)
   if (!res.ok) throw new Error('filters ' + res.status)
   return res.json()
 }
 
 // 아이템 유형 이름 — 일부 계열(용병 소환장 등)은 type 이 내부 영문 id 라 표시 이름이 따로 있다(lib/itemMap.js)
-async function fetchItems(game) {
+async function fetchItems(game, origin) {
   const path = game === 'poe2' ? 'trade2' : 'trade'
-  const res = await fetch(`https://poe.kakaogames.com/api/${path}/data/items`)
+  const res = await fetch(`${tradeApiOrigin(origin)}/api/${path}/data/items`)
   if (!res.ok) throw new Error('items ' + res.status)
   return res.json()
 }
 
-async function fetchLeagues(game) {
+async function fetchLeagues(game, origin) {
   const path = game === 'poe2' ? 'trade2' : 'trade'
-  const res = await fetch(`https://poe.kakaogames.com/api/${path}/data/leagues`)
+  const res = await fetch(`${tradeApiOrigin(origin)}/api/${path}/data/leagues`)
   if (!res.ok) throw new Error('leagues ' + res.status)
   return res.json()
 }
@@ -73,10 +73,10 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     try {
       if (msg && msg.type === 'fetchRates') sendResponse({ ok: true, data: await fetchRates(msg.game, msg.league) })
-      else if (msg && msg.type === 'fetchStats') sendResponse({ ok: true, data: await fetchStats(msg.game) })
-      else if (msg && msg.type === 'fetchFilters') sendResponse({ ok: true, data: await fetchFilters(msg.game) })
-      else if (msg && msg.type === 'fetchItems') sendResponse({ ok: true, data: await fetchItems(msg.game) })
-      else if (msg && msg.type === 'fetchLeagues') sendResponse({ ok: true, data: await fetchLeagues(msg.game) })
+      else if (msg && msg.type === 'fetchStats') sendResponse({ ok: true, data: await fetchStats(msg.game, msg.origin) })
+      else if (msg && msg.type === 'fetchFilters') sendResponse({ ok: true, data: await fetchFilters(msg.game, msg.origin) })
+      else if (msg && msg.type === 'fetchItems') sendResponse({ ok: true, data: await fetchItems(msg.game, msg.origin) })
+      else if (msg && msg.type === 'fetchLeagues') sendResponse({ ok: true, data: await fetchLeagues(msg.game, msg.origin) })
       else if (msg && msg.type === 'ba-convert') sendResponse(await handleConvert(msg))
       else if (msg && msg.type === 'ba-open-tab') sendResponse(await handleOpenTab(msg))
       else sendResponse({ ok: false, error: 'unknown message' })

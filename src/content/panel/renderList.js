@@ -248,7 +248,7 @@ export function leagueInfo(leagueMap) {
 // 팝업 차단으로 조용히 실패한다. tabs.create 는 제스처와 무관하다.
 function openTradeUrl(url, toast, e) {
   const say = toast || (() => {})
-  if (!isAllowedTradeUrl(url)) { say('허용되지 않은 링크예요. poe.kakaogames.com 거래소 링크만 열 수 있어요.'); return }
+  if (!isAllowedTradeUrl(url)) { say('허용되지 않은 링크예요. 거래소(카카오·pathofexile) 링크만 열 수 있어요.'); return }
   if (!shouldOpenNewTab(openNewTab, hasOpenModifier(e))) { location.href = url; return }
   Promise.resolve()
     .then(() => chrome.runtime.sendMessage({ type: 'ba-open-tab', url }))
@@ -264,7 +264,7 @@ function openTradeUrl(url, toast, e) {
 // storage 플래그를 쓰면 어느 탭이 자기 것인지 가리는 장치(만료·소비·탭 추적)가 줄줄이 필요해진다.
 function openLive(url, toast) {
   const say = toast || (() => {})
-  if (!isAllowedTradeUrl(url)) { say('허용되지 않은 링크예요. poe.kakaogames.com 거래소 링크만 열 수 있어요.'); return }
+  if (!isAllowedTradeUrl(url)) { say('허용되지 않은 링크예요. 거래소(카카오·pathofexile) 링크만 열 수 있어요.'); return }
   const target = url.split('#')[0] + '#ba-live'
   Promise.resolve()
     .then(() => chrome.runtime.sendMessage({ type: 'ba-open-tab', url: target }))

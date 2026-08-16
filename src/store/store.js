@@ -89,7 +89,12 @@ export async function seedDemoData(game, league) {
   const now = Date.now()
   // 데모 링크도 게임에 맞는 경로로 — 투어 중 실수로 클릭해도 엉뚱한 게임의 404로 가지 않게
   const basePath = game === 'poe1' ? '/trade/search/' : '/trade2/search/poe2/'
-  const u = (h) => `https://poe.kakaogames.com${basePath}${encodeURIComponent(league || 'Standard')}/__demo_${h}`
+  // 데모 링크는 **보고 있는 거래소**를 가리켜야 한다 — 카카오로 고정하면 영문 거래소 사용자가
+  // 투어 중 데모 카드를 눌렀을 때 로그인도 안 되는 카카오로 끌려간다(제보 2026-08-16과 같은 증상).
+  const origin = (typeof location !== 'undefined' && /^https:\/\/(poe\.kakaogames\.com|www\.pathofexile\.com)$/.test(location.origin))
+    ? location.origin
+    : 'https://poe.kakaogames.com'
+  const u = (h) => `${origin}${basePath}${encodeURIComponent(league || 'Standard')}/__demo_${h}`
   const snap = (v, n, low) => ({ valueDiv: v, value: v, unit: 'divine', sampleN: n, lowestAsk: low, method: 'sellable_p25', capturedAt: now })
   const base = { game, league, createdAt: now, updatedAt: now, snapshotAt: now, __demo: true }
   const records = [

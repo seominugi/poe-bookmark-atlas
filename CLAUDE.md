@@ -16,8 +16,15 @@
 ## 프로젝트 개요
 
 - PoE 북마크 아틀라스 — Chrome Extension (Manifest V3). v0.1 구현 완료, 로컬 테스트 단계.
-- **pathofexile.com 접근 제약 (2026-08-05 재측정으로 정정)**: 실제로 걸리는 건 **Cloudflare 봇 챌린지**다 — `/trade`·`/trade2` 모두 `403 Cf-Mitigated: challenge`이고 **`Location` 헤더가 없다**(리다이렉트 아님). API 경로(`/api/trade/data/*`)는 200으로 통과한다.
-  - 오래 쓰이던 "한국 IP를 카카오로 geo-redirect한다"는 서술은 **측정으로 뒷받침되지 않는다.** 확장을 끄면 pathofexile에 그대로 머문다는 사용자 확인도 있다. (참조하던 메모리 `project_poe_bookmark_atlas_georedirect`는 실재하지 않는다.)
+- **pathofexile.com 접근 제약 (2026-08-16 재측정 — 아래가 최신)**: 한국 IP에서 브라우저로 `https://www.pathofexile.com/trade/search/Standard` 에 들어가면 **`https://poe.kakaogames.com/login/kakao?redir=%2Ftrade%2Fsearch%2FStandard` 로 리다이렉트된다.** 경로를 `redir` 로 넘겨주는 **서버 쪽 지역 라우팅**이다.
+  - **우리 확장은 원인이 아니다** — 그 페이지에 콘텐츠 스크립트가 **주입되지도 않은 상태**(`panelInjected: false`, `ba-cross-notice` 없음, Cloudflare 챌린지 화면 아님)에서 리다이렉트가 일어났다. `optional_host_permissions` 라 기본 미허용이기 때문.
+  - ⚠ 아래 2026-08-05 서술은 **이번 측정과 어긋난다**(그때는 `403 Cf-Mitigated: challenge` · `Location` 없음으로 기록). 서버 동작이 바뀌었거나 당시 측정 조건이 달랐을 수 있다. **판단이 필요하면 그때그때 다시 측정할 것** — 이 줄을 근거로 "리다이렉트는 없다"고 단정하지 말 것.
+  - **해외 IP 사용자의 제보는 이것과 별개일 수 있다**(2026-08-16 제보: "확장 프로그램 추가하고 거래소 들어가면 강제로 카카오로 이동"). 해외 IP는 위 지역 라우팅 대상이 아닐 가능성이 큰데, **우리 `popup.js` 가 `TRADE_HOME` 을 카카오로 하드코딩**하고 있어 팝업 버튼이 사용자를 카카오로 보낸다. 한국에서는 재현할 수 없으므로 제보자 환경에서 확인이 필요하다.
   - 챌린지가 반복되며 화면이 깜박이던 원인은 **우리 `page-bridge.js`의 fetch/XHR 후킹**이 봇 점수를 올린 것 — 네이티브 위장으로 완화했다.
   - 한↔영 전환 기능은 **여전히 UI에서 숨김 유지.** 되살리려면 재현 사례가 더 필요하다(현재 재현율이 매우 낮다).
+- **글로벌(GGG 계정) 지원은 현재 '반만' 되어 있다 (2026-08-16 코드 확인)**. "카카오 계정 없이 쓸 수 있나" 제보에 답하려면 아래를 먼저 알아야 한다.
+  - `optional_host_permissions: ["https://www.pathofexile.com/*"]` — **기본 미허용**이라 콘텐츠 스크립트가 주입되지 않는다(실측 확인). 사용자가 권한을 켜는 UI도 없다.
+  - `content-main.js` 는 pathofexile 의 **`/trade/*` 만 매칭하고 `/trade2/*` 는 빠져 있다** → PoE2 글로벌은 전면 미지원.
+  - 서비스 워커의 `fetchStats`·`fetchFilters`·`fetchItems`·`fetchLeagues` 가 **`poe.kakaogames.com` 을 하드코딩**한다 → 주입되더라도 글로벌 리그 목록을 못 받아, 사용자의 실제 리그가 '닫힘'(구 '지난')으로 오판된다.
+  - 즉 지금은 **카카오 전용에 가깝다.** 제대로 지원하려면 호스트별 API 베이스 분기 + `/trade2` 매칭 + 권한 요청 흐름이 함께 필요하다.
 - 패널 라이브 검증은 'POE 브라우저'(테스트 전용)에서 기본 연결한다.

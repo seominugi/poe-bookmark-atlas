@@ -42,6 +42,7 @@ document.getElementById('app').innerHTML = `
     <div class="pop-cta">
       <button class="pop-btn pop-btn--primary" id="pop-toggle">${icon('bookmark', 15)}패널 열기 / 접기</button>
       <button class="pop-btn pop-btn--ghost" id="pop-tour">${icon('sparkle', 14)}사용법 가이드 다시 보기</button>
+      <button class="pop-btn pop-btn--ghost" id="pop-global" hidden></button>
     </div>
     <div class="pop-foot">
       <span class="pop-foot-tx"><b>피드백 · 문의</b><small>버그 제보·건의는 커뮤니티로</small></span>
@@ -63,14 +64,56 @@ async function sendCmd(cmd) {
   return false
 }
 
+// 거래소가 아닐 때 열어 줄 주소. **카카오로 고정하면 안 된다** — GGG 계정 사용자가
+// 영문 거래소를 보고 있는데 팝업 버튼이 카카오로 끌고 가면 로그인이 안 돼 아무것도 못 한다
+// (제보 2026-08-16: "확장 프로그램 추가하고 거래소 들어가면 강제로 카카오사이트로 이동").
+// 지금 탭이 이미 pathofexile 이면 그쪽 거래소를 연다.
+async function tradeHome() {
+  const t = await activeTab()
+  try {
+    if (t && new URL(t.url).hostname === 'www.pathofexile.com') return 'https://www.pathofexile.com/trade2/search/poe2'
+  } catch (_) {}
+  return TRADE_HOME
+}
+
 $('pop-toggle').onclick = async () => {
   const ok = await sendCmd('toggle')
-  if (!ok) chrome.tabs.create({ url: TRADE_HOME }) // 거래소가 아니면 거래소 열기
+  if (!ok) chrome.tabs.create({ url: await tradeHome() }) // 거래소가 아니면 거래소 열기
   window.close()
 }
 $('pop-tour').onclick = async () => {
   const ok = await sendCmd('tour')
-  if (!ok) { try { await chrome.storage.local.set({ baTourRestart: true }) } catch (_) {} chrome.tabs.create({ url: TRADE_HOME }) }
+  if (!ok) { try { await chrome.storage.local.set({ baTourRestart: true }) } catch (_) {} chrome.tabs.create({ url: await tradeHome() }) }
   window.close()
 }
+
+// ── 영문(글로벌) 거래소 사용 — optional 권한이라 사용자가 켜야 콘텐츠 스크립트가 주입된다 ──
+// 이 버튼이 없으면 GGG 계정 사용자는 "패널이 안 뜬다"만 겪고 켜는 방법을 알 길이 없었다.
+// chrome.permissions.request 는 **사용자 제스처** 안에서만 통하므로 클릭 핸들러에서 직접 부른다.
+const GLOBAL_ORIGINS = { origins: ['https://www.pathofexile.com/*'] }
+const globalBtn = $('pop-global')
+async function renderGlobalBtn() {
+  let granted = false
+  try { granted = await chrome.permissions.contains(GLOBAL_ORIGINS) } catch (_) {}
+  globalBtn.hidden = false
+  globalBtn.innerHTML = granted
+    ? `${icon('check', 14)}영문 거래소에서도 사용 중`
+    : `${icon('external', 14)}영문 거래소(pathofexile)에서도 사용`
+  globalBtn.title = granted
+    ? 'www.pathofexile.com 에서도 패널이 뜹니다. 끄려면 크롬 확장 프로그램 설정에서 사이트 권한을 내리세요.'
+    : 'GGG 계정으로 영문 거래소를 쓰신다면 켜 주세요. 크롬이 권한을 물어봅니다.'
+  globalBtn.disabled = granted
+}
+globalBtn.onclick = async () => {
+  try {
+    const ok = await chrome.permissions.request(GLOBAL_ORIGINS)
+    await renderGlobalBtn()
+    // 권한을 방금 켰으면 이미 열려 있는 영문 거래소 탭은 새로고침해야 스크립트가 주입된다.
+    if (ok) {
+      const t = await activeTab()
+      try { if (t && new URL(t.url).hostname === 'www.pathofexile.com') chrome.tabs.reload(t.id) } catch (_) {}
+    }
+  } catch (_) {}
+}
+renderGlobalBtn()
 $('pop-shortcuts').onclick = () => { chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }); window.close() }

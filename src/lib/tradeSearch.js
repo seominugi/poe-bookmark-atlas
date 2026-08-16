@@ -17,6 +17,27 @@ const isPoe2 = (game) => game === 'poe2'
 // 열기·복사·가져오기·내보내기·이관에 쓰는 링크는 거래소 도메인만 허용한다(피싱·javascript: 차단).
 // store.js가 이 모듈을 쓰므로(순환 import 방지) 정책의 정본은 여기 두고 store.js가 재수출한다.
 const ALLOWED_HOSTS = ['poe.kakaogames.com', 'www.pathofexile.com']
+
+/** 거래소 데이터 API 를 받아올 출처. 사용자가 실제로 보고 있는 호스트여야 한다.
+ *
+ * 왜 호스트를 고정하면 안 되나 (2026-08-16 두 호스트 실측):
+ *   filter·option·static·stat 의 id 는 두 호스트가 **같다**(양쪽 배타 0건) — 언어 중립이라 섞여도 동작은 한다.
+ *   그런데 **items 는 다르다**: `type` 이 곧 로컬라이즈된 이름이다
+ *     카카오 { type: '파란 진주 목걸이' }  /  GGG { type: 'Blue Pearl Amulet' }
+ *   그래서 카카오 맵을 GGG 사용자에게 쓰면 유형 이름이 통째로 어긋나고(725개 중 공통 225개뿐),
+ *   내부 id 계열도 한글 이름으로 뒤집힌다({ NonEleBowRangerPhys → '용병 소환장 (저격수)' } vs 'Mercenary Warrant (Sniper)').
+ *   표시 텍스트(스탯·필터 라벨)도 같은 이유로 사용자가 보는 언어와 맞아야 한다.
+ * 알 수 없는 출처는 받지 않는다 — 서비스 워커가 임의 주소로 fetch 하지 않게.
+ */
+export const DEFAULT_TRADE_ORIGIN = 'https://poe.kakaogames.com'
+export function tradeApiOrigin(origin) {
+  try {
+    const u = new URL(String(origin))
+    if (u.protocol === 'https:' && ALLOWED_HOSTS.includes(u.hostname)) return u.origin
+  } catch (_) {}
+  return DEFAULT_TRADE_ORIGIN
+}
+
 export function isAllowedTradeUrl(url) {
   try {
     const u = new URL(String(url))
