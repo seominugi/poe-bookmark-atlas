@@ -354,17 +354,24 @@ function rowHtml(r, kind, lg) {
   const leagueName = lg ? lg.name(r.league) : r.league || ''
   const leagueLine = leagueName ? `[리그] 《${leagueName}》` : ''
   const condTipWithLeague = escapeHtml([leagueLine, condTipText(r)].filter(Boolean).join('\n────────\n'))
+  // 가격 툴팁 — snapshot 기준 "검색 시점 시세(빠른 판매가 p25)" + 표본 수
+  const priceAt = r.snapshotAt || (r.snapshot && r.snapshot.capturedAt)
+  const sampleN = r.snapshot && r.snapshot.sampleN
+  const priceTip = price ? escapeHtml(`${priceAt ? ago(priceAt) + ' ' : ''}검색 시점 시세 — ${sampleN ? `매물 ${sampleN}개 중 ` : ''}빠르게 팔리는 가격(하위 25% 분위)`) : ''
+  // 간략 보기용 가격 — 조건 칩 **안에** 얹는다(평소엔 CSS 로 숨김).
+  // 한 줄로 접으면 이름에 남는 글자 폭이 384px 에서 32px 밖에 안 된다("회오…"). 가격을 칩 안으로
+  // 넣으면 필 하나 분량의 테두리·좌우 여백·간격(약 32px)이 사라져 그만큼이 통째로 이름에 간다.
+  // 두 번 렌더하는 대신 CSS 로 감추는 이유: data-brief 는 재렌더 없이 켜고 끄는 표시 전용 상태다.
+  // data-tip 을 따로 달아 둔다 — 툴팁은 closest('[data-tip]') 로 잡히므로 가격 위에선 시세 설명이,
+  // 칩의 나머지에서는 조건·리그가 그대로 뜬다.
+  const briefPrice = price ? `<span class="ba-cond-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''
   // 북마크 카드: '조건 N개' 대신 입력 수치까지 담은 조건 요약(호버 시 전체 상세는 동일 툴팁). 긴 조건은 CSS 말줄임.
   // 조건 0개여도 칩은 항상 렌더 — 아니면 리그 정보(위 condTipWithLeague)를 걸어둘 곳이 없다.
   // 조건 칩은 조건 그 자체를 보여주는 요소라, 클릭하면 그 능력치를 지금 검색에 넣는다(등록 불필요).
   // raw query 가 있어야 정확한 그룹까지 재현되므로 그때만 클릭 가능하게 한다.
   const canAddStats = !!(r.query && stats.length)
   const addTip = canAddStats ? '\n────────\n클릭하면 이 능력치를 지금 검색에 추가' : ''
-  const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span><span class="ba-cond-tx">${escapeHtml(condSummaryText(r))}</span></span>`
-  // 가격 툴팁 — snapshot 기준 "검색 시점 시세(빠른 판매가 p25)" + 표본 수
-  const priceAt = r.snapshotAt || (r.snapshot && r.snapshot.capturedAt)
-  const sampleN = r.snapshot && r.snapshot.sampleN
-  const priceTip = price ? escapeHtml(`${priceAt ? ago(priceAt) + ' ' : ''}검색 시점 시세 — ${sampleN ? `매물 ${sampleN}개 중 ` : ''}빠르게 팔리는 가격(하위 25% 분위)`) : ''
+  const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span><span class="ba-cond-tx">${escapeHtml(condSummaryText(r))}</span>${briefPrice}</span>`
   // 대표 아이템 이미지 — 북마크·히스토리 공통(검색 결과 최빈 아이콘)
   const thumb = r.icon && isAllowedIconUrl(r.icon) ? `<img class="ba-thumb" src="${escapeHtml(r.icon)}" alt="" loading="lazy" />` : ''
 
@@ -374,9 +381,10 @@ function rowHtml(r, kind, lg) {
     // 조건 칩(+ 조건이 없으면 날짜 칩) 툴팁 맨 위에 얹는다(leagueLine·condTipWithLeague는 위에서 공용 계산).
     const canAdd = !!(r.query && stats.length)
     const histCondChip = condCount
-      ? `<span class="ba-cond${canAdd ? ' ba-cond--add' : ''}"${canAdd ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${canAdd ? escapeHtml('\n────────\n클릭하면 이 능력치를 지금 검색에 추가') : ''}">${icon('search', 12)}조건 ${condCount}개</span>`
+      // 글자를 .ba-cond-n 으로 감싼다 — 간략 보기가 아이콘만 남기고 접을 수 있게(북마크 칩과 같은 구조)
+      ? `<span class="ba-cond${canAdd ? ' ba-cond--add' : ''}"${canAdd ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${canAdd ? escapeHtml('\n────────\n클릭하면 이 능력치를 지금 검색에 추가') : ''}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
       : ''
-    const whenChip = `<span class="ba-hist-when"${condTipWithLeague && !condCount ? ` data-tip="${condTipWithLeague}"` : ''}>${icon('clock', 11)}${fmtTime(when)}</span>`
+    const whenChip = `<span class="ba-hist-when"${condTipWithLeague && !condCount ? ` data-tip="${condTipWithLeague}"` : ''}>${icon('clock', 11)}${fmtTime(when)}${condCount ? '' : briefPrice}</span>`
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
       <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b>${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
       <div class="ba-meta">${histCondChip}${whenChip}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>

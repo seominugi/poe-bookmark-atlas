@@ -174,7 +174,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       const prev = readLayoutCache() || {}
       // collapsed 는 **사용자가 직접 토글했을 때만** 기록한다(patch 로 넘어올 때).
       // 창 폭 휴리스틱으로 접힌 상태를 취향으로 굳히면, 다음 로드에 접힌 채 남아 '패널이 사라졌다'가 된다.
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ ...prev, side: panelSide, width: panelW, ...(patch || {}) }))
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ...prev, side: panelSide, width: panelW, brief: briefOn, ...(patch || {}) }))
     } catch (_) {}
   }
 
@@ -183,6 +183,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     elRoot.setAttribute('data-side', panelSide)
     applyPagePush(isCollapsed())
     writeLayoutCache()
+  }
+  // 간략 보기 — 카드를 한 줄로 접는다. 기본은 끔(기존 화면 그대로).
+  // 정본은 chrome.storage 이고 localStorage 거울에도 써 둔다 — 다음 로드의 첫 프레임에 필요하다.
+  let briefOn = false
+  const applyBrief = (on) => {
+    briefOn = !!on
+    if (briefOn) elRoot.setAttribute('data-brief', '1')
+    else elRoot.removeAttribute('data-brief')
   }
   // 접힘 시 핸들에 북마크 수 배지 표시
   const updateHandleBadge = async () => {
@@ -210,6 +218,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   //   그게 굳으면 넓은 화면에서도 계속 접혀 있어 '패널이 사라졌다'가 된다.
   const cached = readLayoutCache()
   elRoot.classList.toggle('collapsed', startCollapsed(cached, window.innerWidth))
+  // 간략 보기도 캐시에서 **첫 프레임에** 건다. 나중에 storage 로 켜면 카드가 두 줄 → 한 줄로
+  // 접히는 게 눈에 보인다(같은 이유로 폭·배치도 여기서 정한다).
+  applyBrief(!!(cached && cached.brief))
   if (cached) {
     panelSide = cached.side
     elRoot.setAttribute('data-side', panelSide)
@@ -228,10 +239,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   setTimeout(settled, 400) // 정본이 영영 안 와도(컨텍스트 무효화 등) 반드시 푼다 — 실패해도 '애니메이션 없음'뿐
   applyWidth(cached ? cached.width : panelW)
   try {
-    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth']).then((r) => {
+    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth', 'uiBriefView']).then((r) => {
       applyWidth((r && r.uiPanelWidth) || panelW)
       if (r && r.uiPanelSide) applySide(r.uiPanelSide)
       if (r && typeof r.uiFuzzyPrefix === 'boolean') fuzzyOn = r.uiFuzzyPrefix
+      if (r && typeof r.uiBriefView === 'boolean') applyBrief(r.uiBriefView)
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
       updateHandleBadge()
       writeLayoutCache() // 정본(storage)으로 거울을 맞춘다 — 다른 탭에서 바꿨을 수 있다
@@ -538,6 +550,13 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           <span class="ba-set-opt${getOpenInNewTab() ? ' active' : ''}" data-nt="1">새 탭</span>
         </span>` +
         `<span class="ba-set-hint">Ctrl 클릭은 항상 반대로 엽니다</span>` +
+        // 정보 밀도 — "한 화면에 더 많이 보고 싶다"는 피드백(#1·#5). 기본 화면은 그대로 두고
+        // 원하는 사람만 켠다. 카드를 숨기는 게 아니라 한 줄로 접는 것이라 액션·경고는 남는다.
+        '<span class="lbl">보기</span>' +
+        `<span class="ba-seg ba-set-seg" title="간략을 고르면 북마크·히스토리 카드를 한 줄로 접어 한 화면에 약 2배를 보여줍니다. 조건은 아이콘만 남고, 호버하면 전체가 그대로 보입니다.">
+          <span class="ba-set-opt${briefOn ? '' : ' active'}" data-bv="0">기본</span>
+          <span class="ba-set-opt${briefOn ? ' active' : ''}" data-bv="1">간략</span>
+        </span>` +
         // 거래소 필터칸의 "~"(부분 일치) 강제. 정확히 일치하는 스탯만 찾을 때는 방해가 된다는 제보로 추가.
         '<span class="lbl">필터 퍼지 검색 (~)</span>' +
         `<span class="ba-seg ba-set-seg" title="켜면 거래소 검색칸 맨 앞에 ~를 자동으로 넣어 입력한 단어가 포함된 항목을 모두 찾습니다. 끄면 거래소 기본 동작 그대로입니다.">
@@ -555,6 +574,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         render()
         // 카드 툴팁이 이 설정을 그대로 읽어 주므로 목록을 다시 그린다 — 안 그리면 설정과 안내가 어긋난다.
         document.dispatchEvent(new CustomEvent('ba:records-changed'))
+      }))
+      pick.querySelectorAll('.ba-set-opt[data-bv]').forEach((o) => o.addEventListener('click', async () => {
+        applyBrief(o.dataset.bv === '1')
+        writeLayoutCache() // 다음 로드의 첫 프레임부터 이 값으로 그리게(카드가 접히는 게 보이지 않게)
+        try { await chrome.storage.local.set({ uiBriefView: briefOn }) } catch (_) {}
+        render()
       }))
       pick.querySelectorAll('.ba-set-opt[data-fz]').forEach((o) => o.addEventListener('click', async () => {
         fuzzyOn = o.dataset.fz === '1'
