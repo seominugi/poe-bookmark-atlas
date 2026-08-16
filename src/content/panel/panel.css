@@ -280,20 +280,33 @@
 .ba-name-alt[hidden] { display: none; }
 /* 저장 폴더 선택 칩 (선택: showNameInput 확장 시) */
 .ba-folder-pick { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; width: 100%; }
-.ba-folder-pick .lbl { font-size: 10.5px; font-weight: 700; color: var(--ba-violet-2); width: 100%; }
+.ba-folder-pick .lbl { font-size: 11.5px; font-weight: 700; color: var(--ba-violet-2); width: 100%; display: flex; align-items: center; gap: 5px; }
+/* 라벨 옆 도움말 배지 — '이 설정이 뭘 정하는 건가'를 물어볼 자리가 있다는 표시.
+   설명 자체는 data-tip 이 갖고, 배지는 그게 있다는 걸 알리는 역할만 한다. */
+.ba-lbl-help {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 14px; height: 14px; flex: none; border-radius: 50%;
+  font-size: 9.5px; font-weight: 800; line-height: 1; cursor: help;
+  color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line);
+  transition: color .15s, background .15s;
+}
+.ba-lbl-help:hover { color: #0b0a16; background: var(--ba-violet-2); border-color: var(--ba-violet-2); }
 .ba-folder-pick .chip { font-size: 11px; font-weight: 700; padding: 5px 11px; border-radius: 8px; cursor: pointer; color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-border); }
 .ba-folder-pick .chip.active { color: #0b0a16; background: var(--ba-violet-2); border-color: var(--ba-violet-2); }
 .ba-folder-pick .chip.new { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 /* 설정 모달의 세그먼트(패널 위치 등) — .ba-seg 스타일 재사용, 전체폭·균등분할 */
 .ba-set-seg { width: 100%; }
 .ba-set-seg .ba-set-opt { flex: 1; justify-content: center; }
+/* 시인성 — 설정에서만 키운다(제보 2026-08-16). 목록 헤더의 정렬 세그먼트는 가로가 빡빡해 그대로 둔다.
+   ⚠ 진짜 문제는 크기보다 **꺼진 쪽이 안 읽히는 것**이었다: 11px + #9b94bd 라 '새 탭'·'간략'·'끔'이
+   비활성이 아니라 사용 불가처럼 보였다. 세그먼트는 두 선택지가 **둘 다 읽혀야** 고를 수 있다.
+   ⚠ 선택자에 .ba-seg 를 함께 건다 — 공용 .ba-seg 규칙이 파일 **뒤쪽**에 있어, 같은 특이도로 쓰면
+     색이 그대로 덮인다(실측으로 확인: font-size 만 먹고 color 는 안 먹었다). */
+.ba-seg.ba-set-seg > * { font-size: 12.5px; padding: 8px 10px; color: #c6bfe4; }
+.ba-seg.ba-set-seg > .active { color: #fff; }
 /* 설정 모달의 '내 리그' 셀렉트 — 기본 select 룩은 밝은 시스템 색이라 패널과 겉돈다 */
 /* 세그먼트 밑 한 줄 보조 설명 — 라벨(.lbl)과 달리 다음 항목의 제목으로 읽히면 안 되므로 톤을 낮춘다 */
-.ba-set-hint { width: 100%; margin: -2px 0 2px; font-size: 10.5px; line-height: 1.5; color: var(--ba-text-muted); }
-.ba-set-league { width: 100%; margin-bottom: 4px; padding: 7px 10px; font-family: inherit; font-size: 12px; font-weight: 600;
-  color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-border); border-radius: 8px; cursor: pointer; }
-.ba-set-league:hover { border-color: var(--ba-violet-line); }
-.ba-set-league option { color: #e6e3f5; background: #14111f; }   /* 드롭다운 목록은 OS 렌더 — 최소한 배경/글자색만 맞춘다 */
+.ba-set-hint { width: 100%; margin: -2px 0 2px; font-size: 11px; line-height: 1.5; color: var(--ba-text-muted); }
 
 /* ---- 리스트 컨테이너 ----
    scrollbar-gutter: stable — 항목이 늘어 스크롤바가 생기는 순간 콘텐츠 폭이 7px 줄어들며
@@ -537,7 +550,9 @@
   position: fixed; z-index: 2147483600; max-width: 720px;
   background: rgba(6, 9, 15, 0.98); color: var(--ba-text);
   border: 1px solid var(--ba-violet-line); border-radius: 8px;
-  padding: 8px 12px; font-size: 11px; line-height: 1.6;
+  /* 툴팁은 조건 전체·리그처럼 **읽으라고 만든 정보**를 담는다(카드에서 접힌 내용이 여기로 온다).
+     11px 는 그 역할에 비해 작다는 제보(2026-08-16) — 본문급으로 올린다. */
+  padding: 9px 13px; font-size: 12.5px; line-height: 1.65;
   white-space: pre; text-align: left;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55); pointer-events: none;
 }
@@ -612,6 +627,7 @@
 .ba-act.del    { color: #e08a8a; }
 .ba-act.relg   { color: #7fd4a8; }   /* 리그 이관(다시 검색) = 복구 계열 → 에메랄드 */
 .ba-act.cset   { color: #c084fc; }   /* 조건 묶음 등록 = 재사용 자산 만들기 → 퍼플 */
+.ba-act.live   { color: #f0a868; }   /* 라이브로 열기 = 지금 벌어지는 일을 지켜봄 → 앰버(찜 ★과 같은 '주목' 계열) */
 .ba-act.copy:hover   { color: var(--ba-cyan); }
 .ba-act.over:hover   { color: #9fddff; }
 .ba-act.rename:hover { color: var(--ba-violet-2); }
@@ -619,6 +635,7 @@
 .ba-act.del:hover    { color: #fda4af; }
 .ba-act.relg:hover   { color: #a7f3d0; }
 .ba-act.cset:hover   { color: #d8b4fe; }
+.ba-act.live:hover   { color: #ffc48a; }
 
 /* ---- 폴더 이동 모달의 '옮길 북마크' 목록 (여러 개 선택) ---- */
 .ba-movelist { width: 100%; max-height: 210px; overflow-y: auto; display: flex; flex-direction: column; gap: 3px;

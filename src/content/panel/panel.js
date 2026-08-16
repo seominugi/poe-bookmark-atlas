@@ -514,27 +514,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     ok.textContent = '닫기'
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     const render = () => {
-      // 내 리그 — 리그 이관 대상이자 '현재' 배지의 기준. 자동(페이지 URL → 최근 검색)으로도 대부분 맞지만,
-      // 오래된 북마크 링크로 들어오면 URL이 끝난 리그라 자동 판정이 흔들린다. 그때 사용자가 못 박을 수 있게 한다.
-      // 표시명은 목록·카드와 같은 규칙으로(하드코어·무자비 변형 한글화). 값(option value)은 리그 id 그대로.
-      const lgDisp = leagueInfo(ui.getLeagueMap())
-      const leagues = Object.keys(ui.getLeagueMap()).map((id) => [id, lgDisp.name(id)])
-      // 저장된 값이 목록에 없어도(리그 목록 로드 전·끝난 리그) 선택지에 남긴다 — 안 그러면 설정이 조용히 사라진 것처럼 보인다
-      if (userLeague && !leagues.some(([id]) => id === userLeague)) leagues.push([userLeague, userLeague])
-      // 리그 목록은 페이지 로드 시 **비동기로** 받아온다(ensureLeagueMap). 도착 전에 설정을 열면
-      // '자동' 하나만 보여서 기능이 고장난 것처럼 읽힌다(제보 2026-08-15) — 로딩 중임을 밝히고,
-      // 도착하면 아래 구독으로 다시 그린다.
-      const loading = leagues.length === 0
-      const leagueRow =
-        '<span class="lbl">내 리그</span>' +
-        `<select class="ba-set-league" title="북마크를 되살릴 때 이 리그로 다시 검색합니다">
-          <option value=""${userLeague ? '' : ' selected'}>자동 (거래소 화면·최근 검색 기준)</option>
-          ${loading ? '<option value="" disabled>리그 목록을 불러오는 중…</option>' : ''}
-          ${leagues.map(([id, name]) => `<option value="${esc(id)}"${id === userLeague ? ' selected' : ''}>${esc(name)}</option>`).join('')}
-        </select>`
+      // ⚠ '내 리그' 수동 선택은 제거했다(2026-08-16). 리그는 URL 에 들어 있고 살아있는 리그 목록도
+      //   이미 받아오므로, resolveCurrentLeague 가 '화면의 리그 → 최근 검색' 순으로 **살아있는 것만**
+      //   골라 스스로 정한다. 고를 게 없는 설정은 사용자에게 부담만 준다.
+      // 설정 이름만 보고는 무엇을 정하는지 모르겠다는 제보(2026-08-16). 라벨 옆 ? 배지에 설명을 건다 —
+      // 세그먼트 자체에 걸면 '설명이 있다'는 신호가 없어서, 있는 줄도 모른 채 지나친다.
+      const lbl = (name, help) => `<span class="lbl">${name}<span class="ba-lbl-help" data-tip="${help}">?</span></span>`
       pick.innerHTML =
-        leagueRow +
-        '<span class="lbl">패널 위치</span>' +
+        lbl('패널 위치', '패널을 화면 왼쪽에 붙일지 오른쪽에 붙일지 정합니다.&#10;거래소 필터를 가리지 않는 쪽으로 고르면 편해요.') +
         // 선택지를 뜻하는 방향 그대로 배치한다 — '왼쪽'이 왼쪽 칸, '오른쪽'이 오른쪽 칸.
         // 반대로 두면 버튼 위치와 결과가 어긋나 매번 라벨을 읽어야 한다.
         `<span class="ba-seg ba-set-seg">
@@ -544,22 +531,22 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         // 저장된 검색을 어디에 열지. 새 탭으로 여는 기능은 원래 Ctrl/⌘ 클릭으로만 있었는데(a88d1e5)
         // 아무 데도 적혀 있지 않아 "없다"는 제보로 돌아왔다(2026-08-15). 기본값은 바꾸지 않는다 —
         // 켠 사람에게만 달라진다. 수식키는 값을 고정하지 않고 이 설정을 뒤집는다(lib/openTarget.js).
-        '<span class="lbl">검색 열기</span>' +
-        `<span class="ba-seg ba-set-seg" title="북마크·히스토리·찜을 클릭했을 때 어디에서 열지 정합니다. Ctrl(⌘) 클릭은 항상 반대로 엽니다.">
+        lbl('검색 열기', '북마크·히스토리·찜을 클릭했을 때 어디에서 열지 정합니다.&#10;Ctrl(⌘) 클릭은 항상 반대로 열고, Shift 클릭은 라이브로 엽니다.') +
+        `<span class="ba-seg ba-set-seg">
           <span class="ba-set-opt${getOpenInNewTab() ? '' : ' active'}" data-nt="0">현재 탭</span>
           <span class="ba-set-opt${getOpenInNewTab() ? ' active' : ''}" data-nt="1">새 탭</span>
         </span>` +
         `<span class="ba-set-hint">Ctrl 클릭은 항상 반대로 엽니다</span>` +
         // 정보 밀도 — "한 화면에 더 많이 보고 싶다"는 피드백(#1·#5). 기본 화면은 그대로 두고
         // 원하는 사람만 켠다. 카드를 숨기는 게 아니라 한 줄로 접는 것이라 액션·경고는 남는다.
-        '<span class="lbl">보기</span>' +
-        `<span class="ba-seg ba-set-seg" title="간략을 고르면 북마크·히스토리 카드를 한 줄로 접어 한 화면에 약 2배를 보여줍니다. 조건은 아이콘만 남고, 호버하면 전체가 그대로 보입니다.">
+        lbl('보기', '간략을 고르면 카드를 한 줄로 접어 한 화면에 약 2배를 보여줍니다.&#10;조건·가격은 사라지지 않고 아이콘 옆으로 접히며, 호버하면 전체가 그대로 보여요.') +
+        `<span class="ba-seg ba-set-seg">
           <span class="ba-set-opt${briefOn ? '' : ' active'}" data-bv="0">기본</span>
           <span class="ba-set-opt${briefOn ? ' active' : ''}" data-bv="1">간략</span>
         </span>` +
         // 거래소 필터칸의 "~"(부분 일치) 강제. 정확히 일치하는 스탯만 찾을 때는 방해가 된다는 제보로 추가.
-        '<span class="lbl">필터 퍼지 검색 (~)</span>' +
-        `<span class="ba-seg ba-set-seg" title="켜면 거래소 검색칸 맨 앞에 ~를 자동으로 넣어 입력한 단어가 포함된 항목을 모두 찾습니다. 끄면 거래소 기본 동작 그대로입니다.">
+        lbl('필터 퍼지 검색 (~)', '켜면 거래소 검색칸 맨 앞에 ~를 자동으로 넣어 입력한 단어가 &#10;포함된 항목을 모두 찾습니다. 끄면 거래소 기본 동작 그대로예요.') +
+        `<span class="ba-seg ba-set-seg">
           <span class="ba-set-opt${fuzzyOn ? ' active' : ''}" data-fz="1">켬</span>
           <span class="ba-set-opt${fuzzyOn ? '' : ' active'}" data-fz="0">끔</span>
         </span>`
@@ -586,23 +573,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         try { await chrome.storage.local.set({ uiFuzzyPrefix: fuzzyOn }) } catch (_) {}
         render()
       }))
-      const sel = pick.querySelector('.ba-set-league')
-      if (sel) sel.addEventListener('change', async () => { await setUserLeague(sel.value); render() })
     }
     render()
-    // 목록이 늦게 도착하면 다시 그린다. 리그 수가 바뀔 때만 — 북마크 변경으로도 이 이벤트가 오는데,
-    // 그때마다 다시 그리면 셀렉트 포커스가 튄다.
-    let lastCount = Object.keys(ui.getLeagueMap()).length
-    const onLeagues = () => {
-      const n = Object.keys(ui.getLeagueMap()).length
-      if (n === lastCount) return
-      lastCount = n
-      render()
-    }
-    document.addEventListener('ba:records-changed', onLeagues)
     pick.hidden = false; bar.hidden = false; ok.focus()
     const finish = () => {
-      document.removeEventListener('ba:records-changed', onLeagues)
       bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
       input.hidden = false; cancel.hidden = false; ok.textContent = '저장' // 다른 다이얼로그용 원복
       ok.removeEventListener('click', finish); bar.removeEventListener('click', onOverlay); root.removeEventListener('keydown', onKey, true)
@@ -786,7 +760,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     },
     addStatsToSearch: (id) => addStatsToSearch(id),
     saveCurrentSearch: (folderId) => doSave(folderId),
-    userLeague: null, // 설정에서 직접 고른 리그(빈 값 = 자동 판정). 아래 setUserLeague/저장소 로드에서 채운다
   }
   const refresh = () => renderList($('ba-list'), root, ui)
 
@@ -1010,23 +983,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     toast(`"${saved.name}" 묶음을 만들었어요 — ${conditionSetSummary(saved)}`)
   }
 
-  // 내 리그 설정 — 게임별로 따로 보관(poe1·poe2는 리그 이름이 다르다). 빈 값 = 자동 판정.
-  let userLeague = ''
-  const applyUserLeague = (v) => { userLeague = v || ''; ui.userLeague = userLeague || null }
-  const setUserLeague = async (v) => {
-    applyUserLeague(v)
-    try {
-      const cur = (await chrome.storage.local.get('uiLeague')).uiLeague || {}
-      await chrome.storage.local.set({ uiLeague: { ...cur, [game]: userLeague } })
-    } catch (_) {}
-    await refresh()
-  }
-  try {
-    chrome.storage.local.get('uiLeague').then((r) => {
-      const v = r && r.uiLeague && r.uiLeague[game]
-      if (v) { applyUserLeague(v); refresh() }
-    })
-  } catch (_) {}
+  // '내 리그' 수동 설정은 제거됐다(2026-08-16) — 리그는 URL 과 살아있는 리그 목록으로 스스로 정한다.
+  // 남아 있던 저장값은 한 번 지운다. 안 지우면 아무도 안 읽는 값이 저장소에 계속 남는다.
+  try { chrome.storage.local.remove('uiLeague') } catch (_) {}
 
   // 최근(현재) 검색을 북마크로 저장 (버튼 + 단축키/팝업 + 폴더별 + 버튼 공용)
   // presetFolderId: 폴더 헤더 +에서 호출 시 그 폴더를 저장 다이얼로그에 미리 선택
@@ -1106,10 +1065,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 북마크·폴더·가격이 없으면(히스토리만 쌓인 흔한 상태 포함) 투어 동안만 데모를 띄운다 — 없으면 5·6·8스텝이 가리킬 대상이 없다
     // 데모를 페이지 URL의 리그로 심으면 안 된다 — 옛 북마크 링크로 들어온 상태면 그 URL이 이미 끝난 리그라
     // 예시 데이터가 'Settlers' 같은 옛 리그 섹션(지난 배지·접힘)에 들어가 사용자를 헷갈리게 한다.
-    // 살아있는 리그(설정 → 페이지 → 최근 검색)를 쓰고, 하나도 못 정하면 실제 리그명 대신 '예전 리그'로 적는다.
+    // 살아있는 리그(페이지 → 최근 검색)를 쓰고, 하나도 못 정하면 실제 리그명 대신 '예전 리그'로 적는다.
     const demoLeague =
       resolveCurrentLeague(
-        { userLeague, pageLeague: league, history: await listByKind('history', game) },
+        { pageLeague: league, history: await listByKind('history', game) },
         leagueInfo(ui.getLeagueMap()),
       ) || '예전 리그'
     try { if (await needsTourDemo(game)) { await seedDemoData(game, demoLeague); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
@@ -1283,11 +1242,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       if (changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
       if (changes.uiPanelWidth) applyWidth(changes.uiPanelWidth.newValue)
       if (changes.uiFuzzyPrefix) fuzzyOn = changes.uiFuzzyPrefix.newValue !== false // 다른 탭에서 바꾸면 설정 모달 표시도 따라간다
-      // 다른 탭에서 리그를 바꾸면 이 탭도 따라간다(같은 게임일 때만)
-      if (changes.uiLeague) {
-        const v = (changes.uiLeague.newValue || {})[game] || ''
-        if (v !== userLeague) { applyUserLeague(v); refresh() }
-      }
       if (changes.conditionSets) renderSets() // 다른 탭에서 묶음을 추가·삭제하면 칩 줄도 따라간다
     })
   } catch (_) {}

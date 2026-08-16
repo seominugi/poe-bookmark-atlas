@@ -52,9 +52,10 @@ async function hydrateUiState() {
 // 카드 툴팁은 **지금 설정으로 무슨 일이 일어나는지**를 그대로 읽어 준다.
 // Ctrl 줄을 같이 두는 이유: 새 탭으로 여는 기능은 원래 있었는데(a88d1e5) 아무 데도 안 적혀 있어
 // "없다"는 제보로 돌아왔다. 설정을 만들어도 그 자리에서 알려주지 않으면 같은 일이 반복된다.
+// Shift 줄을 반드시 함께 적는다 — '적혀 있지 않은 수식키는 없는 기능'이라는 걸 #4 에서 이미 겪었다.
 const openTip = () => (openNewTab
-  ? '클릭하면 새 탭에서 다시 검색&#10;Ctrl 클릭 → 현재 탭'
-  : '클릭하면 현재 탭에서 다시 검색&#10;Ctrl 클릭 → 새 탭')
+  ? '클릭하면 새 탭에서 다시 검색&#10;Ctrl 클릭 → 현재 탭&#10;Shift 클릭 → 라이브로 열기'
+  : '클릭하면 현재 탭에서 다시 검색&#10;Ctrl 클릭 → 새 탭&#10;Shift 클릭 → 라이브로 열기')
 
 // 설정 모달(panel.js)이 값을 바꾼다 — 모듈 경계를 넘겨야 openTradeUrl 과 툴팁이 같은 값을 본다.
 export const getOpenInNewTab = () => openNewTab
@@ -200,11 +201,13 @@ const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능�
  * ① 사용자가 설정에서 직접 고른 리그(가장 확실) ② 지금 보고 있는 페이지의 리그 ③ 최근에 실제로 검색한 리그.
  * 각 후보는 '아직 열려 있는 리그'일 때만 채택한다 — 오래된 북마크 링크로 들어오면 ②가 이미 끝난 리그다.
  * 셋 다 없으면 null(= 알 수 없음)이고, 호출부는 이관을 실행하지 않고 안내한다.
- * @param {{userLeague?: string, pageLeague?: string, history?: any[]}} src
+ * @param {{pageLeague?: string, history?: any[]}} src
  */
 export function resolveCurrentLeague(src, lg) {
-  const { userLeague, pageLeague, history } = src || {}
-  if (userLeague && lg.isLive(userLeague)) return userLeague
+  const { pageLeague, history } = src || {}
+  // 보고 있는 거래소 화면의 리그가 1순위 — URL 이 곧 사용자가 지금 있는 곳이다.
+  // 단 **살아있는 리그일 때만** 믿는다: 끝난 리그 북마크 링크로 들어왔을 수 있고,
+  // 그 판별 근거(거래소 리그 목록)를 이미 받아오고 있다. 그래서 수동 설정이 필요 없다.
   if (pageLeague && lg.isLive(pageLeague)) return pageLeague
   const recent = (history || []).find((h) => h && h.league && lg.isLive(h.league))
   return recent ? recent.league : null
@@ -253,6 +256,20 @@ function openTradeUrl(url, toast, e) {
     // 확장을 리로드하면 이 탭의 스크립트는 고아가 돼 sendMessage 가 던진다. 그때 아무 일도 안 일어나면
     // 사용자는 클릭이 씹혔다고 느낀다 — 현재 탭으로라도 열어 검색은 되게 한다.
     .catch(() => { say('새 탭을 열지 못해 현재 탭에서 엽니다.'); location.href = url })
+}
+
+// 라이브로 열기 — 항상 **새 탭**이다. 현재 탭에서 열면 라이브가 구조적으로 하나로 묶이고
+// (거래소 버튼은 그 페이지의 현재 검색에만 붙는다) 보고 있던 검색도 잃는다. 그래서 '검색 열기' 설정을 따르지 않는다.
+// 표식은 URL 해시로 싣는다 — 열린 탭의 content-main 이 이걸 보고 거래소의 라이브 버튼을 눌러 준다.
+// storage 플래그를 쓰면 어느 탭이 자기 것인지 가리는 장치(만료·소비·탭 추적)가 줄줄이 필요해진다.
+function openLive(url, toast) {
+  const say = toast || (() => {})
+  if (!isAllowedTradeUrl(url)) { say('허용되지 않은 링크예요. poe.kakaogames.com 거래소 링크만 열 수 있어요.'); return }
+  const target = url.split('#')[0] + '#ba-live'
+  Promise.resolve()
+    .then(() => chrome.runtime.sendMessage({ type: 'ba-open-tab', url: target }))
+    .then((r) => { if (!r || !r.ok) throw new Error((r && r.reason) || 'no-response') })
+    .catch(() => say('새 탭을 열지 못했어요. 확장을 새로고침한 뒤 다시 시도해 주세요.'))
 }
 
 // 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 통합 검색어(bmSearch) 기준.
@@ -424,6 +441,7 @@ function rowHtml(r, kind, lg) {
     <div class="ba-meta-row">${attn}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
     <div class="ba-actions-pop" hidden>
       <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
+      <span class="ba-act live ba-live" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="새 탭에서 열고 거래소의 라이브 검색을 자동으로 켭니다.&#10;조건에 맞는 새 매물이 올라오면 그 탭에 바로 나타나요.">${icon('refresh', 13)}라이브로 열기</span>
       <span class="ba-act copy ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}">${icon('link', 13)}링크 복사</span>
       ${migrateAct}
       ${r.query ? `<span class="ba-act cset ba-cset" data-id="${r.id}">${icon('layers', 13)}조건 묶음으로 등록</span>` : ''}
@@ -554,7 +572,7 @@ export async function renderList(listEl, root, ui = {}) {
     listByKind('history', ui.game),
     listWatched(ui.game),
   ])
-  const currentLeague = resolveCurrentLeague({ userLeague: ui.userLeague, pageLeague: ui.league, history }, lg)
+  const currentLeague = resolveCurrentLeague({ pageLeague: ui.league, history }, lg)
 
   // ── 북마크 섹션 (폴더 그룹) ──
   const now = Date.now()
@@ -701,7 +719,9 @@ function bindAll(listEl, ui, ctx) {
   const lg = ctx.lg
   const targetLeague = ctx.currentLeague
   let migrating = false // 중복 클릭 차단 — 요청이 몰리면 거래소 요청 제한(429)에 걸려 검색 자체가 막힌다
-  const runMigration = async (id) => {
+  // opts.live — 이관 뒤 '라이브로 열기'로 이어간다. 끝난 리그에 라이브를 걸면 매물이 영영 안 뜨므로,
+  // 라이브는 항상 지금 리그 기준이어야 한다(사용자 방침 2026-08-16).
+  const runMigration = async (id, opts) => {
     if (migrating) return
     if (!ui.migrateSearch) { toast('이 화면에서는 다시 검색을 쓸 수 없어요.'); return }
     migrating = true // ⚠ 첫 await 앞에서 잠근다 — 뒤에 두면 연타 클릭이 전부 검사를 통과해 요청이 여러 번 나간다
@@ -709,14 +729,15 @@ function bindAll(listEl, ui, ctx) {
       const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
       if (!migratable(rec)) { toast('이 북마크는 링크·조건이 모두 없어 다시 검색할 수 없어요.'); return }
       const target = targetLeague
-      if (!target) { toast('지금 리그를 알 수 없어요. 설정에서 리그를 고르거나, 거래소에서 검색을 한 번 실행해 주세요.'); return }
+      if (!target) { toast('지금 리그를 알 수 없어요. 거래소에서 검색을 한 번 실행하면 바로 잡힙니다.'); return }
       toast(`${lg.name(target)}(으)로 다시 검색 중…`)
       const res = await ui.migrateSearch(rec, target)
       if (!res || !res.ok) { toast(MIGRATE_FAIL[res && res.reason] || '저장된 조건으로 다시 검색하지 못했어요.'); return }
       // 저장하기 '전에' 검증한다 — 검증을 이동 시점에만 두면 이상한 URL이 북마크에 먼저 기록된다
       if (!isAllowedTradeUrl(res.url)) { toast('허용되지 않은 링크가 돌아와 취소했어요.'); return }
       await migrateBookmarkLeague(id, res.url, target) // 링크·리그만 교체 — 이름·폴더·메모는 그대로
-      openTradeUrl(res.url, toast)
+      if (opts && opts.live) openLive(res.url, toast)
+      else openTradeUrl(res.url, toast)
     } finally { migrating = false }
   }
   listEl.querySelectorAll('.ba-migrate').forEach((m) =>
@@ -729,6 +750,10 @@ function bindAll(listEl, ui, ctx) {
       e.stopPropagation()
       const row = s.closest('.ba-row')
       const url = decodeURIComponent(row.dataset.url)
+      // Shift 클릭 = ⋯ 의 '라이브로 열기' 지름길. 액션은 그대로 남겨 둔다 —
+      // 보이는 경로가 발견을 담당하고 수식키는 속도를 담당한다(#4 의 교훈).
+      // 지난 리그면 제안 없이 **바로 지금 리그로 이관해** 라이브를 건다(liveFromRow).
+      if (e.shiftKey) { liveFromRow(row, url); return }
       if (row.dataset.past !== '1' || e.ctrlKey || e.metaKey || !ui.showConflict) { openTradeUrl(url, toast, e); return }
       const id = row.dataset.id
       const rec = (await listByKind('bookmark', ui.game)).find((b) => b.id === id)
@@ -807,6 +832,18 @@ function bindAll(listEl, ui, ctx) {
     c.addEventListener('click', (e) => { e.stopPropagation(); if (ui.addStatsToSearch) ui.addStatsToSearch(c.dataset.id) }))
 
   // 📚 조건 묶음으로 등록 (북마크·히스토리 공통) — 패널 컨텍스트에서만 동작
+  // 라이브는 **항상 지금 리그**로 연다. 지난 리그 북마크를 그대로 라이브로 걸면 매물이 영영 안 뜬다 —
+  // 조용히 아무 일도 안 일어나는 최악의 실패라, 이관이 가능하면 먼저 이관하고 그 결과를 라이브로 연다.
+  const liveFromRow = (row, url) => {
+    const id = row && row.dataset.id
+    if (row && row.dataset.past === '1' && id && ui.migrateSearch && targetLeague) { runMigration(id, { live: true }); return }
+    openLive(url, toast)
+  }
+  listEl.querySelectorAll('.ba-live').forEach((b) =>
+    b.addEventListener('click', (e) => {
+      e.stopPropagation()
+      liveFromRow(b.closest('.ba-row'), decodeURIComponent(b.dataset.url || ''))
+    }))
   listEl.querySelectorAll('.ba-cset').forEach((b) =>
     b.addEventListener('click', (e) => { e.stopPropagation(); if (ui.registerConditionSet) ui.registerConditionSet(b.dataset.id) }))
 

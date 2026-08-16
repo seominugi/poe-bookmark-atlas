@@ -91,33 +91,47 @@ describe('리그 이관 — 행 표시', () => {
   })
 })
 
-describe('내 리그 결정 (설정 → 페이지 → 최근 검색)', () => {
-  it('설정에서 고른 리그가 페이지 리그보다 우선한다', async () => {
+// 수동 '내 리그' 설정은 제거됐다(2026-08-16). 리그는 URL 과 살아있는 리그 목록으로 스스로 정한다 —
+// 고를 게 없는 설정이었고, 잘못 고르면 조용히 엉뚱한 리그로 이관되는 위험만 남았다.
+describe('내 리그 자동 판정 (화면의 리그 → 최근 검색)', () => {
+  it('보고 있는 거래소 화면의 리그를 쓴다', async () => {
     await addBookmark(baseRec({ query: QUERY }), '내 북마크')
-    const { ui, calls } = makeUi('cancel', undefined, { league: 'New', userLeague: 'HC' })
-    const list = await render(ui)
-    list.querySelector('.ba-migrate').click()
-    await tick(); await tick()
-    expect(calls.migrate.map((c) => c[1])).toEqual(['HC'])
-  })
-
-  it('설정 리그가 이미 끝난 리그면 무시하고 자동 판정으로 넘어간다', async () => {
-    await addBookmark(baseRec({ query: QUERY }), '내 북마크')
-    const { ui, calls } = makeUi('cancel', undefined, { league: 'New', userLeague: 'Old' })
+    const { ui, calls } = makeUi('cancel', undefined, { league: 'New' })
     const list = await render(ui)
     list.querySelector('.ba-migrate').click()
     await tick(); await tick()
     expect(calls.migrate.map((c) => c[1])).toEqual(['New'])
   })
 
-  it("설정 리그 섹션이 '현재'로 표시된다(보고 있는 페이지가 다른 리그여도)", async () => {
+  // 끝난 리그 북마크 링크로 들어오면 URL 이 죽은 리그다. 그걸 그대로 믿으면 이관이 무의미해진다.
+  it('화면의 리그가 이미 끝난 리그면 믿지 않고 최근 검색으로 넘어간다', async () => {
+    await addHistory(baseRec({ league: 'HC', dedupeKey: 'h1' }))
+    await addBookmark(baseRec({ query: QUERY }), '내 북마크')
+    const { ui, calls } = makeUi('cancel', undefined, { league: 'Old' }) // 'Old' 는 리그 목록에 없다
+    const list = await render(ui)
+    list.querySelector('.ba-migrate').click()
+    await tick(); await tick()
+    expect(calls.migrate.map((c) => c[1])).toEqual(['HC'])
+  })
+
+  it("화면의 리그 섹션이 '현재'로 표시된다", async () => {
     await addBookmark(baseRec({ league: 'HC' }), '하드코어것')
     await addBookmark(baseRec({ league: 'New', dedupeKey: 'k2' }), '지금리그')
-    const { ui } = makeUi('cancel', undefined, { league: 'New', userLeague: 'HC' })
+    const { ui } = makeUi('cancel', undefined, { league: 'HC' })
     const list = await render(ui)
     const badge = (l) => list.querySelector(`.ba-league[data-league="${l}"] .ba-league-badge`)?.textContent || null
     expect(badge('HC')).toBe('현재')
     expect(badge('New')).toBeNull()
+  })
+
+  it('살아있는 근거가 하나도 없으면 이관을 제안하지 않는다 — 엉뚱한 리그로 보내느니 멈춘다', async () => {
+    await addBookmark(baseRec({ query: QUERY }), '내 북마크')
+    const { ui, calls } = makeUi('cancel', undefined, { league: 'Old' })
+    const list = await render(ui)
+    list.querySelector('.ba-migrate').click()
+    await tick(); await tick()
+    expect(calls.migrate).toHaveLength(0)
+    expect(calls.toast.join(' ')).toContain('지금 리그를 알 수 없어요')
   })
 })
 

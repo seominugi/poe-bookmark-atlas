@@ -846,6 +846,45 @@ const panel = mountPanel({
   tourDemo: { show: showTourDemo, hide: hideTourDemo },
 })
 
+// ── 북마크를 '라이브로 열기' — 거래소의 네이티브 라이브 검색을 대신 켜 준다 ──
+// 우리는 WebSocket 을 직접 열지 않는다. 거래소 화면엔 원래 '라이브 검색 활성화' 버튼이 있고,
+// 인증·재연결·GGG 동시 연결 정책이 전부 거기 붙어 있다 — 우리가 다시 만들면 그걸 전부 떠안는다.
+// 북마크에서 여기까지는 지금 3단계다(열기 → 로딩 대기 → 버튼 찾아 클릭). 그 세 번을 한 번으로 줄인다.
+//
+// 표식은 URL 해시로 싣는다(#ba-live). storage 를 쓰면 어느 탭이 자기 것인지 가리는 장치(만료·소비·
+// 탭 추적)가 줄줄이 필요한데, 해시는 그 탭에만 있으므로 그 문제가 아예 생기지 않는다.
+// 해시는 서버로 가지 않고 거래소 SPA 는 경로 기반이라 라우팅도 건드리지 않는다.
+const LIVE_HASH = 'ba-live'
+const LIVE_BTN = 'button.livesearch-btn'
+const LIVE_OFF_LABEL = '라이브 검색 활성화' // 꺼져 있을 때의 라벨. 켜지면 Vue 가 이 문구를 바꾼다.
+function autoStartLive() {
+  if (!location.hash.includes(LIVE_HASH)) return
+  // 표식은 **즉시** 지운다 — 남겨두면 새로고침·뒤로가기마다 다시 켜진다.
+  try { history.replaceState(null, '', location.pathname + location.search) } catch (_) {}
+  const started = Date.now()
+  const tick = () => {
+    if (Date.now() - started > 20000) { // 20초면 검색이 뜨고도 남는다. 못 찾으면 조용히 넘기지 않는다.
+      panel.toast('라이브 검색 버튼을 찾지 못했어요. 거래소 화면에서 직접 켜 주세요.')
+      return
+    }
+    const btn = document.querySelector(LIVE_BTN)
+    // 버튼만 있고 검색이 아직 안 돌았으면 눌러도 무효다 — 결과 행이 하나라도 그려진 뒤에 누른다.
+    const ready = btn && !btn.disabled && document.querySelector('.row[data-id]')
+    if (!ready) { setTimeout(tick, 300); return }
+    const label = (btn.textContent || '').trim()
+    if (!label.includes(LIVE_OFF_LABEL)) { LOG('라이브 이미 켜져 있음 — 누르지 않는다'); return } // 누르면 꺼진다
+    btn.click()
+    // 눌렀다고 켜진 건 아니다. 라벨이 바뀌었는지로 확인하고, 안 바뀌었으면 사용자에게 알린다.
+    setTimeout(() => {
+      const now = (document.querySelector(LIVE_BTN)?.textContent || '').trim()
+      if (now.includes(LIVE_OFF_LABEL)) panel.toast('라이브 검색을 켜지 못했어요. 거래소 화면에서 직접 켜 주세요.')
+      else panel.toast('라이브 검색을 켰어요. 새 매물이 올라오면 이 탭에 바로 나타납니다.')
+    }, 600)
+  }
+  tick()
+}
+try { autoStartLive() } catch (err) { LOG('라이브 자동 켜기 실패', String(err)) }
+
 // 조건 묶음 줄은 검색 결과가 없어도(필터만 펼친 상태) 필요하다. 그래서 PoB 버튼처럼 첫 fetch 를
 // 기다리지 않고 진입 직후부터 붙이고, 필터 UI 가 늦게 그려지는 경우는 body 감시가 따라잡는다.
 try { pobEnsureObserver() } catch (err) { LOG('PoB 옵저버 실패', String(err)) }
