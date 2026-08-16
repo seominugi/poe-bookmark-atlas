@@ -10,6 +10,7 @@ import { icon } from '../../lib/icons.js'
 import { suggestName } from '../../lib/suggestName.js'
 import { findNearDuplicate, formatStatText, optionText } from '../../lib/searchParser.js'
 import { searchHashFromUrl } from '../../lib/tradeSearch.js'
+import { shouldOpenNewTab, hasOpenModifier } from '../../lib/openTarget.js'
 import { leagueDisplayName } from '../../lib/leagueMap.js'
 import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
@@ -32,16 +33,34 @@ let bmSort = 'recent' // 북마크 정렬 기본: recent(최근·저장 순 → 
 const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
 const collapsedLeagues = new Set() // 리그 기본 접힘(현재 펼침/지난 접힘)에서 토글한 키('L:'+league)
 
+// 저장된 검색을 새 탭에서 열지 여부. 기본은 false(현재 탭) — 기존 동작이고, 대부분의 사용자에겐
+// 아무것도 달라지지 않는다. 설정을 켠 사람에게만 바뀐다(피드백 2026-08-15: 선택하게 해달라).
+let openNewTab = false
+
 // 정렬·접힌 폴더 선호는 chrome.storage에 영속(재로드 후 유지). 검색어는 의도적으로 휘발(매 세션 초기화).
 let uiHydrated = false
 async function hydrateUiState() {
   if (uiHydrated) return
   uiHydrated = true
   try {
-    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders'])
+    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders', 'uiOpenInNewTab'])
     if (r.uiBmSort) bmSort = r.uiBmSort
+    if (typeof r.uiOpenInNewTab === 'boolean') openNewTab = r.uiOpenInNewTab
     if (Array.isArray(r.uiCollapsedFolders)) { collapsedFolders.clear(); r.uiCollapsedFolders.forEach((k) => collapsedFolders.add(k)) }
   } catch (_) {}
+}
+// 카드 툴팁은 **지금 설정으로 무슨 일이 일어나는지**를 그대로 읽어 준다.
+// Ctrl 줄을 같이 두는 이유: 새 탭으로 여는 기능은 원래 있었는데(a88d1e5) 아무 데도 안 적혀 있어
+// "없다"는 제보로 돌아왔다. 설정을 만들어도 그 자리에서 알려주지 않으면 같은 일이 반복된다.
+const openTip = () => (openNewTab
+  ? '클릭하면 새 탭에서 다시 검색&#10;Ctrl 클릭 → 현재 탭'
+  : '클릭하면 현재 탭에서 다시 검색&#10;Ctrl 클릭 → 새 탭')
+
+// 설정 모달(panel.js)이 값을 바꾼다 — 모듈 경계를 넘겨야 openTradeUrl 과 툴팁이 같은 값을 본다.
+export const getOpenInNewTab = () => openNewTab
+export function setOpenInNewTab(v) {
+  openNewTab = !!v
+  try { chrome.storage.local.set({ uiOpenInNewTab: openNewTab }) } catch (_) {}
 }
 const saveCollapsed = () => { try { chrome.storage.local.set({ uiCollapsedFolders: [...collapsedFolders] }) } catch (_) {} }
 const saveSort = () => { try { chrome.storage.local.set({ uiBmSort: bmSort }) } catch (_) {} }
@@ -220,11 +239,20 @@ export function leagueInfo(leagueMap) {
 }
 
 // 허용 도메인(거래소) 링크만 연다 — 가져온 데이터의 피싱·javascript: URL 차단.
-// Ctrl/⌘ 클릭은 새 탭으로 열어 현재 검색을 유지한다.
+// 어디에 열지는 설정(현재 탭/새 탭)이 정하고, Ctrl/⌘ 클릭은 그 설정을 **뒤집는다**(shouldOpenNewTab).
+// 새 탭은 서비스 워커에 맡긴다 — window.open 은 사용자 제스처 창 안에서만 허용돼,
+// 대화상자·네트워크 응답을 기다린 뒤 부르는 경로(지난 리그 '그대로 열기', 리그 이관 후)에서
+// 팝업 차단으로 조용히 실패한다. tabs.create 는 제스처와 무관하다.
 function openTradeUrl(url, toast, e) {
-  if (!isAllowedTradeUrl(url)) { (toast || (() => {}))('허용되지 않은 링크예요. poe.kakaogames.com 거래소 링크만 열 수 있어요.'); return }
-  if (e && (e.ctrlKey || e.metaKey)) window.open(url, '_blank', 'noopener')
-  else location.href = url
+  const say = toast || (() => {})
+  if (!isAllowedTradeUrl(url)) { say('허용되지 않은 링크예요. poe.kakaogames.com 거래소 링크만 열 수 있어요.'); return }
+  if (!shouldOpenNewTab(openNewTab, hasOpenModifier(e))) { location.href = url; return }
+  Promise.resolve()
+    .then(() => chrome.runtime.sendMessage({ type: 'ba-open-tab', url }))
+    .then((r) => { if (!r || !r.ok) throw new Error((r && r.reason) || 'no-response') })
+    // 확장을 리로드하면 이 탭의 스크립트는 고아가 돼 sendMessage 가 던진다. 그때 아무 일도 안 일어나면
+    // 사용자는 클릭이 씹혔다고 느낀다 — 현재 탭으로라도 열어 검색은 되게 한다.
+    .catch(() => { say('새 탭을 열지 못해 현재 탭에서 엽니다.'); location.href = url })
 }
 
 // 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 통합 검색어(bmSearch) 기준.
@@ -382,7 +410,7 @@ function rowHtml(r, kind, lg) {
     : ''
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
-      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;클릭하면 거래소에서 다시 검색">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
     <div class="ba-meta-row">${attn}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
@@ -687,7 +715,7 @@ function bindAll(listEl, ui, ctx) {
     m.addEventListener('click', (e) => { e.stopPropagation(); runMigration(m.dataset.id) }))
 
   // 북마크 이름 칩 클릭 → 재검색. 지난 리그 북마크는 열어봐야 조건이 안 맞으므로, 그 자리에서 이관을 제안한다.
-  // (Ctrl/⌘ 클릭 = 새 탭으로 원본 그대로 열기는 기존 동작 유지)
+  // (Ctrl/⌘ 클릭은 이 제안을 건너뛰고 원본을 그대로 연다 — 급할 때의 탈출구. 여는 위치는 openTradeUrl 이 정한다)
   listEl.querySelectorAll('.ba-open').forEach((s) =>
     s.addEventListener('click', async (e) => {
       e.stopPropagation()

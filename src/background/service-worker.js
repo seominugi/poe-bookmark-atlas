@@ -1,5 +1,7 @@
 // service-worker.js (MV3 background)
 // content script의 cross-origin fetch(환율·stats)를 host_permissions로 대행한다.
+import { isAllowedTradeUrl } from '../lib/tradeSearch.js'
+
 const RATES_BASE = 'https://seominugi.com' // 환율 API 베이스 (2026-06-20 라이브 확인됨)
 
 async function fetchRates(game, league) {
@@ -48,6 +50,17 @@ async function handleConvert(msg) {
   return { ok: true }
 }
 
+// 새 탭으로 열기 — 콘텐츠 스크립트의 window.open 대신 여기서 연다.
+// window.open 은 **사용자 제스처 창 안에서만** 허용돼, 대화상자·네트워크 응답을 기다린 뒤
+// (예: 지난 리그 팝오버의 '그대로 열기', 리그 이관 성공 후) 부르면 팝업 차단으로 조용히 실패한다.
+// 서비스 워커의 tabs.create 는 제스처와 무관하므로 모든 경로가 같은 방식으로 열린다.
+// URL 은 여기서 **다시** 검증한다 — 호출부가 검증했더라도 이 핸들러는 독립적으로 안전해야 한다.
+async function handleOpenTab(msg) {
+  if (!isAllowedTradeUrl(msg && msg.url)) return { ok: false, reason: 'bad-url' }
+  await chrome.tabs.create({ url: msg.url })
+  return { ok: true }
+}
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     try {
@@ -56,6 +69,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       else if (msg && msg.type === 'fetchFilters') sendResponse({ ok: true, data: await fetchFilters(msg.game) })
       else if (msg && msg.type === 'fetchLeagues') sendResponse({ ok: true, data: await fetchLeagues(msg.game) })
       else if (msg && msg.type === 'ba-convert') sendResponse(await handleConvert(msg))
+      else if (msg && msg.type === 'ba-open-tab') sendResponse(await handleOpenTab(msg))
       else sendResponse({ ok: false, error: 'unknown message' })
     } catch (e) {
       sendResponse({ ok: false, error: String(e) })

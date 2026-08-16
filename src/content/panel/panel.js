@@ -1,5 +1,5 @@
 import css from './panel.css?inline'
-import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague, fitCondSummaries } from './renderList.js'
+import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague, fitCondSummaries, getOpenInNewTab, setOpenInNewTab } from './renderList.js'
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData,
   needsConditionSetDemo, seedDemoSets, clearDemoSets,
@@ -529,6 +529,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           <span class="ba-set-opt${panelSide === 'left' ? ' active' : ''}" data-side="left">왼쪽</span>
           <span class="ba-set-opt${panelSide === 'right' ? ' active' : ''}" data-side="right">오른쪽</span>
         </span>` +
+        // 저장된 검색을 어디에 열지. 새 탭으로 여는 기능은 원래 Ctrl/⌘ 클릭으로만 있었는데(a88d1e5)
+        // 아무 데도 적혀 있지 않아 "없다"는 제보로 돌아왔다(2026-08-15). 기본값은 바꾸지 않는다 —
+        // 켠 사람에게만 달라진다. 수식키는 값을 고정하지 않고 이 설정을 뒤집는다(lib/openTarget.js).
+        '<span class="lbl">검색 열기</span>' +
+        `<span class="ba-seg ba-set-seg" title="북마크·히스토리·찜을 클릭했을 때 어디에서 열지 정합니다. Ctrl(⌘) 클릭은 항상 반대로 엽니다.">
+          <span class="ba-set-opt${getOpenInNewTab() ? '' : ' active'}" data-nt="0">현재 탭</span>
+          <span class="ba-set-opt${getOpenInNewTab() ? ' active' : ''}" data-nt="1">새 탭</span>
+        </span>` +
+        `<span class="ba-set-hint">Ctrl 클릭은 항상 반대로 엽니다</span>` +
         // 거래소 필터칸의 "~"(부분 일치) 강제. 정확히 일치하는 스탯만 찾을 때는 방해가 된다는 제보로 추가.
         '<span class="lbl">필터 퍼지 검색 (~)</span>' +
         `<span class="ba-seg ba-set-seg" title="켜면 거래소 검색칸 맨 앞에 ~를 자동으로 넣어 입력한 단어가 포함된 항목을 모두 찾습니다. 끄면 거래소 기본 동작 그대로입니다.">
@@ -540,6 +549,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         applySide(o.dataset.side)
         try { await chrome.storage.local.set({ uiPanelSide: o.dataset.side }) } catch (_) {}
         render()
+      }))
+      pick.querySelectorAll('.ba-set-opt[data-nt]').forEach((o) => o.addEventListener('click', () => {
+        setOpenInNewTab(o.dataset.nt === '1')
+        render()
+        // 카드 툴팁이 이 설정을 그대로 읽어 주므로 목록을 다시 그린다 — 안 그리면 설정과 안내가 어긋난다.
+        document.dispatchEvent(new CustomEvent('ba:records-changed'))
       }))
       pick.querySelectorAll('.ba-set-opt[data-fz]').forEach((o) => o.addEventListener('click', async () => {
         fuzzyOn = o.dataset.fz === '1'

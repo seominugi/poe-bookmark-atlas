@@ -288,6 +288,8 @@
 .ba-set-seg { width: 100%; }
 .ba-set-seg .ba-set-opt { flex: 1; justify-content: center; }
 /* 설정 모달의 '내 리그' 셀렉트 — 기본 select 룩은 밝은 시스템 색이라 패널과 겉돈다 */
+/* 세그먼트 밑 한 줄 보조 설명 — 라벨(.lbl)과 달리 다음 항목의 제목으로 읽히면 안 되므로 톤을 낮춘다 */
+.ba-set-hint { width: 100%; margin: -2px 0 2px; font-size: 10.5px; line-height: 1.5; color: var(--ba-text-muted); }
 .ba-set-league { width: 100%; margin-bottom: 4px; padding: 7px 10px; font-family: inherit; font-size: 12px; font-weight: 600;
   color: var(--ba-text); background: rgba(255,255,255,0.06); border: 1px solid var(--ba-border); border-radius: 8px; cursor: pointer; }
 .ba-set-league:hover { border-color: var(--ba-violet-line); }
