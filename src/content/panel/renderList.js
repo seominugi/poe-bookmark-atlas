@@ -269,7 +269,7 @@ function openLive(url, toast) {
   Promise.resolve()
     .then(() => chrome.runtime.sendMessage({ type: 'ba-open-tab', url: target }))
     .then((r) => { if (!r || !r.ok) throw new Error((r && r.reason) || 'no-response') })
-    .catch(() => say('새 탭을 열지 못했어요. 확장을 새로고침한 뒤 다시 시도해 주세요.'))
+    .catch(() => say('새 탭을 열지 못했어요. 확장 프로그램을 새로고침한 뒤 다시 시도해 주세요.'))
 }
 
 // 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 통합 검색어(bmSearch) 기준.

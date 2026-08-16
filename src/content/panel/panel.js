@@ -55,7 +55,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
               <div class="ba-kbd-pop-row"><span>능력치 필터 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>A</kbd></span></div>
               <div class="ba-kbd-pop-sub">여러 그룹이면 <b>반복해서 전환</b></div>
               <div class="ba-kbd-pop-row"><span>능력치 그룹 추가</span><span class="ba-kbd-keys"><kbd>Alt</kbd><kbd>G</kbd></span></div>
-              <div class="ba-kbd-pop-foot">확장 아이콘 클릭 → 시세 · 가이드 · 문의</div>
+              <div class="ba-kbd-pop-foot">확장 프로그램 아이콘 클릭 → 시세 · 가이드 · 문의</div>
             </div>
           </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
@@ -1029,7 +1029,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     toast('영문 거래소를 여는 중…')
     try {
       const r = await chrome.runtime.sendMessage({ type: 'ba-convert', game, query: cur.query, league: cur.league })
-      if (r && r.reason === 'no-permission') toast('확장 팝업에서 "영문 거래소 전환"을 먼저 켜주세요.')
+      if (r && r.reason === 'no-permission') toast('확장 프로그램 팝업에서 "영문 거래소 전환"을 먼저 켜주세요.')
       else if (!r || !r.ok) toast('전환에 실패했어요. 다시 시도해 주세요.')
     } catch (_) { toast('전환에 실패했어요.') }
   }

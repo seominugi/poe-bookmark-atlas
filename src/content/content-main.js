@@ -52,7 +52,7 @@ function noteExtensionDead() {
       + 'border-radius:12px;background:#1a1430;color:#e6e3f5;border:1px solid #6d5bd0;'
       + 'box-shadow:0 10px 30px rgba(0,0,0,.45);font:13px/1.5 system-ui,-apple-system,sans-serif;word-break:keep-all'
     const t = document.createElement('span')
-    t.textContent = '확장이 업데이트돼서 이 탭의 북마크 패널이 멈췄어요. 새로고침하면 다시 쓸 수 있어요.'
+    t.textContent = '확장 프로그램이 업데이트돼서 이 탭의 북마크 패널이 멈췄어요. 새로고침하면 다시 쓸 수 있어요.'
     const btn = document.createElement('button')
     btn.type = 'button'
     btn.textContent = '새로고침'
