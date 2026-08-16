@@ -4,6 +4,7 @@ import { parseSearchQuery, searchIdentity } from '../lib/searchParser.js'
 import { buildStatMap } from '../lib/statMap.js'
 import { buildFilterMap } from '../lib/filterMap.js'
 import { buildLeagueMap } from '../lib/leagueMap.js'
+import { buildItemMap } from '../lib/itemMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
 import { parseExaltedPerDivine, baseFromPrice, divineFromPrice, baseCurrencyOf, fmtCurAmount } from '../lib/currencyRates.js'
@@ -113,6 +114,21 @@ function ensureFilterMap() {
   return filterMapLoading
 }
 ensureFilterMap()
+
+// 아이템 유형 이름 맵 — 용병 소환장처럼 type 이 내부 영문 id 인 계열의 표시 이름을 얻는다.
+// 없으면 그 id 가 그대로 북마크 이름·조건 요약에 나온다(제보 2026-08-16 "NonEleBowRangerPhys").
+let itemMap = {}
+let itemMapLoading = null
+function ensureItemMap() {
+  if (Object.keys(itemMap).length) return Promise.resolve()
+  if (!itemMapLoading) {
+    itemMapLoading = send({ type: 'fetchItems', game })
+      .then((r) => { if (r && r.ok) itemMap = buildItemMap(r.data); LOG('itemMap', Object.keys(itemMap).length, '유형') })
+      .catch((e) => LOG('itemMap 오류', String(e)))
+  }
+  return itemMapLoading
+}
+ensureItemMap()
 
 // 리그명 맵도 1회 로드 — 리그 섹션 헤더에 한글 리그명(스탠다드 등) 표시. 로드되면 재렌더 트리거.
 let leagueMap = {}
@@ -593,9 +609,9 @@ async function recordSearch() {
   // query 를 못 얻었으면 기록하지 않는다 — dedupeKey 가 "t:|n:" 로 뭉개져
   // 서로 다른 검색이 한 항목으로 합쳐진다(위 pending 주석 참조). 안 남기는 편이 낫다.
   if (!pending.query) { LOG('검색 조건을 못 읽어 히스토리 선기록 생략'); return }
-  await Promise.all([ensureStatMap(), ensureFilterMap()])
-  const parsed = parseSearchQuery(pending.query, statMap, filterMap)
-  const key = dedupeKey(pending.query)
+  await Promise.all([ensureStatMap(), ensureFilterMap(), ensureItemMap()])
+  const parsed = parseSearchQuery(pending.query, statMap, filterMap, itemMap)
+  const key = dedupeKey(pending.query, pending.league)
   const rec = await addHistory({
     game,
     league: pending.league,
@@ -653,7 +669,7 @@ async function handleBridgeMessage(e) {
     const qid = queryIdFromUrl(d.url)
     if (pending.queryId && qid && qid !== pending.queryId) { LOG('fetch qid 불일치, 스킵', qid, pending.queryId); return }
     pending.done = true
-    await Promise.all([ensureStatMap(), ensureFilterMap()])
+    await Promise.all([ensureStatMap(), ensureFilterMap(), ensureItemMap()])
 
     const results = (d.data && d.data.result) || []
     const listings = results
@@ -674,8 +690,8 @@ async function handleBridgeMessage(e) {
       LOG('snapshot:', snapshot, '| listings', listings.length, '| epd', epd)
     } catch (err) { LOG('환율/스냅샷 오류', String(err)) }
 
-    const parsed = parseSearchQuery(pending.query, statMap, filterMap)
-    const key = dedupeKey(pending.query)
+    const parsed = parseSearchQuery(pending.query, statMap, filterMap, itemMap)
+    const key = dedupeKey(pending.query, pending.league)
     // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt·스냅샷·아이콘 갱신 +
     // 검색 조건을 최신 파서 형식으로 재기록(구 북마크에 능력치 수치 등 반영 — 하위호환 업그레이드).
     if (listings.length > 0) await markUsedByUrl(location.href, snapshot || undefined, icon || undefined, {

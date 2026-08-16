@@ -27,6 +27,14 @@ async function fetchFilters(game) {
   return res.json()
 }
 
+// 아이템 유형 이름 — 일부 계열(용병 소환장 등)은 type 이 내부 영문 id 라 표시 이름이 따로 있다(lib/itemMap.js)
+async function fetchItems(game) {
+  const path = game === 'poe2' ? 'trade2' : 'trade'
+  const res = await fetch(`https://poe.kakaogames.com/api/${path}/data/items`)
+  if (!res.ok) throw new Error('items ' + res.status)
+  return res.json()
+}
+
 async function fetchLeagues(game) {
   const path = game === 'poe2' ? 'trade2' : 'trade'
   const res = await fetch(`https://poe.kakaogames.com/api/${path}/data/leagues`)
@@ -67,6 +75,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg && msg.type === 'fetchRates') sendResponse({ ok: true, data: await fetchRates(msg.game, msg.league) })
       else if (msg && msg.type === 'fetchStats') sendResponse({ ok: true, data: await fetchStats(msg.game) })
       else if (msg && msg.type === 'fetchFilters') sendResponse({ ok: true, data: await fetchFilters(msg.game) })
+      else if (msg && msg.type === 'fetchItems') sendResponse({ ok: true, data: await fetchItems(msg.game) })
       else if (msg && msg.type === 'fetchLeagues') sendResponse({ ok: true, data: await fetchLeagues(msg.game) })
       else if (msg && msg.type === 'ba-convert') sendResponse(await handleConvert(msg))
       else if (msg && msg.type === 'ba-open-tab') sendResponse(await handleOpenTab(msg))

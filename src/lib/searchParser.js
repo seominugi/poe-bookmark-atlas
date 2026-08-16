@@ -1,4 +1,5 @@
 import { parseQueryFilters } from './filterMap.js'
+import { itemTypeText } from './itemMap.js'
 
 // 스탯 그룹 타입 → 한글 라벨 (POE2 거래소 능력치 필터 그룹)
 const GROUP_LABEL = { and: '및', not: '제외', count: '숫자', weight: '가중 합계', weight2: '가중치 합계', if: '조건' }
@@ -46,13 +47,18 @@ function identityText(v) {
 /**
  * @param {any} payload 캡처한 검색 요청 바디
  * @param {Record<string,string>} statMap stat id → 텍스트
+ * @param {{label:Record<string,string>, options:Record<string,Record<string,string>>}} filterMeta
+ * @param {Record<string,string>} itemMap type → 표시 이름 (lib/itemMap.js)
  */
-export function parseSearchQuery(payload, statMap = {}, filterMeta = { label: {}, options: {} }) {
+export function parseSearchQuery(payload, statMap = {}, filterMeta = { label: {}, options: {} }, itemMap = {}) {
   const q = payload?.query ?? {}
   const name = optionText(q.name)
   // 유형: q.type(베이스 타입) 우선, 없으면 type_filters.category 옵션의 한글 라벨
+  // ⚠ q.type 을 그대로 쓰면 안 된다 — 용병 소환장 등은 type 이 내부 영문 id 이고 표시 이름은 따로 있다.
+  //   그대로 쓰면 사용자가 본 적 없는 'NonEleBowRangerPhys' 가 이름·요약에 튀어나온다(제보 2026-08-16).
   const catOpt = q.filters?.type_filters?.filters?.category?.option
-  const itemType = optionText(q.type) || (catOpt != null ? ((filterMeta.options?.category || {})[String(catOpt)] || String(catOpt)) : null)
+  const itemType = (q.type ? itemTypeText(q.type, itemMap) : '') ||
+    (catOpt != null ? ((filterMeta.options?.category || {})[String(catOpt)] || String(catOpt)) : null)
   const title = name || itemType || '검색'
 
   // stats: 전체 평탄화(개수·요약·구 레코드 호환) / statGroups: 그룹 타입별 구조(툴팁 상세)
