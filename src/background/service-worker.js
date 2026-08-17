@@ -4,6 +4,7 @@
 // 콘텐츠 스크립트가 직접 받는다. 여기로 되돌리면 호스트마다 host_permissions 가 필요해져
 // 영문 거래소(pathofexile)가 다시 권한 없이는 동작하지 않게 된다(2026-08-16).
 import { isAllowedTradeUrl } from '../lib/tradeSearch.js'
+import { EN_ORIGIN, enFetchPath, isSafeListingId } from '../lib/enListing.js'
 
 const RATES_BASE = 'https://seominugi.com' // 환율 API 베이스 (2026-06-20 라이브 확인됨)
 
@@ -32,6 +33,20 @@ async function handleConvert(msg) {
   return { ok: true }
 }
 
+// 영문 거래소에서 같은 매물을 받아 PoB 복사에 쓴다(lib/enListing.js 주석 참조).
+// 카카오 페이지에서는 cross-origin 이라 콘텐츠 스크립트가 직접 못 받는다 — 여기서 대행한다.
+// **optional 권한이라 허용 전에는 실패한다**: 그때는 reason 을 돌려 호출부가 기존 번역으로 폴백한다.
+async function handleFetchEn(msg) {
+  if (!isSafeListingId(msg && msg.id)) return { ok: false, reason: 'bad-id' }
+  const origins = [`${EN_ORIGIN}/*`]
+  try { if (!(await chrome.permissions.contains({ origins }))) return { ok: false, reason: 'no-permission' } } catch (_) { return { ok: false, reason: 'no-permission' } }
+  let res
+  try { res = await fetch(EN_ORIGIN + enFetchPath(msg.game, msg.id), { headers: { Accept: 'application/json' } }) } catch (_) { return { ok: false, reason: 'network' } }
+  if (res.status === 429) return { ok: false, reason: 'rate' }
+  if (!res.ok) return { ok: false, reason: 'http' }
+  try { return { ok: true, data: await res.json() } } catch (_) { return { ok: false, reason: 'parse' } }
+}
+
 // 새 탭으로 열기 — 콘텐츠 스크립트의 window.open 대신 여기서 연다.
 // window.open 은 **사용자 제스처 창 안에서만** 허용돼, 대화상자·네트워크 응답을 기다린 뒤
 // (예: 지난 리그 팝오버의 '그대로 열기', 리그 이관 성공 후) 부르면 팝업 차단으로 조용히 실패한다.
@@ -49,6 +64,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       if (msg && msg.type === 'fetchRates') sendResponse({ ok: true, data: await fetchRates(msg.game, msg.league) })
       else if (msg && msg.type === 'ba-convert') sendResponse(await handleConvert(msg))
       else if (msg && msg.type === 'ba-open-tab') sendResponse(await handleOpenTab(msg))
+      else if (msg && msg.type === 'ba-fetch-en') sendResponse(await handleFetchEn(msg))
       else sendResponse({ ok: false, error: 'unknown message' })
     } catch (e) {
       sendResponse({ ok: false, error: String(e) })

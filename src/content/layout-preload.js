@@ -25,6 +25,21 @@ try {
     el.style.setProperty('transition', 'none', 'important') // 미리 거는 여백이 애니메이션되면 그게 또 '밀림'이다
     el.style.setProperty(v.side === 'left' ? 'margin-left' : 'margin-right', px, 'important')
     el.dataset.baPreload = v.side // 뒤에 뜨는 패널이 '이미 자리가 잡혀 있음'을 확인할 수 있게(디버깅용 표식)
+
+    // ── 감시견: 패널이 끝내 안 뜨면 비워 둔 자리를 되돌린다 ──────────────
+    // 여백만 걸고 패널이 안 오면 사용자에겐 **영문 모를 빈 공간**만 남는다("간헐적으로 패널이 안 보임").
+    // content-main 은 import 가 있어 crxjs 가 비동기 로더로 감싸는데, 그 동적 import 가 실패하면
+    // 예외도 로그도 없이 조용히 죽는다 — 실제로 그 상태를 실측했다(2026-08-17: 로더 자산 404,
+    // page-bridge 만 살아 로그를 남김). 개발 중 재빌드로 해시가 바뀐 게 원인이었지만, 원인이
+    // 무엇이든 결과가 '빈 공간'이면 안 된다.
+    // 되돌려도 손해가 없다 — 패널이 늦게라도 뜨면 applyPagePush 가 다시 여백을 건다.
+    setTimeout(() => {
+      if (document.getElementById('ba-panel-host')) return
+      el.style.removeProperty('margin-left')
+      el.style.removeProperty('margin-right')
+      delete el.dataset.baPreload
+      console.warn('[BA] 패널이 뜨지 않아 예약해 둔 여백을 되돌립니다. 확장 프로그램을 새로고침한 뒤 페이지를 새로고침해 주세요.')
+    }, 10000)
   }
 } catch (_) {
   // localStorage 가 막힌 환경(쿠키 차단 등)에서는 조용히 포기한다 — 패널 동작 자체엔 영향이 없다.

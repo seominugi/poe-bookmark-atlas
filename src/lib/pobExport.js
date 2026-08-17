@@ -206,32 +206,48 @@ export function influenceLines(item) {
  * modMap: 유니크 mod 폴백 사전(KR 원문 → EN 템플릿) — stat id 경로가 실패한 줄에만 쓰인다.
  * @returns {{ text: string, missing: string[] }}
  */
-export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}, koMap = {}) {
+/**
+ * @param {object} opts
+ * @param {boolean} [opts.en] item 이 **이미 영문**이다(영문 거래소에서 같은 매물 id 로 받아온 것).
+ *   번역을 건너뛰고 설명을 그대로 쓴다 — 번역이 없으니 미변환·의심 항목도 없다.
+ * @param {string|null} [opts.itemClass] 영문 경로에서 넘겨받는 Item Class.
+ *   영문 아이템 JSON 에는 이 필드가 없어서(2026-08-17 실측) KR 아이템의 baseMap 으로 구한다.
+ */
+export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}, koMap = {}, opts = {}) {
+  const en = !!opts.en
   const missing = []
   const warnings = [] // 번역은 됐지만 의심스러운 것 — '미변환' 배지에는 안 세고 제보 텍스트에만 담는다
-  const base = baseMap[item.baseType]
-  if (!base) missing.push('base:' + item.baseType)
+  const base = en ? null : baseMap[item.baseType]
+  if (!en && !base) missing.push('base:' + item.baseType)
 
+  const itemClass = en ? (opts.itemClass || null) : (base && base[1])
   let name = item.name
   if (name && item.rarity === 'Unique') {
-    if (uniqueMap[name]) name = uniqueMap[name]
+    // 영문 경로에서는 유니크 이름이 이미 영문이다(실측: '종말의 발' → 'Apocalypse Span') — 사전이 필요 없다.
+    if (en) { /* 그대로 */ }
+    else if (uniqueMap[name]) name = uniqueMap[name]
     else missing.push('unique:' + name)
   } else if (name) {
-    const slug = ((base && base[1]) || 'item').toLowerCase().replace(/\s+/g, '-')
+    const slug = (itemClass || 'item').toLowerCase().replace(/\s+/g, '-')
     name = 'seominugi-bookmark-item-' + slug
   }
 
   const head = []
-  if (base && base[1]) head.push('Item Class: ' + base[1])
+  if (itemClass) head.push('Item Class: ' + itemClass)
   head.push('Rarity: ' + (item.rarity || 'Rare'))
   if (name) head.push(name)
-  head.push(base ? base[0] : (item.baseType || ''))
+  head.push(en ? (item.baseType || '') : (base ? base[0] : (item.baseType || '')))
 
   // 한 mod가 여러 줄(\n)일 수 있음(예: 서판 implicit) → 줄 단위로 펼치고 implicit 접미 부착
   const modLines = (list, hashAt, kind, suffix) => {
     const outLines = []
     ;(list || []).forEach((m, i) => {
       const ko = typeof m === 'string' ? m : m.description
+      // 영문 경로: 설명이 이미 영문이라 번역 자체를 건너뛴다. 게임 마크업([Block|막기])만 벗긴다.
+      if (en) {
+        stripTags(ko).split('\n').forEach((l) => { const s = l.trim(); if (s) outLines.push(s + suffix) })
+        return
+      }
       const id = typeof m === 'object' && m.hash ? m.hash.replace(/^stat\./, '') : hashAt(i) // explicitMods[].hash는 "stat." 접두
       const t = translateMod(id, ko, statMap, modMap, koMap) // id가 없어도 KR 원문 폴백은 시도한다
       // KR 원문까지 남긴다 — stat id가 실제 문구와 어긋나는 부류(유니크 전용 mod)에선 id만으론
@@ -264,7 +280,8 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
   if (qual) props.push(qual)
   const rad = radiusLine(item)
   if (rad) {
-    if (!rad.known) missing.push('radius:' + rad.raw) // 모르는 표기는 그대로 내보내되 제보에 남긴다
+    // 영문 경로에서는 반경 표기가 이미 영문이라 RADIUS_EN(KR→EN) 에 없는 게 정상 — 미변환으로 세지 않는다.
+    if (!en && !rad.known) missing.push('radius:' + rad.raw) // 모르는 표기는 그대로 내보내되 제보에 남긴다
     props.push(rad.line)
   }
   if (props.length) sections.push(props)

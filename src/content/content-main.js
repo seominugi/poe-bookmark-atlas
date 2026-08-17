@@ -4,6 +4,8 @@ import { parseSearchQuery, searchIdentity } from '../lib/searchParser.js'
 import { buildStatMap } from '../lib/statMap.js'
 import { buildFilterMap } from '../lib/filterMap.js'
 import { buildLeagueMap } from '../lib/leagueMap.js'
+import { enFetchPath, isSafeListingId, pickItem } from '../lib/enListing.js'
+import { nextDelay } from '../lib/tradeRate.js'
 import { buildItemMap } from '../lib/itemMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
@@ -202,8 +204,39 @@ async function ensurePobMaps() {
   }
   return pobMaps
 }
-async function pobCopy(item, btn) {
+// ── 영문 원본 우선 ───────────────────────────────────────────────────────
+// 같은 매물 id 를 영문 거래소에서 받아오면 번역이 아예 필요 없다(lib/enListing.js 주석).
+// 우리가 번역하는 한 오늘 고친 855개 값 오류 같은 부류가 계속 나온다 — 원본을 쓰는 게 근본이다.
+// 실패(권한 없음·오프라인·매물 판매됨)하면 **조용히 기존 번역으로 떨어진다.**
+let enLastAt = 0
+async function fetchEnItem(id) {
+  if (!isSafeListingId(id)) return null
+  // 거래소 rate limit(trade-fetch: 4초당 12회)을 넘지 않게 최소 간격을 둔다 — 연타 대비.
+  const gap = nextDelay(enLastAt, Date.now())
+  if (gap > 0) await new Promise((r) => setTimeout(r, gap))
+  enLastAt = Date.now()
   try {
+    // 영문 거래소를 보고 있으면 same-origin 이라 권한 없이 바로 받는다.
+    const payload = location.hostname === 'www.pathofexile.com'
+      ? await fetch(enFetchPath(game, id), { headers: { Accept: 'application/json' } }).then((r) => (r.ok ? r.json() : null))
+      : await send({ type: 'ba-fetch-en', game, id }).then((r) => (r && r.ok ? r.data : null))
+    return payload ? pickItem(payload) : null
+  } catch (_) { return null }
+}
+
+async function pobCopy(item, btn, id) {
+  try {
+    const enItem = await fetchEnItem(id)
+    if (enItem) {
+      // 영문 원본 — 번역이 없으니 미변환·의심 항목도 없다. Item Class 만 KR 아이템에서 구한다
+      // (영문 JSON 에는 그 필드가 없다 — 2026-08-17 실측).
+      const maps = await ensurePobMaps()
+      const itemClass = (maps.baseMap[item.baseType] || [])[1] || null
+      const { text } = buildPobText(enItem, {}, {}, {}, {}, {}, { en: true, itemClass })
+      await pobCopyText(text)
+      pobFlash(btn, '복사됨', '영문 원본 ✓')
+      return
+    }
     // 라이브 KR 템플릿이 있어야 값 위치를 정확히 안다(pobExport.valuesByKoTemplate).
     // 없으면 "1초마다 생명력 26.8 재생"의 1 을 값으로 오인한다 — 그래서 기다린다.
     const [maps] = await Promise.all([ensurePobMaps(), ensureStatMap()])
@@ -514,7 +547,7 @@ function injectPobButtons() {
     bindPageTip(btn)
     btn.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation()
-      if (ev.shiftKey) reportMissing(item, btn); else pobCopy(item, btn)
+      if (ev.shiftKey) reportMissing(item, btn); else pobCopy(item, btn, id)
     })
     // 찜(★) — PoB 버튼과 한 그룹으로 묶어 아래 3단 배치 폴백이 그룹 하나만 옮기면 되게 한다
     const star = makeWatchButton(id, item)
