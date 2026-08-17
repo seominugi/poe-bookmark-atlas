@@ -20,6 +20,34 @@ export function extractValues(s) {
   return String(s).match(/-?\d+(?:\.\d+)?/g) || []
 }
 
+// 거래소 필터 표시용 접미 — KR "(특정)"·"(전역)"은 인게임 문구에 없어 아이템 설명과 템플릿이 어긋난다.
+const KO_TRADE_ONLY_SUFFIX = /\s*\((?:특정|전역)\)\s*$/
+const RE_META = /[.*+?^${}()|[\]\\]/g
+
+/**
+ * **KR 템플릿의 # 자리에서만** 값을 뽑는다. 없으면 null(호출부가 기존 방식으로 폴백).
+ *
+ * 왜 필요한가 (제보 2026-08-17 "생명력 재생 등 일부 항목이 잘못 복사됨"):
+ *   기존 extractValues 는 설명의 **모든 숫자**를 순서대로 걷는다. 그런데 KR 문구에는 값이 아닌
+ *   숫자가 박혀 있는 경우가 많다 — "**1**초마다 생명력 26.8 재생", "**3**초마다 …", "사용 **1**회당 …".
+ *   그러면 # 하나짜리 템플릿에 26.8 대신 1 이 들어가 PoB 계산이 통째로 틀어진다.
+ *   라이브 KR 템플릿("1초마다 생명력 # 재생")과 대조하면 어느 숫자가 값인지 정확히 안다.
+ *   실측(2026-08-17): 템플릿에 숫자가 박힌 KR stat 이 **1,239개** — 드문 예외가 아니다.
+ *
+ * @param {string} koTemplate 라이브 KR stat 텍스트(# 포함)
+ * @param {string} koText 아이템의 실제 KR 설명
+ */
+export function valuesByKoTemplate(koTemplate, koText) {
+  if (!koTemplate || !koText) return null
+  const tpl = stripTags(koTemplate).replace(KO_TRADE_ONLY_SUFFIX, '').trim()
+  if (!tpl.includes('#')) return null
+  const src = stripTags(koText).replace(KO_TRADE_ONLY_SUFFIX, '').trim()
+  // 템플릿을 정규식으로: 리터럴은 그대로 두고 # 자리만 숫자 캡처. 공백 차이는 흡수한다.
+  const pattern = tpl.split('#').map((p) => p.replace(RE_META, '\\$&').replace(/\s+/g, '\\s*')).join('(-?\\d+(?:\\.\\d+)?)')
+  const m = new RegExp('^' + pattern + '$').exec(src)
+  return m ? m.slice(1) : null
+}
+
 // EN 템플릿의 #를 값으로 순서대로 치환(값이 모자라면 #를 남김)
 export function fillValues(template, values) {
   let i = 0
@@ -91,9 +119,11 @@ function valueOverflow(tpl, en, koText) {
   return n > hashes ? { hashes, values: n } : null
 }
 
-export function translateMod(id, koDesc, map, modMap = {}) {
+export function translateMod(id, koDesc, map, modMap = {}, koMap = {}) {
   const koText = stripTags(koDesc)
-  const values = extractValues(koText)
+  // KR 템플릿이 있으면 그 # 자리에서만 값을 뽑는다 — 문구에 박힌 숫자("1초마다")를 값으로 오인하지 않게.
+  // 템플릿이 없거나(신규 stat) 문구가 어긋나면 예전처럼 모든 숫자를 순서대로 쓴다.
+  const values = valuesByKoTemplate(koMap && koMap[id], koDesc) || extractValues(koText)
   const info = pickTemplateInfo(id, koDesc, map)
   const tpl = info ? info.en.replace(TRADE_ONLY_SUFFIX, '') : null
   // 클러스터 주얼류 "Allocates #" 같은 텍스트형(특성 이름) 옵션은 #가 숫자가 아니라 extractValues가 못 채운다.
@@ -176,7 +206,7 @@ export function influenceLines(item) {
  * modMap: 유니크 mod 폴백 사전(KR 원문 → EN 템플릿) — stat id 경로가 실패한 줄에만 쓰인다.
  * @returns {{ text: string, missing: string[] }}
  */
-export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}) {
+export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}, koMap = {}) {
   const missing = []
   const warnings = [] // 번역은 됐지만 의심스러운 것 — '미변환' 배지에는 안 세고 제보 텍스트에만 담는다
   const base = baseMap[item.baseType]
@@ -203,7 +233,7 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
     ;(list || []).forEach((m, i) => {
       const ko = typeof m === 'string' ? m : m.description
       const id = typeof m === 'object' && m.hash ? m.hash.replace(/^stat\./, '') : hashAt(i) // explicitMods[].hash는 "stat." 접두
-      const t = translateMod(id, ko, statMap, modMap) // id가 없어도 KR 원문 폴백은 시도한다
+      const t = translateMod(id, ko, statMap, modMap, koMap) // id가 없어도 KR 원문 폴백은 시도한다
       // KR 원문까지 남긴다 — stat id가 실제 문구와 어긋나는 부류(유니크 전용 mod)에선 id만으론
       // 무엇을 고쳐야 할지 알 수 없고, 폴백 사전(pobUniqueModMap)의 키가 KR 원문 기준이라 그렇다.
       if (t.en == null) missing.push(`${kind}:${id || '?'} — ${stripTags(ko).replace(/\s*\n\s*/g, ' / ')}`)

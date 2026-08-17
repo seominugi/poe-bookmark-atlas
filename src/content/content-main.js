@@ -204,8 +204,10 @@ async function ensurePobMaps() {
 }
 async function pobCopy(item, btn) {
   try {
-    const maps = await ensurePobMaps()
-    const { text, missing, warnings } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap)
+    // 라이브 KR 템플릿이 있어야 값 위치를 정확히 안다(pobExport.valuesByKoTemplate).
+    // 없으면 "1초마다 생명력 26.8 재생"의 1 을 값으로 오인한다 — 그래서 기다린다.
+    const [maps] = await Promise.all([ensurePobMaps(), ensureStatMap()])
+    const { text, missing, warnings } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap, statMap)
     await pobCopyText(text)
     // 배지는 '진짜 미변환'만 센다 — warnings(번역은 됐지만 의심스러운 것)까지 세면 정상 복사가 실패처럼 보인다
     pobFlash(btn, '복사됨', missing.length ? `미변환 ${missing.length}` : '✓')
@@ -218,8 +220,8 @@ async function pobCopy(item, btn) {
 const DISCORD_URL = 'https://discord.gg/kEm2G2qcZQ'
 async function reportMissing(item, btn) {
   try {
-    const maps = await ensurePobMaps()
-    const { missing, warnings } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap)
+    const [maps] = await Promise.all([ensurePobMaps(), ensureStatMap()])
+    const { missing, warnings } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap, statMap)
     const report = buildReportText(item, missing, game, warnings)
     if (!report) { pobFlash(btn, '제보할 내용 없음', '번역 정상 ✓'); return }
     await pobCopyText(report)
