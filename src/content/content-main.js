@@ -209,24 +209,42 @@ async function ensurePobMaps() {
 // 우리가 번역하는 한 오늘 고친 855개 값 오류 같은 부류가 계속 나온다 — 원본을 쓰는 게 근본이다.
 // 실패(권한 없음·오프라인·매물 판매됨)하면 **조용히 기존 번역으로 떨어진다.**
 let enLastAt = 0
+/** @returns {{item: object|null, reason: string|null}} reason 은 폴백 사유(사용자 안내 판단용) */
 async function fetchEnItem(id) {
-  if (!isSafeListingId(id)) return null
+  if (!isSafeListingId(id)) return { item: null, reason: 'bad-id' }
   // 거래소 rate limit(trade-fetch: 4초당 12회)을 넘지 않게 최소 간격을 둔다 — 연타 대비.
   const gap = nextDelay(enLastAt, Date.now())
   if (gap > 0) await new Promise((r) => setTimeout(r, gap))
   enLastAt = Date.now()
   try {
     // 영문 거래소를 보고 있으면 same-origin 이라 권한 없이 바로 받는다.
-    const payload = location.hostname === 'www.pathofexile.com'
-      ? await fetch(enFetchPath(game, id), { headers: { Accept: 'application/json' } }).then((r) => (r.ok ? r.json() : null))
-      : await send({ type: 'ba-fetch-en', game, id }).then((r) => (r && r.ok ? r.data : null))
-    return payload ? pickItem(payload) : null
-  } catch (_) { return null }
+    if (location.hostname === 'www.pathofexile.com') {
+      const r = await fetch(enFetchPath(game, id), { headers: { Accept: 'application/json' } })
+      if (!r.ok) return { item: null, reason: 'http' }
+      return { item: pickItem(await r.json()), reason: null }
+    }
+    const res = await send({ type: 'ba-fetch-en', game, id })
+    if (!res || !res.ok) return { item: null, reason: (res && res.reason) || 'network' }
+    return { item: pickItem(res.data), reason: null }
+  } catch (_) { return { item: null, reason: 'network' } }
+}
+
+// 권한이 없으면 영문 원본을 못 받아 **조용히** 기존 번역으로 떨어진다. 그러면 사용자는 더 나은
+// 경로가 있다는 걸 영영 모른다 — 한 번은 알려야 한다.
+// ⚠ 매번 띄우지 않는다. PoB 복사는 반복 동작이라 클릭마다 토스트가 뜨면 잔소리가 된다.
+// ⚠ 여기서 권한을 직접 요청할 수 없다 — chrome.permissions 는 콘텐츠 스크립트에 없고,
+//   permissions.request 는 확장 페이지의 사용자 제스처에서만 통한다. 그래서 팝업으로 안내한다.
+let enPermNoticed = false
+function noticeEnPermission() {
+  if (enPermNoticed) return
+  enPermNoticed = true
+  panel.toast('확장 프로그램 아이콘 → "영문 거래소에서도 사용"을 켜면 PoB 복사가 거래소 영문 원본 그대로 나갑니다. 지금은 번역본으로 복사했어요.')
 }
 
 async function pobCopy(item, btn, id) {
   try {
-    const enItem = await fetchEnItem(id)
+    const { item: enItem, reason } = await fetchEnItem(id)
+    if (!enItem && reason === 'no-permission') noticeEnPermission()
     if (enItem) {
       // 영문 원본 — 번역이 없으니 미변환·의심 항목도 없다. Item Class 만 KR 아이템에서 구한다
       // (영문 JSON 에는 그 필드가 없다 — 2026-08-17 실측).
