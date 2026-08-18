@@ -4,9 +4,9 @@ import { describe, it, expect } from 'vitest'
 import { cmpVersion, notesSince, hasUnseen, UPDATE_NOTES } from '../src/lib/updateNotes.js'
 
 const NOTES = [
-  { version: '0.9.2', date: '2026-08-18', items: ['c'] },
-  { version: '0.9.1', date: '2026-08-17', items: ['b'] },
-  { version: '0.9.0', date: '2026-08-15', items: ['a'] },
+  { version: '0.9.2', date: '2026-08-18', body: 'c' },
+  { version: '0.9.1', date: '2026-08-17', body: 'b' },
+  { version: '0.9.0', date: '2026-08-15', body: 'a' },
 ]
 
 describe('cmpVersion', () => {
@@ -55,8 +55,8 @@ describe('UPDATE_NOTES 데이터', () => {
     for (const n of UPDATE_NOTES) {
       expect(typeof n.version).toBe('string')
       expect(n.date).toMatch(/^\d{4}-\d{2}-\d{2}$/)
-      expect(Array.isArray(n.items)).toBe(true)
-      expect(n.items.length).toBeGreaterThan(0)
+      expect(typeof n.body).toBe('string')
+      expect(n.body.trim().length).toBeGreaterThan(0)
     }
     for (let i = 1; i < UPDATE_NOTES.length; i++) {
       expect(cmpVersion(UPDATE_NOTES[i - 1].version, UPDATE_NOTES[i].version)).toBeGreaterThan(0)

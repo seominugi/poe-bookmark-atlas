@@ -39,17 +39,28 @@ body {
 .up-ver-title { font-size: 14.5px; font-weight: 700; color: #fff; }
 .up-date { font-size: 11px; color: #7c75a3; font-weight: 600; margin-left: auto; flex: none; }
 
-.up-items { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
-.up-items li {
-  position: relative; padding-left: 18px;
-  font-size: 13px; line-height: 1.7; color: #d8d3ee;
-}
-.up-items li::before {
-  content: ''; position: absolute; left: 4px; top: 10px;
-  width: 5px; height: 5px; border-radius: 50%; background: #a78bfa;
-}
 
-/* 빈 상태 — 팝업에서 '다시 보기'로 들어왔는데 새 소식이 없을 때 */
+/* NEW 배지 — 아직 안 본 버전 */
+.up-new { font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; flex: none; color: #0b0a16; background: #5eead4; border-radius: 7px; padding: 2px 7px; }
+
+/* 노트 본문 — GitHub 릴리즈 노트 마크다운을 그대로 렌더한다(update.js mdToHtml) */
+.up-body { font-size: 13px; line-height: 1.75; color: #d8d3ee; }
+.up-body > :first-child { margin-top: 0; }
+.up-body p { margin: 0 0 11px; }
+.up-body h3 { font-size: 13.5px; font-weight: 800; color: #c4b5fd; margin: 20px 0 10px; letter-spacing: -0.01em; }
+.up-body h4 { font-size: 12.5px; font-weight: 800; color: #a5b4fc; margin: 16px 0 8px; }
+.up-body strong { color: #fff; font-weight: 700; }
+.up-body code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; color: #a5f3fc; background: rgba(255, 255, 255, 0.07); border-radius: 5px; padding: 1px 5px; }
+.up-body ul { list-style: none; margin: 0 0 11px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.up-body li { position: relative; padding-left: 18px; }
+.up-body li::before { content: ''; position: absolute; left: 4px; top: 10px; width: 5px; height: 5px; border-radius: 50%; background: #a78bfa; }
+.up-body blockquote { margin: 0 0 11px; padding: 10px 14px; border-left: 3px solid var(--ba-violet-line, rgba(167, 139, 250, 0.45)); background: rgba(167, 139, 250, 0.07); border-radius: 0 8px 8px 0; color: #c9c3e4; }
+.up-body blockquote p:last-child { margin-bottom: 0; }
+.up-body hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.09); margin: 16px 0; }
+.up-body a { color: #a78bfa; text-decoration: none; font-weight: 700; }
+.up-body a:hover { text-decoration: underline; }
+
+/* 빈 상태 */
 .up-empty { padding: 40px 0; text-align: center; color: #9a93bd; font-size: 13px; line-height: 1.7; }
 
 /* 푸터 */
