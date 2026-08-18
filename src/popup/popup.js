@@ -87,22 +87,23 @@ $('pop-tour').onclick = async () => {
   window.close()
 }
 
-// ── 영문(글로벌) 거래소 사용 — optional 권한이라 사용자가 켜야 콘텐츠 스크립트가 주입된다 ──
-// 이 버튼이 없으면 GGG 계정 사용자는 "패널이 안 뜬다"만 겪고 켜는 방법을 알 길이 없었다.
+// ── 영문(글로벌) 거래소 접근이 꺼졌을 때의 복구 문 ──
+// 2026-08-18: pathofexile 을 manifest **기본 권한**(host_permissions)으로 올렸다 — 설치만 하면
+// 영문 거래소에도 패널이 뜨고 PoB 복사가 영문 원본으로 나간다. 그래서 평소엔 이 버튼을 숨긴다.
+// 그래도 지우지 않는 이유: 크롬은 사용자가 확장의 사이트 접근을 직접 내릴 수 있게 한다('클릭할 때만' 등).
+// 그렇게 내려간 상태에서는 PoB 가 **조용히** 번역본으로 폴백하므로(제보 2026-08-18) 되돌릴 문이 필요하다.
 // chrome.permissions.request 는 **사용자 제스처** 안에서만 통하므로 클릭 핸들러에서 직접 부른다.
 const GLOBAL_ORIGINS = { origins: ['https://www.pathofexile.com/*'] }
 const globalBtn = $('pop-global')
 async function renderGlobalBtn() {
-  let granted = false
+  // 판정에 실패하면 버튼을 띄우지 않는다 — 기본 권한이라 대개 켜져 있고, 멀쩡한데 뜨는 경고가 더 나쁘다.
+  let granted = true
   try { granted = await chrome.permissions.contains(GLOBAL_ORIGINS) } catch (_) {}
-  globalBtn.hidden = false
-  globalBtn.innerHTML = granted
-    ? `${icon('check', 14)}영문 거래소에서도 사용 중`
-    : `${icon('external', 14)}영문 거래소(pathofexile)에서도 사용`
-  globalBtn.title = granted
-    ? 'www.pathofexile.com 에서도 패널이 뜹니다. 끄려면 크롬 확장 프로그램 설정에서 사이트 권한을 내리세요.'
-    : 'GGG 계정으로 영문 거래소를 쓰신다면 켜 주세요. 크롬이 권한을 물어봅니다.'
-  globalBtn.disabled = granted
+  globalBtn.hidden = granted
+  if (granted) return
+  globalBtn.innerHTML = `${icon('external', 14)}영문 거래소(pathofexile) 접근 다시 켜기`
+  globalBtn.title = '이 확장의 www.pathofexile.com 접근이 꺼져 있어요. 켜면 영문 거래소에도 패널이 뜨고 PoB 복사가 영문 원본 그대로 나갑니다.'
+  globalBtn.disabled = false
 }
 globalBtn.onclick = async () => {
   try {
