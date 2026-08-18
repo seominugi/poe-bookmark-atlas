@@ -100,8 +100,9 @@ async function renderGlobalBtn() {
   // 판정에 실패하면 버튼을 띄우지 않는다 — 기본 권한이라 대개 켜져 있고, 멀쩡한데 뜨는 경고가 더 나쁘다.
   let granted = true
   try { granted = await chrome.permissions.contains(GLOBAL_ORIGINS) } catch (_) {}
-  globalBtn.hidden = granted
-  if (granted) return
+  // hidden 속성이 아니라 **제거**한다 — `.pop-btn { display: flex }` 가 hidden 을 이겨
+  // 빈 버튼이 그대로 남는다(제보 2026-08-18). 되살릴 일이 없는 버튼이라 제거가 맞다.
+  if (granted) { globalBtn.remove(); return }
   globalBtn.innerHTML = `${icon('external', 14)}영문 거래소(pathofexile) 접근 다시 켜기`
   globalBtn.title = '이 확장의 www.pathofexile.com 접근이 꺼져 있어요. 켜면 영문 거래소에도 패널이 뜨고 PoB 복사가 영문 원본 그대로 나갑니다.'
   globalBtn.disabled = false
