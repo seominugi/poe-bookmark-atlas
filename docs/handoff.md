@@ -256,7 +256,7 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
   - `notesSince(seen, current)` 는 **`current` 이하만** 낸다 → 다음 릴리즈 노트를 미리 적어둬도 배포 전까지 새지 않는다
   - 자동 업데이트를 여러 번 건너뛸 수 있으므로 **누적** 표시한다
 - `src/update/update.html`·`.css`·`.js` — 노트 창. 팝업(`popup.css`)의 자수정 글래스 언어를 따르되 **토큰을 공유하지 않는다**(팝업은 360px 고정, 여기는 창이라 폭 가정이 다르다)
-- 서비스 워커 `ba-open-update` → `chrome.windows.create({type:'popup'})`. **탭이 아니라 창**인 이유: 거래소 탭을 밀어내지 않고, 읽고 닫으면 하던 일로 바로 돌아간다
+- 서비스 워커 `ba-open-update` → **`chrome.tabs.create`** (2026-08-18 사용자 결정으로 창 → 탭 변경, `d4effe7`). 처음엔 팝업 창이었는데 크기가 고정이라 노트가 적으면 휑하고 창 관리를 사용자가 떠안았다. 탭의 '닫기'는 `tabs.getCurrent`→`tabs.remove` 다 — `window.close()` 는 스크립트가 연 창에서만 통한다
 - `onInstalled(reason='install')` 에서 `updateNotesSeen` 을 현재 버전으로 초기화 — **신규 설치자에게는 지난 노트를 띄우지 않는다**(투어가 그 자리를 맡는다). `reason='update'` 는 건드리지 않아야 토스트가 뜬다
 - 팝업에 **'업데이트 노트 보기'** 버튼(`?all=1` — 전체 이력). 토스트를 놓쳤을 때의 문
 - `vite.config.js` 에 엔트리 추가 — `update.html` 은 manifest 가 참조하지 않아 crxjs 가 못 잡는다
@@ -308,6 +308,12 @@ hash:        "stat.explicit.stat_2901986750"   ← '모든 원소 저항' id = �
 
 **검증**: 테스트 508/508 · `npm run build` 통과 · `dist/manifest.json` 에서 `host_permissions` 3개·`optional_host_permissions` 없음 확인.
 ⏳ 라이브 미검증 — 거래소 로그인 세션이 필요해 실제 PoB 복사 재현은 못 했다.
+
+### 제보 후속 다듬기 3건 (2026-08-18)
+
+- **팝업 빈 버튼 (`75dec57`)** — '영문 거래소 접근 다시 켜기' 를 `hidden` 으로 숨겼는데 `.pop-btn { display: flex }` 가 이겨 **빈 pill 이 남았다**. `6d81db1` 에서 들어간 회귀(그전엔 항상 표시라 안 드러남). **DOM 에서 제거**로 바꿨다 — CSS 규칙과 무관해진다. ⚠ 팝업은 하네스가 없어 자동 검증이 안 된다(제보로만 드러났다).
+- **업데이트 노트 = 새 탭 (`d4effe7`)** — 위 항목 참조.
+- **투어 데모 화폐 아이콘 (`06dd7dd`)** — 투어 4번의 예시 카드가 `≈ 24 카오스` **텍스트를 하드코딩**했는데, 그건 실제 칩의 **폴백 모습**이라 투어가 진짜 화면과 다른 것을 가르치고 있었다. `chipKindOf` 를 재사용해 CDN 아이콘을 쓰고, static 도착 시 `refreshTourDemoChip()` 이 이미 떠 있는 데모를 갱신한다. CDN URL 유효성 실측(200 · image/png · 6236B).
 
 ### 폴더 중복 삭제 사고 — 원인 규명 + 안전장치 + 구조 제거 (2026-08-18, 브랜치 `claude/folder-duplicate-deletion-bug-220309`)
 
