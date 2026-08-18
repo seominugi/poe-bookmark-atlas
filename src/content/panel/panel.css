@@ -846,7 +846,6 @@
    아래 807행 주석의 "아이콘 과밀로 타이틀을 줄바꿈" 이 폰트에 따라 아직 남아 있던 것. */
 .ba-brand-tx b { font-size: 14.5px; font-weight: 800; background: linear-gradient(90deg,#c4b5fd,#7dd3fc,#5eead4); -webkit-background-clip: text; background-clip: text; color: transparent; letter-spacing: -.02em;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ba-brand-tx small { font-size: 10px; color: #a78bfa; font-weight: 700; letter-spacing: .04em; }
 /* 제작자 칩 — 헤더 타이틀 우측 (푸터에서 이동, 가시성 ↑). 푸터 칩 글린트·글로우 재사용 */
 .ba-brand-credit { flex: none; text-decoration: none; cursor: pointer; transition: filter .15s; }
 .ba-brand-credit:hover { filter: brightness(1.08); }

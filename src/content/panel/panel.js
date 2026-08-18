@@ -41,7 +41,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       <div class="ba-head">
         <div class="ba-brand">
           <img class="ba-brand-logo" src="${logoUrl}" alt="" />
-          <span class="ba-brand-tx"><b>POE 북마크 아틀라스</b><small>${game === 'poe2' ? 'POE2' : 'POE1'} TRADE MANAGER</small></span>
+          <span class="ba-brand-tx"><b>POE 북마크 아틀라스</b></span>
           <span class="ba-kbd-wrap">
             <span class="ba-kbd-chip">${icon('keyboard', 15)}</span>
             <div class="ba-kbd-pop">
