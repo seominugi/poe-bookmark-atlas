@@ -65,19 +65,18 @@ describe('리그 이관 — 행 표시', () => {
     expect(byName(list, '끝난리그').dataset.past).toBeUndefined()
   })
 
-  it('리그 섹션 배지: 끝난 리그 "지난" / 보고 있는 리그 "현재" / 살아있는 다른 리그는 배지 없음', async () => {
+  // 리그 섹션을 없앤 뒤(2026-08-18) 리그는 행 칩이 말한다 — 섹션 배지가 하던 일을 그대로 이어받는다.
+  it('행 리그 칩: 지금 리그는 칩 없음 / 끝난 리그는 경고 톤 / 살아있는 다른 리그는 중립 톤', async () => {
     await addBookmark(baseRec({ league: 'Old' }), '끝난리그')
     await addBookmark(baseRec({ league: 'New', dedupeKey: 'k2' }), '지금리그')
     await addBookmark(baseRec({ league: 'HC', dedupeKey: 'k3' }), '하드코어')
     const list = await render(makeUi('cancel').ui)
-    const badgeOf = (lgKey) => {
-      const sec = list.querySelector(`.ba-league[data-league="${lgKey}"]`)
-      const b = sec.querySelector('.ba-league-badge')
-      return { text: b ? b.textContent : null, collapsed: sec.classList.contains('ba-league--collapsed') }
-    }
-    expect(badgeOf('Old')).toEqual({ text: '지난', collapsed: true }) // 끝난 리그만 접어둔다
-    expect(badgeOf('New')).toEqual({ text: '현재', collapsed: false })
-    expect(badgeOf('HC')).toEqual({ text: null, collapsed: false })
+    const chipOf = (n) => byName(list, n).querySelector('.ba-rowleague')
+    expect(chipOf('지금리그')).toBeNull() // 지금 리그면 표식을 붙이지 않는다(대부분이라 노이즈가 된다)
+    expect(chipOf('끝난리그').classList.contains('past')).toBe(true)
+    expect(chipOf('끝난리그').textContent).toContain('Old')
+    expect(chipOf('하드코어').classList.contains('past')).toBe(false) // 살아있는 다른 리그는 경고가 아니다
+    expect(chipOf('하드코어').textContent).toContain('하드코어')
   })
 
   it('⋯ 액션은 검색 해시나 조건이 있으면 노출 — 조건 없는 구 북마크도 URL 치환으로 되살릴 수 있다', async () => {
@@ -114,14 +113,15 @@ describe('내 리그 자동 판정 (화면의 리그 → 최근 검색)', () => 
     expect(calls.migrate.map((c) => c[1])).toEqual(['HC'])
   })
 
-  it("화면의 리그 섹션이 '현재'로 표시된다", async () => {
+  it('화면의 리그가 기준 — 그 리그 북마크엔 칩이 없고 다른 리그에만 붙는다', async () => {
     await addBookmark(baseRec({ league: 'HC' }), '하드코어것')
     await addBookmark(baseRec({ league: 'New', dedupeKey: 'k2' }), '지금리그')
     const { ui } = makeUi('cancel', undefined, { league: 'HC' })
     const list = await render(ui)
-    const badge = (l) => list.querySelector(`.ba-league[data-league="${l}"] .ba-league-badge`)?.textContent || null
-    expect(badge('HC')).toBe('현재')
-    expect(badge('New')).toBeNull()
+    const rowOf = (n) => [...list.querySelectorAll('.ba-row[data-kind="bookmark"]')]
+      .find((r) => r.querySelector('.ba-open b').textContent === n)
+    expect(rowOf('하드코어것').querySelector('.ba-rowleague')).toBeNull()
+    expect(rowOf('지금리그').querySelector('.ba-rowleague')).toBeTruthy()
   })
 
   it('살아있는 근거가 하나도 없으면 이관을 제안하지 않는다 — 엉뚱한 리그로 보내느니 멈춘다', async () => {

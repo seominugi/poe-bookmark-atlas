@@ -112,11 +112,12 @@ describe('renderList — 히스토리 통합(모든 리그), 북마크는 리그
     expect(opened).toBe(false) // 카드 열기(재검색) 핸들러가 별도로 발화하진 않음
   })
 
-  it('북마크는 기존대로 리그별 섹션 유지(이번 변경 범위 아님)', async () => {
+  it('북마크도 리그 통합 — 리그가 갈려도 폴더 그룹은 한 벌만 그린다', async () => {
     await addBookmark(baseRec({ league: 'A', title: '북A', dedupeKey: 'bka' }), '북A')
     await addBookmark(baseRec({ league: 'B', title: '북B', dedupeKey: 'bkb' }), '북B')
     const list = await render()
-    expect(list.querySelectorAll('.ba-league').length).toBe(2) // 리그 섹션 2개(북마크가 갈라놓음)
+    expect(list.querySelectorAll('.ba-folder').length).toBe(1) // 미분류 하나뿐
+    expect(list.querySelectorAll('.ba-row[data-kind="bookmark"]').length).toBe(2) // 둘 다 그 안에
   })
 
   it('"전체 삭제" 버튼은 리그 무관하게 항상 하나만 노출', async () => {
@@ -167,13 +168,13 @@ describe('빈 폴더 표시 (사용자 제보 — 폴더를 추가해도 안 보
     expect(body.textContent).toContain('여기로 드래그')
   })
 
-  it('현재가 아닌 리그 섹션에는 빈 폴더를 넣지 않는다 — 조작 대상이 아니고 목록만 길어진다', async () => {
+  it('다른 리그 북마크가 있어도 폴더는 한 벌 — 이름도 삭제 버튼도 폴더당 하나 (제보 사고 회귀)', async () => {
     await addBookmark(baseRec({ league: 'B', title: '다른리그' }), '다른리그') // 살아있지만 현재(A)가 아닌 리그
-    await addFolder('새 폴더', 'poe2')
+    const f = await addFolder('새 폴더', 'poe2')
     const list = await render()
-    const dead = list.querySelector('.ba-league[data-league="B"]')
-    expect(dead).toBeTruthy()
-    expect([...dead.querySelectorAll('.ba-folder-name')].map((e) => e.textContent)).not.toContain('새 폴더')
+    const names = [...list.querySelectorAll('.ba-folder-name')].map((e) => e.textContent)
+    expect(names.filter((n) => n === '새 폴더')).toHaveLength(1) // 빈 폴더는 보이되 딱 한 번만
+    expect(list.querySelectorAll(`.ba-folder-del[data-id="${f.id}"]`)).toHaveLength(1)
   })
 })
 

@@ -6,7 +6,8 @@
 // /trade·/trade2 모두 403 `Cf-Mitigated: challenge`, Location 헤더 없음 / API 경로는 200).
 // 챌린지 중에는 이 POST도 거부될 수 있으므로 실패를 전제로 설계한다 — 재시도 가능해야 하고,
 // 실패가 사용자에게 보여야 한다.
-// optional_host_permissions 허용 시에만 주입된다.
+// pathofexile.com 은 2026-08-18부터 기본 host_permissions 라 별도 허용 없이 주입된다
+// (사용자가 크롬에서 사이트 접근을 직접 내린 경우에만 빠진다).
 
 const MAX_TRIES = 3
 
