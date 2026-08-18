@@ -440,6 +440,7 @@ function ensureCurrencyStatic() {
       if (div?.image) divIcon = 'https://web.poecdn.com' + div.image
       LOG('화폐 static —', Object.keys(names).length, '종, 아이콘', !!curIcon, '신성한', !!divIcon)
       injectPobButtons() // 도착 즉시 칩 패스(이름 맵이 생겨 새로 환산되는 행이 있다)
+      refreshTourDemoChip() // 투어 데모가 떠 있으면 텍스트 폴백 → 아이콘으로 바꿔 준다
     })
     .catch((err) => LOG('화폐 static 로드 실패(큐레이션 4종만 환산)', String(err)))
 }
@@ -882,11 +883,12 @@ function showTourDemo(side) {
   const el = document.createElement('div')
   el.id = TOUR_DEMO_ID
   el.className = 'ba-demo-card'
-  // 전부 정적 한국어 리터럴 — 사용자·외부 데이터 없음
+  ensureCurrencyStatic() // 아직 안 받았으면 지금 받는다 — 도착하면 refreshTourDemoChip 이 아이콘으로 바꾼다
+  // 문구는 정적 한국어 리터럴. 화폐 칩만 실제 칩과 같은 자산(GGG CDN 이미지)을 쓴다 — demoChipHtml 참조.
   el.innerHTML = `
     <div class="ba-demo-badge">예시 · 검색 결과가 있을 때 이렇게 보여요</div>
     <div class="ba-demo-name">형상 없는 반지</div>
-    <div class="ba-demo-price">제시 가격 12 <span class="ba-exr-chip">≈ 24 ${game === 'poe1' ? '카오스' : '엑잘'}</span></div>
+    <div class="ba-demo-price">제시 가격 12 <span class="ba-exr-chip">${demoChipHtml()}</span></div>
     <div class="ba-pob-wrap"><button type="button" class="ba-pob-btn" tabindex="-1"><b>PoB</b><span>영문 복사</span></button></div>`
   document.body.appendChild(el)
   // 패널이 덮은 쪽을 피해 남은 영역 가운데에 놓는다(패널 = 폭 384 + 좌우 여백 14).
@@ -896,6 +898,21 @@ function showTourDemo(side) {
   const freeEnd = side === 'left' ? window.innerWidth : window.innerWidth - RESERVED
   el.style.left = Math.max(16, Math.round((freeStart + freeEnd) / 2 - w / 2)) + 'px'
   el.classList.add('show')
+}
+/**
+ * 투어 데모의 환산 칩 내용 — **실제 칩과 같은 자산**을 쓴다(chipKindOf).
+ * 예전엔 '≈ 24 카오스' 텍스트를 하드코딩했는데, 그건 실제 칩의 **폴백 모습**이라
+ * 투어가 사용자가 진짜로 보게 될 화면과 다른 것을 가르치고 있었다(제보 2026-08-18).
+ * 아이콘이 아직 없으면 같은 폴백(텍스트)으로 두고, 도착하면 refreshTourDemoChip 이 바꾼다.
+ */
+function demoChipHtml() {
+  const { icon: curIconOf, label, short } = chipKindOf('base')
+  return curIconOf ? `≈ 24 <img src="${curIconOf}" alt="${label}">` : `≈ 24 ${short}`
+}
+function refreshTourDemoChip() {
+  const demo = document.getElementById(TOUR_DEMO_ID)
+  const chip = demo && demo.querySelector('.ba-exr-chip')
+  if (chip) chip.innerHTML = demoChipHtml()
 }
 function hideTourDemo() {
   const el = document.getElementById(TOUR_DEMO_ID)
