@@ -3,7 +3,7 @@
 > 웹스토어 등록 정보의 **단일 정본**. 개발자 대시보드에 붙여 넣을 문구·권한 사유·개인정보
 > 공시를 여기서 관리한다. 확장을 건드려 스토어 표기에 영향이 가면 이 파일을 함께 갱신한다.
 >
-> **Last Updated**: 2026-08-19 · **Current Version**: 0.9.1 · **Status**: 게시됨
+> **Last Updated**: 2026-08-19 · **Current Version**: 0.10.0 · **Status**: 심사 제출 대기
 > **Store**: https://chromewebstore.google.com/detail/kjdnpniemjhflpbgfhcjgdenngdpikeh
 
 ## Store Listing
