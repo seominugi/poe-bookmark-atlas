@@ -9,7 +9,7 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
-**폴더 삭제 사고 수정 — 브랜치 `claude/folder-duplicate-deletion-bug-220309` (2026-08-18, PR #1 로 develop 반영)**
+**폴더 삭제 사고 수정 + 영문 거래소 권한 + 업데이트 노트 (2026-08-18, PR #1 머지 `f00a55a` — develop 반영 완료)**
 
 제보: *"폴더 만들고 컴터 껐다가 다시 켜니 같은 폴더가 빈 폴더로 생성되었길레 그 폴더 삭제했더니 원래 폴더가 다 날아갔네요. 자료는 미분류에 있긴 하네요."*
 
@@ -1095,7 +1095,7 @@ net 은 "무효화 이후 사용자가 패널 버튼을 누른" 더 좁은 경�
 
 ## 현재 상태
 
-- **작업 중 (2026-08-18)**: 브랜치 `claude/folder-duplicate-deletion-bug-220309`(워크트리 `.claude/worktrees/folder-duplicate-deletion-bug-220309`) — 폴더 사고 수정 `7faf159`·`4e33b86` + 핸드오프 정리 `14cfe4f` + 권한 승격. **develop 미머지**([PR #1](https://github.com/seominugi/poe-bookmark-atlas/pull/1)). 테스트 **508/508** · 빌드 통과
+- **2026-08-18 작업 develop 반영 완료** — [PR #1](https://github.com/seominugi/poe-bookmark-atlas/pull/1) 머지(`f00a55a`). 폴더 삭제 사고(`7faf159`·`4e33b86`) · 핸드오프 archive(`14cfe4f`) · 영문 거래소 기본 권한(`6d81db1`) · 업데이트 노트(`270e75c`) · 헤더 태그라인 제거(`31dd389`). 테스트 **521/521** · 빌드 통과. **스토어 릴리즈는 아직** — 미완료 12·13번 참조
 - **업데이트 노트 (2026-08-18 신설)**: `src/lib/updateNotes.js` 가 데이터 정본. 미리보기 `npx vite --config vite.harness.config.js` → `http://localhost:5199/update.html`
 - **manifest 권한 (2026-08-18 변경)**: `host_permissions` = 카카오 · **pathofexile** · seominugi.com. `optional_host_permissions` 없음. 다음 스토어 업데이트에서 **기존 사용자 재승인 발생**
 - **브랜치 전략 (2026-07-22 신설)**: 통합 브랜치 `develop`, `main`은 릴리즈 전용(직접 커밋 금지). 정본은 루트 `CLAUDE.md`. 릴리즈 시 `develop` → `main` 머지 후 태그.
