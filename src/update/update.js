@@ -52,17 +52,20 @@ export function mdToHtml(md) {
 
 /** 노트 목록 → 페이지 HTML. 순수 함수라 테스트가 이 마크업을 직접 검증한다. */
 export function notesHtml(list, ver, iconUrl, seen = null) {
-  const body = list.length
-    ? list.map((n) => `
-      <section class="up-ver">
-        <div class="up-ver-head">
+  const head = (n) => `
           <span class="up-tag">v${esc(n.version)}</span>
           ${cmpVersion(n.version, seen) > 0 ? '<span class="up-new">NEW</span>' : ''}
+          ${n.store === false ? '<span class="up-skip" title="GitHub 태그로만 남은 버전이에요. 이 내용은 다음 버전에 담겨 배포됐습니다.">스토어 미출시</span>' : ''}
           ${n.title ? `<span class="up-ver-title">${esc(n.title)}</span>` : ''}
-          <span class="up-date">${esc(n.date)}</span>
-        </div>
-        <div class="up-body">${mdToHtml(n.body)}</div>
-      </section>`).join('')
+          <span class="up-date">${esc(n.date)}</span>`
+  const body = list.length
+    // 스토어에 안 나간 버전은 **접어 둔다** — 사용자가 겪은 적이 없고 다음 출시 버전과 내용이 겹친다.
+    // 지우지 않는 이유: 0.6.6 처럼 다음 노트에 재수록되지 않은 고유 내용이 있다(details 로 펼 수 있다).
+    ? list.map((n) => (n.store === false
+      ? `<section class="up-ver up-ver--skip"><details><summary class="up-ver-head">${head(n)}</summary>
+        <div class="up-body">${mdToHtml(n.body)}</div></details></section>`
+      : `<section class="up-ver"><div class="up-ver-head">${head(n)}</div>
+        <div class="up-body">${mdToHtml(n.body)}</div></section>`)).join('')
     : `<div class="up-empty">아직 업데이트 이력이 없어요.</div>`
 
   return `

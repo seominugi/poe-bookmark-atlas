@@ -117,3 +117,34 @@ describe('목업 지시자', () => {
     expect([...used].filter((k) => !MOCKUPS[k])).toEqual([]) // 오타로 빈 자리가 생기지 않게
   })
 })
+
+describe('스토어 미출시 버전', () => {
+  const NOTES = [
+    { version: '0.9.0', date: '2026-08-16', body: '출시된 것' },
+    { version: '0.8.0', date: '2026-08-16', store: false, body: '스토어에 안 나간 것' },
+  ]
+
+  it('접어서 보여주고 배지를 단다 — 내용은 지우지 않는다', () => {
+    const el = parse(notesHtml(NOTES, '0.9.2', 'i.png'))
+    const skip = el.querySelector('.up-ver--skip')
+    expect(skip).toBeTruthy()
+    expect(skip.querySelector('.up-tag').textContent).toBe('v0.8.0')
+    expect(skip.querySelector('.up-skip').textContent).toBe('스토어 미출시')
+    const details = skip.querySelector('details')
+    expect(details.open).toBe(false) // 기본 접힘
+    expect(details.querySelector('.up-body').textContent).toContain('스토어에 안 나간 것') // 내용은 그대로
+  })
+
+  it('출시된 버전은 접지 않는다', () => {
+    const el = parse(notesHtml(NOTES, '0.9.2', 'i.png'))
+    const open = [...el.querySelectorAll('.up-ver')].find((s) => !s.classList.contains('up-ver--skip'))
+    expect(open.querySelector('details')).toBeNull()
+    expect(open.querySelector('.up-skip')).toBeNull()
+  })
+
+  it('실제 데이터: 미출시로 표시된 버전은 handoff 기록과 일치한다', async () => {
+    const { UPDATE_NOTES } = await import('../src/lib/updateNotes.js')
+    const skipped = UPDATE_NOTES.filter((n) => n.store === false).map((n) => n.version).sort()
+    expect(skipped).toEqual(['0.6.0', '0.6.1', '0.6.3', '0.6.6', '0.8.0'])
+  })
+})

@@ -145,3 +145,20 @@ body {
 @media (max-width: 520px) {
   .mk-pair { flex-direction: column; }
 }
+
+/* 스토어에 안 나간 버전 — 접어 둔다(사용자가 겪은 적 없고 다음 출시 버전과 겹친다) */
+.up-skip {
+  font-size: 9.5px; font-weight: 800; letter-spacing: 0.03em; flex: none; cursor: help;
+  color: #9a93bd; background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 7px; padding: 2px 7px;
+}
+.up-ver--skip summary { cursor: pointer; list-style: none; margin-bottom: 0; }
+.up-ver--skip summary::-webkit-details-marker { display: none; }
+.up-ver--skip summary::before {
+  content: '▸'; flex: none; color: #7c75a3; font-size: 11px;
+  display: inline-block; transition: transform .15s ease-out;
+}
+.up-ver--skip details[open] > summary::before { transform: rotate(90deg); }
+.up-ver--skip details[open] > summary { margin-bottom: 12px; }
+.up-ver--skip .up-tag { background: rgba(196, 181, 253, 0.3); color: #d8d3ee; }
+@media (prefers-reduced-motion: reduce) { .up-ver--skip summary::before { transition: none; } }
