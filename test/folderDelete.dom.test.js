@@ -81,18 +81,17 @@ describe('폴더 삭제 — 확인 + 실행취소', () => {
     expect(await listFolders('poe1')).toHaveLength(1)
   })
 
-  it('화면에 0개로 보이는 복제 폴더를 눌러도 실제 보유 수로 확인을 건다 (제보 사고)', async () => {
+  it('보고 있는 리그가 달라도 폴더는 한 벌 — 빈 복제본 자체가 없다 (제보 사고)', async () => {
     const f = await addFolder('세팅용', 'poe1')
     await addBookmark(rec({ folderId: f.id }), '반지검색')
-    // 재부팅 후: 거래소가 스탠다드로 열려 '스탠다드(현재)' 섹션에 빈 복제본이 생긴 상태
+    // 재부팅 후: 거래소가 스탠다드로 열린 상태(북마크는 허상 리그) — 예전엔 여기서 빈 복제본이 생겼다
     const { ui } = makeUi({ league: 'Standard' })
     const list = await render(ui)
-    const empties = [...list.querySelectorAll(`.ba-folder[data-folder="${f.id}"]`)]
-      .filter((d) => d.querySelectorAll('.ba-row[data-kind="bookmark"]').length === 0)
-    for (const el of empties) {
-      el.querySelector('.ba-folder-del').click()
-      await tick()
-      expect(await listFolders('poe1')).toHaveLength(1) // 한 번의 클릭으로는 절대 안 지워진다
-    }
+    const els = [...list.querySelectorAll(`.ba-folder[data-folder="${f.id}"]`)]
+    expect(els).toHaveLength(1)
+    expect(els[0].querySelectorAll('.ba-row[data-kind="bookmark"]')).toHaveLength(1) // 0개로 보이지 않는다
+    els[0].querySelector('.ba-folder-del').click()
+    await tick()
+    expect(await listFolders('poe1')).toHaveLength(1) // 담긴 게 있으니 1클릭으론 안 지워진다
   })
 })

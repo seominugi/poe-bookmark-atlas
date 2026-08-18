@@ -1192,10 +1192,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         } else if (!step.demo) tourDemo.hide()
       }
       if (target && !target.getBoundingClientRect().width) {
-        // 접힌 폴더·리그 섹션 안이면 투어 동안만 임시로 펼쳐 대상이 보이게(사용자 설정 Set은 건드리지 않음).
-        // 리그 섹션은 끝난 리그가 기본 접힘이라, 북마크가 지난 리그에만 있으면 여기서 걸린다.
-        const foldedLeague = target.closest('.ba-league--collapsed')
-        if (foldedLeague) foldedLeague.classList.remove('ba-league--collapsed')
+        // 접힌 폴더 안이면 투어 동안만 임시로 펼쳐 대상이 보이게(사용자 설정 Set은 건드리지 않음).
         const folded = target.closest('.ba-folder--collapsed')
         if (folded) folded.classList.remove('ba-folder--collapsed')
         if (!target.getBoundingClientRect().width) {

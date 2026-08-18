@@ -31,7 +31,6 @@ let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보�
 let bmSearch = '' // 통합 빠른 검색어 (북마크·히스토리 동시 필터, 모듈 레벨 — 재렌더 후에도 유지)
 let bmSort = 'recent' // 북마크 정렬 기본: recent(최근·저장 순 → 저장하면 상단). order(수동)·name도 선택 가능
 const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
-const collapsedLeagues = new Set() // 리그 기본 접힘(현재 펼침/지난 접힘)에서 토글한 키('L:'+league)
 
 // 저장된 검색을 새 탭에서 열지 여부. 기본은 false(현재 탭) — 기존 동작이고, 대부분의 사용자에겐
 // 아무것도 달라지지 않는다. 설정을 켠 사람에게만 바뀐다(피드백 2026-08-15: 선택하게 해달라).
@@ -185,6 +184,9 @@ const hexToRgba = (hex, a) => {
 }
 const changed = () => document.dispatchEvent(new CustomEvent('ba:records-changed'))
 const STALE_MS = 14 * 24 * 60 * 60 * 1000 // 14일 — 이후엔 만료 가능성 경고
+// 행 리그 칩 툴팁 — 없어진 리그 섹션 배지(.ba-league-badge)의 문구를 그대로 계승한다.
+const PAST_LEAGUE_TIP = ' — 이미 끝난 리그예요.\n링크를 열어도 저장 당시 조건이 그대로 재현되지 않습니다.\n북마크를 열거나 ⋯ → \'내 리그로 다시 검색\'을 쓰면 지금 리그로 되살릴 수 있어요.'
+const OTHER_LEAGUE_TIP = ' — 지금 보고 있는 리그가 아니에요.'
 
 /**
  * 리그가 "아직 열려 있는지"를 거래소 리그 목록(/api/trade(2)/data/leagues = 현재 리그만 반환) 기준으로 판정한다.
@@ -347,7 +349,7 @@ function condSummaryText(r) {
   return parts.join(' · ')
 }
 
-function rowHtml(r, kind, lg) {
+function rowHtml(r, kind, lg, currentLeague) {
   const price = priceHtml(r.snapshot)
   // optionText: 변형(discriminator) 아이템의 {option,...} 객체를 이름으로 쓰던 옛 레코드 보정 — "[object Object]" 방지
   const nameText = optionText(r.name) || ''
@@ -430,6 +432,13 @@ function rowHtml(r, kind, lg) {
   // 지금 보고 있는 페이지의 리그와 다르다는 것만으론 부족하다: 스탠다드↔하드코어처럼 둘 다 열려 있으면 안 깨졌다.
   // 검색 해시는 조건만 담고 리그는 URL이 정하므로, 조건(query)을 저장하지 않은 옛 북마크도 이관 대상이다.
   const pastLeague = !!(lg && lg.isDead(r.league))
+  // 리그 섹션을 없앤 뒤, '이건 지금 리그가 아니다'를 알리는 유일한 상시 단서.
+  // **다를 때만** 띄운다 — 대부분의 북마크는 지금 리그라 항상 붙이면 노이즈만 된다.
+  // 리그를 판정할 근거가 없으면(currentLeague=null) 조용히 넘어간다: 틀린 표식이 없는 것보다 나쁘다.
+  const otherLeague = !!(r.league && currentLeague && r.league !== currentLeague)
+  const leagueChip = otherLeague
+    ? `<span class="ba-rowleague${pastLeague ? ' past' : ''}" data-tip="${escapeHtml(leagueName + (pastLeague ? PAST_LEAGUE_TIP : OTHER_LEAGUE_TIP))}">${icon('trophy', 10)}<span class="ba-rl-n">${escapeHtml(leagueName)}</span></span>`
+    : ''
   const migrateAct = migratable(r)
     ? `<span class="ba-act relg ba-migrate" data-id="${r.id}">${icon('trophy', 13)}내 리그로 다시 검색</span>`
     : ''
@@ -438,7 +447,7 @@ function rowHtml(r, kind, lg) {
       <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
-    <div class="ba-meta-row">${attn}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
+    <div class="ba-meta-row">${attn}${leagueChip}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
     <div class="ba-actions-pop" hidden>
       <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
       <span class="ba-act live ba-live" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="새 탭에서 열고 거래소의 라이브 검색을 자동으로 켭니다.&#10;조건에 맞는 새 매물이 올라오면 그 탭에 바로 나타나요.">${icon('refresh', 13)}라이브로 열기</span>
@@ -454,9 +463,10 @@ function rowHtml(r, kind, lg) {
 }
 
 // 폴더 하나의 헤더+본문 HTML (리그 섹션 안에서 재사용)
-function folderHtml(g, items, lg, held = items.length) {
-  // held = 이 폴더가 **실제로** 담은 북마크 수. items.length(이 섹션에 보이는 수)와 다를 수 있어 따로 싣는다 —
-  // 삭제 확인은 화면에 보이는 수가 아니라 실제로 잃을 것의 수를 기준으로 물어야 한다(bindAll의 .ba-folder-del 참조).
+function folderHtml(g, items, lg, currentLeague) {
+  // held = 이 폴더가 담은 북마크 수. 삭제 확인이 이 수를 기준으로 묻는다(bindAll의 .ba-folder-del 참조) —
+  // 폴더를 한 벌만 그리게 된 뒤로 화면에 보이는 수와 같지만, 확인의 근거가 '실제로 잃을 것'임을 마크업에 남긴다.
+  const held = items.length
   const fActions =
     g.id !== null
       ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
@@ -477,7 +487,7 @@ function folderHtml(g, items, lg, held = items.length) {
   const countStyle = `color:${folderColor};background:${hexToRgba(folderColor, 0.16)}`
   return `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}" data-folder="${fkey}">
       <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
-      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${saveChip}${items.map((r) => rowHtml(r, 'bookmark', lg)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
+      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${saveChip}${items.map((r) => rowHtml(r, 'bookmark', lg, currentLeague)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
 }
 
@@ -600,12 +610,6 @@ export async function renderList(listEl, root, ui = {}) {
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
   html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
-  // 폴더별 실제 보유 수(리그 무관) — 삭제 확인이 화면에 보이는 수에 속지 않게 한다
-  const heldByFolder = new Map()
-  for (const b of bookmarks) {
-    const k = b.folderId ?? null
-    heldByFolder.set(k, (heldByFolder.get(k) || 0) + 1)
-  }
   const sortItems = (arr) => {
     if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
     if (bmSort === 'name') return [...arr].sort((a, b) => String(a.name || a.title).localeCompare(String(b.name || b.title), 'ko'))
@@ -619,42 +623,17 @@ export async function renderList(listEl, root, ui = {}) {
       <small>좋은 검색을 찾으면 상단 <span class="hl">현재 검색 저장</span>으로<br>북마크해 두고 언제든 다시 열어보세요</small>
     </div>`
   } else {
-    // ── 리그 섹션 (접이식, 북마크 전용) — 끝난 리그만 접어서 아카이브 ──
-    const seen = new Set()
-    const orderedLeagues = [currentLeague || ui.league, ...bookmarks.map((b) => b.league)].filter((l) => l && !seen.has(l) && seen.add(l))
-    for (const league of orderedLeagues) {
-      const dead = lg.isDead(league)
-      const isCurrent = league === currentLeague && !dead // 내가 지금 쓰는 리그(설정 → 페이지 → 최근 검색)
-      const lgBm = bookmarks.filter((b) => (b.league || '') === league)
-      if (!isCurrent && !lgBm.length) continue
-      const key = 'L:' + league
-      // 기본: 열려 있는 리그 펼침 / 끝난 리그 접힘. collapsedLeagues에 키가 있으면 그 기본을 반전.
-      const collapsed = collapsedLeagues.has(key) ? !dead : dead
-      const lgName = lg.name(league)
-      const badge = isCurrent
-        ? '<span class="ba-league-badge current">현재</span>'
-        : dead
-          ? `<span class="ba-league-badge past" data-tip="이미 끝난 리그예요. 링크를 열어도 저장 당시 조건이 그대로 재현되지 않습니다.\n북마크를 열거나 ⋯ → '현재 리그로 다시 검색'을 쓰면 지금 리그로 되살릴 수 있어요.">지난</span>`
-          : ''
-      html += `<div class="ba-league${collapsed ? ' ba-league--collapsed' : ''}" data-league="${escapeHtml(league)}">
-      <div class="ba-league-head" data-key="${escapeHtml(key)}">
-        <span class="ba-league-chevron">${icon('chevronRight', 13)}</span>
-        <span class="ba-league-ic">${icon('trophy', 14)}</span>
-        <span class="ba-league-name">${escapeHtml(lgName)}</span>
-        ${badge}
-        <span class="ba-league-count">${lgBm.length}</span>
-      </div>
-      <div class="ba-league-body">`
-      // 폴더 그룹 (이 리그 북마크).
-      // 현재 리그 섹션은 **빈 폴더도 보여준다** — 새로 만든 폴더는 항상 비어 있어서, 숨기면
-      // '폴더 추가'가 아무 일도 안 한 것처럼 보이고 드래그해 넣을 대상조차 없어진다(사용자 제보).
-      // 지난 리그 섹션은 아카이브라 빈 폴더를 넣지 않는다(조작 대상이 아니고 목록만 길어진다).
-      for (const g of groups) {
-        const items = sortItems(lgBm.filter((b) => (b.folderId ?? null) === g.id))
-        if (!items.length && !isCurrent) continue
-        html += folderHtml(g, items, lg, heldByFolder.get(g.id) || 0)
-      }
-      html += `</div></div>`
+    // ── 폴더 그룹 — 리그와 무관하게 **한 벌만** 그린다 ──
+    // 2026-08-18까지는 리그 섹션마다 폴더 목록을 통째로 다시 그렸다. 폴더는 게임 단위 전역이라
+    // 리그로 나뉘지 않는데도 화면엔 여러 벌이 생겼고, 그중 0개로 보이는 복제본을 지우면 원본이
+    // 통째로 날아갔다(제보 — 같은 폴더 id를 든 삭제 버튼이 여러 개였다).
+    // 리그는 이제 1차 조직 축이 아니다: 북마크는 '리그 무관 조건 + 언제든 재생성 가능한 링크'라
+    // 지금 리그가 아닌 것만 행 단위 칩으로 알리면 충분하다(rowHtml 참조).
+    // 빈 폴더도 보여준다 — 새로 만든 폴더는 항상 비어 있어서, 숨기면 '폴더 추가'가 아무 일도
+    // 안 한 것처럼 보이고 드래그해 넣을 대상조차 없어진다(사용자 제보 2026-07-27).
+    for (const g of groups) {
+      const items = sortItems(bookmarks.filter((b) => (b.folderId ?? null) === g.id))
+      html += folderHtml(g, items, lg, currentLeague)
     }
     // ── 찜한 매물 — 개별 매물. 팔리면 사라지므로 '아직 있나'를 답하는 게 이 섹션의 값어치다.
     //    상태 갱신은 자동으로 하지 않는다(거래소 fetch API에 rate limit) — 사용자가 누를 때만.
@@ -1110,13 +1089,6 @@ function bindAll(listEl, ui, ctx) {
     saveCollapsed()
   }))
 
-  // 리그 헤더 클릭 → 접기/펼치기 (기본 현재 펼침·지난 접힘에서 토글 — collapsedLeagues에 반전 키 기록)
-  listEl.querySelectorAll('.ba-league-head').forEach((head) => head.addEventListener('click', () => {
-    const key = head.dataset.key
-    head.closest('.ba-league').classList.toggle('ba-league--collapsed')
-    if (collapsedLeagues.has(key)) collapsedLeagues.delete(key)
-    else collapsedLeagues.add(key)
-  }))
 
   bindDnD(listEl, toast)
   applyA11y(listEl)
