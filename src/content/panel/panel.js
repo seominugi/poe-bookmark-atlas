@@ -339,7 +339,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
 
   let toastTimer = null
   // action({label, onClick})을 주면 토스트에 버튼이 붙고, 누를 시간을 벌기 위해 더 오래 머문다.
-  // 배열로 주면 버튼이 여러 개 붙는다(업데이트 알림의 '노트 보기' + '더 이상 안 보기').
+  // 배열로 주면 버튼이 여러 개 붙는다(업데이트 알림의 '노트 보기' + '이번엔 넘기기').
   // 텍스트·버튼 모두 DOM API로 넣는다 — 묶음 이름 등 사용자 입력이 들어오므로 innerHTML은 쓰지 않는다.
   const toast = (msg, action = null) => {
     const t = $('ba-toast'); t.textContent = msg
@@ -1278,7 +1278,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // ── 업데이트 알림 ──
   // 자동 업데이트는 사용자가 모르는 사이 일어난다. 그 순간 창을 띄우면 전체화면 게임의 포커스를 뺏을 수
   // 있는데(확장은 게임 실행 여부를 알 수 없다), **거래소를 보고 있다 = 브라우저 앞에 있다**는 뜻이라
-  // 여기서 말을 건다. '노트 보기'나 '더 이상 안 보기'를 누르기 전까지 계속 알린다(사용자 결정 2026-08-18).
+  // 여기서 말을 건다. 둘 중 하나를 누르기 전까지 계속 알린다(사용자 결정 2026-08-18).
+  // 감추는 것은 **이번 버전만**이다 — seen 에 현재 버전을 적으므로 다음 릴리즈에는 다시 뜬다.
+  // 그래서 라벨이 '더 이상 안 보기' 가 아니라 '이번엔 넘기기' 다(영구 중단으로 읽히면 안 된다).
   ;(async () => {
     const UPDATE_SEEN_KEY = 'updateNotesSeen'
     const v = chrome.runtime.getManifest().version
@@ -1288,7 +1290,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     toast(`새 버전 v${v} — 무엇이 바뀌었는지 확인해 보세요.`, [
       // 창을 열면 update.js 가 본 것으로 기록한다. 창이 안 열렸으면 다시 알리는 편이 맞다.
       { label: '노트 보기', onClick: () => { Promise.resolve(chrome.runtime.sendMessage({ type: 'ba-open-update' })).catch(() => {}) } },
-      { label: '더 이상 안 보기', onClick: () => { try { chrome.storage.local.set({ [UPDATE_SEEN_KEY]: v }) } catch (_) {} } },
+      { label: '이번엔 넘기기', onClick: () => { try { chrome.storage.local.set({ [UPDATE_SEEN_KEY]: v }) } catch (_) {} } },
     ])
   })()
 

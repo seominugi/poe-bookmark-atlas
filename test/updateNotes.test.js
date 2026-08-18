@@ -63,3 +63,36 @@ describe('UPDATE_NOTES 데이터', () => {
     }
   })
 })
+
+// ── 릴리즈마다 반드시 뜨게 하는 장치 ────────────────────────────
+// 알림은 `seen < 설치된 버전` 일 때만 뜬다. 그래서 **버전만 올리고 노트를 안 적으면
+// 조용히 아무것도 안 뜬다** — 실패가 눈에 안 보이는 종류라 사람 기억에 맡길 수 없다.
+describe('릴리즈 알림 보장', () => {
+  it('설치된 버전(manifest)의 노트가 반드시 있다 — 없으면 업데이트해도 안 뜬다', async () => {
+    const manifest = (await import('../manifest.json')).default
+    const hit = UPDATE_NOTES.find((n) => n.version === manifest.version)
+    expect(
+      hit,
+      `manifest 는 v${manifest.version} 인데 그 버전 노트가 없습니다. ` +
+      'src/lib/updateNotes.js 맨 앞에 항목을 추가하세요(안 그러면 업데이트 알림이 조용히 안 뜹니다).',
+    ).toBeTruthy()
+  })
+
+  it('노트를 감춰도 다음 릴리즈에는 다시 뜬다 — 감추기는 그 버전 한정이다', () => {
+    const N = [
+      { version: '0.9.3', date: '2026-09-01', body: '다음' },
+      { version: '0.9.2', date: '2026-08-18', body: '지금' },
+    ]
+    expect(hasUnseen('0.9.2', '0.9.2', N)).toBe(false) // '이번엔 넘기기' 를 누른 직후
+    expect(hasUnseen('0.9.2', '0.9.3', N)).toBe(true) // 다음 버전이 깔리면 다시
+  })
+
+  it('스토어 미출시 버전은 알림을 유발하지 않는다 — 사용자에게 설치되지 않는다', () => {
+    const N = [
+      { version: '0.8.0', date: '2026-08-16', store: false, body: 'GitHub 전용' },
+      { version: '0.7.0', date: '2026-08-14', body: '출시' },
+    ]
+    // 설치된 버전은 0.7.0 이므로 0.8.0 은 애초에 후보에 들지 않는다(notesSince 의 current 상한).
+    expect(hasUnseen('0.7.0', '0.7.0', N)).toBe(false)
+  })
+})
