@@ -42,6 +42,7 @@ document.getElementById('app').innerHTML = `
     <div class="pop-cta">
       <button class="pop-btn pop-btn--primary" id="pop-toggle">${icon('bookmark', 15)}패널 열기 / 접기</button>
       <button class="pop-btn pop-btn--ghost" id="pop-tour">${icon('sparkle', 14)}사용법 가이드 다시 보기</button>
+      <button class="pop-btn pop-btn--ghost" id="pop-notes">${icon('external', 14)}업데이트 노트 보기</button>
       <button class="pop-btn pop-btn--ghost" id="pop-global" hidden></button>
     </div>
     <div class="pop-foot">
@@ -117,4 +118,9 @@ globalBtn.onclick = async () => {
   } catch (_) {}
 }
 renderGlobalBtn()
+// 전체 이력을 연다(?all=1) — 토스트를 놓쳤거나 예전 것을 다시 보고 싶을 때의 문.
+$('pop-notes').onclick = async () => {
+  try { await chrome.runtime.sendMessage({ type: 'ba-open-update', all: true }) } catch (_) {}
+  window.close()
+}
 $('pop-shortcuts').onclick = () => { chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }); window.close() }

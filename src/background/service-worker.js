@@ -58,6 +58,22 @@ async function handleOpenTab(msg) {
   return { ok: true }
 }
 
+// 업데이트 노트 창 — 팝업/콘텐츠 스크립트 어디서 요청하든 여기서 연다.
+// 탭이 아니라 창인 이유: 거래소 탭을 밀어내지 않아야 하고, 읽고 닫으면 원래 하던 일로 바로 돌아간다.
+const UPDATE_SEEN_KEY = 'updateNotesSeen'
+async function handleOpenUpdate(msg) {
+  const url = chrome.runtime.getURL('src/update/update.html') + (msg && msg.all ? '?all=1' : '')
+  await chrome.windows.create({ url, type: 'popup', width: 660, height: 720 })
+  return { ok: true }
+}
+
+// 새로 설치한 사용자에게는 지난 노트를 띄우지 않는다 — 처음 쓰는 사람에게 '무엇이 바뀌었는지'는 의미가 없고,
+// 가이드 투어가 그 자리를 맡는다. 업데이트(reason='update')일 때는 **건드리지 않아야** 토스트가 뜬다.
+chrome.runtime.onInstalled.addListener(async (details) => {
+  if (details.reason !== 'install') return
+  try { await chrome.storage.local.set({ [UPDATE_SEEN_KEY]: chrome.runtime.getManifest().version }) } catch (_) {}
+})
+
 chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   ;(async () => {
     try {
@@ -65,6 +81,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
       else if (msg && msg.type === 'ba-convert') sendResponse(await handleConvert(msg))
       else if (msg && msg.type === 'ba-open-tab') sendResponse(await handleOpenTab(msg))
       else if (msg && msg.type === 'ba-fetch-en') sendResponse(await handleFetchEn(msg))
+      else if (msg && msg.type === 'ba-open-update') sendResponse(await handleOpenUpdate(msg))
       else sendResponse({ ok: false, error: 'unknown message' })
     } catch (e) {
       sendResponse({ ok: false, error: String(e) })

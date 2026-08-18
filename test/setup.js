@@ -20,7 +20,7 @@ globalThis.chrome = {
       async clear() { mem.clear() },
     },
   },
-  runtime: { sendMessage: async () => ({}), onMessage: { addListener() {} }, getURL: (p) => p },
+  runtime: { sendMessage: async () => ({}), onMessage: { addListener() {} }, getURL: (p) => p, getManifest: () => ({ version: '0.9.2' }) },
 }
 globalThis.__resetChromeMock = () => mem.clear()
 // 저장소 변경 구독(onChanged)을 검증할 때 쓰는 수동 발화기.
