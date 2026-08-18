@@ -2,6 +2,7 @@
 // 여기까지 왔다는 것은 사용자가 "보겠다"고 누른 것이므로, **여는 즉시 본 것으로 기록**한다.
 // (토스트의 '더 이상 안 보기'도 같은 키를 쓴다 — 어느 쪽이든 다시 뜨지 않는다.)
 import { notesSince, cmpVersion } from '../lib/updateNotes.js'
+import { mockHtml } from './mockups.js'
 
 const SEEN_KEY = 'updateNotesSeen'
 const version = chrome.runtime.getManifest().version
@@ -37,6 +38,10 @@ export function mdToHtml(md) {
     if (/^#{3}\s+/.test(line)) { flushAll(); out.push(`<h4>${inline(line.replace(/^#{3}\s+/, ''))}</h4>`); continue }
     if (/^#{2}\s+/.test(line)) { flushAll(); out.push(`<h3>${inline(line.replace(/^#{2}\s+/, ''))}</h3>`); continue }
     if (/^(-{3,}|\*{3,})$/.test(line.trim())) { flushAll(); out.push('<hr>'); continue }
+    // 목업 지시자 — 글로만 읽으면 위치를 알 수 없는 기능에 그림을 붙인다(mockups.js).
+    // 키를 몰라도 **지시자 형태면 지운다** — 오타가 화면에 글자로 새는 것이 가장 나쁘다.
+    const mk = line.trim().match(/^\[\[mock:([^\]]+)\]\]$/)
+    if (mk) { flushAll(); out.push(mockHtml(mk[1])); continue }
     if (/^-\s+/.test(line)) { flushPara(); flushQuote(); list.push(line.replace(/^-\s+/, '')); continue }
     if (/^&gt;\s*/.test(line)) { flushPara(); flushList(); const q = line.replace(/^&gt;\s*/, ''); if (q) quote.push(q); continue }
     flushList(); flushQuote(); para.push(line)

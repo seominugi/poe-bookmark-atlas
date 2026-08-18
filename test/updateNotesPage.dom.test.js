@@ -87,3 +87,33 @@ describe('mdToHtml — 릴리즈 노트 문법', () => {
     expect(mdToHtml(null)).toBe('')
   })
 })
+
+describe('목업 지시자', () => {
+  const p = (md) => { const d = document.createElement('div'); d.innerHTML = mdToHtml(md); return d }
+
+  it('[[mock:키]] 는 목업으로 치환된다', () => {
+    const el = p('앞 문단\n\n[[mock:live-open]]\n\n뒤 문단')
+    const fig = el.querySelector('figure.up-mock')
+    expect(fig).toBeTruthy()
+    expect(fig.querySelector('figcaption')).toBeTruthy()
+    expect(el.textContent).toContain('라이브로 열기')
+    expect(el.textContent).not.toContain('[[mock:') // 지시자가 글자로 새지 않는다
+  })
+
+  it('모르는 키는 조용히 무시한다 — 노트가 깨지는 것보다 낫다', () => {
+    const el = p('앞\n\n[[mock:없는키]]\n\n뒤')
+    expect(el.querySelector('figure.up-mock')).toBeNull()
+    expect(el.textContent).not.toContain('[[mock:')
+    expect(el.textContent).toContain('앞')
+    expect(el.textContent).toContain('뒤')
+  })
+
+  it('실제 노트에 심어둔 목업이 모두 정의돼 있다', async () => {
+    const { UPDATE_NOTES } = await import('../src/lib/updateNotes.js')
+    const { MOCKUPS } = await import('../src/update/mockups.js')
+    const used = new Set()
+    for (const n of UPDATE_NOTES) for (const m of n.body.matchAll(/\[\[mock:([a-z0-9-]+)\]\]/g)) used.add(m[1])
+    expect(used.size).toBeGreaterThan(0)
+    expect([...used].filter((k) => !MOCKUPS[k])).toEqual([]) // 오타로 빈 자리가 생기지 않게
+  })
+})

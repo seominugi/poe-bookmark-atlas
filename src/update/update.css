@@ -88,3 +88,60 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .up-btn:active { transform: none; }
 }
+
+/* ── 목업 (update/mockups.js) ────────────────────────────────
+   실제 패널을 축약해 흉내낸다 — 진짜 패널 CSS 는 Shadow DOM 안이라 여기서 쓸 수 없다.
+   픽셀을 맞추는 게 아니라 **위치와 관계**를 보이는 게 목적이다. */
+.up-mock { margin: 4px 0 16px; padding: 0; }
+.up-mock figcaption { margin-top: 8px; font-size: 11.5px; color: #7c75a3; line-height: 1.6; }
+.up-mock figcaption b { color: #a78bfa; font-weight: 700; }
+.up-mock svg { display: block; flex: none; }
+
+.mk-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(167, 139, 250, 0.18);
+  border-radius: 10px; padding: 9px 11px; margin-bottom: 6px;
+}
+.mk-line { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #d8d3ee; }
+.mk-line + .mk-line { margin-top: 6px; }
+.mk-sub { padding-left: 2px; }
+.mk-ic { color: #6f6893; }
+.mk-open { display: inline-flex; align-items: center; gap: 5px; flex: 1; min-width: 0; color: #e6e3f5; }
+.mk-open b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-price { flex: none; font-size: 11px; font-weight: 700; color: #fde68a; }
+.mk-more { flex: none; color: #9b94bd; }
+.mk-chip {
+  display: inline-flex; align-items: center; gap: 5px; flex: none;
+  font-size: 10.5px; color: #a5b4fc;
+  background: rgba(167, 139, 250, 0.1); border: 1px solid rgba(167, 139, 250, 0.22);
+  border-radius: 8px; padding: 3px 8px;
+}
+.mk-chip--tight { padding: 3px 6px; }
+
+/* 강조 — 이 기능이 '어디'인지 가리키는 자리 */
+.mk-point { color: #0b0a16 !important; background: #c4b5fd; border-radius: 7px; padding: 2px 5px; }
+.mk-act.mk-point { background: rgba(196, 181, 253, 0.22); color: #fff !important; font-weight: 700; }
+
+.mk-pop {
+  margin-top: 8px; padding: 5px;
+  background: rgba(20, 18, 34, 0.9);
+  border: 1px solid rgba(167, 139, 250, 0.22); border-radius: 9px;
+  display: flex; flex-direction: column; gap: 1px;
+}
+.mk-act { display: flex; align-items: center; gap: 7px; font-size: 11.5px; color: #c6bfe4; padding: 6px 8px; border-radius: 6px; }
+
+.mk-set { display: flex; align-items: center; gap: 10px; }
+.mk-set-lbl { flex: 1; font-size: 12.5px; font-weight: 700; color: #e6e3f5; }
+.mk-seg { display: inline-flex; flex: none; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(167, 139, 250, 0.2); border-radius: 9px; overflow: hidden; }
+.mk-opt { font-size: 11.5px; font-weight: 700; color: #9b94bd; padding: 6px 12px; }
+.mk-opt.is-on { color: #0b0a16; background: #c4b5fd; }
+
+.mk-pair { display: flex; gap: 12px; align-items: flex-start; }
+.mk-side { flex: 1; min-width: 0; }
+.mk-side-lbl { font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; color: #7c75a3; margin-bottom: 7px; text-transform: uppercase; }
+.mk-note { margin-top: 7px; font-size: 11px; color: #8a83ab; line-height: 1.6; }
+.mk-note b { color: #c4b5fd; font-weight: 700; }
+
+@media (max-width: 520px) {
+  .mk-pair { flex-direction: column; }
+}
