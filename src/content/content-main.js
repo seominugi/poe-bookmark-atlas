@@ -229,8 +229,9 @@ async function fetchEnItem(id) {
   } catch (_) { return { item: null, reason: 'network' } }
 }
 
-// 권한이 없으면 영문 원본을 못 받아 **조용히** 기존 번역으로 떨어진다. 그러면 사용자는 더 나은
-// 경로가 있다는 걸 영영 모른다 — 한 번은 알려야 한다.
+// 영문 거래소는 기본 권한(host_permissions)이라 보통 여기 오지 않는다. 오는 경우는 사용자가
+// 크롬에서 이 확장의 사이트 접근을 직접 내렸을 때다. 그때 **조용히** 번역으로 떨어지면
+// 사용자는 왜 결과가 나빠졌는지 영영 모른다(제보 2026-08-18) — 한 번은 알려야 한다.
 // ⚠ 매번 띄우지 않는다. PoB 복사는 반복 동작이라 클릭마다 토스트가 뜨면 잔소리가 된다.
 // ⚠ 여기서 권한을 직접 요청할 수 없다 — chrome.permissions 는 콘텐츠 스크립트에 없고,
 //   permissions.request 는 확장 페이지의 사용자 제스처에서만 통한다. 그래서 팝업으로 안내한다.
@@ -238,7 +239,7 @@ let enPermNoticed = false
 function noticeEnPermission() {
   if (enPermNoticed) return
   enPermNoticed = true
-  panel.toast('확장 프로그램 아이콘 → "영문 거래소에서도 사용"을 켜면 PoB 복사가 거래소 영문 원본 그대로 나갑니다. 지금은 번역본으로 복사했어요.')
+  panel.toast('이 확장의 영문 거래소(pathofexile) 접근이 꺼져 있어요. 확장 아이콘 → "접근 다시 켜기"를 누르면 PoB 복사가 영문 원본 그대로 나갑니다. 지금은 번역본으로 복사했어요.')
 }
 
 async function pobCopy(item, btn, id) {

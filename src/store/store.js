@@ -547,12 +547,44 @@ export async function moveConditionSetBefore(id, beforeId) {
   await writeSets(sets)
 }
 
-/** 폴더 삭제 — 해당 폴더의 북마크는 미분류(folderId=null)로 */
+/**
+ * 폴더 삭제 — 해당 폴더의 북마크는 미분류(folderId=null)로.
+ * 되살릴 재료를 함께 돌려준다(실행취소용): 폴더 레코드 · 목록에서의 원래 자리 · 미분류로 밀려난 북마크 id.
+ * 폴더 이름·색은 여기서만 남으므로 되돌리려면 이 스냅샷이 있어야 한다.
+ * @returns {Promise<{folder: object, index: number, movedIds: string[]}|null>} 없는 폴더면 null
+ */
 export async function deleteFolder(id) {
-  await writeFolders((await readFolders()).filter((f) => f.id !== id))
+  const folders = await readFolders()
+  const index = folders.findIndex((f) => f.id === id)
+  if (index < 0) return null
+  const [folder] = folders.splice(index, 1)
+  await writeFolders(folders)
+  const all = await readAll()
+  const movedIds = []
+  for (const r of all) if (r.kind === 'bookmark' && r.folderId === id) { r.folderId = null; movedIds.push(r.id) }
+  if (movedIds.length) await writeAll(all)
+  return { folder, index, movedIds }
+}
+
+/**
+ * 폴더 삭제 실행취소 — 폴더를 원래 자리에 되살리고 미분류로 밀려났던 북마크를 되돌린다.
+ * 되돌리는 대상은 **아직 미분류인 북마크뿐**이다: 삭제 후 사용자가 직접 다른 폴더에 넣었다면
+ * 그 분류가 더 최신 의사라 덮어쓰지 않는다.
+ * @param {{folder: object, index: number, movedIds: string[]}|null} snapshot deleteFolder의 반환값
+ */
+export async function restoreFolder(snapshot) {
+  if (!snapshot || !snapshot.folder || !snapshot.folder.id) return
+  const { folder, index, movedIds } = snapshot
+  const folders = await readFolders()
+  if (!folders.some((f) => f.id === folder.id)) {
+    folders.splice(Math.max(0, Math.min(index ?? folders.length, folders.length)), 0, folder)
+    await writeFolders(folders)
+  }
+  const ids = new Set(movedIds || [])
+  if (!ids.size) return
   const all = await readAll()
   let changed = false
-  for (const r of all) if (r.kind === 'bookmark' && r.folderId === id) { r.folderId = null; changed = true }
+  for (const r of all) if (ids.has(r.id) && (r.folderId ?? null) === null) { r.folderId = folder.id; changed = true }
   if (changed) await writeAll(all)
 }
 

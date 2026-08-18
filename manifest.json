@@ -14,10 +14,8 @@
   ],
   "host_permissions": [
     "https://poe.kakaogames.com/*",
+    "https://www.pathofexile.com/*",
     "https://seominugi.com/*"
-  ],
-  "optional_host_permissions": [
-    "https://www.pathofexile.com/*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.js",

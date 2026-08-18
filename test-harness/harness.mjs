@@ -20,7 +20,9 @@ globalThis.chrome = {
       removeListener(fn) { const i = changeListeners.indexOf(fn); if (i >= 0) changeListeners.splice(i, 1) },
     },
   },
-  runtime: { sendMessage: async () => ({ ok: false }), onMessage: { addListener() {} }, getURL: (p) => p, getManifest: () => ({ version: '0.0.0-harness' }) },
+  // 버전은 UPDATE_NOTES 의 최신 항목 이상이어야 업데이트 토스트가 뜬다(notesSince 가 미배포 노트를 거른다).
+  // 하네스는 '릴리즈된 뒤'를 흉내 내는 자리라 노트 최신 버전을 그대로 쓴다.
+  runtime: { sendMessage: async (m) => { globalThis.__msgs = (globalThis.__msgs || []).concat(m); return { ok: true } }, onMessage: { addListener() {} }, getURL: (p) => p, getManifest: () => ({ version: '0.9.2' }) },
 }
 
 const { addBookmark, addHistory, addFolder } = await import('../src/store/store.js')

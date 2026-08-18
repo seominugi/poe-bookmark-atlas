@@ -8,7 +8,7 @@ import {
   backfillQuery, migrateBookmarkLeague, needsTourDemo, seedDemoData, clearDemoData,
   needsConditionSetDemo, seedDemoSets, clearDemoSets,
   listConditionSets, addConditionSet, removeConditionSet, renameConditionSet, moveConditionSet, moveBookmarks,
-  moveConditionSetBefore, restoreConditionSet,
+  moveConditionSetBefore, restoreConditionSet, restoreFolder,
 } from '../src/store/store.js'
 import { searchIdentity } from '../src/lib/searchParser.js'
 
@@ -135,6 +135,46 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
     await moveBookmark(a.id, { folderId: f.id })
     await deleteFolder(f.id)
     expect((await listByKind('bookmark'))[0].folderId).toBeNull()
+  })
+
+  it('폴더 삭제는 되살릴 재료를 돌려준다 — 폴더·원래 자리·미분류로 보낸 북마크', async () => {
+    await addFolder('앞', 'poe2')
+    const f = await addFolder('갑옷', 'poe2')
+    await addFolder('뒤', 'poe2')
+    const a = await addBookmark(rec(), 'A')
+    const b = await addBookmark(rec({ dedupeKey: 'k2' }), 'B')
+    await moveBookmark(a.id, { folderId: f.id })
+    const snap = await deleteFolder(f.id)
+    expect(snap.folder.id).toBe(f.id)
+    expect(snap.folder.name).toBe('갑옷')
+    expect(snap.index).toBe(1) // 원래 자리(앞·갑옷·뒤 중 두 번째)
+    expect(snap.movedIds).toEqual([a.id]) // 미분류로 밀려난 북마크만
+    expect(await deleteFolder(f.id)).toBeNull() // 이미 없는 폴더
+    expect(b.folderId).toBeNull()
+  })
+
+  it('restoreFolder: 폴더를 원래 자리에 되살리고 북마크도 되돌린다', async () => {
+    await addFolder('앞', 'poe2')
+    const f = await addFolder('갑옷', 'poe2')
+    await addFolder('뒤', 'poe2')
+    const a = await addBookmark(rec(), 'A')
+    await moveBookmark(a.id, { folderId: f.id })
+    const snap = await deleteFolder(f.id)
+    await restoreFolder(snap)
+    expect((await listFolders('poe2')).map((x) => x.name)).toEqual(['앞', '갑옷', '뒤'])
+    expect((await listFolders('poe2'))[1].color).toBe(f.color) // 색까지 그대로
+    expect((await listByKind('bookmark')).find((x) => x.id === a.id).folderId).toBe(f.id)
+  })
+
+  it('restoreFolder: 되살린 뒤 사용자가 다른 폴더로 옮긴 북마크는 건드리지 않는다', async () => {
+    const f = await addFolder('갑옷', 'poe2')
+    const other = await addFolder('무기', 'poe2')
+    const a = await addBookmark(rec(), 'A')
+    await moveBookmark(a.id, { folderId: f.id })
+    const snap = await deleteFolder(f.id)
+    await moveBookmark(a.id, { folderId: other.id }) // 삭제 후 사용자가 직접 분류
+    await restoreFolder(snap)
+    expect((await listByKind('bookmark')).find((x) => x.id === a.id).folderId).toBe(other.id)
   })
 
   it('game 스코프: 북마크·폴더가 게임별로 분리', async () => {
