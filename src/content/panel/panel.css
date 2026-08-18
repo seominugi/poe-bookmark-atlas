@@ -492,6 +492,9 @@
 .ba-over:hover { color: #bae6fd; background: var(--ba-blue-soft); border-color: var(--ba-blue-line); }
 .ba-rename:hover, .ba-folder-rename:hover { color: #ddd6fe; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 .ba-del:hover, .ba-folder-del:hover, .ba-hist-del:hover { color: #fecdd3; background: var(--ba-danger-soft); border-color: var(--ba-danger-line); }
+/* 삭제 대기(한 번 더 누르면 삭제) — 폭은 그대로 두고 색만 바꾼다. 폴더 헤더 안이라 폭이 변하면 줄이 흔들린다.
+   무엇을 지우려는지는 토스트가 말한다(.ba-clean-stale/.ba-clear-hist의 armed와 같은 로즈 톤). */
+.ba-folder-del.armed { color: #fecdd3; background: rgba(244, 63, 94, 0.32); border-color: #f43f5e; }
 .ba-folder-export:hover { color: #9fe0ea; background: rgba(108,197,212,0.14); border-color: rgba(108,197,212,0.45); }
 /* 검색 링크 복사 (선택: .ba-copy 마크업 시) — 시안 */
 .ba-copy {

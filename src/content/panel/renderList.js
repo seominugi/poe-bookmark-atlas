@@ -1,6 +1,6 @@
 import {
   listByKind, listFolders, moveBookmark, overwriteBookmark,
-  addFolder, renameFolder, deleteFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, findBookmark,
+  addFolder, renameFolder, deleteFolder, restoreFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
   migrateBookmarkLeague, moveBookmarks,
   listWatched, removeWatch, applyWatchStatus,
@@ -454,10 +454,12 @@ function rowHtml(r, kind, lg) {
 }
 
 // 폴더 하나의 헤더+본문 HTML (리그 섹션 안에서 재사용)
-function folderHtml(g, items, lg) {
+function folderHtml(g, items, lg, held = items.length) {
+  // held = 이 폴더가 **실제로** 담은 북마크 수. items.length(이 섹션에 보이는 수)와 다를 수 있어 따로 싣는다 —
+  // 삭제 확인은 화면에 보이는 수가 아니라 실제로 잃을 것의 수를 기준으로 물어야 한다(bindAll의 .ba-folder-del 참조).
   const fActions =
     g.id !== null
-      ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
+      ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
       : ''
   // 현재 거래소 검색을 이 폴더에 바로 저장 — 본문 하단 전체폭 칩(시인성↑). 저장 다이얼로그가 이 폴더를 미리 선택한 채 열림
   const saveChip = `<button class="ba-folder-savechip" data-id="${g.id ?? ''}" data-tip="현재 거래소 검색을 이 폴더에 저장">${icon('plus', 13)}이 폴더에 현재 검색 저장</button>`
@@ -598,6 +600,12 @@ export async function renderList(listEl, root, ui = {}) {
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
   html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
+  // 폴더별 실제 보유 수(리그 무관) — 삭제 확인이 화면에 보이는 수에 속지 않게 한다
+  const heldByFolder = new Map()
+  for (const b of bookmarks) {
+    const k = b.folderId ?? null
+    heldByFolder.set(k, (heldByFolder.get(k) || 0) + 1)
+  }
   const sortItems = (arr) => {
     if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
     if (bmSort === 'name') return [...arr].sort((a, b) => String(a.name || a.title).localeCompare(String(b.name || b.title), 'ko'))
@@ -644,7 +652,7 @@ export async function renderList(listEl, root, ui = {}) {
       for (const g of groups) {
         const items = sortItems(lgBm.filter((b) => (b.folderId ?? null) === g.id))
         if (!items.length && !isCurrent) continue
-        html += folderHtml(g, items, lg)
+        html += folderHtml(g, items, lg, heldByFolder.get(g.id) || 0)
       }
       html += `</div></div>`
     }
@@ -1043,9 +1051,34 @@ function bindAll(listEl, ui, ctx) {
     })
     input.addEventListener('blur', () => commit(true))
   }))
-  listEl.querySelectorAll('.ba-folder-del').forEach((s) => s.addEventListener('click', async () => {
-    await deleteFolder(s.dataset.id); changed()
-  }))
+  // 🗑 폴더 삭제 — 담긴 게 있으면 2클릭(3초 내), 지운 뒤엔 언제나 실행취소.
+  // 확인 기준은 **화면에 보이는 개수가 아니라 폴더가 실제로 담은 수**(data-count)다: 같은 폴더가
+  // 다른 섹션에서 0개로 보일 수 있고, 그 '빈' 복제본을 지워 원본이 통째로 날아간 제보가 있었다(2026-08-18).
+  // 확인만으론 그 사고를 못 막는다(사용자는 빈 폴더인 줄 알고 눌렀다) — 그래서 무엇이 지워졌는지 말해주고,
+  // 되돌릴 수단을 함께 준다(조건 묶음 삭제와 같은 언어).
+  listEl.querySelectorAll('.ba-folder-del').forEach((s) => {
+    let armTimer = null
+    const disarm = () => { clearTimeout(armTimer); armTimer = null; s.classList.remove('armed') }
+    s.addEventListener('click', async () => {
+      const held = Number(s.dataset.count || 0)
+      const name = s.dataset.name || ''
+      if (held > 0 && !armTimer) {
+        s.classList.add('armed')
+        armTimer = setTimeout(disarm, 3000)
+        toast(`"${name}" 폴더에 북마크 ${held}개가 있어요. 한 번 더 누르면 삭제합니다.`)
+        return
+      }
+      disarm()
+      const snap = await deleteFolder(s.dataset.id)
+      changed()
+      if (!snap) return
+      const moved = snap.movedIds.length
+      toast(`"${name}" 폴더를 삭제했어요.${moved ? ` 북마크 ${moved}개는 미분류로 옮겼어요.` : ''}`, {
+        label: '실행취소',
+        onClick: async () => { await restoreFolder(snap); changed(); toast(`"${name}" 폴더를 되살렸어요.`) },
+      })
+    })
+  })
 
   // 폴더 색 아이콘 클릭 → 헤더 아래 색 그리드 토글(프리셋 10색 중 선택)
   listEl.querySelectorAll('.ba-folder-ic[data-id]').forEach((d) => d.addEventListener('click', (e) => {
