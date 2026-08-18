@@ -48,7 +48,12 @@ async function render() {
   const app = document.getElementById('app')
   if (!app) return // 이 모듈을 페이지 밖에서 import 한 경우(테스트) — 부트스트랩은 건너뛴다
   app.innerHTML = notesHtml(list, version, icon128)
-  document.getElementById('up-close').onclick = () => window.close()
+  // 탭으로 열리므로 window.close() 는 통하지 않는다(스크립트가 연 창에서만 허용) — 탭을 닫는다.
+  document.getElementById('up-close').onclick = () => {
+    Promise.resolve(chrome.tabs.getCurrent())
+      .then((t) => (t ? chrome.tabs.remove(t.id) : window.close()))
+      .catch(() => window.close())
+  }
 }
 
 // 본 것으로 기록 — 렌더보다 먼저 읽어야 하므로 렌더가 끝난 뒤에 쓴다.

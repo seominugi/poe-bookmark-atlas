@@ -58,12 +58,14 @@ async function handleOpenTab(msg) {
   return { ok: true }
 }
 
-// 업데이트 노트 창 — 팝업/콘텐츠 스크립트 어디서 요청하든 여기서 연다.
-// 탭이 아니라 창인 이유: 거래소 탭을 밀어내지 않아야 하고, 읽고 닫으면 원래 하던 일로 바로 돌아간다.
+// 업데이트 노트 — 팝업/콘텐츠 스크립트 어디서 요청하든 여기서 연다.
+// **새 탭**으로 연다(2026-08-18 사용자 결정). 처음엔 팝업 창(windows.create)이었는데, 창은 크기가
+// 고정이라 노트가 적으면 화면이 휑하고 사용자가 창 관리(이동·최소화)를 떠안는다. 탭은 브라우저
+// 관례대로 동작하고 거래소 탭도 그대로 남는다.
 const UPDATE_SEEN_KEY = 'updateNotesSeen'
 async function handleOpenUpdate(msg) {
   const url = chrome.runtime.getURL('src/update/update.html') + (msg && msg.all ? '?all=1' : '')
-  await chrome.windows.create({ url, type: 'popup', width: 660, height: 720 })
+  await chrome.tabs.create({ url })
   return { ok: true }
 }
 
