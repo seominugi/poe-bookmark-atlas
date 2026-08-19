@@ -1,5 +1,5 @@
 ---
-timestamp: 2026-08-18 (Asia/Seoul)
+timestamp: 2026-08-20 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
@@ -255,6 +255,36 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 0.2.0 스토어 심사 **통과**(2026-07-04 확인). 피드백 3건(작업1·2·3) 모두 기능 구현 완료. **사용자 방침(2026-07-04): "번역 100% 완벽 안 된 상태 인정하고, 미진한 부분은 추후 보완"** — Shift+클릭 수동 제보 기능이 그 보완 파이프라인. 이후 가이드 투어 화살표·키보드 네비·리그 노출 라운드까지 마침. **0.3.0 준비 완료** — 버전 범프(manifest·package 0.3.0)·`deploy/poe-bookmark-atlas-0.3.0.zip`·GitHub 릴리즈 3종 생성. **다음: 사용자가 스토어에 0.3.0 심사 제출 예정.**
 
 ## 완료된 작업
+
+### 전역 FE 지침 브릿지 + AGENTS.md 포인터 (2026-08-20, `develop` 직접)
+
+커밋 `be777cc`(CLAUDE.md FE 절) · `81c225c`(AGENTS.md). 코드 변경 없음 — 지침 문서만.
+
+**왜**: 전역에 FE 공통 엔지니어링 지침(`~/.claude/docs/frontend-engineering.md` · 전역 `CLAUDE.md §24`)이
+새로 생겼다. Domain Core / Use Case / Adapter / Presentation 으로 말하는 문서라, 이 repo 의 MV3 구조로
+번역하지 않으면 세션마다 같은 추론을 다시 한다.
+
+**계층 매핑을 `CLAUDE.md` 에 고정했다**
+
+| 전역 FE 문서 | 이 repo |
+|---|---|
+| Domain Core | `src/lib/` — id 매핑·PoB 변환·거래소 쿼리 조립 |
+| Application Use Case | `src/lib/` 진입 함수 + `src/background/` 메시지 핸들러 |
+| Port·Adapter | `src/background/`(유일한 크로스-오리진 I/O 경계) · `src/store/`(chrome.storage) · `src/update/` |
+| Presentation | `src/content/`·`src/content/panel/` · `src/popup/` |
+
+함께 못박은 것 — **호스트 결정을 Domain 에 고정하지 않는다**(`tradeApiOrigin()` 이 사용자가 보고 있는
+호스트를 허용 목록으로 검증), **콘텐츠 스크립트에서 거래소 API 직접 호출 금지**(CORS 상 서비스 워커가
+유일 경로), 콘텐츠/팝업/워커에 같은 규칙 복제 금지, 기본 `host_permissions` 승격은 스토어 업데이트 시
+기존 사용자 1회 재승인을 유발하므로 릴리즈 노트 안내 필수.
+
+**closed loop**: `npm test`(vitest) → `npm run build` → `chrome://extensions` 압축해제 로드 →
+**'POE 브라우저'(테스트 전용)에서 패널 실측**. ⏳ 글로벌(GGG) 경로는 한국 IP 에서 end-to-end 검증 불가 —
+검증한 것과 못 한 것을 작업 보고에 구분해 남기라고 적어 뒀다.
+
+**`AGENTS.md` 8줄 포인터**: Claude Code 는 `CLAUDE.md` 만, Codex 는 `AGENTS.md` 만 자동 로드한다.
+이 파일이 없어서 **Codex 세션은 이 repo 의 프로젝트 지침을 하나도 못 읽고 있었다.** 포인터만 두고 규칙은
+`CLAUDE.md` 에만 적는다 — 양쪽에 나눠 적으면 두 도구가 서로 다른 지침을 읽고 조용히 갈라진다.
 
 ### 업데이트 노트 페이지 — 새 버전에 무엇이 바뀌었는지 알리기 (2026-08-18, 브랜치 `claude/folder-duplicate-deletion-bug-220309`)
 
@@ -1160,6 +1190,7 @@ net 은 "무효화 이후 사용자가 패널 버튼을 누른" 더 좁은 경�
 
 ## 현재 상태
 
+- **프로젝트 지침 (2026-08-20)**: 정본은 루트 `CLAUDE.md`, `AGENTS.md` 는 그것을 가리키는 8줄 포인터다. **프로젝트 규칙을 `AGENTS.md` 에 적지 말 것** — Claude Code 와 Codex 가 서로 다른 파일을 읽어 갈라진다. FE 계층 매핑·closed loop 는 `CLAUDE.md` 의 "전역 FE 지침(§24) 적용" 절
 - **2026-08-18 작업 develop 반영 완료** — [PR #1](https://github.com/seominugi/poe-bookmark-atlas/pull/1) 머지(`f00a55a`). 폴더 삭제 사고(`7faf159`·`4e33b86`) · 핸드오프 archive(`14cfe4f`) · 영문 거래소 기본 권한(`6d81db1`) · 업데이트 노트(`270e75c`) · 헤더 태그라인 제거(`31dd389`). 테스트 **521/521** · 빌드 통과. **스토어 릴리즈는 아직** — 미완료 12·13번 참조
 - **업데이트 노트 (2026-08-18 신설)**: `src/lib/updateNotes.js` 가 데이터 정본. 미리보기 `npx vite --config vite.harness.config.js` → `http://localhost:5199/update.html`
 - **manifest 권한 (2026-08-18 변경)**: `host_permissions` = 카카오 · **pathofexile** · seominugi.com. `optional_host_permissions` 없음. 다음 스토어 업데이트에서 **기존 사용자 재승인 발생**
