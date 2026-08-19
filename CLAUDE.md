@@ -31,3 +31,21 @@
   - **영문 거래소 API 는 한국 IP 에서 열려 있다 (2026-08-18 브라우저 실측)**: `https://www.pathofexile.com/api/trade/data/leagues`·`/api/trade/search/<league>`(POST)·`/api/trade/fetch/<id>` 전부 **인증 없이 200**. 리다이렉트되는 것은 **HTML 페이지 경로뿐**이다. 단 ⚠ **CORS 는 닫혀 있다** — 다른 origin(카카오 페이지)에서 부르면 `Failed to fetch`. 그래서 서비스 워커 + host permission 이 **유일한 경로**다. curl 로는 Cloudflare 가 403 을 주므로 검증은 브라우저에서 할 것.
   - ⏳ **한국에서는 end-to-end 검증 불가** — pathofexile 페이지가 카카오로 리다이렉트돼 글로벌 패널을 띄울 수 없다. 실제 동작은 해외 사용자 확인이 필요하다.
 - 패널 라이브 검증은 'POE 브라우저'(테스트 전용)에서 기본 연결한다.
+
+## 전역 FE 지침(§24) 적용
+
+전역 `~/.claude/docs/frontend-engineering.md` 의 계층 ↔ 이 repo 실제 위치 (MV3 + Vite):
+
+| 전역 FE 문서 | 이 repo 실제 위치 |
+|---|---|
+| Domain Core (결정론적 규칙) | `src/lib/` — id 매핑·PoB 변환·거래소 쿼리 조립 등 순수 규칙 |
+| Application Use Case | `src/lib/` 의 진입 함수 + `src/background/` 의 메시지 핸들러 |
+| Port·Adapter | `src/background/`(서비스 워커 = 유일한 크로스-오리진 I/O 경계), `src/store/`(chrome.storage), `src/update/` |
+| Presentation | `src/content/`·`src/content/panel/`, `src/popup/` |
+
+- **호스트 결정을 Domain 에 고정하지 않는다** — 거래소 데이터는 사용자가 보고 있는 호스트에서 받고, `tradeApiOrigin()`(`src/lib/tradeSearch.js`)이 허용 목록으로 검증한다(위 "글로벌 지원" 절 참조).
+- **CORS 상 서비스 워커가 유일한 경로**이므로 콘텐츠 스크립트에서 직접 거래소 API 를 부르지 않는다(전역 문서 §3.3 Port·Adapter).
+- 콘텐츠 스크립트·팝업·서비스 워커에 **같은 제품 규칙을 복제하지 않는다**(전역 문서 §14 금지 패턴) — 공용은 `src/lib/`.
+- 권한은 최소 범위 유지. 기본 `host_permissions` 승격은 **스토어 업데이트 시 기존 사용자 1회 재승인**을 유발하므로 릴리즈 노트 안내가 필수다(위 절 참조).
+
+**closed loop 검증**(전역 문서 §8): `npm test`(vitest) → `npm run build` → `chrome://extensions` 압축해제 로드 → **'POE 브라우저'(테스트 전용)에서 패널 실측**. ⏳ 글로벌(GGG) 경로는 한국 IP 에서 end-to-end 검증 불가 — 검증한 것과 못 한 것을 작업 보고에 구분해 남긴다(전역 문서 §12).
