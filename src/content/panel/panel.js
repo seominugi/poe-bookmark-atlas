@@ -270,9 +270,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     if (!grip) return
     const badge = $('ba-wbadge')
     // 밴드가 무엇을 주는지 — 배지 아랫줄의 "얼마나 더 가면 무엇을" 문구. CSS 와 같은 밴드 이름을 쓴다.
+    // 사용자가 읽는 문구다 — '푸터' 같은 개발 용어를 쓰지 않는다.
+    // l 은 아래쪽 줄 합치기와 카드 승격이 함께 일어나는데, **더 크게 와닿는 쪽**(카드)을 말한다.
     const BAND_GAIN = {
       m: '상단·검색이 한 줄이 돼요',
-      l: '푸터가 한 줄이 돼요',
+      l: '카드가 한 줄로 접혀 더 많이 보여요',
       xl: '카드에 자주 쓰는 버튼이 나와요',
     }
     const BAND_NAME = { s: '기본', m: '넓게', l: '더 넓게', xl: '최대' }
