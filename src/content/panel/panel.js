@@ -7,7 +7,7 @@ import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, nee
   moveBookmarks } from '../../store/store.js'
 import { extractConditionSet, conditionSetSummary, conditionSetTip, SET_FAIL } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
-import { clampPanelWidth, MIN_W } from '../../lib/panelWidth.js'
+import { clampPanelWidth, panelBand, nextBandAt, widthPresets, activePreset, MIN_W } from '../../lib/panelWidth.js'
 import { startCollapsed } from '../../lib/startCollapsed.js'
 import { hasUnseen } from '../../lib/updateNotes.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
@@ -62,9 +62,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
           <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="후원하기 — 투네이션으로 응원 ↗">${icon('heart', 13)}</a>
         </div>
-        <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>
       </div>
+      <!-- 저장 버튼이 여기 있는 건 밴드 병합 때문이다. 좁을 때는 flex:1 1 100% 로 예전처럼 홀로 한 줄을
+           차지하고, m 밴드부터 flex:1 1 0 이 되어 시세·동향과 나란히 선다. .ba-head 안에 두면
+           형제가 아니라 CSS 만으로는 한 줄로 합칠 수 없다. -->
       <div class="ba-econ-row">
+        <button class="ba-save" id="ba-save" data-tip="최근 거래소 검색을 북마크로 저장">${icon('bookmark', 15)}현재 검색 저장</button>
         <a class="ba-econ-btn items" href="${ECON_ITEMS[game] || ECON_ITEMS.poe2}" target="_blank" rel="noopener" data-tip="아이템 시세 — 서미누기의 POE 경제 ↗">
           <span class="ba-econ-glint"></span>
           <span class="ba-econ-pic"><img src="${analystUrl}" alt=""></span>
@@ -114,6 +117,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       <div class="ba-handle-toggle" id="ba-handle-toggle" data-tip="클릭하면 패널을 접고 펼쳐요 (Alt+B)"><span class="ba-handle-glint"></span><span class="ba-handle-body"><span class="ba-handle-label">북마크</span><span class="ba-handle-badge" id="ba-handle-badge" hidden></span></span></div>
     </div>
     <div class="ba-tip" id="ba-tip" hidden></div>
+    <!-- 폭 드래그 배지 — 끄는 동안에만. 패널 밖(형제)에 두는 이유는 토스트와 같다:
+         .ba-root 의 transform 이 fixed 좌표계를 가로채고, 패널 안이면 폭에 묶여 잘린다. -->
+    <div class="ba-wbadge" id="ba-wbadge" hidden></div>
     <!-- 칩 재배치 프리뷰 — 칩 줄 위에 fixed로 띄운다(줄 안에 넣으면 폭이 바뀌며 칩들이 밀린다) -->
     <div class="ba-set-preview" id="ba-set-preview" hidden></div>`
   root.appendChild(wrap)
@@ -132,6 +138,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const applyWidth = (w) => {
     panelW = clampPanelWidth(w, window.innerWidth)
     host.style.setProperty('--ba-w', panelW + 'px') // :host 선언을 인라인으로 덮는다(그림자 안 전체가 따라간다)
+    // 폭 밴드 — 넓힌 폭을 무엇으로 바꿔 줄지는 전부 CSS 의 [data-band] 가 판단한다.
+    // 여기서 px 로 분기하지 않는 이유: 경계가 두 곳에 생기면 반드시 갈라진다(폭 결합 4곳 사고와 같은 종류).
+    elRoot.dataset.band = panelBand(panelW)
     applyPagePush(isCollapsed())
     // 조건 요약은 '조건 경계'에서 끊으므로 폭이 바뀌면 다시 맞춰야 한다(넓히면 더 보이고, 좁히면 덜 보인다).
     // 드래그 중에는 매 프레임 재계산하지 않고 rAF 한 번으로 묶는다 — 카드가 수십 개다.
@@ -259,12 +268,39 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   ;(() => {
     const grip = $('ba-resize')
     if (!grip) return
+    const badge = $('ba-wbadge')
+    // 밴드가 무엇을 주는지 — 배지 아랫줄의 "얼마나 더 가면 무엇을" 문구. CSS 와 같은 밴드 이름을 쓴다.
+    const BAND_GAIN = {
+      m: '상단·검색이 한 줄이 돼요',
+      l: '푸터가 한 줄이 돼요',
+      xl: '카드에 자주 쓰는 버튼이 나와요',
+    }
+    const BAND_NAME = { s: '기본', m: '넓게', l: '더 넓게', xl: '최대' }
+    // 배지는 그립 옆에 붙는다. 패널이 좌측 배치면 그립도 반대쪽이라 배지도 반대로 내민다.
+    const placeBadge = () => {
+      if (!badge) return
+      const g = grip.getBoundingClientRect()
+      badge.style.top = Math.round(g.top + g.height / 2 - badge.offsetHeight / 2) + 'px'
+      badge.style.left = panelSide === 'left'
+        ? Math.round(g.right + 10) + 'px'
+        : Math.round(g.left - badge.offsetWidth - 10) + 'px'
+    }
+    const drawBadge = () => {
+      if (!badge) return
+      const nx = nextBandAt(panelW, window.innerWidth)
+      badge.innerHTML = `<span class="now">${panelW}px · <i>${BAND_NAME[panelBand(panelW)]}</i></span>`
+        + (nx
+          ? `<span class="next">▸ ${nx.remain}px 더 넓히면 ${BAND_GAIN[nx.band]}</span>`
+          : `<span class="next done">가장 넓은 구간이에요</span>`)
+      placeBadge()
+    }
     let startX = 0, startW = 0, dragging = false
     grip.addEventListener('pointerdown', (e) => {
       dragging = true; startX = e.clientX; startW = panelW
       resizing = true
       elRoot.classList.add('ba-resizing') // 핸들 right/left 전환 차단 (panel.css)
       grip.classList.add('on')
+      if (badge) { badge.hidden = false; drawBadge(); requestAnimationFrame(() => badge.classList.add('on')) }
       try { grip.setPointerCapture(e.pointerId) } catch (_) {}
       e.preventDefault() // 드래그 중 텍스트 선택 방지
     })
@@ -274,12 +310,18 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       // 우측 배치: 왼쪽으로 끌수록 넓어짐 / 좌측 배치: 오른쪽으로 끌수록 넓어짐.
       const delta = panelSide === 'left' ? (e.clientX - startX) : (startX - e.clientX)
       applyWidth(startW + delta) // applyWidth 가 clampPanelWidth 로 최소~최대 사이에 가둔다
+      drawBadge()
     })
     const end = (e) => {
       if (!dragging) return
       dragging = false
       resizing = false
       elRoot.classList.remove('ba-resizing')
+      if (badge) {
+        badge.classList.remove('on')
+        // 페이드가 끝난 뒤에 감춘다 — 바로 hidden 을 걸면 전환이 잘려 툭 사라진다.
+        setTimeout(() => { if (!dragging) badge.hidden = true }, 140)
+      }
       applyPagePush(isCollapsed()) // 꺼 뒀던 페이지 전환을 되돌린다 — 다음 접기/펼치기가 다시 부드럽게
       grip.classList.remove('on')
       try { grip.releasePointerCapture(e.pointerId) } catch (_) {}
@@ -540,6 +582,22 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           <span class="ba-set-opt${getOpenInNewTab() ? ' active' : ''}" data-nt="1">새 탭</span>
         </span>` +
         `<span class="ba-set-hint">Ctrl 클릭은 항상 반대로 엽니다</span>` +
+        // 패널 폭 — 가장자리 드래그는 그대로 두고(스냅하지 않는다: 사용자가 놓은 자리를 옮기면
+        // "왜 내 자리가 아니지"가 된다), 여기서 구간을 바로 고를 수 있게 한다. 그립을 못 찾은 사람이 많다.
+        // 선택 표시는 정확한 px 이 아니라 activePreset(= 자기 이하 중 가장 큰 프리셋)이라,
+        // 601px 처럼 사이값에 멈춰도 빈 선택이 되지 않는다.
+        lbl('패널 폭', '넓힐수록 상단·검색·푸터가 한 줄로 합쳐져 목록에 자리가 생겨요.&#10;가장 넓게 두면 카드에 자주 쓰는 버튼(라이브·복사·갱신)이 나옵니다.') +
+        `<span class="ba-seg ba-set-seg">${(() => {
+          const cur = activePreset(panelW, window.innerWidth)
+          const LBL = { base: '기본', wide: '넓게', wider: '더 넓게', max: '최대' }
+          return widthPresets(window.innerWidth).map((p) => {
+            const cls = (p.key === cur ? ' active' : '') + (p.enabled ? '' : ' off')
+            // 못 쓰는 칸은 이유를 말한다 — 조용히 무시하면 '눌러도 안 되는 버튼'이 된다.
+            const tip = p.enabled ? `${p.w}px` : `창이 좁아 이 폭은 쓸 수 없어요 (지금 최대 ${widthPresets(window.innerWidth)[3].w}px)`
+            return `<span class="ba-set-opt${cls}" data-pw="${p.enabled ? p.w : ''}" data-tip="${tip}">${LBL[p.key]}</span>`
+          }).join('')
+        })()}</span>` +
+        `<span class="ba-set-hint">가장자리를 끌어 그 사이 값으로도 맞출 수 있어요</span>` +
         // 정보 밀도 — "한 화면에 더 많이 보고 싶다"는 피드백(#1·#5). 기본 화면은 그대로 두고
         // 원하는 사람만 켠다. 카드를 숨기는 게 아니라 한 줄로 접는 것이라 액션·경고는 남는다.
         lbl('보기', '간략을 고르면 카드를 한 줄로 접어 한 화면에 약 2배를 보여줍니다.&#10;조건·가격은 사라지지 않고 아이콘 옆으로 접히며, 호버하면 전체가 그대로 보여요.') +
@@ -558,6 +616,13 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         applySide(o.dataset.side)
         try { await chrome.storage.local.set({ uiPanelSide: o.dataset.side }) } catch (_) {}
         render()
+      }))
+      pick.querySelectorAll('.ba-set-opt[data-pw]').forEach((o) => o.addEventListener('click', async () => {
+        if (!o.dataset.pw) return // 창이 좁아 못 쓰는 칸
+        applyWidth(Number(o.dataset.pw))
+        try { await chrome.storage.local.set({ uiPanelWidth: panelW }) } catch (_) {}
+        writeLayoutCache()
+        render() // 세그먼트 선택 표시 갱신
       }))
       pick.querySelectorAll('.ba-set-opt[data-nt]').forEach((o) => o.addEventListener('click', () => {
         setOpenInNewTab(o.dataset.nt === '1')

@@ -116,6 +116,11 @@ describe("'라이브로 열기'", () => {
     const list = await render(makeUi().ui)
     const hist = list.querySelector('.ba-row[data-kind="history"]')
     if (hist) expect(hist.querySelector('.ba-live')).toBeNull()
-    expect(list.querySelectorAll('.ba-live').length).toBe(1)
+    // 북마크 카드에는 두 군데 있다: ⋯ 팝오버 안 + xl 밴드(760px+)에서 보이는 .ba-actbar.
+    // 이동이 아니라 중복 노출이라 둘 다 존재하는 게 맞다(2026-08-23 폭 밴드). 히스토리는 여전히 0 이다.
+    const bm = list.querySelector('.ba-row[data-kind="bookmark"]')
+    expect(bm.querySelectorAll('.ba-live').length).toBe(2)
+    expect(bm.querySelector('.ba-actbar .ba-live')).not.toBeNull()
+    expect(bm.querySelector('.ba-actions-pop .ba-live')).not.toBeNull()
   })
 })
