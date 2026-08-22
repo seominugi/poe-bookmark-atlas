@@ -306,7 +306,13 @@ function applyFilters(listEl) {
   const bmBar = listEl.querySelector('.ba-search-input[data-scope="bm"]')
   let noRes = listEl.querySelector('.ba-no-result:not(.ba-no-result-hs)')
   if (term && bmVisible === 0) {
-    if (!noRes && bmBar) { noRes = document.createElement('div'); noRes.className = 'ba-no-result'; bmBar.closest('.ba-search-row').after(noRes) }
+    // ⚠ .ba-search-row 가 아니라 그 바깥(.ba-list-head) 뒤에 넣는다 — m 밴드부터 .ba-list-head 가
+    //   가로 flex 줄이라, 그 안에 넣으면 안내문이 검색칸 옆에 끼어 제목·정렬을 밀어낸다.
+    if (!noRes && bmBar) {
+      noRes = document.createElement('div'); noRes.className = 'ba-no-result'
+      const row = bmBar.closest('.ba-search-row')
+      ;(row.closest('.ba-list-head') || row).after(noRes)
+    }
     if (noRes) { noRes.textContent = `"${bmSearch.trim()}"에 해당하는 북마크가 없습니다.`; noRes.hidden = false }
   } else if (noRes) { noRes.hidden = true }
 }
@@ -347,6 +353,29 @@ function condSummaryText(r) {
     for (const s of r.stats) parts.push(s) // 구 레코드(값 없음) 폴백
   }
   return parts.join(' · ')
+}
+
+/**
+ * 카드에 상시 노출하는 액션 — xl 밴드에서만 보인다(panel.css · BAND_XL). 좁을 땐 CSS 로 숨겨
+ * 지금과 똑같은 화면이 유지되고, 이 셋은 ⋯ 팝오버에도 그대로 남는다(중복 노출이지 이동이 아니다).
+ *
+ * 왜 이 셋인가: 카드 클릭이 이미 '열기'라 열기는 뺐고, **삭제는 절대 꺼내지 않는다**(오폭이 곧 데이터 손실).
+ *   리그 이관은 필요할 때 이미 .ba-attn 경고 배지로 카드에 떠 있어 중복이다.
+ *   이름 변경·폴더 이동·조건 묶음 등록은 드물어 ⋯ 에 남긴다.
+ * ⚠ 클래스(.ba-live/.ba-copy/.ba-over)는 팝오버와 **같은 것을 쓴다** — bindAll 이 매 렌더마다
+ *   listEl.querySelectorAll 로 다시 잡으므로 핸들러를 새로 쓸 필요가 없고, A11Y_SEL 에도 이미 들어 있다.
+ * ⚠ 북마크 카드에만 붙인다. 히스토리 카드는 **행 전체 클릭으로 열리므로**, 여기에 붙이려면
+ *   그 클릭 가드(bindAll 의 .ba-star,.ba-copy,… 목록)에 .ba-actbar 를 먼저 추가해야 한다.
+ */
+function actBar(r) {
+  const u = encodeURIComponent(r.url)
+  return `<span class="ba-actbar">`
+    // ⚠ 라이브는 play, 갱신은 refresh. 팝오버에선 둘 다 refresh 였지만 거긴 라벨이 있어 구분됐다.
+    //   아이콘만 남기는 이 행에서 같은 아이콘 둘을 나란히 두면 무엇이 무엇인지 알 수 없다.
+    + `<span class="ba-act-ic live ba-live" data-id="${r.id}" data-url="${u}" data-tip="라이브로 열기&#10;새 탭에서 열고 거래소의 라이브 검색을 자동으로 켭니다.">${icon('play', 13)}</span>`
+    + `<span class="ba-act-ic copy ba-copy" data-id="${r.id}" data-url="${u}" data-tip="링크 복사">${icon('link', 13)}</span>`
+    + `<span class="ba-act-ic over ba-over" data-id="${r.id}" data-tip="최근 검색으로 갱신&#10;지금 거래소에 띄운 검색으로 이 북마크를 덮어씁니다.">${icon('refresh', 13)}</span>`
+    + `</span>`
 }
 
 function rowHtml(r, kind, lg, currentLeague) {
@@ -447,7 +476,7 @@ function rowHtml(r, kind, lg, currentLeague) {
       <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
-    <div class="ba-meta-row">${attn}${leagueChip}${condSummaryChip}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
+    <div class="ba-meta-row">${attn}${leagueChip}${condSummaryChip}${actBar(r)}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
     <div class="ba-actions-pop" hidden>
       <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
       <span class="ba-act live ba-live" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="새 탭에서 열고 거래소의 라이브 검색을 자동으로 켭니다.&#10;조건에 맞는 새 매물이 올라오면 그 탭에 바로 나타나요.">${icon('refresh', 13)}라이브로 열기</span>
@@ -597,8 +626,13 @@ export async function renderList(listEl, root, ui = {}) {
       <span class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</span>
       <span class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</span>
     </span>`
-  let html = `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${sortToggle}</span></div>`
+  // ⚠ 섹션 머리와 검색을 .ba-list-head 로 감싸는 건 폭 밴드 때문이다 — m 밴드부터 이 둘이 한 줄로 합쳐진다
+  //   (.ba-sec-head 를 display:contents 로 풀어 제목·검색·정렬을 같은 flex 줄에 올린다. panel.css 참조).
+  //   히스토리 섹션 머리는 감싸지 않는다 — 거긴 검색이 없어 합칠 게 없다.
+  let html = `<div class="ba-list-head">`
+  html += `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${sortToggle}</span></div>`
   html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크·히스토리 검색 (Alt+K)" data-tip="이름·조건으로 찾기 — Alt+K로 어디서나 여기에 포커스" value="${escapeHtml(bmSearch)}" /></span></div>`
+  html += `</div>`
   // 모든 폴더 접기/펼치기 토글 — 실폴더가 있을 때만(미분류 포함 2개 이상). 라벨은 현재 접힘 상태로 결정.
   const allKeys = ['', ...folders.map((f) => f.id)]
   const allCollapsed = allKeys.every((k) => collapsedFolders.has(k))

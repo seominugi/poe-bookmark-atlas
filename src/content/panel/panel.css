@@ -205,7 +205,7 @@
 .ba-econ-tx small { color: var(--ba-violet-2); font-size: 10.5px; font-weight: 600; }
 
 /* 글린트 버튼 행 (선택: .ba-econ-row > .ba-econ-btn 2개 마크업 시) */
-.ba-econ-row { display: flex; gap: 8px; margin: 11px 14px 7px; }
+.ba-econ-row { display: flex; flex-wrap: wrap; column-gap: 8px; margin: 11px 14px 7px; }
 .ba-econ-btn {
   flex: 1; min-width: 0; display: flex; align-items: stretch; text-decoration: none;
   border-radius: 9px; overflow: hidden; position: relative; cursor: pointer;
@@ -875,8 +875,13 @@
 .ba-kbd-keys { display: inline-flex; gap: 4px; flex: none; }
 .ba-kbd-pop kbd, .ba-tour-kbdhint kbd { font-family: inherit; font-size: 10.5px; font-weight: 700; color: var(--ba-text); background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.16); border-bottom-width: 2px; border-radius: 6px; padding: 2px 7px; min-width: 20px; text-align: center; }
 .ba-kbd-pop-foot { margin-top: 1px; padding-top: 9px; border-top: 1px solid rgba(167,139,250,.16); font-size: 11px; color: #9b94bd; }
-.ba-head .ba-save { width: 100%; margin-top: 13px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
-.ba-econ-row { margin: 9px 16px 11px; }
+/* 저장 버튼은 .ba-head 가 아니라 .ba-econ-row 안에 있다(폭 밴드에서 시세·동향과 한 줄로 합치기 위해).
+   s 밴드에서는 flex:1 1 100% 로 홀로 첫 줄을 차지해 **예전과 픽셀 단위로 같은 모습**이 된다.
+   세로 리듬도 그대로 재현한다: 브랜드 →13px→ 저장 →9px→ 시세·동향 →11px→ 목록.
+   (예전엔 margin-top 13 이 저장에, 9 가 econ-row 에 붙어 있었다. 이제 13 은 행의 margin-top,
+    9 는 행의 row-gap 이 된다 — 합쳐지면 row-gap 이 자연히 사라져 한 줄이 된다.) */
+.ba-econ-row .ba-save { flex: 1 1 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 11px; font-size: 12.5px; }
+.ba-econ-row { margin: 13px 16px 11px; row-gap: 9px; }
 /* 한↔영 거래소 전환 버튼 (PoE1 한정, econ-row 아래) */
 .ba-convert-row { margin: 0 16px 10px; }
 .ba-convert { width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 7px; padding: 9px 12px; font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); border-radius: 10px; cursor: pointer; transition: background .15s, border-color .15s, color .15s; }
@@ -1048,3 +1053,119 @@
   .ba-resize:hover::before { background: var(--ba-violet-line); }
 }
 .ba-resize.on::before { background: var(--ba-violet-2); }
+
+/* ============================================================
+ * 폭 밴드 — 넓힌 폭을 무엇으로 바꿔 줄 것인가 (2026-08-23)
+ *
+ * 규칙: **모든 밴드 규칙은 [data-band="m|l|xl"] 아래에만 둔다.**
+ *   폭을 안 만진 사용자(384px, s 밴드)의 화면은 이 작업 전후로 픽셀 단위까지 같아야 한다.
+ *   위쪽의 기존 선언들이 곧 s 밴드의 값이고, 여기서는 덮기만 한다.
+ *
+ * 경계는 실측이다(src/lib/panelWidth.js 주석 참조). 숫자를 바꾸려면 거기부터 고쳐라 —
+ * 여기 하드코딩된 px 은 없다(밴드 이름만 쓴다).
+ * ============================================================ */
+
+/* ── m 이상 (500px+) — 목록 머리: 제목 · 검색 · 정렬을 한 줄로 ──
+   .ba-sec-head 를 display:contents 로 풀어 자식(제목·정렬)을 .ba-list-head 의 직접 flex 항목으로
+   만든다. 그래야 그 사이에 검색을 끼워 넣을 수 있다 — 형제 박스인 채로는 순서를 섞을 수 없다.
+   테두리·여백은 .ba-sec-head 에서 .ba-list-head 로 그대로 옮겨 받는다(선이 사라지지 않게). */
+.ba-root[data-band="m"] .ba-list-head,
+.ba-root[data-band="l"] .ba-list-head,
+.ba-root[data-band="xl"] .ba-list-head {
+  display: flex; align-items: center; gap: 9px;
+  margin: 2px 2px 12px; padding-bottom: 9px;
+  border-bottom: 1px solid var(--ba-violet-soft);
+}
+.ba-root[data-band="m"] .ba-list-head .ba-sec-head,
+.ba-root[data-band="l"] .ba-list-head .ba-sec-head,
+.ba-root[data-band="xl"] .ba-list-head .ba-sec-head { display: contents; }
+.ba-root[data-band="m"] .ba-list-head .ba-sec-title,
+.ba-root[data-band="l"] .ba-list-head .ba-sec-title,
+.ba-root[data-band="xl"] .ba-list-head .ba-sec-title { order: 1; flex: none; }
+.ba-root[data-band="m"] .ba-list-head .ba-search-row,
+.ba-root[data-band="l"] .ba-list-head .ba-search-row,
+.ba-root[data-band="xl"] .ba-list-head .ba-search-row { order: 2; flex: 1; min-width: 0; margin: 0; }
+.ba-root[data-band="m"] .ba-list-head .ba-sec-actions,
+.ba-root[data-band="l"] .ba-list-head .ba-sec-actions,
+.ba-root[data-band="xl"] .ba-list-head .ba-sec-actions { order: 3; flex: none; }
+/* 한 줄이 되면 세로가 빡빡해진다 — 검색칸만 2px 낮춘다(정렬 세그먼트 28px 과 높이를 맞춘다) */
+.ba-root[data-band="m"] .ba-list-head .ba-search,
+.ba-root[data-band="l"] .ba-list-head .ba-search,
+.ba-root[data-band="xl"] .ba-list-head .ba-search { padding: 5px 10px; }
+
+/* ── m 이상 (500px+) — 상단: 저장 · 시세 · 동향을 한 줄로 ──
+   .ba-save 는 마크업상 이미 .ba-econ-row 안에 있고, s 밴드에서는 flex:1 1 100% 라 홀로 한 줄을
+   차지한다(예전 모습 그대로). 여기서 기저를 0 으로 바꾸면 셋이 자리를 삼등분한다. */
+.ba-root[data-band="m"] .ba-econ-row .ba-save,
+.ba-root[data-band="l"] .ba-econ-row .ba-save,
+.ba-root[data-band="xl"] .ba-econ-row .ba-save { flex: 1 1 0; padding: 11px 14px; }
+
+/* ── l 이상 (640px+) — 푸터를 한 줄로 ──
+   .ba-foot-row2 의 flex:0 0 100% 를 풀면 안내 문구·소셜 3·가이드·설정이 한 줄에 선다.
+   문구에 하드코딩된 <br> 은 여기서 무력화한다 — 706px 부터는 문구도 한 줄로 흐른다. */
+.ba-root[data-band="l"] .ba-foot-row2,
+.ba-root[data-band="xl"] .ba-foot-row2 { flex: 0 1 auto; }
+.ba-root[data-band="l"] .ba-foot-tx br,
+.ba-root[data-band="xl"] .ba-foot-tx br { display: none; }
+
+/* ── l 이상 (640px+) — 카드 한 줄 승격 ──
+   간략 보기와 다르다: **아무것도 숨기지 않고** 둘째 줄을 첫 줄 오른쪽으로 옮기기만 한다.
+   카드 높이 79 → 47px. 간략 보기가 켜져 있으면 그쪽 규칙이 이긴다(선언 순서상 아래에 있다). */
+.ba-root[data-band="l"] .ba-row[data-kind="bookmark"],
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] { display: flex; align-items: center; gap: 10px; }
+.ba-root[data-band="l"] .ba-row[data-kind="bookmark"] .ba-line1,
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-line1 { flex: 1 1 44%; min-width: 0; }
+.ba-root[data-band="l"] .ba-row[data-kind="bookmark"] .ba-meta-row,
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-meta-row { flex: 1 1 56%; min-width: 0; margin-top: 0; }
+/* content-visibility:auto 의 추정 높이 — 실제(47px)와 어긋나면 스크롤바가 튄다(간략 보기가 겪은 함정). */
+.ba-root[data-band="l"] .ba-row[data-kind="bookmark"],
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] { contain-intrinsic-size: 47px; }
+
+/* ── xl (820px+) — 카드 액션 상시 노출 ──
+   자주 쓰는 셋(라이브 · 복사 · 갱신)을 카드에 꺼낸다. ⋯ 팝오버에도 그대로 남으므로 이동이 아니라 중복이다.
+   ⚠ 왜 640 이 아닌가: 이 바가 89px 을 먹는다. 640 에 붙이면 조건 칸이 57px 로 죽는다.
+     경계는 src/lib/panelWidth.js 의 BAND_XL 이 정본이다 — 여기 px 을 다시 적지 않는다. */
+.ba-actbar { display: none; }
+.ba-root[data-band="xl"] .ba-actbar { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+.ba-act-ic {
+  width: 27px; height: 27px; flex: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 7px; cursor: pointer;
+  transition: background .15s, border-color .15s, transform .14s var(--ba-ease-out);
+}
+.ba-act-ic:active { transform: scale(0.94); }
+@media (prefers-reduced-motion: reduce) { .ba-act-ic:active { transform: none; } }
+/* 색은 패널 의미색 규율 그대로 — 라이브·갱신은 블루(다시 열기·갱신), 복사는 시안(공유·복사) */
+.ba-act-ic.live, .ba-act-ic.over { color: var(--ba-blue); background: var(--ba-blue-soft); border: 1px solid var(--ba-blue-line); }
+.ba-act-ic.copy { color: var(--ba-cyan); background: var(--ba-cyan-soft); border: 1px solid var(--ba-cyan-line); }
+@media (hover: hover) and (pointer: fine) {
+  .ba-act-ic.live:hover, .ba-act-ic.over:hover { background: rgba(106,168,255,.26); border-color: rgba(106,168,255,.62); }
+  .ba-act-ic.copy:hover { background: rgba(62,216,230,.26); border-color: rgba(62,216,230,.62); }
+}
+
+/* ── 드래그 중 폭 배지 ──
+   그립 옆에 **끄는 동안에만** 뜬다. 상시 배지는 자기모순이다 — 이 작업 자체가 패널 크롬을 줄이는 일이다.
+   ⚠ 위치(top/left)에는 전환을 걸지 않는다. 포인터를 즉시 따라가야 한다
+     (.ba-resizing 이 이미 같은 이유로 폭에 물린 전환을 전부 끈다). 등장·퇴장만 opacity. */
+.ba-wbadge {
+  position: fixed; z-index: 70; pointer-events: none;
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 7px 12px; border-radius: 10px; width: max-content;
+  background: rgba(12, 10, 22, 0.96); border: 1px solid var(--ba-violet-line);
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
+  opacity: 0; transition: opacity .12s var(--ba-ease-out);
+}
+.ba-wbadge[hidden] { display: none; }
+.ba-wbadge.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ba-wbadge { transition: none; } }
+.ba-wbadge .now { font-size: 12.5px; font-weight: 800; color: var(--ba-text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ba-wbadge .now i { font-style: normal; color: var(--ba-violet-2); }
+.ba-wbadge .next { font-size: 11px; font-weight: 600; color: var(--ba-cyan); white-space: nowrap; }
+.ba-wbadge .next.done { color: var(--ba-text-muted); }
+
+/* 설정의 폭 세그먼트 — 창이 좁아 못 쓰는 칸. 조용히 무시하면 '눌러도 안 되는 버튼'이 된다. */
+.ba-set-opt.off {
+  color: #6f688f; cursor: not-allowed;
+  background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255,255,255,.03) 4px 8px);
+}
+.ba-set-opt.off:active { transform: none; }

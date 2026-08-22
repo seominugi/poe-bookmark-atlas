@@ -29,3 +29,62 @@ export function clampPanelWidth(w, viewportW) {
   const base = missing ? MIN_W : n
   return Math.round(Math.max(MIN_W, Math.min(maxPanelWidth(viewportW), base)))
 }
+
+// ── 폭 밴드 ──────────────────────────────────────────────────────────
+// 넓힌 폭을 무엇으로 바꿔 줄지의 경계. 라운드 숫자로 고른 게 아니라 **각 구간이 줄바꿈 없이
+// 한 줄에 들어가는 실측 최소폭**(max-content)에 최악 폰트(system-ui·Malgun) 여유를 얹었다.
+//   상단 액션(저장·시세·동향) 336 / 목록 머리(제목·검색·정렬) 462 → 둘 다 500 에서 쾌적
+//   푸터(문구·소셜3·가이드·설정) 580 · 카드 한 줄 승격(조건 요약 안 잘림) 643 → 640
+//   카드 액션바(라이브·복사·갱신, 89px) → 640 에 붙이면 조건 칸이 57px 로 죽는다.
+//     ⚠ 첫 추정 760 은 목업(짧은 리그명) 기준이었다. 하네스 실측(리그명 'Runes of Aldur')에선
+//       760 에서 조건 칸이 86px 까지 떨어진다. 820 에서 120px 로, 시안에서 합의한 폭에 가장 가깝다.
+// ⚠ 여기 숫자를 늘릴 땐 반드시 다시 재라. test/panelBand.test.js 가 경계를, 
+//   test/panelBands.dom.test.js 가 "그 폭에서 정말 한 줄인가"를 지킨다.
+export const BAND_M = 500   // 상단 3버튼 + 검색 합류
+export const BAND_L = 640   // 푸터 한 줄 + 카드 한 줄 승격
+export const BAND_XL = 820  // 카드 액션바 상시 노출
+
+/** 폭 → 밴드 이름. CSS 는 .ba-root[data-band] 로 이 값을 받는다. */
+export function panelBand(w) {
+  const n = Number(w) || 0
+  if (n >= BAND_XL) return 'xl'
+  if (n >= BAND_L) return 'l'
+  if (n >= BAND_M) return 'm'
+  return 's'
+}
+
+/**
+ * 다음 밴드까지 남은 거리 — 드래그 배지가 "얼마나 더 가면 무엇을 얻나"를 말하게 한다.
+ * 창이 좁아 다음 경계에 닿을 수 없으면 null 이다(닿지 못할 보상을 약속하지 않는다).
+ */
+export function nextBandAt(w, viewportW) {
+  const n = Number(w) || 0
+  const cap = maxPanelWidth(viewportW)
+  const at = [BAND_M, BAND_L, BAND_XL].find((b) => n < b && b <= cap)
+  return at === undefined ? null : { at, band: panelBand(at), remain: at - n }
+}
+
+/**
+ * 설정 세그먼트의 4단. '최대'만 창 폭에서 파생된다 — 고정 880 으로 박으면 좁은 창에서
+ * 눌러도 안 되는 버튼이 된다. 반대로 고정값 프리셋은 창이 좁으면 아예 못 쓰므로 enabled:false 로 알린다.
+ */
+export function widthPresets(viewportW) {
+  const cap = maxPanelWidth(viewportW)
+  return [
+    { key: 'base', w: MIN_W, enabled: true },
+    { key: 'wide', w: BAND_M, enabled: cap >= BAND_M },
+    { key: 'wider', w: BAND_L, enabled: cap >= BAND_L },
+    { key: 'max', w: cap, enabled: true }, // 항상 유효 — 값 자체가 상한이다
+  ]
+}
+
+/**
+ * 지금 폭이 어느 프리셋에 해당하는가 = **자기 이하 중 가장 큰 프리셋**.
+ * 밴드로 판정하지 않는 이유: '더 넓게'(640)와 '최대'가 같은 밴드에 속할 수 있다.
+ * 이 규칙이면 드래그로 601px 에 멈춰도 세그먼트가 늘 하나를 가리킨다(빈 선택이 없다).
+ */
+export function activePreset(w, viewportW) {
+  const n = clampPanelWidth(w, viewportW)
+  const ps = widthPresets(viewportW).filter((p) => p.enabled && p.w <= n)
+  return ps.length ? ps[ps.length - 1].key : 'base'
+}
