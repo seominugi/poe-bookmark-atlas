@@ -278,6 +278,36 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 완료된 작업
 
+### 전역 FE 지침 브릿지 + AGENTS.md 포인터 (2026-08-20, `develop` 직접)
+
+커밋 `be777cc`(CLAUDE.md FE 절) · `81c225c`(AGENTS.md). 코드 변경 없음 — 지침 문서만.
+
+**왜**: 전역에 FE 공통 엔지니어링 지침(`~/.claude/docs/frontend-engineering.md` · 전역 `CLAUDE.md §24`)이
+새로 생겼다. Domain Core / Use Case / Adapter / Presentation 으로 말하는 문서라, 이 repo 의 MV3 구조로
+번역하지 않으면 세션마다 같은 추론을 다시 한다.
+
+**계층 매핑을 `CLAUDE.md` 에 고정했다**
+
+| 전역 FE 문서 | 이 repo |
+|---|---|
+| Domain Core | `src/lib/` — id 매핑·PoB 변환·거래소 쿼리 조립 |
+| Application Use Case | `src/lib/` 진입 함수 + `src/background/` 메시지 핸들러 |
+| Port·Adapter | `src/background/`(유일한 크로스-오리진 I/O 경계) · `src/store/`(chrome.storage) · `src/update/` |
+| Presentation | `src/content/`·`src/content/panel/` · `src/popup/` |
+
+함께 못박은 것 — **호스트 결정을 Domain 에 고정하지 않는다**(`tradeApiOrigin()` 이 사용자가 보고 있는
+호스트를 허용 목록으로 검증), **콘텐츠 스크립트에서 거래소 API 직접 호출 금지**(CORS 상 서비스 워커가
+유일 경로), 콘텐츠/팝업/워커에 같은 규칙 복제 금지, 기본 `host_permissions` 승격은 스토어 업데이트 시
+기존 사용자 1회 재승인을 유발하므로 릴리즈 노트 안내 필수.
+
+**closed loop**: `npm test`(vitest) → `npm run build` → `chrome://extensions` 압축해제 로드 →
+**'POE 브라우저'(테스트 전용)에서 패널 실측**. ⏳ 글로벌(GGG) 경로는 한국 IP 에서 end-to-end 검증 불가 —
+검증한 것과 못 한 것을 작업 보고에 구분해 남기라고 적어 뒀다.
+
+**`AGENTS.md` 8줄 포인터**: Claude Code 는 `CLAUDE.md` 만, Codex 는 `AGENTS.md` 만 자동 로드한다.
+이 파일이 없어서 **Codex 세션은 이 repo 의 프로젝트 지침을 하나도 못 읽고 있었다.** 포인터만 두고 규칙은
+`CLAUDE.md` 에만 적는다 — 양쪽에 나눠 적으면 두 도구가 서로 다른 지침을 읽고 조용히 갈라진다.
+
 ### 업데이트 노트 페이지 — 새 버전에 무엇이 바뀌었는지 알리기 (2026-08-18, 브랜치 `claude/folder-duplicate-deletion-bug-220309`)
 
 **왜**: 스토어 설명은 **기존 사용자가 보지 않는다.** 알리지 않으면 만든 기능이 발견되지 않는다.
@@ -1180,8 +1210,18 @@ net 은 "무효화 이후 사용자가 패널 버튼을 누른" 더 좁은 경�
 10. ~~**[논의만, 미결정] 리그별 폴더 섹션 구조 제거**~~ → **해소 (2026-08-18, `4e33b86`)**. 폴더 복제가 실제 데이터 사고(폴더 삭제)로 드러나 착수했다. 아래는 당시 판단 기록:
     **[구]** — 폴더가 이미 게임 전역 공유임을 확인, 히스토리처럼 리그 섹션을 없애고 북마크도 통합하는 안. **6번 구현으로 판단 근거가 바뀌었다**: 북마크가 "특정 리그의 링크"가 아니라 "리그 무관한 조건 + 언제든 재생성 가능한 링크"가 되었으므로 리그는 더 이상 1차 조직 축이 아니다 → 섹션 제거 쪽에 무게. 진행 시 리그 표시는 행 단위(조건 칩 툴팁의 `[리그]` 표기, 이미 있음) + `data-past` 기반 표식으로 내리고, 섹션 헤더의 "지난" 배지는 없어진다. **단 6번 라이브 검증 후에 착수**(검증 범위가 두 배가 되는 것 방지)
 
+14. **[보류 — 사용자 판단 2026-08-20] 히스토리에도 '라이브로 열기'** — 피드백으로 요청이 들어왔고 조사까지 마쳤으나 **넣지 않기로 했다.** 사용자 사유: *"어느 건 있고 어느 건 안 보이면 그러니"* — 지난 리그 카드에서 버튼을 숨기는 안을 먼저 제시한 탓에 나온 판단이다.
+    **재논의한다면 이걸 먼저 정정할 것**: 버튼을 *항상* 띄우고 지난 리그일 때만 내부에서 이관 후 라이브를 걸면(북마크 Shift 클릭과 동일) 카드마다 달라 보이는 문제 자체가 없다. 사용자가 기각한 건 '숨김' 안이지 기능이 아니다.
+    **조사 결과(다시 파지 말 것)** — `src/content/panel/renderList.js`:
+    - `.ba-live` 클릭 바인딩(약 829행)은 **카드 종류를 안 가린다** → 히스토리 팝오버에 `<span class="ba-act live ba-live" …>` 한 줄만 넣으면 버튼은 그대로 동작한다. 히스토리 행엔 `data-url` 도 이미 있다(407행).
+    - 히스토리 카드 전체 클릭 핸들러는 `.ba-actions-pop` 을 제외 목록에 두므로(약 689행) 팝오버 액션과 충돌하지 않는다.
+    - **막히는 지점은 지난 리그 하나뿐이다.** 히스토리 행엔 `data-past` 가 없고, `runMigration` 이 `listByKind('bookmark')` 로 조회한 뒤 `migrateBookmarkLeague` 로 저장한다 → 히스토리 id 를 넣으면 *"이 북마크는 링크·조건이 모두 없어…"* 라는 엉뚱한 토스트가 난다. 카드 종류를 인자로 받아 **조회는 kind 별로, 저장은 북마크일 때만** 하도록 일반화하면 된다. 히스토리는 기록이라 URL 을 갈아끼우면 왜곡이다.
+    - `migratable()`(223행)은 `query` 또는 URL 해시만 보므로 **kind 와 무관** — 히스토리 레코드도 그대로 판정된다.
+    - 지난 리그에 라이브를 그냥 걸면 새 매물이 영영 안 뜬다(코드 주석이 "최악의 실패"라 부르는 경로). 어떤 안을 고르든 이 갈래는 반드시 처리해야 한다.
+
 ## 현재 상태
 
+- **프로젝트 지침 (2026-08-20)**: 정본은 루트 `CLAUDE.md`, `AGENTS.md` 는 그것을 가리키는 8줄 포인터다. **프로젝트 규칙을 `AGENTS.md` 에 적지 말 것** — Claude Code 와 Codex 가 서로 다른 파일을 읽어 갈라진다. FE 계층 매핑·closed loop 는 `CLAUDE.md` 의 "전역 FE 지침(§24) 적용" 절
 - **2026-08-18 작업 develop 반영 완료** — [PR #1](https://github.com/seominugi/poe-bookmark-atlas/pull/1) 머지(`f00a55a`). 폴더 삭제 사고(`7faf159`·`4e33b86`) · 핸드오프 archive(`14cfe4f`) · 영문 거래소 기본 권한(`6d81db1`) · 업데이트 노트(`270e75c`) · 헤더 태그라인 제거(`31dd389`). 테스트 **521/521** · 빌드 통과. **스토어 릴리즈는 아직** — 미완료 12·13번 참조
 - **업데이트 노트 (2026-08-18 신설)**: `src/lib/updateNotes.js` 가 데이터 정본. 미리보기 `npx vite --config vite.harness.config.js` → `http://localhost:5199/update.html`
 - **manifest 권한 (2026-08-18 변경)**: `host_permissions` = 카카오 · **pathofexile** · seominugi.com. `optional_host_permissions` 없음. 다음 스토어 업데이트에서 **기존 사용자 재승인 발생**
