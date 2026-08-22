@@ -28,6 +28,9 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 - ⚠ **히스토리 카드에는 액션바를 붙이지 않았다.** 히스토리는 **행 전체 클릭으로 열리므로**, 붙이려면 `bindAll` 의 클릭 가드(`.ba-star,.ba-copy,.ba-cond,…`) 에 `.ba-actbar` 를 **먼저** 추가해야 한다. 지금 `.ba-live` 가 안전한 건 `.ba-actions-pop` 안에 있어서일 뿐이다.
 - ⚠ **삭제는 절대 카드에 꺼내지 않는다** — 오폭이 곧 데이터 손실이다. `test/panelBands.dom.test.js` 가 이를 가드한다.
 - 테스트 **562개 통과**(신규 `panelBand.test.js` 12 + `panelBands.dom.test.js` 8). 시안: https://claude.ai/code/artifact/27d12baf-fa64-4aef-aa0c-6900a347b23a
+- **업데이트 노트 0.11.0 작성 완료 (2026-08-23)** — `UPDATE_NOTES` 맨 앞에 항목 추가 + 목업 3종(`width-bands` · `width-preset` · `width-actions`). `notesSince` 가 `current` 상한을 두므로 **manifest 를 올리기 전까지 사용자에게 새지 않는다** — 릴리즈 때 버전만 범프하면 그대로 뜬다.
+  - ⚠ `test-harness/update-preview.mjs` 가 설치 버전을 `'0.9.2'` 로 **박아 두고 있어 0.10.0 노트가 미리보기에서 안 보이고 있었다.** `UPDATE_NOTES[0].version` 에서 파생하도록 고쳤다(`?v=0.9.0` 로 특정 버전 사용자 시점도 시험 가능). 노트를 추가할 때마다 조용히 사라지던 함정이다.
+  - 노트를 쓰다 발견해 함께 고침: 드래그 배지 문구가 **'푸터가 한 줄이 돼요'** 라는 개발 용어였다 → `'카드가 한 줄로 접혀 더 많이 보여요'`.
 - **남은 것**: 실제 거래소에서 육안 확인(하네스는 목 데이터다) · 다음 릴리즈에 포함. 스크린샷은 이 세션에서 못 찍었다(브라우저 패널 미표시 — DOM 실측으로 대체).
 
 

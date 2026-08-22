@@ -9,12 +9,19 @@
 import css from '../src/update/update.css?inline'
 document.head.appendChild(Object.assign(document.createElement('style'), { textContent: css }))
 
-const seen = new URLSearchParams(location.search).get('seen') || null
+const qs = new URLSearchParams(location.search)
+const seen = qs.get('seen') || null
+
+// 설치 버전은 **노트 최신 항목에서 파생**시킨다. notesSince 가 미배포 노트를 거르므로 여기에
+// 숫자를 박아 두면 노트를 추가할 때마다 미리보기에서 조용히 사라진다 — 정작 새로 쓴 노트를
+// 확인하지 못한 채 "확인했다"고 말하게 된다(2026-08-23: 0.9.2 로 굳어 0.10.0 이 안 보이고 있었다).
+// ?v=0.9.0 처럼 넘기면 '그 버전 사용자에게 무엇이 보이는가'를 시험할 수 있다.
+const { UPDATE_NOTES } = await import('../src/lib/updateNotes.js')
+const version = qs.get('v') || UPDATE_NOTES[0].version
 
 globalThis.chrome = {
   runtime: {
-    // UPDATE_NOTES 의 최신 항목 이상이어야 노트가 보인다(notesSince 가 미배포 노트를 거른다)
-    getManifest: () => ({ version: '0.9.2' }),
+    getManifest: () => ({ version }),
     getURL: (p) => '../' + p,
   },
   storage: {

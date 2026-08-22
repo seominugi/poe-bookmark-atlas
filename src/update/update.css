@@ -142,8 +142,50 @@ body {
 .mk-note { margin-top: 7px; font-size: 11px; color: #8a83ab; line-height: 1.6; }
 .mk-note b { color: #c4b5fd; font-weight: 700; }
 
+/* ── 폭 밴드 목업 (0.11.0) ──
+   패널 폭을 넓히면 여러 줄이 한 줄로 합쳐지는 것을 보여준다. 좁은 쪽·넓은 쪽을 위아래로 놓고
+   **폭 자체를 다르게** 준다 — 같은 너비 두 칸으로 그리면 '넓어진다'는 요점이 사라진다. */
+.mk-w { display: grid; gap: 14px; }
+.mk-w-narrow { max-width: 290px; }
+.mk-row { display: flex; align-items: center; gap: 6px; }
+.mk-row + .mk-row { margin-top: 6px; }
+.mk-btn {
+  flex: 1; min-width: 0; display: inline-flex; align-items: center; justify-content: center; gap: 5px;
+  font-size: 10.5px; font-weight: 800; padding: 7px 6px; border-radius: 7px; white-space: nowrap;
+}
+.mk-btn--save { color: #1b1235; background: linear-gradient(135deg, #c4b5fd, #a78bfa); }
+.mk-btn--items { color: #04183a; background: linear-gradient(135deg, #6aa8ff, #3b6fe0); }
+.mk-btn--trend { color: #042a32; background: linear-gradient(135deg, #3ed8e6, #11a0c4); }
+.mk-title { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 11.5px; font-weight: 800; color: #f5f3ff; }
+.mk-count { font-size: 9.5px; font-weight: 800; color: #c4b5fd; background: rgba(167, 139, 250, 0.14); border-radius: 999px; padding: 1px 6px; }
+.mk-search {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 5px; font-size: 10.5px; color: #8a83ab;
+  background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 7px; padding: 5px 8px;
+}
+.mk-sort { flex: none; display: inline-flex; border: 1px solid rgba(255, 255, 255, 0.12); border-radius: 7px; overflow: hidden; font-size: 10px; font-weight: 700; }
+.mk-sort span { padding: 4px 7px; color: #9b94bd; }
+.mk-sort span.is-on { background: linear-gradient(180deg, rgba(167, 139, 250, 0.34), rgba(167, 139, 250, 0.18)); color: #f3efff; }
+/* 카드에 꺼낸 액션 — 색은 패널의 의미색 그대로(라이브·갱신 블루 / 복사 시안) */
+.mk-actbar { flex: none; display: inline-flex; gap: 3px; }
+.mk-actic { width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; border-radius: 5px; }
+.mk-actic--live, .mk-actic--over { color: #6aa8ff; background: rgba(106, 168, 255, 0.12); border: 1px solid rgba(106, 168, 255, 0.34); }
+.mk-actic--copy { color: #3ed8e6; background: rgba(62, 216, 230, 0.12); border: 1px solid rgba(62, 216, 230, 0.34); }
+/* 창이 좁아 쓸 수 없는 단계 */
+.mk-opt.is-off { color: #5b5580; background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255, 255, 255, 0.03) 4px 8px); }
+/* 드래그 중 뜨는 폭 배지 */
+.mk-badge {
+  display: inline-flex; flex-direction: column; gap: 2px; width: max-content; max-width: 100%;
+  padding: 7px 11px; border-radius: 9px;
+  background: rgba(12, 10, 22, 0.96); border: 1px solid rgba(167, 139, 250, 0.4);
+}
+.mk-badge .mk-badge-now { font-size: 11.5px; font-weight: 800; color: #f5f3ff; }
+.mk-badge .mk-badge-now i { font-style: normal; color: #c4b5fd; }
+.mk-badge .mk-badge-next { font-size: 10.5px; font-weight: 700; color: #3ed8e6; }
+
 @media (max-width: 520px) {
   .mk-pair { flex-direction: column; }
+  .mk-w-narrow { max-width: 100%; }
 }
 
 /* 스토어에 안 나간 버전 — 접어 둔다(사용자가 겪은 적 없고 다음 출시 버전과 겹친다) */
