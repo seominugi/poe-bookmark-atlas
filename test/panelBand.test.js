@@ -7,8 +7,8 @@
 // 이 표를 바꾸려면 하네스에서 다시 재고 test/panelBands.dom.test.js 도 함께 고쳐라.
 import { describe, it, expect } from 'vitest'
 import {
-  panelBand, nextBandAt, widthPresets, activePreset,
-  MIN_W, MAX_W, BAND_M, BAND_L, BAND_XL,
+  panelBand, nextBandAt, bandProgress, widthPresets, activePreset,
+  BAND_STOPS, MIN_W, MAX_W, BAND_M, BAND_L, BAND_XL,
 } from '../src/lib/panelWidth.js'
 
 describe('panelBand', () => {
@@ -149,5 +149,47 @@ describe('폭 배지 — 찜 배지와 이름이 겹치지 않는다', () => {
     const badgeZ = z(/\.ba-rzbadge\s*\{[\s\S]*?z-index:\s*(\d+)/)
     expect(Number.isFinite(panelZ) && Number.isFinite(badgeZ)).toBe(true)
     expect(badgeZ).toBeGreaterThan(panelZ)
+  })
+})
+
+// 드래그 배지 스테퍼 — '어디쯤인가'를 그림으로 답하는 부분의 상태 계산.
+// 계산을 lib 에 둔 이유: panel.js 가 경계를 다시 알면 두 곳이 갈라진다
+// (폭 결합 4곳이 각각 하드코딩돼 틈이 생겼던 그 사고와 같은 종류).
+describe('bandProgress — 배지 스테퍼 상태', () => {
+  const states = (w, vw = 1920) => bandProgress(w, vw).stops.map((s) => s.state)
+
+  it('정거장은 밴드 경계와 같다 — 여기서 숫자를 다시 적지 않는다', () => {
+    expect(BAND_STOPS).toEqual([MIN_W, BAND_M, BAND_L, BAND_XL])
+  })
+
+  it('지나온 곳 done · 서 있는 곳 at · 바로 다음 up', () => {
+    expect(states(MIN_W)).toEqual(['at', 'up', 'todo', 'todo'])
+    expect(states(BAND_M)).toEqual(['done', 'at', 'up', 'todo'])
+    expect(states(BAND_L)).toEqual(['done', 'done', 'at', 'up'])
+    expect(states(BAND_XL)).toEqual(['done', 'done', 'done', 'at'])
+    expect(states(MAX_W)).toEqual(['done', 'done', 'done', 'at'])
+  })
+
+  // 닿을 수 없는 정거장을 켜 두면 배지가 못 지킬 약속을 한다 — 끝까지 끌어도 아무 일이 없다.
+  it('창이 좁아 닿을 수 없는 정거장은 off', () => {
+    expect(states(MIN_W, 900)).toEqual(['at', 'up', 'todo', 'off']) // 상한 740 → xl 불가
+    expect(states(MIN_W, 760)).toEqual(['at', 'up', 'off', 'off'])  // 상한 600 → l·xl 불가
+  })
+
+  it('현재 구간의 진행도를 0~1 로 준다', () => {
+    expect(bandProgress(MIN_W, 1920).fill).toBe(0)
+    const mid = (MIN_W + BAND_M) / 2
+    expect(bandProgress(mid, 1920).fill).toBeCloseTo(0.5, 2)
+    expect(bandProgress(BAND_M - 1, 1920).fill).toBeGreaterThan(0.9)
+  })
+
+  it('마지막 구간·닿을 수 없는 구간에서는 진행도가 0 — 채울 다음이 없다', () => {
+    expect(bandProgress(MAX_W, 1920).fill).toBe(0)
+    expect(bandProgress(590, 760).fill).toBe(0) // 상한 600, 다음 정거장 640 에 못 닿는다
+  })
+
+  it('쓰레기 값도 클램프해서 받는다', () => {
+    expect(() => bandProgress(undefined, 1920)).not.toThrow()
+    expect(bandProgress(-999, 1920).index).toBe(0)
   })
 })
