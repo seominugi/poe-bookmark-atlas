@@ -1,5 +1,5 @@
 import css from './panel.css?inline'
-import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague, fitCondSummaries, getOpenInNewTab, setOpenInNewTab } from './renderList.js'
+import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague, getOpenInNewTab, setOpenInNewTab } from './renderList.js'
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData,
   needsConditionSetDemo, seedDemoSets, clearDemoSets,
@@ -132,7 +132,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   let panelSide = 'right' // 패널 좌/우 배치 (uiPanelSide 선호)
   // 패널 폭 — 최소는 기존 고정폭(384px). 이번 세션 실측상 액션 행이 가용 342px 중 336px 를 쓰므로
   // 더 좁히면 레이아웃이 흔들린다. 넓히기만 허용해 기존 예산·회귀 가드를 하한으로 유지한다(사용자 결정).
-  let fitRaf = 0 // 조건 요약 재측정 rAF — applyWidth 가 드래그 매 프레임 불려도 한 번만 돌게
   let panelW = MIN_W // 기본 = 최소폭(= 폭 조절 도입 전의 고정폭)
   // 폭에 의존하는 값은 전부 여기서 파생시킨다 — CSS 는 --ba-w(패널 width·핸들 위치), JS 는 페이지 밀어내기.
   const applyWidth = (w) => {
@@ -142,14 +141,6 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 여기서 px 로 분기하지 않는 이유: 경계가 두 곳에 생기면 반드시 갈라진다(폭 결합 4곳 사고와 같은 종류).
     elRoot.dataset.band = panelBand(panelW)
     applyPagePush(isCollapsed())
-    // 조건 요약은 '조건 경계'에서 끊으므로 폭이 바뀌면 다시 맞춰야 한다(넓히면 더 보이고, 좁히면 덜 보인다).
-    // 드래그 중에는 매 프레임 재계산하지 않고 rAF 한 번으로 묶는다 — 카드가 수십 개다.
-    if (fitRaf) cancelAnimationFrame(fitRaf)
-    fitRaf = requestAnimationFrame(() => {
-      fitRaf = 0
-      // 조용히 삼키지 않는다 — 여기가 실패하면 "넓혀도 조건이 안 늘어난다"로만 보여 원인 추적이 어렵다.
-      try { fitCondSummaries($('ba-list')) } catch (err) { console.warn('[BA] 조건 요약 재측정 실패', err) }
-    })
   }
   let fuzzyOn = true // 거래소 필터칸 "~" 퍼지 접두사 강제 (uiFuzzyPrefix, 기본 켬 — fuzzyPrefix.js가 실제 동작 담당)
   // 펼쳤을 때 페이지 콘텐츠를 패널 반대쪽으로 밀어 자리를 확보(도킹) → 검색 영역과 겹침 방지. 좌/우 배치에 따라 방향 반전.
@@ -421,6 +412,28 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 커스텀 툴팁 — 네이티브 title 대신 패널 안(Shadow DOM)에서 렌더. 우측 도킹이라 요소 왼쪽에 표시.
   const tipEl = $('ba-tip')
   let tipSuppressed = false // 드래그 중 억제 — 큰 툴팁이 놓을 자리를 가린다(조건 묶음 칩 재배치)
+  let tipAnchor = null      // 툴팁이 붙어 있는 요소
+  let tipFollowY = false    // 세로로 포인터를 따라갈 것인가(아주 긴 요소일 때만)
+  // 패널 높이 전체를 차지하는 폭 조절 그립만 넘는 값. 다음으로 긴 컨트롤이 핸들(116px)이라 넉넉히 벌려 둔다.
+  const TIP_FOLLOW_MIN_H = 200
+
+  /** 툴팁 위치. clientY 를 주면 세로 기준이 그 지점이 된다(포인터 추종). */
+  const placeTip = (el, clientY) => {
+    const r = el.getBoundingClientRect()
+    if (panelSide === 'left') { // 좌측 도킹: 요소의 오른쪽에 표시
+      tipEl.style.right = 'auto'
+      tipEl.style.left = Math.max(8, Math.min(window.innerWidth - tipEl.offsetWidth - 8, r.right + 8)) + 'px'
+    } else { // 우측 도킹: 요소의 왼쪽에 표시
+      tipEl.style.left = 'auto'
+      tipEl.style.right = Math.max(8, window.innerWidth - r.left + 8) + 'px'
+    }
+    // 세로: 기준점에 맞추되, 아래로 넘치면 위로 끌어올려 뷰포트 안에 유지(긴 조건 목록 대응)
+    const h = tipEl.offsetHeight
+    // 포인터를 따라갈 때는 커서를 덮지 않도록 살짝 위로 올려 세로 중앙을 커서에 맞춘다.
+    let top = (tipFollowY && typeof clientY === 'number') ? clientY - h / 2 : r.top
+    if (top + h > window.innerHeight - 8) top = window.innerHeight - 8 - h
+    tipEl.style.top = Math.max(8, top) + 'px'
+  }
   root.addEventListener('mouseover', (e) => {
     if (tipSuppressed) return
     const el = e.target.closest && e.target.closest('[data-tip]')
@@ -436,22 +449,20 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       tipEl.textContent = raw
     }
     tipEl.hidden = false
-    const r = el.getBoundingClientRect()
-    if (panelSide === 'left') { // 좌측 도킹: 요소의 오른쪽에 표시
-      tipEl.style.right = 'auto'
-      tipEl.style.left = Math.max(8, Math.min(window.innerWidth - tipEl.offsetWidth - 8, r.right + 8)) + 'px'
-    } else { // 우측 도킹: 요소의 왼쪽에 표시
-      tipEl.style.left = 'auto'
-      tipEl.style.right = Math.max(8, window.innerWidth - r.left + 8) + 'px'
-    }
-    // 세로: 요소 상단에 맞추되, 아래로 넘치면 위로 끌어올려 뷰포트 안에 유지(긴 조건 목록 대응)
-    const h = tipEl.offsetHeight
-    let top = r.top
-    if (top + h > window.innerHeight - 8) top = Math.max(8, window.innerHeight - 8 - h)
-    tipEl.style.top = top + 'px'
+    // 폭 조절 그립처럼 **아주 긴** 요소는 세로로 포인터를 따라간다. 그립은 패널 높이 전체라
+    // 요소 상단에 붙이면 툴팁이 화면 맨 위에 뜬다 — 정작 잡고 있는 자리와 수백 px 떨어진다(제보 2026-08-23).
+    // 일반 컨트롤(칩·버튼·카드)은 지금처럼 요소 상단에 맞춘다 — 긴 조건 목록이 커서를 덮지 않게.
+    tipFollowY = el.getBoundingClientRect().height > TIP_FOLLOW_MIN_H
+    tipAnchor = el
+    placeTip(el, e.clientY)
+  })
+  // 따라다녀야 하는 요소 위에서만 재배치한다 — 아니면 이 핸들러는 불리자마자 빠진다.
+  root.addEventListener('mousemove', (e) => {
+    if (!tipFollowY || tipEl.hidden || !tipAnchor) return
+    placeTip(tipAnchor, e.clientY)
   })
   root.addEventListener('mouseout', (e) => {
-    if (e.target.closest && e.target.closest('[data-tip]')) tipEl.hidden = true
+    if (e.target.closest && e.target.closest('[data-tip]')) { tipEl.hidden = true; tipAnchor = null; tipFollowY = false }
   })
 
   // 패널 내부 인라인 이름 입력 (네이티브 prompt 대체). @returns {Promise<string|null>}

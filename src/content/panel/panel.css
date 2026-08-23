@@ -365,7 +365,9 @@
 /* ---- 리그 섹션 (접이식 상위 그룹: 현재 펼침 / 지난 접힘) ---- */
 /* 행 리그 칩 — 지금 보고 있는 리그가 **아닌** 북마크에만. 리그 섹션을 없앤 뒤(2026-08-18)
    '이건 지금 리그가 아니다'를 알리는 유일한 상시 단서다. 톤은 없어진 섹션 배지를 그대로 계승한다. */
-.ba-rowleague { display: inline-flex; align-items: center; gap: 3px; font-size: 9.5px; font-weight: 700; padding: 2px 7px; border-radius: 9px; flex: none; cursor: help; color: var(--ba-text-muted); background: rgba(255, 255, 255, 0.07); }
+/* 리그 이름표 — 흐려서 안 읽힌다는 제보(2026-08-23). 글자·배경·테두리를 함께 올린다.
+   테두리 2px 만큼 세로 padding 을 줄여 칩 높이는 그대로 둔다(한 줄 카드의 높이가 흔들리지 않게). */
+.ba-rowleague { display: inline-flex; align-items: center; gap: 3px; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 9px; flex: none; cursor: help; color: #cfc8e8; background: rgba(255, 255, 255, 0.11); border: 1px solid rgba(255, 255, 255, 0.17); }
 .ba-rowleague.past { color: var(--ba-warn); background: var(--ba-warn-soft); border: 1px solid var(--ba-warn-line); }   /* .ba-attn과 같은 경고 톤 */
 /* 간략 보기에선 리그명을 접고 트로피만 남긴다 — 한 줄로 접으면 이름에 남는 폭이 몇십 px라
    칩 하나가 제목을 통째로 먹는다(.ba-cond-n과 같은 처리). 리그명은 툴팁에 그대로 있다. */
@@ -459,11 +461,13 @@
   transition: background .15s, color .15s;
 }
 .ba-cond:hover { background: rgba(167, 139, 250, 0.24); color: #ddd6fe; }
-/* 조건 요약 변형(북마크 카드) — '조건 N개' 대신 수치 포함 요약. 좌측 정렬 + 한 줄 말줄임(전체는 호버 툴팁). */
-.ba-cond--summary { margin-left: 0; min-width: 0; max-width: 100%; }
-/* 조건 개수 배지 — 바이올렛 칩의 보색(앰버/골드)으로 강조해 한눈에 띄게. 어두운 글자 + 은은한 글로우 */
-.ba-cond--summary .ba-cond-n { flex: none; font-size: 10px; font-weight: 800; line-height: 1.5; padding: 0 6px; border-radius: 999px; background: var(--ba-warn); color: #2b1e02; box-shadow: 0 0 7px rgba(251, 191, 36, 0.5); }
-.ba-cond--summary .ba-cond-tx { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+/* 조건 요약 변형(북마크 카드) — 2026-08-23 부터 **모든 폭에서 '조건 N개' 만** 보인다.
+   수치 요약을 인라인으로 깔던 것을 접었다(사용자 결정): 카드마다 길이가 달라 목록이 들쭉날쭉했고,
+   전체 조건은 어차피 호버 툴팁(data-tip)이 정확히·전부 보여준다. 그만큼 북마크 이름에 자리가 간다.
+   ⚠ 폭에 맞춰 요약을 잘라 주던 lib/fitSummary.js 는 이 변경으로 쓸 곳이 없어져 함께 지웠다.
+   앰버 배지도 뺐다 — 요약 텍스트 사이에서 개수를 도드라지게 하려던 것이라, 칩에 개수만 남은
+   지금은 히스토리 조건 칩과 모양이 갈릴 이유가 없다. */
+.ba-cond--summary { margin-left: 0; flex: none; }
 
 /* ---- 액션 버튼: 의미색 ---- */
 .ba-star, .ba-del, .ba-over, .ba-rename, .ba-hist-del,
@@ -806,8 +810,7 @@
 .ba-root[data-brief="1"] .ba-line1 { flex: 1 1 auto; min-width: 0; }
 .ba-root[data-brief="1"] .ba-meta-row,
 .ba-root[data-brief="1"] .ba-meta { flex: none; margin: 0; }
-.ba-root[data-brief="1"] .ba-cond-n,
-.ba-root[data-brief="1"] .ba-cond-tx { display: none; }
+.ba-root[data-brief="1"] .ba-cond-n { display: none; }
 /* 가격은 사라지지 않고 조건 칩 **안으로** 들어간다. 필 하나 분량의 테두리·좌우 여백·간격이
    빠지면서 그만큼(약 32px)이 이름에 간다 — 384px 에서 이름 글자 폭이 32px 였다("회오…").
    평소에는 .ba-cond-price 가 숨어 있고 원래 가격 필이 보인다(기본 화면 불변). */
@@ -1113,10 +1116,17 @@
    카드 높이 79 → 47px. 간략 보기가 켜져 있으면 그쪽 규칙이 이긴다(선언 순서상 아래에 있다). */
 .ba-root[data-band="l"] .ba-row[data-kind="bookmark"],
 .ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] { display: flex; align-items: center; gap: 10px; }
+/* 남는 폭은 **이름 쪽이 가져간다.** 조건 요약을 접은 뒤로 메타 쪽 내용이 작아졌는데(리그 칩 + '조건 N개'),
+   44/56 으로 반씩 나누면 메타 절반 한가운데가 텅 비고 ⋯ 만 멀리 떨어져 보인다.
+   이름은 길면 잘리는 쪽이라 남는 자리를 줄수록 이득이고, 메타는 내용만큼만 차지하면 된다. */
+/* ⚠ 기저(basis)가 auto 면 이름이 **자기 내용만큼을 요구해** 메타 쪽을 카드 밖으로 밀어낸다
+     (실측: 아주 긴 이름에서 ⋯ 가 카드 오른쪽 경계를 100px 넘어갔다).
+     이름 쪽은 0 에서 시작해 남는 만큼만 받고(넘치면 말줄임), 메타는 줄어들지 않게 고정한다.
+     메타 자식(리그 칩·조건 칩·액션바·⋯)은 전부 flex:none 이라 메타가 줄면 그대로 흘러넘친다. */
 .ba-root[data-band="l"] .ba-row[data-kind="bookmark"] .ba-line1,
-.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-line1 { flex: 1 1 44%; min-width: 0; }
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-line1 { flex: 1 1 0; min-width: 0; }
 .ba-root[data-band="l"] .ba-row[data-kind="bookmark"] .ba-meta-row,
-.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-meta-row { flex: 1 1 56%; min-width: 0; margin-top: 0; }
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-meta-row { flex: 0 0 auto; min-width: 0; margin-top: 0; }
 /* content-visibility:auto 의 추정 높이 — 실제(47px)와 어긋나면 스크롤바가 튄다(간략 보기가 겪은 함정). */
 .ba-root[data-band="l"] .ba-row[data-kind="bookmark"],
 .ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] { contain-intrinsic-size: 47px; }
@@ -1126,7 +1136,10 @@
    ⚠ 왜 640 이 아닌가: 이 바가 89px 을 먹는다. 640 에 붙이면 조건 칸이 57px 로 죽는다.
      경계는 src/lib/panelWidth.js 의 BAND_XL 이 정본이다 — 여기 px 을 다시 적지 않는다. */
 .ba-actbar { display: none; }
-.ba-root[data-band="xl"] .ba-actbar { display: inline-flex; align-items: center; gap: 4px; flex: none; }
+/* 오른쪽 끝(⋯ 옆)으로 몬다 — 조건 칩 바로 뒤에 붙으면 카드마다 위치가 달라 눈이 매번 찾아야 한다.
+   자유 공간을 여기서 전부 먹으므로 .ba-more 의 margin-left:auto 는 꺼야 한다(둘 다 auto 면 반씩 나눠 갖는다). */
+.ba-root[data-band="xl"] .ba-actbar { display: inline-flex; align-items: center; gap: 4px; flex: none; margin-left: auto; }
+.ba-root[data-band="xl"] .ba-meta-row .ba-more { margin-left: 0; }
 .ba-act-ic {
   width: 27px; height: 27px; flex: none;
   display: inline-flex; align-items: center; justify-content: center;

@@ -16,7 +16,6 @@ import divineIcon from '../../icons/divine.png'
 import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
 import researcherIcon from '../../icons/mascot-researcher.webp'
-import { fitCondSummaries } from '../../lib/fitSummary.js'
 import { nextDelay, retryAfterMs, waitSeconds } from '../../lib/tradeRate.js'
 
 // content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
@@ -419,7 +418,7 @@ function rowHtml(r, kind, lg, currentLeague) {
   // raw query 가 있어야 정확한 그룹까지 재현되므로 그때만 클릭 가능하게 한다.
   const canAddStats = !!(r.query && stats.length)
   const addTip = canAddStats ? '\n────────\n클릭하면 이 능력치를 지금 검색에 추가' : ''
-  const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span><span class="ba-cond-tx">${escapeHtml(condSummaryText(r))}</span>${briefPrice}</span>`
+  const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
   // 대표 아이템 이미지 — 북마크·히스토리 공통(검색 결과 최빈 아이콘)
   const thumb = r.icon && isAllowedIconUrl(r.icon) ? `<img class="ba-thumb" src="${escapeHtml(r.icon)}" alt="" loading="lazy" />` : ''
 
@@ -587,8 +586,6 @@ async function checkOneWatch(btn, row, ui, toast) {
     toast('상태를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.')
   } finally { btn.disabled = false; btn.innerHTML = orig }
 }
-
-export { fitCondSummaries }
 
 // 드래그로 순서를 바꿨는데 정렬이 '최근'·'이름'이면 **저장은 되고 화면은 되돌아간다**.
 // 기본 정렬이 recent 라 대부분의 사용자가 이 상태였고, "드래그해서 놓아도 제자리로 돌아간다"는
@@ -1231,7 +1228,5 @@ function bindDnD(listEl, toast = () => {}) {
     })
   })
 
-  // 조건 요약을 '조건 경계'에서 끊는다 — 글자 중간 말줄임 대신. 근거·측정: src/lib/fitSummary.js
   // 폭이 바뀌어도 다시 맞춰야 하므로 panel.js 가 applyWidth 에서도 부른다.
-  fitCondSummaries(listEl)
 }

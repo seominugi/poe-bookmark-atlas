@@ -30,8 +30,11 @@ describe('간략 보기가 기대는 마크업', () => {
   it('북마크 조건 칩 — 글자가 접기 가능한 요소 안에 있다', async () => {
     await addBookmark(rec({}), '반지')
     const chip = (await render()).querySelector('.ba-cond--summary')
-    expect(chip.querySelector('.ba-cond-n')).not.toBeNull() // '조건 N개'
-    expect(chip.querySelector('.ba-cond-tx')).not.toBeNull() // 요약 텍스트
+    expect(chip.querySelector('.ba-cond-n')).not.toBeNull() // '조건 N개' — 간략 보기가 이걸 접는다
+    // 2026-08-23: 수치 요약(.ba-cond-tx)은 모든 폭에서 접었다(사용자 결정).
+    // 카드마다 길이가 달라 목록이 들쭉날쭉했고, 전체 조건은 호버 툴팁이 정확히·전부 갖는다.
+    expect(chip.querySelector('.ba-cond-tx')).toBeNull()
+    expect(chip.getAttribute('data-tip')).toBeTruthy()
   })
 
   it('히스토리 조건 칩도 같은 손잡이를 갖는다 — 없으면 히스토리만 안 접혀 두 배로 남는다', async () => {

@@ -64,6 +64,18 @@ describe('m 밴드 — 목록 머리 합류가 기대는 구조', () => {
   })
 })
 
+// 2026-08-23: 수치 요약을 모든 폭에서 접었다. 칩에는 '조건 N개' 만 남고 전체는 호버 툴팁이 갖는다.
+// 이 계약이 깨지면(요약 span 이 되살아나면) 카드 높이가 다시 카드마다 들쭉날쭉해진다.
+describe('조건 칩 — 모든 폭에서 개수만', () => {
+  it('요약 텍스트는 렌더하지 않고, 개수와 툴팁만 남는다', async () => {
+    await addBookmark(rec({}), '반지')
+    const chip = (await render()).querySelector('.ba-cond--summary')
+    expect(chip.querySelector('.ba-cond-n').textContent).toMatch(/^조건 \d+개$/)
+    expect(chip.querySelector('.ba-cond-tx')).toBeNull()
+    expect(chip.getAttribute('data-tip')).toBeTruthy() // 조건 전체가 닿는 유일한 경로
+  })
+})
+
 describe('xl 밴드 — 카드 액션바', () => {
   it('북마크 카드에 라이브·복사·갱신 셋이, 팝오버와 같은 클래스로 붙는다', async () => {
     await addBookmark(rec({}), '반지')
@@ -95,6 +107,16 @@ describe('xl 밴드 — 카드 액션바', () => {
     el.querySelectorAll('.ba-row[data-kind="history"]').forEach((r) => {
       expect(r.querySelector('.ba-actbar')).toBeNull()
     })
+  })
+
+  // 오른쪽 정렬은 CSS(margin-left:auto)가 하지만, 그게 통하려면 액션바가 ⋯ **앞**에 있어야 한다.
+  // 순서가 뒤집히면 버튼이 카드 맨 끝으로 밀려 ⋯ 와 자리가 바뀐다.
+  it('액션바는 ⋯ 바로 앞에 온다 — 오른쪽 끝에 둘이 붙어 있어야 한다', async () => {
+    await addBookmark(rec({}), '반지')
+    const el = await render()
+    const meta = el.querySelector('.ba-row[data-kind="bookmark"] .ba-meta-row')
+    const kids = [...meta.children].map((c) => c.className.split(' ')[0])
+    expect(kids.slice(-2)).toEqual(['ba-actbar', 'ba-more'])
   })
 
   it('아이콘이 서로 다르다 — 라벨 없이 아이콘만 남는 행이라 같은 그림 둘은 구분이 안 된다', async () => {
