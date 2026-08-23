@@ -523,20 +523,87 @@
 .ba-toast {
   /* 정중앙보다 살짝 위(42%) — 시선이 먼저 닿는 높이이면서, 정중앙처럼 결과 목록 한가운데를 덮지 않는다. */
   position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
-  max-width: min(680px, calc(100vw - 48px)); z-index: 2147483400;
+  max-width: min(560px, calc(100vw - 48px)); z-index: 2147483400;
   background: rgba(8, 7, 16, 0.97);
-  border: 1px solid var(--ba-violet-line); border-left: 4px solid var(--ba-violet);
-  border-radius: 13px; padding: 14px 20px;
-  /* 12px 은 스쳐 지나간다 — 특히 새 버전 알림은 그 버전에 **단 한 번**만 뜬다(제보 2026-08-23). */
-  color: var(--ba-text-strong); font-size: 16px; font-weight: 600; line-height: 1.55;
+  border: 1px solid var(--ba-violet-line); border-left: 3px solid var(--ba-violet);
+  border-radius: 10px; padding: 9px 14px;
+  /* ⚠ 여기 크기를 특정 안내 하나 때문에 키우지 말 것 — 이건 실행취소·복사 완료 등
+     **모든 안내가 공유**하는 컴포넌트다. 강조가 필요한 알림은 전용 컴포넌트를 만든다
+     (2026-08-23: 새 버전 알림 때문에 여길 키웠다가 .ba-upnote 로 분리했다). */
+  color: var(--ba-text-strong); font-size: 12px; font-weight: 600; line-height: 1.5;
   text-align: center; white-space: normal; word-break: keep-all;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   animation: ba-toast-in .22s var(--ba-ease);
 }
 .ba-toast[hidden] { display: none; }
+
+/* ── 새 버전 알림 (전용) ────────────────────────────────────────────
+   공용 토스트(.ba-toast)와 **분리**돼 있다. 이 알림만의 사정이 있기 때문이다:
+     · 그 버전에 **단 한 번** 뜬다 — 놓치면 다음 릴리즈까지 기회가 없다
+     · 다른 안내처럼 몇 초 뒤 사라지지 않고, 둘 중 하나를 누를 때까지 남는다
+   그래서 더 크고, 글린트로 한 번 쓸어 시선을 끈다. 공용 토스트는 원래 크기 그대로 둔다. */
+.ba-upnote {
+  /* ⚠ left:50% 로 가운데를 잡으면 **가용 폭이 뷰포트의 절반**이 된다(왼쪽 offset 부터 오른쪽 끝까지).
+     fixed 요소는 그 안에서 shrink-to-fit 하므로, 1400px 창에서 아무리 max-width 를 올려도 700px 를
+     못 넘고 내용이 줄바꿈됐다. left/right 0 + margin auto 로 가운데를 잡아야 전체 폭을 쓸 수 있다.
+     (공용 토스트도 같은 구조지만 그만큼 넓어질 일이 없어 드러나지 않았다.) */
+  /* ⚠ box-sizing 을 여기서 켠다. 이 패널엔 전역 border-box 가 없어서, 안 켜면 max-width 가
+     **내용 상자**에만 걸린다 — 테두리 상자는 padding 52 + 테두리 6 = 58px 더 넓어져
+     calc(100vw - 48px) 를 걸어도 실제로는 100vw + 10px 가 되어 좁은 창에서 넘친다(실측). */
+  box-sizing: border-box;
+  position: fixed; top: 42%; left: 0; right: 0; margin-inline: auto;
+  width: max-content; transform: translateY(-50%);
+  z-index: 2147483450;                       /* 토스트보다 위 — 둘이 겹칠 일은 없지만 순서를 못 박는다 */
+  max-width: min(820px, calc(100vw - 48px));
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: center;
+  padding: 20px 26px; border-radius: 16px;
+  background: linear-gradient(180deg, rgba(28,22,54,.985), rgba(10,8,20,.985));
+  border: 1px solid var(--ba-violet-line); border-left: 5px solid var(--ba-violet);
+  box-shadow: 0 18px 46px rgba(0,0,0,.6), 0 0 34px rgba(167,139,250,.18);
+  color: var(--ba-text-strong); font-size: 18px; font-weight: 600; line-height: 1.5;
+  word-break: keep-all; overflow: hidden;    /* 글린트가 라운딩 밖으로 새지 않게 */
+  /* 공용 토스트의 ba-toast-in 은 translate(-50%,…) 라 여기 쓰면 가로로 밀린다 — 세로만 움직이는 전용 키프레임. */
+  animation: ba-upnote-in .22s var(--ba-ease);
+}
+@keyframes ba-upnote-in {
+  from { opacity: 0; transform: translateY(calc(-50% - 8px)); }
+  to   { opacity: 1; transform: translateY(-50%); }
+}
+.ba-upnote[hidden] { display: none; }
+/* 글린트 — 패널의 다른 강조(.ba-econ-glint·.ba-foot-glint)와 같은 언어를 쓴다. */
+.ba-upnote .ba-upnote-glint {
+  position: absolute; inset: 0; pointer-events: none;
+  background: linear-gradient(to right, transparent, rgba(196,181,253,.18), transparent);
+  animation: ba-glint 3.4s ease-in-out infinite; animation-delay: -.6s;
+}
+.ba-upnote .ba-upnote-tx { position: relative; z-index: 1; }
+.ba-upnote .ba-upnote-v {
+  color: var(--ba-violet-2); font-weight: 800; font-variant-numeric: tabular-nums;
+}
+.ba-upnote .ba-upnote-btns { position: relative; z-index: 1; display: flex; gap: 9px; flex: none; }
+.ba-upnote button {
+  font-family: inherit; font-size: 15px; font-weight: 700; white-space: nowrap;
+  padding: 9px 18px; border-radius: 10px; cursor: pointer;
+  transition: color .15s, background .15s, border-color .15s, transform .16s var(--ba-ease-out);
+}
+.ba-upnote button:active { transform: scale(0.97); }
+/* 주 동작은 채워서, 보조는 테두리만 — 둘이 같은 무게면 무엇을 눌러야 할지 매번 읽어야 한다. */
+.ba-upnote .ba-upnote-go {
+  color: #1b1235; background: linear-gradient(135deg, #c4b5fd, #a78bfa); border: none;
+}
+.ba-upnote .ba-upnote-go:hover { filter: brightness(1.07); }
+.ba-upnote .ba-upnote-skip {
+  color: var(--ba-text-muted); background: rgba(255,255,255,.05); border: 1px solid var(--ba-border);
+}
+.ba-upnote .ba-upnote-skip:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+@media (prefers-reduced-motion: reduce) {
+  .ba-upnote { animation: none; }
+  .ba-upnote .ba-upnote-glint { animation: none; opacity: 0; }
+  .ba-upnote button:active { transform: none; }
+}
 /* 실행취소 등 토스트 액션 — 문장 끝에 붙는 링크형 버튼 */
-.ba-toast-act { margin-left: 10px; padding: 5px 13px; border-radius: 8px;
-  font-family: inherit; font-size: 14px; font-weight: 700; color: var(--ba-violet-2);
+.ba-toast-act { margin-left: 10px; padding: 2px 8px; border-radius: 6px;
+  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ba-violet-2);
   background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); cursor: pointer;
   transition: color .15s, background .15s, transform .16s var(--ba-ease-out); }
 .ba-toast-act:hover { color: #fff; background: rgba(167, 139, 250, 0.28); }
