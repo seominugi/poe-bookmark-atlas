@@ -289,35 +289,46 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       const x = fits(outward) ? outward : fits(inward) ? inward : outward
       badge.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - 8 - bw, x))) + 'px'
     }
-    // 다음 구간에서 **무엇이 합쳐지는지**를 도형 한 쌍('지금' → '다음')으로 보인다.
-    // 지금 모습을 다시 그리지 않는 게 요점이다 — 그건 패널이 눈앞에서 이미 보여주고 있다.
-    // 사용자가 답을 못 얻는 질문은 "조금 더 끌면 뭐가 좋아지지?" 하나뿐이라 거기만 그림으로 답한다.
-    const bar = (c) => `<span class="b ${c}"></span>`
-    const GLYPH = {
-      m: [bar('wide') + bar('two') + bar('half'), bar('wide hi')],          // 세 줄 → 한 줄
-      l: [bar('wide') + bar('two'), bar('wide hi')],                        // 카드 두 줄 → 한 줄
-      xl: [bar('wide'), `<span class="gl-row">${bar('two hi')}<span class="dots"><i></i><i></i><i></i></span></span>`],
+    // ── 폭 지도 ──
+    // 네 구간을 **한 줄에 펼쳐** 보이고 지금 서 있는 칸을 강조한다.
+    // 처음엔 '지금 → 다음' 도형 한 쌍이었다. 그때 '패널 축소도'를 기각한 이유는 "실제 패널이
+    // 옆에 있으니 중복" 이었는데, **네 칸을 한꺼번에 펼치는 건 복제가 아니라 지도다** — 지금 모습이
+    // 아니라 '어디서 어디로 갈 수 있는가'를 보인다(사용자 판단 2026-08-23). 스테퍼도 이 안에 녹았다.
+    //
+    // 각 칸은 그 구간의 패널을 아주 거칠게 흉내 낸다. 픽셀을 맞추려 들지 말 것 —
+    // 읽어야 할 것은 '줄이 합쳐진다'와 '카드에 버튼이 붙는다' 두 가지뿐이다.
+    const R = {
+      top1: '<i class="r v w100"></i>',                                    // 저장 버튼 홀로 한 줄
+      top2: '<i class="r v w48"></i><i class="r v w48"></i>',              // 시세·동향
+      top3: '<i class="r v w32"></i><i class="r v w32"></i><i class="r v w32"></i>',
+      head1: '<i class="r d w100"></i>',
+      head2: '<i class="r d w34"></i><i class="r d w62"></i>',
+      card2: '<i class="r d w100"></i><i class="r d w70"></i>',            // 두 줄짜리 카드
+      card1: '<i class="r c w100"></i>',                                   // 한 줄로 접힌 카드
+      card1b: '<i class="r c w70"></i><i class="a"></i><i class="a"></i><i class="a"></i>',
     }
-    const stepperHtml = () => {
-      const { stops, fill } = bandProgress(panelW, window.innerWidth)
-      let out = '<span class="ba-rz-step">'
-      stops.forEach((s, i) => {
-        out += `<span class="dot ${s.state}"></span>`
-        if (i < stops.length - 1) {
-          const seg = s.state === 'done' ? 'done' : s.state === 'at' ? 'cur' : ''
-          out += `<span class="seg ${seg}" style="--p:${Math.round(fill * 100)}%"></span>`
-        }
-      })
-      return out + '</span>'
+    const row = (k) => `<span class="ln">${R[k]}</span>`
+    const MAP = {
+      s: ['top1', 'top2', 'head2', 'head1', 'card2', 'card2'],
+      m: ['top3', 'head1', 'card2', 'card2'],
+      l: ['top3', 'head1', 'card1', 'card1', 'card1'],
+      xl: ['top3', 'head1', 'card1b', 'card1b', 'card1b'],
+    }
+    const mapHtml = () => {
+      const { stops } = bandProgress(panelW, window.innerWidth)
+      const keys = ['s', 'm', 'l', 'xl']
+      return '<span class="ba-rz-map">' + stops.map((st, i) => {
+        const k = keys[i]
+        return `<span class="cel ${st.state}">`
+          + `<span class="mini">${MAP[k].map(row).join('')}</span>`
+          + `<span class="lbl">${BAND_NAME[k]}</span></span>`
+      }).join('') + '</span>'
     }
     const drawBadge = () => {
       if (!badge) return
       const nx = nextBandAt(panelW, window.innerWidth)
-      const g = nx && GLYPH[nx.band]
       badge.innerHTML = `<span class="now">${panelW}px · <i>${BAND_NAME[panelBand(panelW)]}</i></span>`
-        + stepperHtml()
-        + (g ? `<span class="ba-rz-prev"><span class="cap">지금</span><span class="gl">${g[0]}</span>`
-             + `<span class="arrow">▸</span><span class="gl">${g[1]}</span></span>` : '')
+        + mapHtml()
         + (nx
           ? `<span class="next">▸ ${nx.remain}px 더 넓히면 ${BAND_GAIN[nx.band]}</span>`
           : `<span class="next done">가장 넓은 구간이에요</span>`)
