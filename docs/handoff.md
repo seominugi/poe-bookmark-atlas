@@ -49,9 +49,15 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
-**0.11.0 릴리즈 준비 완료 · `main` 머지 대기 (2026-08-23)**
+**0.11.0 릴리즈 게시 완료 · 스토어 제출 대기 (2026-08-23)**
 
-버전 범프(`d42adfd`)까지 `develop` 에 들어갔다. **남은 것: `develop` → `main` fast-forward → `v0.11.0` 태그 게시 → zip 생성 → 사용자 스토어 제출.**
+`develop` → `main` fast-forward(`f2cd9d3..f83f9bd`, 19커밋) → **`v0.11.0` 태그 publish(現 `Latest`, 대상 `f83f9bd`)**.
+`deploy/poe-bookmark-atlas-0.11.0.zip`(39파일·869KB, manifest 루트·`0.11.0`·host_permissions 3개·optional 없음).
+**남은 것: 사용자가 스토어 심사 제출.**
+
+- ⚠ **릴리즈 노트는 `UPDATE_NOTES` 본문 그대로가 아니다** — 0.11.0 본문에는 `[[mock:…]]` 지시자 3개가 있는데 그건 **패널 안 노트 창 전용**(update.js 가 그림으로 치환)이라, GitHub 에 그대로 두면 독자에게 `[[mock:width-bands]]` 라는 글자가 보인다. 지시자를 걷어내고 `deploy/RELEASE-0.11.0.md` 로 만들어 올렸다. **다음 릴리즈에도 목업을 쓰면 같은 처리가 필요하다.**
+- `gh release create --target <짧은 SHA>` 는 `target_commitish is invalid` 로 거절된다 — **브랜치 이름(`--target main`)을 쓴다.** 태그 SHA 와 main 이 같음을 확인했다(`f83f9bd`).
+- push 전 비밀값 스캔에서 2건이 걸렸는데 **오탐**이었다 — PoB 베이스 맵의 게임 아이템명 `Omen of Secret Compartments`.
 
 - **권한 변화 없음** — storage·tabs + host 3개 그대로다. 0.10.0 때와 달리 **재승인이 걸리지 않는다.** 릴리즈 노트에 그 안내를 넣지 말 것.
 - minor 인 이유: 패널 폭에 따라 레이아웃이 네 단계로 갈리는 것은 화면 구조의 변화다.
