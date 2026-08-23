@@ -523,19 +523,20 @@
 .ba-toast {
   /* 정중앙보다 살짝 위(42%) — 시선이 먼저 닿는 높이이면서, 정중앙처럼 결과 목록 한가운데를 덮지 않는다. */
   position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%);
-  max-width: min(560px, calc(100vw - 48px)); z-index: 2147483400;
+  max-width: min(680px, calc(100vw - 48px)); z-index: 2147483400;
   background: rgba(8, 7, 16, 0.97);
-  border: 1px solid var(--ba-violet-line); border-left: 3px solid var(--ba-violet);
-  border-radius: 10px; padding: 9px 14px;
-  color: var(--ba-text-strong); font-size: 12px; font-weight: 600; line-height: 1.5;
+  border: 1px solid var(--ba-violet-line); border-left: 4px solid var(--ba-violet);
+  border-radius: 13px; padding: 14px 20px;
+  /* 12px 은 스쳐 지나간다 — 특히 새 버전 알림은 그 버전에 **단 한 번**만 뜬다(제보 2026-08-23). */
+  color: var(--ba-text-strong); font-size: 16px; font-weight: 600; line-height: 1.55;
   text-align: center; white-space: normal; word-break: keep-all;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
   animation: ba-toast-in .22s var(--ba-ease);
 }
 .ba-toast[hidden] { display: none; }
 /* 실행취소 등 토스트 액션 — 문장 끝에 붙는 링크형 버튼 */
-.ba-toast-act { margin-left: 10px; padding: 2px 8px; border-radius: 6px;
-  font-family: inherit; font-size: 12px; font-weight: 700; color: var(--ba-violet-2);
+.ba-toast-act { margin-left: 10px; padding: 5px 13px; border-radius: 8px;
+  font-family: inherit; font-size: 14px; font-weight: 700; color: var(--ba-violet-2);
   background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); cursor: pointer;
   transition: color .15s, background .15s, transform .16s var(--ba-ease-out); }
 .ba-toast-act:hover { color: #fff; background: rgba(167, 139, 250, 0.28); }

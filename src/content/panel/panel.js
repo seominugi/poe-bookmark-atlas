@@ -7,7 +7,7 @@ import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, nee
   moveBookmarks } from '../../store/store.js'
 import { extractConditionSet, conditionSetSummary, conditionSetTip, SET_FAIL } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
-import { clampPanelWidth, panelBand, nextBandAt, bandProgress, widthPresets, activePreset, MIN_W } from '../../lib/panelWidth.js'
+import { clampPanelWidth, maxPanelWidth, panelBand, nextBandAt, bandProgress, widthPresets, activePreset, MIN_W, MAX_W } from '../../lib/panelWidth.js'
 import { startCollapsed } from '../../lib/startCollapsed.js'
 import { hasUnseen } from '../../lib/updateNotes.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
@@ -334,7 +334,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         + mapHtml()
         + (nx
           ? `<span class="next">▸ ${nx.remain}px 더 넓히면 ${BAND_GAIN[nx.band]}</span>`
-          : `<span class="next done">가장 넓은 구간입니다</span>`)
+          // 마지막 구간에서는 '다음' 이 없다. 그렇다고 "가장 넓은 구간입니다" 로 채우면
+          // **지도가 이미 보여주는 것을 글로 반복할 뿐** 아무것도 알려주지 않는다(제보 2026-08-23).
+          // 대신 여기서만 알 수 있는 것을 말한다 —
+          //   · 창이 좁아 880 에 못 미치면: 이 폭이 창 때문에 정해졌다는 사실(끝까지 끌어도 더 안 늘어난다)
+          //   · 880 이면: 지금 켜져 있는 것(카드 버튼)
+          : `<span class="next done">${maxPanelWidth(window.innerWidth) < MAX_W
+              ? `창 크기에 맞춘 최대예요 — 창을 넓히면 ${MAX_W}px 까지 늘어납니다`
+              : `카드에서 라이브·복사·갱신을 바로 누를 수 있습니다`}</span>`)
       placeBadge()
     }
     let startX = 0, startW = 0, dragging = false
