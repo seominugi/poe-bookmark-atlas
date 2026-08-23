@@ -49,11 +49,15 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
-**0.11.0 릴리즈 게시 완료 · 스토어 제출 대기 (2026-08-23)**
+**0.11.0 스토어 심사 제출 완료 · 결과 대기 (2026-08-24 사용자 확인)**
 
 `develop` → `main` fast-forward(`f2cd9d3..f83f9bd`, 19커밋) → **`v0.11.0` 태그 publish(現 `Latest`, 대상 `f83f9bd`)**.
 `deploy/poe-bookmark-atlas-0.11.0.zip`(39파일·869KB, manifest 루트·`0.11.0`·host_permissions 3개·optional 없음).
-**남은 것: 사용자가 스토어 심사 제출.**
+**남은 것: 심사 결과 회신.** 통과하면 이 절을 "스토어 배포 완료"로 바꾸고 사이클을 닫는다.
+
+⏳ **실제 거래소 육안 확인은 아직 안 됐다.** 이번 사이클은 스크린샷을 한 장도 못 찍었고(브라우저 창 미표시)
+하네스는 목 데이터다. 검증 원장(`~/.claude/journal/verify-queue.jsonl`)에 `pending` 으로 올려 뒀다 —
+특히 **찜한 매물의 '있음/판매됨' 배지**는 이번 사이클에 한 번 깨뜨렸다 고친 것이라 반드시 눈으로 볼 것.
 
 - ⚠ **릴리즈 노트는 `UPDATE_NOTES` 본문 그대로가 아니다** — 0.11.0 본문에는 `[[mock:…]]` 지시자 3개가 있는데 그건 **패널 안 노트 창 전용**(update.js 가 그림으로 치환)이라, GitHub 에 그대로 두면 독자에게 `[[mock:width-bands]]` 라는 글자가 보인다. 지시자를 걷어내고 `deploy/RELEASE-0.11.0.md` 로 만들어 올렸다. **다음 릴리즈에도 목업을 쓰면 같은 처리가 필요하다.**
 - `gh release create --target <짧은 SHA>` 는 `target_commitish is invalid` 로 거절된다 — **브랜치 이름(`--target main`)을 쓴다.** 태그 SHA 와 main 이 같음을 확인했다(`f83f9bd`).
