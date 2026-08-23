@@ -119,7 +119,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     <div class="ba-tip" id="ba-tip" hidden></div>
     <!-- 폭 드래그 배지 — 끄는 동안에만. 패널 밖(형제)에 두는 이유는 토스트와 같다:
          .ba-root 의 transform 이 fixed 좌표계를 가로채고, 패널 안이면 폭에 묶여 잘린다. -->
-    <div class="ba-wbadge" id="ba-wbadge" hidden></div>
+    <div class="ba-rzbadge" id="ba-rzbadge" hidden></div>
     <!-- 칩 재배치 프리뷰 — 칩 줄 위에 fixed로 띄운다(줄 안에 넣으면 폭이 바뀌며 칩들이 밀린다) -->
     <div class="ba-set-preview" id="ba-set-preview" hidden></div>`
   root.appendChild(wrap)
@@ -259,7 +259,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   ;(() => {
     const grip = $('ba-resize')
     if (!grip) return
-    const badge = $('ba-wbadge')
+    const badge = $('ba-rzbadge')
     // 밴드가 무엇을 주는지 — 배지 아랫줄의 "얼마나 더 가면 무엇을" 문구. CSS 와 같은 밴드 이름을 쓴다.
     // 사용자가 읽는 문구다 — '푸터' 같은 개발 용어를 쓰지 않는다.
     // l 은 아래쪽 줄 합치기와 카드 승격이 함께 일어나는데, **더 크게 와닿는 쪽**(카드)을 말한다.
@@ -269,11 +269,16 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       xl: '카드에 자주 쓰는 버튼이 나와요',
     }
     const BAND_NAME = { s: '기본', m: '넓게', l: '더 넓게', xl: '최대' }
-    // 배지는 그립 옆에 붙는다. 패널이 좌측 배치면 그립도 반대쪽이라 배지도 반대로 내민다.
+    // 배지는 그립 옆, **커서 높이**에 붙는다. 그립은 패널 높이 전체라 세로 중앙에 두면
+    // 잡고 있는 자리와 한참 떨어진다(툴팁이 같은 이유로 화면 꼭대기에 박혔던 것과 같은 함정).
+    // 패널이 좌측 배치면 그립도 반대쪽이라 배지도 반대로 내민다.
+    let badgeY = 0
     const placeBadge = () => {
       if (!badge) return
       const g = grip.getBoundingClientRect()
-      badge.style.top = Math.round(g.top + g.height / 2 - badge.offsetHeight / 2) + 'px'
+      const h = badge.offsetHeight
+      const top = (badgeY || g.top + g.height / 2) - h / 2
+      badge.style.top = Math.round(Math.max(8, Math.min(window.innerHeight - 8 - h, top))) + 'px'
       badge.style.left = panelSide === 'left'
         ? Math.round(g.right + 10) + 'px'
         : Math.round(g.left - badge.offsetWidth - 10) + 'px'
@@ -293,6 +298,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       resizing = true
       elRoot.classList.add('ba-resizing') // 핸들 right/left 전환 차단 (panel.css)
       grip.classList.add('on')
+      // 그립 툴팁은 여기서 접는다. 드래그 중에는 배지가 더 정확한 것을 말하고 있고,
+      // 무엇보다 pointerdown 을 preventDefault 하면 **호환 마우스 이벤트가 끊겨**
+      // 툴팁이 처음 위치에 얼어붙는다(제보 2026-08-23). 억제해 두면 그 상태가 아예 생기지 않는다.
+      tipSuppressed = true
+      tipEl.hidden = true
+      badgeY = e.clientY
       if (badge) { badge.hidden = false; drawBadge(); requestAnimationFrame(() => badge.classList.add('on')) }
       try { grip.setPointerCapture(e.pointerId) } catch (_) {}
       e.preventDefault() // 드래그 중 텍스트 선택 방지
@@ -303,6 +314,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       // 우측 배치: 왼쪽으로 끌수록 넓어짐 / 좌측 배치: 오른쪽으로 끌수록 넓어짐.
       const delta = panelSide === 'left' ? (e.clientX - startX) : (startX - e.clientX)
       applyWidth(startW + delta) // applyWidth 가 clampPanelWidth 로 최소~최대 사이에 가둔다
+      badgeY = e.clientY
       drawBadge()
     })
     const end = (e) => {
@@ -310,6 +322,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       dragging = false
       resizing = false
       elRoot.classList.remove('ba-resizing')
+      tipSuppressed = false
       if (badge) {
         badge.classList.remove('on')
         // 페이드가 끝난 뒤에 감춘다 — 바로 hidden 을 걸면 전환이 잘려 툭 사라진다.
