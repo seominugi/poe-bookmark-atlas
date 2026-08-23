@@ -64,6 +64,40 @@ export function nextBandAt(w, viewportW) {
   return at === undefined ? null : { at, band: panelBand(at), remain: at - n }
 }
 
+/** 스테퍼가 찍을 정거장. 밴드 경계와 **같은 값이어야** 한다 — 여기서 다시 적지 않고 파생시킨다. */
+export const BAND_STOPS = [MIN_W, BAND_M, BAND_L, BAND_XL]
+
+/**
+ * 드래그 배지 스테퍼가 그릴 상태. 계산을 여기 두는 이유는 px 판단을 한 곳에 모으기 위해서다
+ * (panel.js 가 경계를 다시 알면 두 곳이 갈라진다 — 폭 결합 4곳이 하드코딩돼 틈이 생겼던 그 사고).
+ *
+ *  done : 이미 지나온 정거장
+ *  at   : 지금 서 있는 구간
+ *  up   : 바로 다음 정거장 (⚠ 'next' 라 부르지 않는다 — 배지 문구 클래스와 이름이 겹친다)
+ *  off  : 창이 좁아 **닿을 수 없는** 정거장. 닿지 못할 곳을 켜 두면 배지가 거짓말을 한다
+ *  todo : 그 외 앞쪽 정거장
+ *
+ * fill 은 현재 구간의 진행도 0~1 — 다음 정거장까지 얼마나 왔는지를 막대로 채우는 데 쓴다.
+ */
+export function bandProgress(w, viewportW) {
+  const n = clampPanelWidth(w, viewportW)
+  const cap = maxPanelWidth(viewportW)
+  const idx = BAND_STOPS.filter((s) => n >= s).length - 1
+  const stops = BAND_STOPS.map((at, i) => {
+    let state = 'todo'
+    if (at > cap) state = 'off'
+    else if (i < idx) state = 'done'
+    else if (i === idx) state = 'at'
+    else if (i === idx + 1) state = 'up'
+    return { at, state }
+  })
+  const from = BAND_STOPS[idx]
+  const to = BAND_STOPS[idx + 1]
+  const reachable = to !== undefined && to <= cap
+  const fill = reachable ? Math.max(0, Math.min(1, (n - from) / (to - from))) : 0
+  return { index: idx, stops, fill }
+}
+
 /**
  * 설정 세그먼트의 4단. '최대'만 창 폭에서 파생된다 — 고정 880 으로 박으면 좁은 창에서
  * 눌러도 안 되는 버튼이 된다. 반대로 고정값 프리셋은 창이 좁으면 아예 못 쓰므로 enabled:false 로 알린다.

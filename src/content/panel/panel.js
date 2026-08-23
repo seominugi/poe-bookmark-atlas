@@ -7,7 +7,7 @@ import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, nee
   moveBookmarks } from '../../store/store.js'
 import { extractConditionSet, conditionSetSummary, conditionSetTip, SET_FAIL } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
-import { clampPanelWidth, panelBand, nextBandAt, widthPresets, activePreset, MIN_W } from '../../lib/panelWidth.js'
+import { clampPanelWidth, panelBand, nextBandAt, bandProgress, widthPresets, activePreset, MIN_W } from '../../lib/panelWidth.js'
 import { startCollapsed } from '../../lib/startCollapsed.js'
 import { hasUnseen } from '../../lib/updateNotes.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
@@ -283,10 +283,35 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         ? Math.round(g.right + 10) + 'px'
         : Math.round(g.left - badge.offsetWidth - 10) + 'px'
     }
+    // 다음 구간에서 **무엇이 합쳐지는지**를 도형 한 쌍('지금' → '다음')으로 보인다.
+    // 지금 모습을 다시 그리지 않는 게 요점이다 — 그건 패널이 눈앞에서 이미 보여주고 있다.
+    // 사용자가 답을 못 얻는 질문은 "조금 더 끌면 뭐가 좋아지지?" 하나뿐이라 거기만 그림으로 답한다.
+    const bar = (c) => `<span class="b ${c}"></span>`
+    const GLYPH = {
+      m: [bar('wide') + bar('two') + bar('half'), bar('wide hi')],          // 세 줄 → 한 줄
+      l: [bar('wide') + bar('two'), bar('wide hi')],                        // 카드 두 줄 → 한 줄
+      xl: [bar('wide'), `<span class="gl-row">${bar('two hi')}<span class="dots"><i></i><i></i><i></i></span></span>`],
+    }
+    const stepperHtml = () => {
+      const { stops, fill } = bandProgress(panelW, window.innerWidth)
+      let out = '<span class="ba-rz-step">'
+      stops.forEach((s, i) => {
+        out += `<span class="dot ${s.state}"></span>`
+        if (i < stops.length - 1) {
+          const seg = s.state === 'done' ? 'done' : s.state === 'at' ? 'cur' : ''
+          out += `<span class="seg ${seg}" style="--p:${Math.round(fill * 100)}%"></span>`
+        }
+      })
+      return out + '</span>'
+    }
     const drawBadge = () => {
       if (!badge) return
       const nx = nextBandAt(panelW, window.innerWidth)
+      const g = nx && GLYPH[nx.band]
       badge.innerHTML = `<span class="now">${panelW}px · <i>${BAND_NAME[panelBand(panelW)]}</i></span>`
+        + stepperHtml()
+        + (g ? `<span class="ba-rz-prev"><span class="cap">지금</span><span class="gl">${g[0]}</span>`
+             + `<span class="arrow">▸</span><span class="gl">${g[1]}</span></span>` : '')
         + (nx
           ? `<span class="next">▸ ${nx.remain}px 더 넓히면 ${BAND_GAIN[nx.band]}</span>`
           : `<span class="next done">가장 넓은 구간이에요</span>`)
