@@ -262,11 +262,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     const badge = $('ba-rzbadge')
     // 밴드가 무엇을 주는지 — 배지 아랫줄의 "얼마나 더 가면 무엇을" 문구. CSS 와 같은 밴드 이름을 쓴다.
     // 사용자가 읽는 문구다 — '푸터' 같은 개발 용어를 쓰지 않는다.
+    // ⚠ **바뀌기 전 상태를 함께 말한다**(사용자 제안 2026-08-23).
+    //   "검색이 한 줄이 돼요" 는 지금이 몇 줄인지 모르면 무엇이 달라지는지 알 수 없다.
+    //   "두 줄이던 …" 을 앞에 붙이면 화면의 어느 부분을 봐야 하는지까지 같이 알려준다.
     // l 은 아래쪽 줄 합치기와 카드 승격이 함께 일어나는데, **더 크게 와닿는 쪽**(카드)을 말한다.
     const BAND_GAIN = {
-      m: '상단·검색이 한 줄이 돼요',
-      l: '카드가 한 줄로 접혀 더 많이 보여요',
-      xl: '카드에 자주 쓰는 버튼이 나와요',
+      m: '두 줄이던 상단·검색이 한 줄로 보입니다',
+      l: '두 줄이던 카드가 한 줄로 보입니다',
+      xl: '카드에서 라이브·복사·갱신을 바로 누를 수 있습니다',
     }
     const BAND_NAME = { s: '기본', m: '넓게', l: '더 넓게', xl: '최대' }
     // 배지는 그립 옆, **커서 높이**에 붙는다. 그립은 패널 높이 전체라 세로 중앙에 두면
@@ -331,7 +334,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         + mapHtml()
         + (nx
           ? `<span class="next">▸ ${nx.remain}px 더 넓히면 ${BAND_GAIN[nx.band]}</span>`
-          : `<span class="next done">가장 넓은 구간이에요</span>`)
+          : `<span class="next done">가장 넓은 구간입니다</span>`)
       placeBadge()
     }
     let startX = 0, startW = 0, dragging = false
