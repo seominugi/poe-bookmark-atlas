@@ -1181,49 +1181,45 @@
 .ba-rzbadge .next { font-size: 16.5px; font-weight: 600; color: var(--ba-cyan); white-space: nowrap; }
 .ba-rzbadge .next.done { color: var(--ba-text-muted); }
 
-/* 스테퍼 — 4단 중 어디쯤인가. 글자 라벨은 두지 않는다: 현재 구간은 윗줄('537px · 넓게')이,
-   다음 구간은 아랫줄이 이미 말한다. 라벨을 빼서 배지가 14px 낮아졌다(시안 실측).
-   ⚠ 다음 정거장 점은 .up 이다. .next 로 지으면 바로 위 `.ba-rzbadge .next` 규칙이 이 점에도
-     걸린다 — 같은 날 .ba-wbadge 로 찜 배지를 덮어쓴 것과 똑같은 종류의 실수다. */
-.ba-rz-step { display: flex; align-items: center; margin: 8px 0 5px; }
-.ba-rz-step .dot {
-  width: 13px; height: 13px; border-radius: 50%; flex: none; background: rgba(255,255,255,.22);
-  transition: background .12s var(--ba-ease-out), box-shadow .12s var(--ba-ease-out);
+/* ── 폭 지도 ──
+   네 구간을 한 줄에 펼치고 현재 칸을 강조한다. 스테퍼(점·막대)와 '지금→다음' 글리프를 대체한다.
+   ⚠ 칸 폭은 고정이다. 배지는 width: max-content 라 여기가 넓어지면 배지가 통째로 넓어지고,
+     그만큼 화면을 가린다(1.5배로 키운 뒤 이미 400px 다).
+   ⚠ 클래스는 .ba-rz- 접두사를 쓴다. 짧은 이름(.map·.cel)을 전역에 두면 남의 것과 겹친다 —
+     같은 날 .ba-wbadge 로 찜 배지를 덮어쓴 실수를 반복하지 않으려는 것이다. */
+.ba-rz-map { display: flex; align-items: flex-end; gap: 7px; margin: 9px 0 7px; }
+.ba-rz-map .cel {
+  flex: none; width: 78px; display: flex; flex-direction: column; gap: 5px;
+  padding: 7px 6px 5px; border-radius: 8px;
+  border: 1px solid rgba(255,255,255,.13); background: rgba(255,255,255,.03);
+  transition: border-color .12s var(--ba-ease-out), background .12s var(--ba-ease-out);
 }
-.ba-rz-step .dot.done { background: var(--ba-violet-2); }
-.ba-rz-step .dot.at { background: #fff; box-shadow: 0 0 0 4px rgba(167,139,250,.35); }
-.ba-rz-step .dot.up { background: var(--ba-cyan); box-shadow: 0 0 0 4px rgba(62,216,230,.22); }
-/* 창이 좁아 닿을 수 없는 정거장 — 켜 두면 배지가 못 지킬 약속을 한다 */
-.ba-rz-step .dot.off { background: rgba(255,255,255,.10); }
-.ba-rz-step .seg { height: 4px; flex: 1 0 39px; background: rgba(255,255,255,.16); border-radius: 2px; }
-.ba-rz-step .seg.done { background: var(--ba-violet-2); }
-.ba-rz-step .seg.cur { background: linear-gradient(90deg, var(--ba-violet-2) var(--p,0%), rgba(255,255,255,.16) var(--p,0%)); }
-@media (prefers-reduced-motion: reduce) { .ba-rz-step .dot { transition: none; } }
-
-/* 다음 구간 미리보기 — '지금' → '다음' 도형 한 쌍.
-   ⚠ 글리프 폭은 46px 고정이다. 배지가 넓어질수록 패널과 부딪힐 여지가 늘어나는데,
-     이 행(약 130px)은 아래 문구 줄(약 275px)보다 좁아 배지 최대 폭을 건드리지 않는다. */
-.ba-rz-prev {
-  display: flex; align-items: center; gap: 12px; margin: 10px 0 7px;
-  padding: 12px 15px; border-radius: 12px; background: rgba(255,255,255,.05);
+/* 지나온 칸 · 서 있는 칸 · 다음 칸 — 서 있는 칸만 확실히 도드라지게 */
+.ba-rz-map .cel.done { border-color: rgba(167,139,250,.32); }
+.ba-rz-map .cel.at { border-color: var(--ba-violet-2); background: rgba(167,139,250,.13); }
+.ba-rz-map .cel.up { border-color: rgba(62,216,230,.45); }
+.ba-rz-map .cel.off { opacity: .32; }   /* 창이 좁아 갈 수 없는 칸 */
+.ba-rz-map .lbl {
+  font-size: 10.5px; font-weight: 700; text-align: center; letter-spacing: -.02em;
+  color: rgba(255,255,255,.38); white-space: nowrap;
 }
-.ba-rz-prev .cap { font-size: 15px; font-weight: 700; color: rgba(255,255,255,.34); letter-spacing: -.02em; }
-.ba-rz-prev .arrow { color: var(--ba-cyan); font-size: 19px; flex: none; }
-.ba-rz-prev .gl { display: flex; flex-direction: column; gap: 6px; flex: none; }
-/* ⚠ 크기는 취향이 아니라 **문구 줄에 맞춘 상한**이다.
-   배지는 width: max-content 라 글리프가 커져도 잘리지 않는다 — 대신 **배지가 넓어진다.**
-   그래서 글리프는 문구 줄보다 넓어지지 않는 선까지만 키운다(넘으면 배지 폭을 글리프가 정하게 된다).
-   크기 이력: 46×4(안 읽힘) → 84×7 → **126×10** (전체 1.5배, 사용자 요청 2026-08-23).
-   ⚠ 1.5배로 배지 폭이 약 275 → 410px 가 됐다. 좁은 창에서 화면 밖으로 나가지 않도록
-     placeBadge 가 가로 클램프·좌우 뒤집기를 한다 — 크기를 더 키울 땐 거기도 함께 본다. */
-.ba-rz-prev .b { height: 10px; border-radius: 3px; background: rgba(255,255,255,.30); }
-.ba-rz-prev .b.hi { background: var(--ba-violet-2); }
-.ba-rz-prev .b.wide { width: 126px; }
-.ba-rz-prev .b.two { width: 81px; }
-.ba-rz-prev .b.half { width: 57px; }
-.ba-rz-prev .gl-row { display: flex; gap: 6px; align-items: center; }
-.ba-rz-prev .dots { display: flex; gap: 4px; align-items: center; }
-.ba-rz-prev .dots i { width: 10px; height: 10px; border-radius: 3px; background: var(--ba-blue); display: block; }
+.ba-rz-map .cel.at .lbl { color: var(--ba-violet-2); }
+.ba-rz-map .cel.up .lbl { color: var(--ba-cyan); }
+/* 미니 패널 — 줄 몇 개로 배치만 흉내 낸다 */
+.ba-rz-map .mini { display: flex; flex-direction: column; gap: 3px; }
+.ba-rz-map .ln { display: flex; gap: 3px; align-items: center; }
+.ba-rz-map .r { height: 5px; border-radius: 2px; display: block; }
+.ba-rz-map .r.v { background: var(--ba-violet-2); opacity: .75; }   /* 상단 버튼 */
+.ba-rz-map .r.d { background: rgba(255,255,255,.26); }              /* 일반 줄 */
+.ba-rz-map .r.c { background: var(--ba-cyan); opacity: .6; }        /* 한 줄로 접힌 카드 */
+.ba-rz-map .a { width: 5px; height: 5px; border-radius: 1px; background: var(--ba-blue); display: block; flex: none; }
+.ba-rz-map .w100 { flex: 1 1 auto; }
+.ba-rz-map .w70 { width: 70%; }
+.ba-rz-map .w62 { width: 62%; }
+.ba-rz-map .w48 { flex: 1 1 0; }
+.ba-rz-map .w34 { width: 34%; }
+.ba-rz-map .w32 { flex: 1 1 0; }
+@media (prefers-reduced-motion: reduce) { .ba-rz-map .cel { transition: none; } }
 
 /* 설정의 폭 세그먼트 — 창이 좁아 못 쓰는 칸. 조용히 무시하면 '눌러도 안 되는 버튼'이 된다. */
 .ba-set-opt.off {
