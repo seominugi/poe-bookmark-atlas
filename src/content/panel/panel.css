@@ -1159,22 +1159,27 @@
 /* ── 드래그 중 폭 배지 ──
    그립 옆에 **끄는 동안에만** 뜬다. 상시 배지는 자기모순이다 — 이 작업 자체가 패널 크롬을 줄이는 일이다.
    ⚠ 위치(top/left)에는 전환을 걸지 않는다. 포인터를 즉시 따라가야 한다
-     (.ba-resizing 이 이미 같은 이유로 폭에 물린 전환을 전부 끈다). 등장·퇴장만 opacity. */
-.ba-wbadge {
-  position: fixed; z-index: 70; pointer-events: none;
+     (.ba-resizing 이 이미 같은 이유로 폭에 물린 전환을 전부 끈다). 등장·퇴장만 opacity.
+   ⚠ 클래스 이름은 .ba-wbadge 와 **반드시 달라야 한다** — 그건 찜한 매물의 '있음/판매됨' 배지다.
+     2026-08-23 에 같은 이름을 쓰는 바람에 이 블록이 그 배지들을 position:fixed·opacity:0 으로
+     덮어써 통째로 안 보이게 만들었다(제보로 발견). 이름을 겹치면 조용히 남의 것을 부순다.
+   ⚠ z-index 는 패널(.ba-root, 2147483000)보다 위여야 한다. 70 이면 패널 뒤로 들어가
+     배지 오른쪽이 패널에 잘려 보인다 — 같은 제보의 두 번째 증상이었다. */
+.ba-rzbadge {
+  position: fixed; z-index: 2147483600; pointer-events: none;
   display: flex; flex-direction: column; gap: 2px;
   padding: 7px 12px; border-radius: 10px; width: max-content;
   background: rgba(12, 10, 22, 0.96); border: 1px solid var(--ba-violet-line);
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
   opacity: 0; transition: opacity .12s var(--ba-ease-out);
 }
-.ba-wbadge[hidden] { display: none; }
-.ba-wbadge.on { opacity: 1; }
-@media (prefers-reduced-motion: reduce) { .ba-wbadge { transition: none; } }
-.ba-wbadge .now { font-size: 12.5px; font-weight: 800; color: var(--ba-text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.ba-wbadge .now i { font-style: normal; color: var(--ba-violet-2); }
-.ba-wbadge .next { font-size: 11px; font-weight: 600; color: var(--ba-cyan); white-space: nowrap; }
-.ba-wbadge .next.done { color: var(--ba-text-muted); }
+.ba-rzbadge[hidden] { display: none; }
+.ba-rzbadge.on { opacity: 1; }
+@media (prefers-reduced-motion: reduce) { .ba-rzbadge { transition: none; } }
+.ba-rzbadge .now { font-size: 12.5px; font-weight: 800; color: var(--ba-text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ba-rzbadge .now i { font-style: normal; color: var(--ba-violet-2); }
+.ba-rzbadge .next { font-size: 11px; font-weight: 600; color: var(--ba-cyan); white-space: nowrap; }
+.ba-rzbadge .next.done { color: var(--ba-text-muted); }
 
 /* 설정의 폭 세그먼트 — 창이 좁아 못 쓰는 칸. 조용히 무시하면 '눌러도 안 되는 버튼'이 된다. */
 .ba-set-opt.off {

@@ -116,3 +116,38 @@ describe('상단 3버튼 합류가 기대는 마크업', () => {
     expect(src.slice(src.indexOf('<div class="ba-head">'), rowStart)).not.toContain('ba-save')
   })
 })
+
+// 폭 배지(.ba-rzbadge)와 찜 배지(.ba-wbadge)는 **이름이 겹치면 안 된다.**
+// 2026-08-23: 폭 배지를 .ba-wbadge 로 만드는 바람에 그 CSS 블록(position:fixed·opacity:0)이
+// 찜한 매물의 '있음/판매됨' 배지를 통째로 덮어써 안 보이게 만들었다. 제보로야 발견했다.
+// 겹치는 순간 조용히 남의 UI 가 죽으므로, 이름이 다시 붙는 것을 여기서 막는다.
+describe('폭 배지 — 찜 배지와 이름이 겹치지 않는다', () => {
+  it('패널 셸은 .ba-rzbadge 를 쓰고 .ba-wbadge 를 쓰지 않는다', async () => {
+    const { readFileSync } = await import('node:fs')
+    const panel = readFileSync(new URL('../src/content/panel/panel.js', import.meta.url), 'utf8')
+    expect(panel).toContain('ba-rzbadge')
+    expect(panel).not.toContain('ba-wbadge') // 찜 배지 전용 이름
+  })
+
+  it('찜 배지는 renderList 에만 있고, 폭 배지 CSS 가 그 이름을 잡지 않는다', async () => {
+    const { readFileSync } = await import('node:fs')
+    const list = readFileSync(new URL('../src/content/panel/renderList.js', import.meta.url), 'utf8')
+    const css = readFileSync(new URL('../src/content/panel/panel.css', import.meta.url), 'utf8')
+    expect(list).toContain('ba-wbadge') // 찜 배지는 여기 그대로
+    // 폭 배지 전용 선언(fixed 오버레이)이 .ba-wbadge 에 걸리면 안 된다.
+    // ⚠ 주석을 먼저 걷어낸다 — 이 파일의 경고 주석이 두 이름을 함께 언급해 그대로 재면 자기 자신에 걸린다.
+    const bare = css.replace(/\/\*[\s\S]*?\*\//g, '')
+    expect(/\.ba-wbadge[^{]*\{[^}]*position:\s*fixed/.test(bare)).toBe(false)
+  })
+
+  // 패널(.ba-root)보다 위에 떠야 한다 — 아래면 배지 오른쪽이 패널에 잘려 보인다(같은 제보).
+  it('폭 배지의 z-index 가 패널보다 높다', async () => {
+    const { readFileSync } = await import('node:fs')
+    const css = readFileSync(new URL('../src/content/panel/panel.css', import.meta.url), 'utf8')
+    const z = (re) => Number((css.match(re) || [])[1])
+    const panelZ = z(/\.ba-root\s*\{[\s\S]*?z-index:\s*(\d+)/)
+    const badgeZ = z(/\.ba-rzbadge\s*\{[\s\S]*?z-index:\s*(\d+)/)
+    expect(Number.isFinite(panelZ) && Number.isFinite(badgeZ)).toBe(true)
+    expect(badgeZ).toBeGreaterThan(panelZ)
+  })
+})
