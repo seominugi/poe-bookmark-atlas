@@ -112,6 +112,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     <!-- 토스트는 패널 밖(형제)에 둔다 — 패널 안이면 폭이 384px로 묶여 긴 안내 문구가 좌우로 잘리고,
          접힘 시 .ba-root의 transform이 fixed 좌표계를 가로채 화면 밖으로 함께 밀려난다. -->
     <div class="ba-toast" id="ba-toast" hidden></div>
+    <!-- 새 버전 알림 — 공용 토스트와 분리된 전용 컴포넌트(.ba-upnote). 이유는 panel.css 주석 참조. -->
+    <div class="ba-upnote" id="ba-upnote" hidden></div>
     <div class="ba-handle" id="ba-handle">
       <div class="ba-handle-grip" id="ba-handle-grip" data-tip="드래그하면 핸들 위치를 위아래로 옮겨요">${icon('grip', 14)}</div>
       <div class="ba-handle-toggle" id="ba-handle-toggle" data-tip="클릭하면 패널을 접고 펼쳐요 (Alt+B)"><span class="ba-handle-glint"></span><span class="ba-handle-body"><span class="ba-handle-label">북마크</span><span class="ba-handle-badge" id="ba-handle-badge" hidden></span></span></div>
@@ -1430,11 +1432,30 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     let seen = null
     try { seen = (await chrome.storage.local.get(UPDATE_SEEN_KEY))[UPDATE_SEEN_KEY] ?? null } catch (_) { return }
     if (!hasUnseen(seen, v)) return
-    toast(`새 버전 v${v} — 무엇이 바뀌었는지 확인해 보세요.`, [
+    // 공용 토스트가 아니라 전용 컴포넌트를 쓴다 — 이 알림만 크기·글린트가 다르고,
+    // 시간이 지나도 사라지지 않는다(둘 중 하나를 누를 때까지 남는다).
+    const up = $('ba-upnote')
+    if (!up) return
+    up.innerHTML = ''
+    const glint = document.createElement('span'); glint.className = 'ba-upnote-glint'
+    const tx = document.createElement('span'); tx.className = 'ba-upnote-tx'
+    tx.append('새 버전 ')
+    const vEl = document.createElement('b'); vEl.className = 'ba-upnote-v'; vEl.textContent = `v${v}`
+    tx.append(vEl, ' — 무엇이 바뀌었는지 확인해 보세요.')
+    const btns = document.createElement('span'); btns.className = 'ba-upnote-btns'
+    const mk = (cls, label, onClick) => {
+      const b = document.createElement('button')
+      b.type = 'button'; b.className = cls; b.textContent = label
+      b.addEventListener('click', () => { up.hidden = true; onClick() })
+      return b
+    }
+    btns.append(
       // 창을 열면 update.js 가 본 것으로 기록한다. 창이 안 열렸으면 다시 알리는 편이 맞다.
-      { label: '노트 보기', onClick: () => { Promise.resolve(chrome.runtime.sendMessage({ type: 'ba-open-update' })).catch(() => {}) } },
-      { label: '이번엔 넘기기', onClick: () => { try { chrome.storage.local.set({ [UPDATE_SEEN_KEY]: v }) } catch (_) {} } },
-    ])
+      mk('ba-upnote-go', '노트 보기', () => { Promise.resolve(chrome.runtime.sendMessage({ type: 'ba-open-update' })).catch(() => {}) }),
+      mk('ba-upnote-skip', '이번엔 넘기기', () => { try { chrome.storage.local.set({ [UPDATE_SEEN_KEY]: v }) } catch (_) {} }),
+    )
+    up.append(glint, tx, btns)
+    up.hidden = false
   })()
 
   return {
