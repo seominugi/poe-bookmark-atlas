@@ -1167,8 +1167,8 @@
      배지 오른쪽이 패널에 잘려 보인다 — 같은 제보의 두 번째 증상이었다. */
 .ba-rzbadge {
   position: fixed; z-index: 2147483600; pointer-events: none;
-  display: flex; flex-direction: column; gap: 2px;
-  padding: 7px 12px; border-radius: 10px; width: max-content;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 11px 18px; border-radius: 15px; width: max-content;
   background: rgba(12, 10, 22, 0.96); border: 1px solid var(--ba-violet-line);
   box-shadow: 0 8px 26px rgba(0, 0, 0, 0.55);
   opacity: 0; transition: opacity .12s var(--ba-ease-out);
@@ -1176,26 +1176,26 @@
 .ba-rzbadge[hidden] { display: none; }
 .ba-rzbadge.on { opacity: 1; }
 @media (prefers-reduced-motion: reduce) { .ba-rzbadge { transition: none; } }
-.ba-rzbadge .now { font-size: 12.5px; font-weight: 800; color: var(--ba-text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ba-rzbadge .now { font-size: 18.5px; font-weight: 800; color: var(--ba-text-strong); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ba-rzbadge .now i { font-style: normal; color: var(--ba-violet-2); }
-.ba-rzbadge .next { font-size: 11px; font-weight: 600; color: var(--ba-cyan); white-space: nowrap; }
+.ba-rzbadge .next { font-size: 16.5px; font-weight: 600; color: var(--ba-cyan); white-space: nowrap; }
 .ba-rzbadge .next.done { color: var(--ba-text-muted); }
 
 /* 스테퍼 — 4단 중 어디쯤인가. 글자 라벨은 두지 않는다: 현재 구간은 윗줄('537px · 넓게')이,
    다음 구간은 아랫줄이 이미 말한다. 라벨을 빼서 배지가 14px 낮아졌다(시안 실측).
    ⚠ 다음 정거장 점은 .up 이다. .next 로 지으면 바로 위 `.ba-rzbadge .next` 규칙이 이 점에도
      걸린다 — 같은 날 .ba-wbadge 로 찜 배지를 덮어쓴 것과 똑같은 종류의 실수다. */
-.ba-rz-step { display: flex; align-items: center; margin: 5px 0 3px; }
+.ba-rz-step { display: flex; align-items: center; margin: 8px 0 5px; }
 .ba-rz-step .dot {
-  width: 9px; height: 9px; border-radius: 50%; flex: none; background: rgba(255,255,255,.22);
+  width: 13px; height: 13px; border-radius: 50%; flex: none; background: rgba(255,255,255,.22);
   transition: background .12s var(--ba-ease-out), box-shadow .12s var(--ba-ease-out);
 }
 .ba-rz-step .dot.done { background: var(--ba-violet-2); }
-.ba-rz-step .dot.at { background: #fff; box-shadow: 0 0 0 3px rgba(167,139,250,.35); }
-.ba-rz-step .dot.up { background: var(--ba-cyan); box-shadow: 0 0 0 3px rgba(62,216,230,.22); }
+.ba-rz-step .dot.at { background: #fff; box-shadow: 0 0 0 4px rgba(167,139,250,.35); }
+.ba-rz-step .dot.up { background: var(--ba-cyan); box-shadow: 0 0 0 4px rgba(62,216,230,.22); }
 /* 창이 좁아 닿을 수 없는 정거장 — 켜 두면 배지가 못 지킬 약속을 한다 */
 .ba-rz-step .dot.off { background: rgba(255,255,255,.10); }
-.ba-rz-step .seg { height: 3px; flex: 1 0 26px; background: rgba(255,255,255,.16); border-radius: 2px; }
+.ba-rz-step .seg { height: 4px; flex: 1 0 39px; background: rgba(255,255,255,.16); border-radius: 2px; }
 .ba-rz-step .seg.done { background: var(--ba-violet-2); }
 .ba-rz-step .seg.cur { background: linear-gradient(90deg, var(--ba-violet-2) var(--p,0%), rgba(255,255,255,.16) var(--p,0%)); }
 @media (prefers-reduced-motion: reduce) { .ba-rz-step .dot { transition: none; } }
@@ -1204,26 +1204,26 @@
    ⚠ 글리프 폭은 46px 고정이다. 배지가 넓어질수록 패널과 부딪힐 여지가 늘어나는데,
      이 행(약 130px)은 아래 문구 줄(약 275px)보다 좁아 배지 최대 폭을 건드리지 않는다. */
 .ba-rz-prev {
-  display: flex; align-items: center; gap: 8px; margin: 7px 0 5px;
-  padding: 8px 10px; border-radius: 8px; background: rgba(255,255,255,.05);
+  display: flex; align-items: center; gap: 12px; margin: 10px 0 7px;
+  padding: 12px 15px; border-radius: 12px; background: rgba(255,255,255,.05);
 }
-.ba-rz-prev .cap { font-size: 10px; font-weight: 700; color: rgba(255,255,255,.34); letter-spacing: -.02em; }
-.ba-rz-prev .arrow { color: var(--ba-cyan); font-size: 13px; flex: none; }
-.ba-rz-prev .gl { display: flex; flex-direction: column; gap: 4px; flex: none; }
+.ba-rz-prev .cap { font-size: 15px; font-weight: 700; color: rgba(255,255,255,.34); letter-spacing: -.02em; }
+.ba-rz-prev .arrow { color: var(--ba-cyan); font-size: 19px; flex: none; }
+.ba-rz-prev .gl { display: flex; flex-direction: column; gap: 6px; flex: none; }
 /* ⚠ 크기는 취향이 아니라 **문구 줄에 맞춘 상한**이다.
    배지는 width: max-content 라 글리프가 커져도 잘리지 않는다 — 대신 **배지가 넓어진다.**
-   배지가 넓어질수록 패널 옆 공간을 더 먹고 부딪힐 여지가 늘어나므로, 지금까지 폭을 정하던
-   문구 줄(약 275px)을 넘지 않는 선을 상한으로 삼는다.
-   실측(2026-08-23 하네스): 이 값으로 배지 폭 267 / 274 / 268px — 전부 275px 이하다.
-   46×16 이던 첫 판은 무엇을 뜻하는지 읽히지 않는다는 제보로 약 2배(84×7)로 키웠다. */
-.ba-rz-prev .b { height: 7px; border-radius: 2px; background: rgba(255,255,255,.30); }
+   그래서 글리프는 문구 줄보다 넓어지지 않는 선까지만 키운다(넘으면 배지 폭을 글리프가 정하게 된다).
+   크기 이력: 46×4(안 읽힘) → 84×7 → **126×10** (전체 1.5배, 사용자 요청 2026-08-23).
+   ⚠ 1.5배로 배지 폭이 약 275 → 410px 가 됐다. 좁은 창에서 화면 밖으로 나가지 않도록
+     placeBadge 가 가로 클램프·좌우 뒤집기를 한다 — 크기를 더 키울 땐 거기도 함께 본다. */
+.ba-rz-prev .b { height: 10px; border-radius: 3px; background: rgba(255,255,255,.30); }
 .ba-rz-prev .b.hi { background: var(--ba-violet-2); }
-.ba-rz-prev .b.wide { width: 84px; }
-.ba-rz-prev .b.two { width: 54px; }
-.ba-rz-prev .b.half { width: 38px; }
-.ba-rz-prev .gl-row { display: flex; gap: 4px; align-items: center; }
-.ba-rz-prev .dots { display: flex; gap: 3px; align-items: center; }
-.ba-rz-prev .dots i { width: 7px; height: 7px; border-radius: 2px; background: var(--ba-blue); display: block; }
+.ba-rz-prev .b.wide { width: 126px; }
+.ba-rz-prev .b.two { width: 81px; }
+.ba-rz-prev .b.half { width: 57px; }
+.ba-rz-prev .gl-row { display: flex; gap: 6px; align-items: center; }
+.ba-rz-prev .dots { display: flex; gap: 4px; align-items: center; }
+.ba-rz-prev .dots i { width: 10px; height: 10px; border-radius: 3px; background: var(--ba-blue); display: block; }
 
 /* 설정의 폭 세그먼트 — 창이 좁아 못 쓰는 칸. 조용히 무시하면 '눌러도 안 되는 버튼'이 된다. */
 .ba-set-opt.off {

@@ -279,9 +279,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       const h = badge.offsetHeight
       const top = (badgeY || g.top + g.height / 2) - h / 2
       badge.style.top = Math.round(Math.max(8, Math.min(window.innerHeight - 8 - h, top))) + 'px'
-      badge.style.left = panelSide === 'left'
-        ? Math.round(g.right + 10) + 'px'
-        : Math.round(g.left - badge.offsetWidth - 10) + 'px'
+      // 가로: 기본은 그립 바깥쪽(패널 반대편). 거기 자리가 모자라면 **반대쪽으로 뒤집고**,
+      // 그래도 안 되면 화면 안으로 눌러 담는다. 배지를 1.5배로 키운 뒤로는 좁은 창에서
+      // 그냥 화면 밖으로 나갈 수 있어서(폭 약 410px) 이 세 단계가 필요해졌다.
+      const bw = badge.offsetWidth
+      const outward = panelSide === 'left' ? g.right + 10 : g.left - bw - 10
+      const inward = panelSide === 'left' ? g.left - bw - 10 : g.right + 10
+      const fits = (x) => x >= 8 && x + bw <= window.innerWidth - 8
+      const x = fits(outward) ? outward : fits(inward) ? inward : outward
+      badge.style.left = Math.round(Math.max(8, Math.min(window.innerWidth - 8 - bw, x))) + 'px'
     }
     // 다음 구간에서 **무엇이 합쳐지는지**를 도형 한 쌍('지금' → '다음')으로 보인다.
     // 지금 모습을 다시 그리지 않는 게 요점이다 — 그건 패널이 눈앞에서 이미 보여주고 있다.
