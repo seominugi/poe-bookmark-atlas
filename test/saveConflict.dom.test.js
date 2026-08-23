@@ -112,7 +112,10 @@ describe('renderList — 요약 칩(개수 배지 + 입력 수치)', () => {
     const chip = list.querySelector('.ba-cond--summary')
     expect(chip).toBeTruthy()
     expect(chip.querySelector('.ba-cond-n').textContent).toBe('조건 2개') // 필터 ilvl 1 + 능력치 1
-    expect(chip.querySelector('.ba-cond-tx').textContent).toContain('화염 저항 ≥40')
+    // 수치는 칩이 아니라 **호버 툴팁**이 갖는다(2026-08-23). 칩에 깔던 요약을 접었기 때문에,
+    // 조건 내용이 사용자에게 닿는 경로는 이제 여기 하나뿐이다 — 그래서 여기를 검사한다.
+    expect(chip.querySelector('.ba-cond-tx')).toBeNull()
+    expect(chip.getAttribute('data-tip')).toContain('화염 저항 ≥40')
   })
 
   it('북마크 카드: ⋯ 액션 팝오버(복사·갱신·이름·이동·삭제) 렌더 + 열기/닫기 토글', async () => {
