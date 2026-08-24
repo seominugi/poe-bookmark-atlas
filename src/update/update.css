@@ -30,7 +30,11 @@ body {
 
 /* 버전 블록 */
 .up-ver { padding: 20px 0 4px; }
-.up-ver + .up-ver { border-top: 1px solid rgba(255, 255, 255, 0.07); }
+/* 버전 사이의 구분선 — 이 문서에서 **가장 큰 단락 경계**다(여기부터 다른 버전 얘기).
+   종전엔 1px·투명도 .07 이라 본문 안의 `---`(.up-body hr, .09)보다도 **흐렸다** — 더 작은
+   경계가 더 진해서 위계가 뒤집혀 있었다. 굵기를 올리고 바이올렛을 얹어 둘을 갈라 놓는다.
+   위아래 여백도 함께 늘린다 — 선만 굵어지면 붙어 보여서 오히려 답답해진다. */
+.up-ver + .up-ver { border-top: 3px solid rgba(167, 139, 250, 0.34); padding-top: 30px; margin-top: 10px; }
 .up-ver-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 12px; }
 .up-tag {
   font-size: 11px; font-weight: 800; letter-spacing: 0.03em; flex: none;
