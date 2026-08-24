@@ -931,12 +931,19 @@
 .ba-donate { display: inline-flex; align-items: center; justify-content: center; box-sizing: border-box; width: 28px; height: 28px; flex: none; color: #fb7185; background: rgba(251, 113, 133, 0.12); border: 1px solid rgba(251, 113, 133, 0.32); border-radius: 8px; text-decoration: none; transition: background .15s, color .15s, transform .15s; }
 .ba-donate:hover { background: rgba(251, 113, 133, 0.22); color: #fda4af; transform: scale(1.08); }
 .ba-donate .ba-ic { fill: currentColor; }   /* 꽉 찬 하트 */
+/* 후원 문구 — 하트만 있으면 '무슨 버튼인지' 가 안 온다. 다만 헤더는 이미 빡빡해서(제목이 아이콘
+   과밀로 줄바꿈된 이력이 있다) **좁은 폭에서는 숨긴다**. 어느 밴드부터 켜는지는 아래 밴드 절에서
+   실측으로 정했다. */
+.ba-donate-tx { display: none; }
 /* 설정 버튼 — 푸터 하단(가이드 다시 보기 옆), 설정 모달 진입점. 아이콘만으론 직관성이 떨어져 텍스트 병기(가이드 버튼과 같은 패턴).
    헤더 .ba-brand 행이 아이콘 과밀로 타이틀을 줄바꿈시켜 이쪽으로 이동했음 */
 .ba-gear { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; white-space: nowrap; font-family: inherit; font-size: 12px; font-weight: 700; border-radius: 9px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
 .ba-gear:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
 /* 헤더 단축키 칩 — 호버 시 확장 팝업의 단축키 섹션 디자인(kbd 키캡+그룹)을 팝오버로 차용. margin-left:auto로 '제작' 칩과 함께 우측 정렬 */
-.ba-kbd-wrap { position: relative; margin-left: auto; flex: none; display: inline-flex; }
+/* 단축키 칩·'서미누기 제작' 은 **제목 바로 뒤에 붙는다**(사용자 요청 2026-08-25).
+   종전엔 여기 margin-left:auto 가 있어서 후원 버튼의 auto 와 둘이 남는 공간을 나눠 가졌고,
+   그 결과 두 칩이 헤더 한가운데에 떠 있었다. 오른쪽으로 미는 건 후원 버튼 하나만 한다. */
+.ba-kbd-wrap { position: relative; flex: none; display: inline-flex; }
 .ba-kbd-chip { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 8px; color: var(--ba-violet-2); background: rgba(167,139,250,.12); border: 1px solid rgba(167,139,250,.32); cursor: help; transition: background .15s, border-color .15s, color .15s; }
 .ba-kbd-wrap:hover .ba-kbd-chip { background: rgba(167,139,250,.22); border-color: rgba(167,139,250,.6); color: #ddd6fe; }
 .ba-kbd-pop { position: fixed; z-index: 2147483600; width: 248px; display: none; flex-direction: column; gap: 8px; padding: 13px 14px; background: rgba(20,17,34,.99); border: 1px solid var(--ba-violet-line); border-radius: 11px; box-shadow: 0 16px 40px rgba(0,0,0,.6); }
@@ -1312,3 +1319,23 @@
   background: repeating-linear-gradient(135deg, transparent 0 4px, rgba(255,255,255,.03) 4px 8px);
 }
 .ba-set-opt.off:active { transform: none; }
+
+/* ── 후원 문구 노출 밴드 — l 이상 (640px+) (2026-08-25) ──
+   하트만으로는 무슨 버튼인지 안 온다. 다만 헤더 한 줄에는 로고·제목·단축키·'서미누기 제작' 이
+   이미 들어 있어서, 좁은 폭에 긴 문구까지 넣으면 **제목이 밀려 사라진다.**
+   .ba-brand 는 nowrap flex 이고 .ba-brand-tx 가 min-width:0 이라, 넘치면 줄바꿈이 아니라
+   **제목이 조용히 0px 로 찌그러진다** — 화면상 제목만 없어지고 아무 경고도 없다.
+
+   실측 (2026-08-25 하네스, 제목 자연폭 128px · 긴 문구 169px · 후원 버튼 211px):
+     384(s)  제목   0px  ← 제목 통째로 소실
+     500(m)  제목  66px  ← 절반 잘림
+     560(m)  제목 126px  ← 아슬아슬
+     600(m)  제목 128px  ← 여기부터 정상
+     640(l)  제목 128px  · 여유 79px
+   600px 부터 안전하지만 **밴드 이름으로만 제어한다는 규약**(이 절 머리말) 때문에 경계는 l 이다.
+   그 40px 차이가 폰트 폴백(Pretendard 미번들 — 사용자마다 다르다) 여유로도 쓰인다.
+   숫자를 바꾸려면 위 표를 다시 재라. */
+.ba-root[data-band="l"] .ba-donate-tx,
+.ba-root[data-band="xl"] .ba-donate-tx { display: inline; }
+.ba-root[data-band="l"] .ba-donate,
+.ba-root[data-band="xl"] .ba-donate { width: auto; gap: 6px; padding: 0 11px; font-size: 11.5px; font-weight: 800; }

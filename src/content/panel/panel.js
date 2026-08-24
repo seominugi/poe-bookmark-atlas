@@ -60,7 +60,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
             </div>
           </span>
           <a class="ba-foot-chip-wrap ba-brand-credit" href="https://www.youtube.com/@seominugi" target="_blank" rel="noopener" data-tip="서미누기가 만든 도구예요 — 유튜브 채널 바로가기 ↗"><span class="ba-foot-glow"></span><span class="ba-foot-chip"><span class="ba-foot-glint"></span><b>서미누기 제작</b></span></a>
-          <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="후원하기 — 투네이션으로 응원 ↗">${icon('heart', 13)}</a>
+          <a class="ba-donate" href="https://toon.at/donate/seominugi" target="_blank" rel="noopener" data-tip="후원하기 — 투네이션으로 응원 ↗"><span class="ba-donate-tx">안정적인 유지 보수를 위한 후원하기</span>${icon('heart', 13)}</a>
         </div>
       </div>
       <!-- 저장 버튼이 여기 있는 건 밴드 병합 때문이다. 좁을 때는 flex:1 1 100% 로 예전처럼 홀로 한 줄을

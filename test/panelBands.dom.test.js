@@ -7,6 +7,7 @@
 //
 // 이 테스트가 깨지면 panel.css 의 '폭 밴드' 블록도 같이 고쳐야 한다는 신호다.
 import { describe, it, expect, beforeEach } from 'vitest'
+import { readFileSync } from 'node:fs'
 import { addBookmark } from '../src/store/store.js'
 import { renderList } from '../src/content/panel/renderList.js'
 
@@ -125,5 +126,36 @@ describe('xl 밴드 — 카드 액션바', () => {
     const bar = el.querySelector('.ba-actbar')
     const paths = [...bar.querySelectorAll('.ba-act-ic')].map((b) => b.innerHTML)
     expect(new Set(paths).size).toBe(3)
+  })
+})
+
+// ── 헤더 후원 문구 — 밴드 게이트가 사라지면 **조용히** 제목이 죽는다 ──
+// .ba-brand 는 nowrap flex 이고 .ba-brand-tx 는 min-width:0 이라, 헤더가 넘치면 줄바꿈이 아니라
+// **제목이 0px 로 찌그러진다.** 화면에서 제목만 없어지고 콘솔에도 아무 흔적이 없다.
+// 실측(2026-08-25 하네스): 문구를 항상 켜면 384px 제목 0px · 500px 66px · 600px 부터 정상.
+// jsdom 은 레이아웃을 안 재므로 폭은 못 지킨다 — 대신 **게이트가 붙어 있는지**를 지킨다.
+describe('헤더 후원 문구 — 좁은 폭에서 숨는 게이트', () => {
+  const read = (p) => readFileSync(new URL(p, import.meta.url), 'utf8')
+
+  it('마크업에 문구 후크(.ba-donate-tx)가 있다', () => {
+    expect(read('../src/content/panel/panel.js')).toContain('ba-donate-tx')
+  })
+
+  it('기본값은 숨김이다 — s·m 밴드에서 제목을 밀어내지 않게', () => {
+    const css = read('../src/content/panel/panel.css')
+    expect(css).toMatch(/\.ba-donate-tx\s*\{[^}]*display:\s*none/)
+  })
+
+  it('l·xl 밴드에서만 켜진다 — m 이하를 켜면 제목이 잘린다(실측)', () => {
+    const css = read('../src/content/panel/panel.css')
+    const on = css.match(/\.ba-root\[data-band="(\w+)"\] \.ba-donate-tx/g) || []
+    const bands = on.map((s) => s.match(/"(\w+)"/)[1]).sort()
+    expect(bands).toEqual(['l', 'xl'])
+  })
+
+  it('단축키 칩은 오른쪽으로 밀리지 않는다 — 제목 바로 뒤 좌측 정렬', () => {
+    const css = read('../src/content/panel/panel.css')
+    const rule = css.match(/\.ba-kbd-wrap\s*\{[^}]*\}/)[0]
+    expect(rule).not.toContain('margin-left: auto')
   })
 })
