@@ -596,16 +596,29 @@ function injectPobButtons() {
     const group = document.createElement('div')
     group.className = 'ba-row-btns'
     group.append(star, btn) // ★ 를 PoB 앞에 — 사용자 요청(2026-08-06)
-    // 1순위: '인증 완료' 배지 아래(왼쪽 컬럼, 자연 흐름) — 텍스트 앵커라 이미지 로딩 타이밍과 무관하고,
-    // poe1 세로로 긴 무기 이미지에서 버튼이 늘어지는 문제(높이 매칭)도 없다.
+    // 1순위: 아이템 이미지 컬럼(.iconContainer) 맨 아래 — 자연 흐름이라 겹칠 일이 없고, 이미지 로딩
+    // 타이밍과 무관하며, poe1 세로로 긴 무기 이미지에서 버튼이 늘어지는 문제(높이 매칭)도 없다.
+    //
+    // ⚠ 2026-08-25까지는 이 컬럼을 **상태 배지의 텍스트**(`/인증/`)로 찾았다. 그런데 그 배지
+    //   (`.verifiedStatus`)는 매물 상태에 따라 **문구가 바뀐다** — '수요가 있는 아이템입니다'가 뜨는
+    //   매물에서 앵커를 못 찾아 2순위(절대 위치)로 떨어졌고, 버튼이 아이템 스탯 **위에 겹쳐** 떴다
+    //   (제보 2026-08-25 · 실제 거래소에서 그 문구로 바꿔 재현 확인).
+    //   같은 이유로 영문 거래소('Verified')에서는 1순위가 **한 번도 잡힌 적이 없다.**
+    //   컬럼을 클래스로 잡으면 문구·언어·인증 여부와 무관해진다.
+    //
+    // 실측 구조 (2026-08-25, 카카오 poe1·poe2 both · 각 10/10행):
+    //   <div class="row" data-id=…>
+    //     <div class="iconContainer">
+    //       <div class="icon"><img …></div>
+    //       <div class="verifiedStatus">인증 완료</div>   ← 문구가 바뀌는 자리
+    //       <div class="ba-pob-wrap">…우리 버튼…</div>    ← 여기에 붙인다
     const rr = row.getBoundingClientRect()
-    const badge = [...row.querySelectorAll('div,span,p,em,strong')].find((el) =>
-      el.childElementCount === 0 && /인증/.test(el.textContent) && el.getBoundingClientRect().left - rr.left < rr.width * 0.4)
-    if (badge && badge.parentElement) {
+    const iconCol = row.querySelector('.iconContainer')
+    if (iconCol) {
       const wrap = document.createElement('div')
       wrap.className = 'ba-pob-wrap'
       wrap.appendChild(group)
-      badge.parentElement.insertBefore(wrap, badge.nextSibling)
+      iconCol.appendChild(wrap)
     } else {
       // 2순위: 아이템 이미지 오른쪽(자연 높이) — 행 왼쪽 40% 안의 img 실측. 로딩 전(0폭)이면 다음 패스로.
       const leftImgs = [...row.querySelectorAll('img')].filter((im) => im.getBoundingClientRect().left - rr.left < rr.width * 0.4)
