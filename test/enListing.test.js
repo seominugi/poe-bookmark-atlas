@@ -64,7 +64,8 @@ const EN_ITEM = {
 }
 
 describe('buildPobText — 영문 원본 경로 (opts.en)', () => {
-  const out = () => buildPobText(EN_ITEM, {}, {}, {}, {}, {}, { en: true, itemClass: 'Body Armours' })
+  // baseMap 은 KR 키라 영문 경로에선 쓰지 않는다 — 빈 객체를 넘겨도 missing 이 생기면 안 된다.
+  const out = () => buildPobText(EN_ITEM, {}, { en: true, itemClass: 'Body Armours' })
 
   it('번역 없이 설명을 그대로 쓴다 — 우리가 값을 다시 채우지 않는다', () => {
     const { text } = out()
@@ -73,23 +74,21 @@ describe('buildPobText — 영문 원본 경로 (opts.en)', () => {
     expect(text).toContain('+21 to maximum Mana (implicit)')
   })
 
-  it('번역이 없으니 미변환·의심 항목도 없다 — 맵 없이도 깨끗하다', () => {
-    const { missing, warnings } = out()
-    expect(missing).toEqual([])
-    expect(warnings).toEqual([])
+  it('번역이 없으니 미변환 항목도 없다 — 맵 없이도 깨끗하다', () => {
+    expect(out().missing).toEqual([])
   })
 
   it('영문 베이스·유니크 이름을 그대로 쓴다 (사전 불필요)', () => {
     const { text } = out()
     expect(text).toContain('Carnal Armour')
-    const uniq = buildPobText({ ...EN_ITEM, rarity: 'Unique', name: 'Apocalypse Span' }, {}, {}, {}, {}, {}, { en: true, itemClass: 'Shields' })
+    const uniq = buildPobText({ ...EN_ITEM, rarity: 'Unique', name: 'Apocalypse Span' }, {}, { en: true, itemClass: 'Shields' })
     expect(uniq.text).toContain('Apocalypse Span')
     expect(uniq.missing).toEqual([])
   })
 
   it('Item Class 는 넘겨받는다 — 영문 응답에 그 필드가 없다', () => {
     expect(out().text).toContain('Item Class: Body Armours')
-    const none = buildPobText(EN_ITEM, {}, {}, {}, {}, {}, { en: true })
+    const none = buildPobText(EN_ITEM, {}, { en: true })
     expect(none.text).not.toContain('Item Class:')
     expect(none.missing).toEqual([]) // 없다고 미변환으로 세지 않는다
   })
@@ -104,7 +103,7 @@ describe('buildPobText — 영문 원본 경로 (opts.en)', () => {
   it('PoE2 게임 마크업은 벗긴다', () => {
     const { text } = buildPobText(
       { ...EN_ITEM, explicitMods: [{ description: '18% increased [Block] chance', hash: 'stat.explicit.x' }] },
-      {}, {}, {}, {}, {}, { en: true, itemClass: 'Shields' },
+      {}, { en: true, itemClass: 'Shields' },
     )
     expect(text).toContain('18% increased Block chance')
     expect(text).not.toContain('[Block]')
