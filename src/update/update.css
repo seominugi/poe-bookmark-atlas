@@ -183,6 +183,31 @@ body {
 .mk-badge .mk-badge-now i { font-style: normal; color: #c4b5fd; }
 .mk-badge .mk-badge-next { font-size: 10.5px; font-weight: 700; color: #3ed8e6; }
 
+/* ── 동기화·폴더·행 버튼 목업 (0.12.0) ── */
+/* 파일 → 결과로 넘어가는 단계 표시. 두 카드 사이에 놓아 '이 다음에 이렇게 된다'를 잇는다 */
+.mk-step { display: flex; align-items: center; gap: 5px; margin: 2px 0 9px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; color: #a5b4fc; }
+/* 지웠는데 살아남은 항목 — 로즈로 '있으면 안 되는 것'임을 색으로 말한다 */
+.mk-ghost { color: #f5a3b3; background: rgba(244, 63, 94, 0.1); border: 1px dashed rgba(244, 63, 94, 0.45); border-radius: 7px; padding: 4px 6px; margin-left: -6px; margin-right: -6px; }
+.mk-ghost .mk-open { color: #f5a3b3; }
+.mk-tag { flex: none; font-size: 9.5px; font-weight: 800; color: #fecdd3; background: rgba(244, 63, 94, 0.26); border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+.mk-ok { gap: 5px; font-size: 10.5px; font-weight: 700; color: #5eead4; }
+
+/* 폴더 헤더 — 이름(+개수) 왼쪽, 액션 오른쪽 */
+.mk-fold { display: flex; align-items: center; gap: 8px; }
+.mk-fold-name { flex: 1; min-width: 0; display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 800; color: #e6e3f5; }
+.mk-facts { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+.mk-fic { width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; color: #9b94bd; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.12); }
+.mk-fic--del { color: #e08a8a; }
+
+/* 거래소 결과 행 — '그동안' 쪽은 버튼을 실제로 겹쳐 그린다(글로는 안 오는 증상이라) */
+.mk-res { position: relative; display: flex; gap: 9px; align-items: flex-start; }
+.mk-res-col { flex: none; display: inline-flex; flex-direction: column; align-items: center; gap: 6px; }
+.mk-res-img { flex: none; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 8px; color: #a5b4fc; background: rgba(167, 139, 250, 0.1); border: 1px solid rgba(167, 139, 250, 0.24); }
+.mk-res-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mk-res-stat { font-size: 10px; color: #9b94bd; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mk-res-btns { display: inline-flex; align-items: center; gap: 4px; width: max-content; font-size: 9.5px; font-weight: 800; color: #ddd6fe; background: rgba(167, 139, 250, 0.16); border: 1px solid rgba(167, 139, 250, 0.5); border-radius: 7px; padding: 3px 6px; }
+.mk-res-over { position: absolute; left: 41px; top: 50%; transform: translateY(-50%); box-shadow: 0 3px 12px rgba(0, 0, 0, 0.5); }
+
 @media (max-width: 520px) {
   .mk-pair { flex-direction: column; }
   .mk-w-narrow { max-width: 100%; }

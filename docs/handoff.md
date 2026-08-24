@@ -62,8 +62,12 @@ gh release create v0.12.0 --target main --title v0.12.0 --notes-file deploy/RELE
 # → dist 를 zip 으로 (deploy/poe-bookmark-atlas-0.12.0.zip, manifest 가 zip 루트에 오게)
 ```
 
-- **릴리즈 노트는 `UPDATE_NOTES` 0.12.0 본문 그대로 쓰면 된다** — 이번 노트에는 `[[mock:…]]` 지시자가
-  **하나도 없다**(0.11.0 때는 3개라 걷어내야 했다). 확인 코드는 이 절 아래 "0.12.0 담기는 것" 참조.
+- ⚠ **릴리즈 노트는 본문 그대로가 아니다 — `[[mock:…]]` 지시자 3개를 걷어내야 한다**
+  (`sync-merge-replace` · `folder-clear` · `row-btn-fix`). 그건 **패널 안 노트 창 전용**이라 GitHub 에
+  그대로 두면 독자에게 `[[mock:folder-clear]]` 라는 글자가 보인다. 0.11.0 때와 같은 처리다 →
+  `deploy/RELEASE-0.12.0.md` 로 만들어 올린다.
+  > 2026-08-25 한때 이 자리에 "이번 노트에는 지시자가 하나도 없다" 고 적혀 있었다. 맞는 말이었는데
+  > **그 뒤 사용자 요청으로 목업 3종이 들어와 거짓이 됐다.** 노트에 목업을 더하면 여기도 같이 고칠 것.
 - `gh release create --target <짧은 SHA>` 는 거절된다 — **브랜치 이름(`--target main`)** 을 쓴다.
 - **스토어 제출 충돌 없음** — 0.11.0 이 이미 심사를 통과·배포됐다(아래). 0.6.x·0.7.0 때처럼
   "제출분이 대체된다" 를 걱정할 상황이 아니다.
