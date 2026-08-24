@@ -3,6 +3,7 @@ import {
   addFolder, renameFolder, deleteFolder, restoreFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
   migrateBookmarkLeague, moveBookmarks,
+  clearFolderBookmarks, restoreRecords, restoreScope, backupBookmarksJSON,
   listWatched, removeWatch, applyWatchStatus,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
@@ -67,7 +68,7 @@ let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
 let focusBookmarkId = null // 저장·승격 후 스크롤·강조 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
-const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export'
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export'
 function applyA11y(listEl) {
   listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
     if (el.matches('button, a, input')) return
@@ -495,10 +496,17 @@ function folderHtml(g, items, lg, currentLeague) {
   // held = 이 폴더가 담은 북마크 수. 삭제 확인이 이 수를 기준으로 묻는다(bindAll의 .ba-folder-del 참조) —
   // 폴더를 한 벌만 그리게 된 뒤로 화면에 보이는 수와 같지만, 확인의 근거가 '실제로 잃을 것'임을 마크업에 남긴다.
   const held = items.length
+  // 🧹 비우기 — 폴더는 남기고 안의 북마크만 지운다. **미분류에는 이 액션만** 붙는다(이름변경·삭제가
+  //   의미 없는 그룹이라 지금껏 액션이 0개였고, 폴더를 지울 때마다 북마크가 여기로 밀려 쌓였다 — 제보
+  //   2026-08-24). 실폴더에서는 '비우기 → 삭제' 2동작이 "폴더째 통째로"가 되고 각 단계가 따로 되돌려진다.
+  //   담긴 게 없으면 아예 그리지 않는다 — 눌러도 아무 일 없는 버튼은 고장으로 읽힌다.
+  const clearBtn = held > 0
+    ? `<span class="ba-folder-clear" data-id="${g.id ?? ''}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="이 폴더의 북마크 ${held}개를 모두 삭제\n(폴더는 남습니다 · 실행취소 가능)">${icon('broom', 13)}</span>`
+    : ''
   const fActions =
     g.id !== null
-      ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span><span class="ba-folder-del" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
-      : ''
+      ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span>${clearBtn}<span class="ba-folder-del" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
+      : clearBtn
   // 현재 거래소 검색을 이 폴더에 바로 저장 — 본문 하단 전체폭 칩(시인성↑). 저장 다이얼로그가 이 폴더를 미리 선택한 채 열림
   const saveChip = `<button class="ba-folder-savechip" data-id="${g.id ?? ''}" data-tip="현재 거래소 검색을 이 폴더에 저장">${icon('plus', 13)}이 폴더에 현재 검색 저장</button>`
   const folderColor = g.color || (g.id === null ? '#a78bfa' : '#8b85a8')
@@ -514,7 +522,7 @@ function folderHtml(g, items, lg, currentLeague) {
   const headStyle = `background:${hexToRgba(folderColor, g.id === null ? 0.1 : 0.15)};border-left-color:${folderColor}`
   const countStyle = `color:${folderColor};background:${hexToRgba(folderColor, 0.16)}`
   return `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}" data-folder="${fkey}">
-      <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
+      <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name" data-tip="${escapeHtml(g.name)}&#10;────────&#10;클릭하면 접거나 펼쳐요">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
       <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${saveChip}${items.map((r) => rowHtml(r, 'bookmark', lg, currentLeague)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
 }
@@ -964,6 +972,9 @@ function bindAll(listEl, ui, ctx) {
     const ex = [staleExcluded ? `오래된 ${staleExcluded}개` : '', unsafeExcluded ? `안전하지 않은 ${unsafeExcluded}개` : ''].filter(Boolean).join(', ')
     toast(`"${b.dataset.name}" 북마크 ${count}개를 내보냈습니다${ex ? ` (${ex} 제외)` : ''}.`)
   }))
+  // 가져오기 — 파일을 고른 **뒤** 합치기/교체를 묻는다. 예전엔 고르는 즉시 병합돼서 되돌릴 지점이 없었고,
+  // 합치기만으로는 저쪽의 삭제·이름변경이 전파되지 않아 두 PC를 오갈수록 단조증가했다(제보 2026-08-24).
+  const gameLabel = (g) => (g === 'poe1' ? 'POE1' : g === 'poe2' ? 'POE2' : String(g || '미상'))
   const importBtn = listEl.querySelector('.ba-import')
   if (importBtn) importBtn.addEventListener('click', () => {
     const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json'
@@ -971,12 +982,45 @@ function bindAll(listEl, ui, ctx) {
       const f = inp.files && inp.files[0]; if (!f) return
       const rd = new FileReader()
       rd.onload = async () => {
-        try {
-          const { added, skipped, blocked } = await importBookmarksJSON(ui.game, JSON.parse(rd.result))
-          changed()
-          const ex = [skipped ? `중복 ${skipped}개` : '', blocked ? `차단 ${blocked}개(허용 도메인 외)` : ''].filter(Boolean).join(', ')
-          toast(added ? `${added}개 북마크를 가져왔습니다${ex ? ` (${ex} 제외)` : ''}.` : (blocked ? `허용 도메인 외 링크 ${blocked}개를 차단했습니다.` : '추가할 새 북마크가 없습니다.'))
-        } catch (_) { toast('JSON 형식이 올바르지 않습니다.') }
+        let data
+        try { data = JSON.parse(rd.result) } catch (_) { toast('JSON 형식이 올바르지 않습니다.'); return }
+        const inB = Array.isArray(data && data.bookmarks) ? data.bookmarks.length : 0
+        const inF = Array.isArray(data && data.folders) ? data.folders.length : 0
+        if (!inB && !inF) { toast('이 파일에는 가져올 북마크가 없습니다.'); return }
+        // '지금 있는 것'은 **교체가 실제로 지울 대상과 같은 기준**으로 센다 — 게임 표시가 없는 레거시
+        // 폴더는 두 게임 모두에 보여서 교체가 건드리지 않으므로 여기서도 뺀다(숫자가 거짓말하면 안 된다).
+        const [nowB, allF] = await Promise.all([listByKind('bookmark', ui.game), listFolders(ui.game)])
+        const nowF = allF.filter((x) => x.game === ui.game)
+        const mismatch = data.game && ui.game && data.game !== ui.game
+        const msg = [
+          `파일: ${f.name}`,
+          `가져올 것: 북마크 ${inB}개 · 폴더 ${inF}개`,
+          `지금 있는 것: 북마크 ${nowB.length}개 · 폴더 ${nowF.length}개`,
+          '',
+          mismatch ? `⚠ 이 파일은 ${gameLabel(data.game)} 백업인데 지금 화면은 ${gameLabel(ui.game)}입니다. 교체하면 ${gameLabel(ui.game)} 북마크가 사라져요.` : null,
+          `‘합치기’ — 없는 것만 더합니다. 저쪽에서 지우거나 이름을 바꾼 건 반영되지 않아요.`,
+          `‘교체’ — 지금 있는 북마크 ${nowB.length}개와 폴더 ${nowF.length}개를 지우고 파일 내용으로 다시 채웁니다. 지우기 전에 백업 파일을 자동으로 내려받아요. 히스토리·조건 묶음·찜한 매물은 그대로예요.`,
+        ].filter((l) => l !== null).join('\n')
+        const choice = ui.showChoice
+          ? await ui.showChoice({ title: '북마크 가져오기', message: msg, ok: '합치기', alt: nowB.length ? `교체 (${nowB.length}개 삭제)` : '교체' })
+          : 'ok'
+        if (!choice) return
+        const replace = choice === 'alt'
+        if (replace) { // 지우기 전 마지막 사본 — stale 필터 없는 전체 백업(내보내기와 달리 하나도 빼지 않는다)
+          const bk = await backupBookmarksJSON(ui.game)
+          if (bk.count) downloadJSON(bk.json, `bookmark-atlas-backup-${today()}.json`)
+        }
+        const { added, skipped, blocked, snapshot } = await importBookmarksJSON(ui.game, data, { replace })
+        changed()
+        if (replace) {
+          toast(`북마크 ${added}개로 교체했어요 (이전 ${nowB.length}개는 백업 파일에 있어요).`, {
+            label: '실행취소',
+            onClick: async () => { await restoreScope(snapshot); changed(); toast('교체 전으로 되돌렸어요.') },
+          })
+          return
+        }
+        const ex = [skipped ? `중복 ${skipped}개` : '', blocked ? `차단 ${blocked}개(허용 도메인 외)` : ''].filter(Boolean).join(', ')
+        toast(added ? `${added}개 북마크를 가져왔습니다${ex ? ` (${ex} 제외)` : ''}.` : (blocked ? `허용 도메인 외 링크 ${blocked}개를 차단했습니다.` : '추가할 새 북마크가 없습니다.'))
       }
       rd.readAsText(f)
     }
@@ -1066,6 +1110,31 @@ function bindAll(listEl, ui, ctx) {
   // 다른 섹션에서 0개로 보일 수 있고, 그 '빈' 복제본을 지워 원본이 통째로 날아간 제보가 있었다(2026-08-18).
   // 확인만으론 그 사고를 못 막는다(사용자는 빈 폴더인 줄 알고 눌렀다) — 그래서 무엇이 지워졌는지 말해주고,
   // 되돌릴 수단을 함께 준다(조건 묶음 삭제와 같은 언어).
+  // 🧹 폴더 비우기 — 폴더는 남기고 안의 북마크만. 확인은 **기존 armed 2클릭**(폴더 삭제·히스토리 정리와
+  //   같은 방식)을 그대로 쓴다. 파괴적 동작마다 확인 패턴이 다르면 사용자가 매번 새로 배워야 한다.
+  listEl.querySelectorAll('.ba-folder-clear').forEach((s) => {
+    let armTimer = null
+    const disarm = () => { clearTimeout(armTimer); armTimer = null; s.classList.remove('armed') }
+    s.addEventListener('click', async () => {
+      const held = Number(s.dataset.count || 0)
+      const name = s.dataset.name || ''
+      if (!armTimer) {
+        s.classList.add('armed')
+        armTimer = setTimeout(disarm, 3000)
+        toast(`"${name}"의 북마크 ${held}개를 지웁니다. 한 번 더 누르면 삭제해요.`)
+        return
+      }
+      disarm()
+      const removed = await clearFolderBookmarks(ui.game, s.dataset.id || null) // '' = 미분류
+      changed()
+      if (!removed.length) return
+      toast(`"${name}"에서 북마크 ${removed.length}개를 지웠어요.`, {
+        label: '실행취소',
+        onClick: async () => { await restoreRecords(removed); changed(); toast(`북마크 ${removed.length}개를 되살렸어요.`) },
+      })
+    })
+  })
+
   listEl.querySelectorAll('.ba-folder-del').forEach((s) => {
     let armTimer = null
     const disarm = () => { clearTimeout(armTimer); armTimer = null; s.classList.remove('armed') }
