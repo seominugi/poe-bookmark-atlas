@@ -630,6 +630,47 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     })
   }
 
+  /**
+   * 3버튼 확인 모달 — ba-namebar 재사용(입력·폴더 피커 숨김). 되돌리기 어려운 동작 직전의 마지막 관문.
+   * **기본(primary) 자리인 ok 에는 안전한 쪽을 둔다** — 읽지 않고 Enter 를 쳐도 파괴적 선택이
+   * 실행되지 않아야 한다. 파괴적 선택은 보조 버튼(alt)에 놓는다.
+   * message 는 textContent 로 넣는다(파일명이 그대로 들어온다) + .ba-modal-msg 가 pre-line 이라 줄바꿈이 산다.
+   * @param {{title:string, message:string, ok:string, alt?:string}} o
+   * @returns {Promise<'ok'|'alt'|null>} null = 취소
+   */
+  function showChoice(o) {
+    const bar = $('ba-namebar'); const input = $('ba-name-input'); const msg = $('ba-modal-msg')
+    const okBtn = $('ba-name-ok'); const cancel = $('ba-name-cancel'); const alt = $('ba-name-alt'); const pick = $('ba-folder-pick')
+    return new Promise((resolve) => {
+      $('ba-modal-title').textContent = o.title || '확인'
+      msg.textContent = o.message || ''
+      msg.hidden = false
+      input.hidden = true; pick.hidden = true; pick.innerHTML = ''
+      cancel.hidden = false
+      okBtn.textContent = o.ok || '확인'
+      alt.textContent = o.alt || ''
+      alt.hidden = !o.alt
+      bar.hidden = false
+      okBtn.focus()
+      const finish = (v) => {
+        bar.hidden = true; msg.hidden = true; msg.textContent = ''
+        input.hidden = false; alt.hidden = true; okBtn.textContent = '저장' // 다른 다이얼로그용 원복
+        okBtn.removeEventListener('click', onOk); alt.removeEventListener('click', onAlt)
+        cancel.removeEventListener('click', onCancel); bar.removeEventListener('click', onOverlay)
+        root.removeEventListener('keydown', onKey, true)
+        resolve(v)
+      }
+      const onOk = () => finish('ok')
+      const onAlt = () => finish('alt')
+      const onCancel = () => finish(null)
+      const onOverlay = (e) => { if (e.target === bar) finish(null) } // 어두운 배경 클릭 = 취소
+      const onKey = (e) => { if (e.key === 'Escape') { e.preventDefault(); finish(null) } }
+      okBtn.addEventListener('click', onOk); alt.addEventListener('click', onAlt)
+      cancel.addEventListener('click', onCancel); bar.addEventListener('click', onOverlay)
+      root.addEventListener('keydown', onKey, true)
+    })
+  }
+
   // 설정 모달 — ba-namebar 재사용. 현재는 '패널 위치'(좌/우). 향후 설정을 여기 모은다.
   function showSettings() {
     const bar = $('ba-namebar'); const input = $('ba-name-input'); const msg = $('ba-modal-msg')
@@ -892,7 +933,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   }
 
   const ui = {
-    showNameInput, showSaveInput, showFolderPick, showConflict, toast, game, league,
+    showNameInput, showSaveInput, showFolderPick, showConflict, showChoice, toast, game, league,
     getLeagueMap: getLeagueMap || (() => ({})),
     migrateSearch, // 저장된 조건을 현재 리그로 다시 검색(renderList의 지난 리그 북마크 흐름에서 사용)
     // 아래에서 const로 정의되는 콜백들은 화살표로 감싸 '호출 시점'에 해석한다.

@@ -378,6 +378,44 @@ export async function clearHistory(game) {
   return removed
 }
 
+/**
+ * 한 폴더의 북마크를 전부 삭제한다 — **폴더 자체는 남긴다**(비우기). folderId === null 이면 미분류.
+ * deleteFolder(폴더를 지우고 내용은 미분류로 밀어냄)와 짝을 이룬다: 둘을 이어 쓰면 "폴더째 통째로"가
+ * 되고, 각 단계가 따로 되돌려진다. 미분류에는 deleteFolder가 없어서 **이 함수가 유일한 정리 경로**다
+ * (제보 2026-08-24: 폴더를 지울 때마다 북마크가 미분류로 밀려 쌓이는데 비울 방법이 없었다).
+ * @returns {Promise<object[]>} 삭제된 레코드 — restoreRecords로 되돌릴 재료
+ */
+export async function clearFolderBookmarks(game, folderId) {
+  const all = await readAll()
+  const target = folderId ?? null
+  const hit = (r) => r.kind === 'bookmark' && (!game || r.game === game) && (r.folderId ?? null) === target
+  const removed = all.filter(hit)
+  if (!removed.length) return []
+  await writeAll(all.filter((r) => !hit(r)))
+  return removed
+}
+
+/**
+ * 삭제한 레코드를 그대로 되돌린다(실행취소). id·order·시간을 보존하므로 원래 자리에 되살아난다.
+ * 이미 같은 id가 있으면 건너뛴다 — 되돌리기가 두 번 실행돼도 복제되지 않는다.
+ * 되살릴 곳의 폴더가 그새 사라졌으면 미분류로 내린다: 없는 폴더를 가리키는 북마크는 **어느 그룹에도
+ * 안 그려져** 화면에서 통째로 사라진다(renderList는 미분류 + 현존 폴더만 순회한다).
+ * @returns {Promise<number>} 실제로 되살린 개수
+ */
+export async function restoreRecords(records) {
+  const list = Array.isArray(records) ? records.filter((r) => r && r.id) : []
+  if (!list.length) return 0
+  const all = await readAll()
+  const have = new Set(all.map((r) => r.id))
+  const alive = new Set((await readFolders()).map((f) => f.id))
+  const back = list
+    .filter((r) => !have.has(r.id))
+    .map((r) => (r.folderId && !alive.has(r.folderId) ? { ...r, folderId: null } : r))
+  if (!back.length) return 0
+  await writeAll([...all, ...back])
+  return back.length
+}
+
 // ── 폴더 (game 스코프) ──
 /** game 지정 시 해당 게임 폴더 + 게임 미지정(레거시) 폴더. */
 export async function listFolders(game) {
@@ -588,6 +626,60 @@ export async function restoreFolder(snapshot) {
   if (changed) await writeAll(all)
 }
 
+// ── 스코프 통째 교체 (동기화용) ─────────────────────────────
+// 두 PC를 오가며 내보내기·가져오기로 손 동기화하는 사용자가 있다. 그런데 가져오기는 **합치기 전용**이라
+// 같은 dedupeKey를 통째로 건너뛴다 — 추가만 되고 **삭제·이름변경·폴더이동은 전파되지 않는다.**
+// 반복할수록 단조증가해 지저분해진다(제보 2026-08-24). '교체'는 그 축적을 끊는 유일한 경로다.
+//
+// ⚠ 게임 표시가 없는 레거시 폴더(f.game == null)는 **두 게임 모두에 보이므로 건드리지 않는다.**
+//    여기서 지우면 다른 게임 쪽 폴더까지 함께 사라진다. game이 없으면(스코프 전체) 그 보호도 없다.
+const inScopeFolder = (f, game) => (game ? f.game === game : true)
+const inScopeBookmark = (r, game) => r.kind === 'bookmark' && (!game || r.game === game)
+
+/** 교체 전 되돌릴 재료 — 지금 게임의 북마크 + 그 게임에 속한 폴더. */
+export async function snapshotScope(game) {
+  const all = await readAll()
+  const folders = await readFolders()
+  return {
+    game: game ?? null,
+    records: all.filter((r) => inScopeBookmark(r, game)),
+    folders: folders.filter((f) => inScopeFolder(f, game)),
+  }
+}
+
+async function wipeScope(game) {
+  await writeAll((await readAll()).filter((r) => !inScopeBookmark(r, game)))
+  await writeFolders((await readFolders()).filter((f) => !inScopeFolder(f, game)))
+}
+
+/** 교체 실행취소 — 스코프를 스냅샷 시점으로 되돌린다(그 사이 가져온 것은 사라진다). */
+export async function restoreScope(snapshot) {
+  if (!snapshot || !Array.isArray(snapshot.records)) return false
+  const game = snapshot.game ?? null
+  await wipeScope(game)
+  await writeAll([...(await readAll()), ...snapshot.records])
+  await writeFolders([...(await readFolders()), ...(snapshot.folders || [])])
+  return true
+}
+
+/**
+ * 교체 직전 자동 백업 — **stale 필터를 걸지 않는다.** exportBookmarksJSON(공유용)과 목적이 다르다:
+ * 이건 되돌릴 수 없게 되기 전의 마지막 사본이라 하나라도 빠지면 안 된다. lastUsedAt은 PC마다 따로라
+ * "집에서만 쓰는 북마크"가 직장에서는 stale로 잡히는데, 그걸 뺀 채 교체하면 영구 소실이다.
+ * 형식은 내보내기와 같아 그대로 가져오기로 되살릴 수 있다.
+ */
+export async function backupBookmarksJSON(game, now = Date.now()) {
+  const all = await listByKind('bookmark', game)
+  return {
+    json: {
+      app: 'poe-bookmark-atlas', version: 1, exportedAt: new Date(now).toISOString(),
+      game: game ?? null, scope: 'backup',
+      folders: await listFolders(game), bookmarks: all, // 폴더는 레거시까지 포함 — 되살릴 때 이름 매칭에 쓰인다
+    },
+    count: all.length,
+  }
+}
+
 // ── JSON 내보내기 / 가져오기 ──
 const EXPORT_STALE_MS = 14 * 24 * 60 * 60 * 1000 // 오래된(14일↑ 미사용) 북마크는 내보내기에서 제외
 
@@ -623,11 +715,23 @@ export async function exportBookmarksJSON(game, folderId, now = Date.now()) {
 /**
  * JSON에서 북마크를 가져오기. 같은 dedupeKey 중복은 건너뛰고, 없는 폴더만 이름 기준으로 생성(id 매핑),
  * 북마크는 새 id·order를 발급한다.
- * @returns {Promise<{added: number, skipped: number, foldersAdded: number}>}
+ *
+ * opts.replace = true 면 **먼저 이 게임의 북마크·폴더를 전부 지우고** 파일 내용으로 다시 채운다
+ * (동기화용 — 위 '스코프 통째 교체' 주석 참조). 히스토리·조건 묶음·찜한 매물은 건드리지 않는다.
+ * 되돌릴 스냅샷을 함께 돌려주므로 호출부가 실행취소를 붙일 수 있다.
+ * @param {{replace?: boolean}} [opts]
+ * @returns {Promise<{added: number, skipped: number, foldersAdded: number, blocked: number, snapshot: object|null}>}
  */
-export async function importBookmarksJSON(game, data) {
+export async function importBookmarksJSON(game, data, opts = {}) {
   const inB = Array.isArray(data && data.bookmarks) ? data.bookmarks : []
   const inF = Array.isArray(data && data.folders) ? data.folders : []
+  // ⚠ 지우기는 아래 existing(현재 폴더 목록)을 읽기 **전에** 끝나야 한다 — 뒤에 두면 이미 지운 폴더에
+  //   이름을 매칭해 idMap이 죽은 id를 가리킨다.
+  let snapshot = null
+  if (opts && opts.replace) {
+    snapshot = await snapshotScope(game)
+    await wipeScope(game)
+  }
   const existing = await listFolders(game)
   const idMap = {} // 가져온 폴더 id → 현재 폴더 id
   let foldersAdded = 0
@@ -656,7 +760,7 @@ export async function importBookmarksJSON(game, data) {
     await addBookmark({ ...rest, game, folderId }, b.name || b.title)
     added++
   }
-  return { added, skipped, foldersAdded, blocked }
+  return { added, skipped, foldersAdded, blocked, snapshot }
 }
 
 // ── 찜한 매물(watchlist) ─────────────────────────────────────
