@@ -32,9 +32,30 @@ body {
 .up-ver { padding: 20px 0 4px; }
 /* 버전 사이의 구분선 — 이 문서에서 **가장 큰 단락 경계**다(여기부터 다른 버전 얘기).
    종전엔 1px·투명도 .07 이라 본문 안의 `---`(.up-body hr, .09)보다도 **흐렸다** — 더 작은
-   경계가 더 진해서 위계가 뒤집혀 있었다. 굵기를 올리고 바이올렛을 얹어 둘을 갈라 놓는다.
-   위아래 여백도 함께 늘린다 — 선만 굵어지면 붙어 보여서 오히려 답답해진다. */
-.up-ver + .up-ver { border-top: 3px solid rgba(167, 139, 250, 0.34); padding-top: 30px; margin-top: 10px; }
+   경계가 더 진해서 위계가 뒤집혀 있었다.
+   선이 아니라 **유리 막대**로 세운다: 반투명 채움 + 밝은 테두리 + 안쪽 위 하이라이트 + 글로우.
+   패널의 글래스 버튼(.ba-pob-btn)과 같은 언어이고, 하이라이트가 있어야 '얇은 선'이 아니라
+   '두께가 있는 물체'로 읽힌다.
+   ⚠ backdrop-filter 는 **일부러 안 쓴다** — body 배경이 완전 불투명 단색(rgba(17,15,30,1))이라
+     뒤에 흐릴 게 없어 시각 효과가 0 이고, 합성 레이어 비용만 는다. 패널도 같은 이유로
+     걷어낸 적이 있다(panel.css --ba-panel-bg 주석). 유리 느낌은 아래 네 겹이 만든다.
+   색은 **보색(호박/골드)** 이다. 바이올렛으로 그었더니 이 페이지가 온통 바이올렛이라 묻혔다
+     (제목 그라디언트·링크·목업 칩이 전부 자수정~스카이 계열 = 차가운 색 일색).
+     따뜻한 호박은 이 페이지에서 유일한 난색이라 가장 크게 갈라진다 — 자수정의 보색이기도 하다.
+     같은 이유로 민트·스카이는 쓰지 않았다: 차가운 가족 안이라 또 묻힌다.
+     ※ 호박은 패널에서 '찜'·가격 의미색이지만 **이 창 안에서는 거의 안 쓰여** 충돌하지 않는다.
+   위아래 여백도 함께 늘린다 — 막대만 굵어지면 글에 붙어 보여서 오히려 답답해진다. */
+.up-ver + .up-ver { position: relative; padding-top: 38px; margin-top: 18px; }
+.up-ver + .up-ver::before {
+  content: ''; position: absolute; inset: 0 0 auto; height: 7px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(253, 224, 71, 0.46), rgba(245, 158, 11, 0.16));
+  border: 1px solid rgba(251, 191, 36, 0.66);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.42),   /* 위쪽 하이라이트 — 두께를 만드는 핵심 */
+    0 0 22px rgba(251, 191, 36, 0.34),         /* 바깥 글로우 */
+    0 3px 12px rgba(0, 0, 0, 0.55);            /* 아래 그림자 — 본문에서 떠 있게 */
+}
 .up-ver-head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; margin-bottom: 12px; }
 .up-tag {
   font-size: 11px; font-weight: 800; letter-spacing: 0.03em; flex: none;
