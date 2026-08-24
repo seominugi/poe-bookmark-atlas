@@ -69,6 +69,17 @@ gh release create v0.12.0 --target main --title v0.12.0 --notes-file deploy/RELE
   > 2026-08-25 한때 이 자리에 "이번 노트에는 지시자가 하나도 없다" 고 적혀 있었다. 맞는 말이었는데
   > **그 뒤 사용자 요청으로 목업 3종이 들어와 거짓이 됐다.** 노트에 목업을 더하면 여기도 같이 고칠 것.
 - `gh release create --target <짧은 SHA>` 는 거절된다 — **브랜치 이름(`--target main`)** 을 쓴다.
+- ⚠ **스토어 zip 은 `pwsh`(PowerShell 7)로 만든다. `powershell`(5.1)로 만들면 안 된다.**
+  5.1 의 `Compress-Archive` 는 zip 항목 경로를 **역슬래시**로 쓴다(`assets\foo.js`). zip 규격은
+  슬래시라 크롬이 이걸 폴더가 아니라 **이름에 역슬래시가 든 파일**로 읽는다.
+  2026-08-25 에 실제로 그렇게 만들었다가 검사에서 잡았다 — 심사 통과본(0.11.0)은 역슬래시 0·슬래시 37 이었다.
+
+  ```powershell
+  pwsh -NoProfile -Command "Compress-Archive -Path 'D:\github\poe-bookmark-atlas\dist\*' -DestinationPath 'D:\github\poe-bookmark-atlas\deploy\poe-bookmark-atlas-<버전>.zip' -Force"
+  ```
+
+  **만든 뒤 반드시 검사한다** — 항목 수 · 역슬래시 0 · `manifest.json` 이 루트에 있는지.
+  (`[IO.Compression.ZipFile]::OpenRead(...)` 로 `Entries.FullName` 을 훑으면 된다.)
 - **스토어 제출 충돌 없음** — 0.11.0 이 이미 심사를 통과·배포됐다(아래). 0.6.x·0.7.0 때처럼
   "제출분이 대체된다" 를 걱정할 상황이 아니다.
 
