@@ -124,6 +124,91 @@ export const MOCKUPS = {
       </div>
       <div class="mk-note">왼쪽부터 <b>라이브로 열기</b> · <b>링크 복사</b> · <b>최근 검색으로 갱신</b> — 이름 변경·폴더 이동·삭제는 실수를 막기 위해 <b>⋯</b> 에 그대로 둡니다</div>`),
   },
+
+  // ── 동기화 (0.12.0) ──────────────────────────────────────────────
+  // 제보: "가져오기로 덮어쓰는 형식으로 수동 동기화 중인데 거듭될수록 지저분해져요."
+  // 글로 "합치기는 없는 것만 더합니다" 라고 써 봐야 **왜 쌓이는지**가 안 온다 — 지운 항목이
+  // 살아남는 장면을 눈으로 보여야 한다. 그래서 같은 파일을 두 방식으로 가져온 **결과를 나란히** 놓는다.
+  'sync-merge-replace': {
+    caption: '집에서 <b>생명력 갑옷</b> 을 지우고 내보낸 파일을, 직장에서 가져왔을 때',
+    html: `
+      ${card(`
+        <div class="mk-row" style="margin-bottom:7px"><span class="mk-title">${icon('upload', 12)}집에서 내보낸 파일<span class="mk-count">2</span></span></div>
+        <div class="mk-line"><span class="mk-open">${icon('search', 12)}<b>화염 저항 반지</b></span></div>
+        <div class="mk-line"><span class="mk-open">${icon('search', 12)}<b>카오스 단검</b></span></div>`)}
+      <div class="mk-step">${icon('chevronDown', 12)}직장에서 가져오기</div>
+      <div class="mk-pair">
+        <div class="mk-side">
+          <div class="mk-side-lbl">합치기</div>
+          ${card(`
+            <div class="mk-line"><span class="mk-open">${icon('search', 12)}<b>화염 저항 반지</b></span></div>
+            <div class="mk-line mk-ghost"><span class="mk-open">${icon('search', 12)}<b>생명력 갑옷</b></span><span class="mk-tag">지웠는데 남음</span></div>
+            <div class="mk-line"><span class="mk-open">${icon('search', 12)}<b>카오스 단검</b></span></div>`)}
+        </div>
+        <div class="mk-side">
+          <div class="mk-side-lbl">교체</div>
+          ${card(`
+            <div class="mk-line"><span class="mk-open">${icon('search', 12)}<b>화염 저항 반지</b></span></div>
+            <div class="mk-line"><span class="mk-open">${icon('search', 12)}<b>카오스 단검</b></span></div>
+            <div class="mk-line mk-ok">${icon('check', 11)}집과 똑같아졌어요</div>`)}
+        </div>
+      </div>
+      <div class="mk-note">합치기는 <b>없는 것만 더합니다</b> — 파일에 <em>없는</em> 항목은 손대지 않아요. 그래서 저쪽에서 지운 것·이름을 바꾼 것이 계속 남아 쌓입니다.</div>`,
+  },
+
+  // 폴더 헤더의 새 빗자루. 미분류에 **액션이 하나도 없었다**는 게 제보의 두 번째 문장이라,
+  // 미분류와 실폴더를 **같이** 보여야 "미분류에도 생겼다" 가 전달된다.
+  'folder-clear': {
+    caption: '폴더 이름 옆에 생긴 <b>빗자루</b>',
+    html: `
+      ${card(`
+        <div class="mk-fold">
+          <span class="mk-fold-name">${icon('chevronRight', 11)}${icon('folder', 13)}미분류<span class="mk-count">14</span></span>
+          <span class="mk-facts"><span class="mk-point">${icon('broom', 12)}</span></span>
+        </div>`)}
+      ${card(`
+        <div class="mk-fold">
+          <span class="mk-fold-name">${icon('chevronRight', 11)}${icon('folder', 13)}유니크<span class="mk-count">6</span></span>
+          <span class="mk-facts"><span class="mk-fic">${icon('pencil', 12)}</span><span class="mk-fic">${icon('download', 12)}</span><span class="mk-point">${icon('broom', 12)}</span><span class="mk-fic mk-fic--del">${icon('trash', 12)}</span></span>
+        </div>`)}
+      <div class="mk-note"><b>빗자루</b> 는 폴더를 남기고 <b>안의 북마크만</b> 지웁니다. <b>휴지통</b> 은 폴더를 없애고 북마크를 미분류로 옮겨요 — 미분류가 쌓이던 이유입니다. 폴더째 없애시려면 <b>빗자루 → 휴지통</b> 순서로 누르세요.</div>`,
+  },
+
+  // 결과 행 버튼 겹침. 증상이 **위치**라 글로는 안 온다 — 겹친 모습을 실제로 겹쳐 그린다.
+  'row-btn-fix': {
+    caption: '거래소 검색 결과에서 <b>★ · PoB</b> 버튼의 자리',
+    html: `<div class="mk-pair">
+      <div class="mk-side">
+        <div class="mk-side-lbl">그동안</div>
+        ${card(`
+          <div class="mk-res">
+            <span class="mk-res-img">${icon('layers', 17)}</span>
+            <span class="mk-res-body">
+              <span class="mk-res-stat">적용 반경: 대형</span>
+              <span class="mk-res-stat">아이템 레벨: 85</span>
+              <span class="mk-res-stat">화염 저항 +42%</span>
+            </span>
+            <span class="mk-res-btns mk-res-over">${icon('star', 10)}<b>PoB</b></span>
+          </div>`)}
+      </div>
+      <div class="mk-side">
+        <div class="mk-side-lbl">이제</div>
+        ${card(`
+          <div class="mk-res">
+            <span class="mk-res-col">
+              <span class="mk-res-img">${icon('layers', 17)}</span>
+              <span class="mk-res-btns">${icon('star', 10)}<b>PoB</b></span>
+            </span>
+            <span class="mk-res-body">
+              <span class="mk-res-stat">적용 반경: 대형</span>
+              <span class="mk-res-stat">아이템 레벨: 85</span>
+              <span class="mk-res-stat">화염 저항 +42%</span>
+            </span>
+          </div>`)}
+      </div>
+    </div>
+    <div class="mk-note">일부 매물에서 버튼이 <b>아이템 설명 위로 떠올라</b> 글자를 가렸습니다. 이제 언제나 <b>그림 아래</b> 제자리에 붙습니다.</div>`,
+  },
 }
 
 /** `[[mock:키]]` → 목업 HTML. 모르는 키는 아무것도 내지 않는다(노트가 깨지는 것보다 낫다). */
