@@ -161,7 +161,7 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 - 개발 환경에서 끝내 확인 못 한 이유 ①: 원격 조종 탭이 **OS 창 포커스를 못 잡아**(`document.hasFocus() === false`) 클립보드 쓰기가 `NotAllowedError` 로 막혔다. `window.focus()` 로도 안 된다. **사람이 직접 눌러야 확인된다.**
 - 이유 ② (2026-08-18 추가): 에이전트 브라우저에는 **거래소 로그인 세션이 없어** 페이지 진입 자체가 카카오 로그인으로 막힌다. 단 **API 는 열려 있다** — `www.pathofexile.com/api/trade/*` 는 한국 IP 에서 인증 없이 200 이라, 매물 JSON 을 받아 원인을 규명하는 것까지는 에이전트가 할 수 있다(이번에 그렇게 했다). ⚠ CORS 는 닫혀 있고 curl 은 Cloudflare 403 이다 — **브라우저 안에서** 부를 것.
 - 확인 방법(10초): 거래소에서 PoB 클릭 → 배지가 `영문 원본 ✓` 인지(`✓` 면 폴백), 붙여넣은 값이 맞는지.
-- ⚠ **되돌리기는 더 이상 "호출 한 줄 빼기"가 아니다** — ② 채택으로 폴백이 최소 폴백이 됐다. 번역 경로로 복귀하려면 `pobCopy`/`reportMissing` 의 `{ verbatim: true }` 를 원래의 맵 4종 인자로 되돌려야 한다(맵 파일 자체는 아직 지우지 않아 가능하다).
+- ⚠ **되돌리기 경로는 닫혔다** — 맵·번역 코드·생성 스크립트를 전부 지웠다(2026-08-24). 필요하면 `3116bf5` 이전 커밋에서 꺼내야 한다.
 
 **② PoB 복사를 영문 거래소 원본으로 (`ff6205f`)** — 번역 대신 **같은 매물 id 를 영문 거래소에서 받는다**.
 - 근거(2026-08-17 실측): PoE 는 단일 서버라 카카오 매물 id 를 `www.pathofexile.com/api/trade/fetch/<id>` 에 넣으면 **인증 없이 200**. `?query=` 도 불필요. 스탯·베이스 타입·**유니크 이름**까지 영문. PoE2 동일.
@@ -173,7 +173,11 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
   - **왜 한글이 더 나은가**: 틀린 영문은 사용자가 "PoB 가 이상하다"로 읽고, 한글은 "영문 조회가 안 됐구나"로 읽는다. **오해하지 않는 실패**가 조용히 틀린 성공보다 낫다.
   - **`content-main` 이 번역 맵 3종(2.2MB)을 더 이상 import 하지 않는다** — 클릭 시 lazy 로드되던 게 `pobBaseMap`(362KB) 하나로 줄었다.
   - `RADIUS_EN` 에 `변수: 'Variable'` 추가 — 같은 매물을 두 호스트에서 받아 KR↔EN 대조한 실측값이다(추측 아님, §RADIUS_EN 주석의 규율 그대로).
-- ⏳ **남은 정리 (Bash 필요 — 이번 세션에서 못 함)**: 이제 아무도 안 쓰는 `pobStatMap*.json`·`pobUniqueMap*.json`·`pobUniqueModMap*.json` **물리 삭제**와, 그 맵을 쓰는 번역 함수(`translateMod`·`pickTemplateInfo`·`valuesByKoTemplate`·`extractValues`·`fillValues`·`buildReportText`) 및 해당 테스트 제거. **코드는 남아 있어도 호출되지 않으므로 동작에는 영향이 없다** — 번들 용량과 정리의 문제다.
+- ✅ **번역 계층 물리 제거 완료 (2026-08-24)** — 맵 6파일(`pobStatMap`·`pobUniqueMap`·`pobUniqueModMap` × poe1/poe2)과 생성 스크립트 2개·overrides 2개, 번역 함수 전부(`translateMod`·`pickTemplateInfo`·`pickTemplate`·`valuesByKoTemplate`·`extractValues`·`fillValues`·`digitsToHash`·`normKo`·`withTrailingLines`·`valueOverflow`·`buildReportText`), 테스트 파일 `pobKoTemplate.test.js` 를 지웠다. `pobExport.js` 는 334줄 → 약 140줄.
+  - **`buildPobText` 시그니처가 바뀌었다**: `(item, statMap, baseMap, uniqueMap, modMap, koMap, opts)` → **`(item, baseMap = {}, opts = {})`**. `opts.verbatim` 은 없어졌다 — 번역이 없으니 KR 경로가 곧 원문 경로다. 남은 플래그는 `en`·`itemClass` 둘.
+  - **반환값에서 `warnings` 가 빠졌다** — '번역은 됐지만 의심스러운 것'을 뜻하던 값이라 구조적으로 항상 비게 됐다. `missing` 은 남겼지만 이제 `base:<KR 베이스명>` 만 담는다(그 경우에만 PoB 가 아이템을 식별 못 한다).
+  - `build-pob-basemap.mjs` 는 남기되 유니크 이름 맵 생성만 뺐다. 인자도 `[game] [출력명]` 두 개로 줄었다.
+  - ⚠ **이제 되돌릴 수 없다.** 번역 경로로 복귀하려면 맵을 다시 생성해야 하는데, `build-pob-statmap.mjs`·`build-pob-modmap.mjs` 도 함께 지웠으므로 git 이력에서 꺼내야 한다(`3116bf5` 이전).
 - 배지로 경로를 구분할 수 있다 — `영문 원본 ✓`(새 경로) vs `한글 원문`(최소 폴백).
 - ⚠ **권한이 없으면 조용히 폴백**해서 사용자가 더 나은 경로의 존재를 모른다 → PoB 를 눌렀을 때 `no-permission` 이면 **세션당 한 번** 토스트로 팝업 안내를 띄운다. 매번 띄우면 반복 동작이라 잔소리가 된다. 콘텐츠 스크립트에서는 `chrome.permissions` 를 쓸 수 없어(확장 페이지의 사용자 제스처 전용) 직접 요청하지 않고 팝업으로 보낸다.
 - ⚠ 서비스 워커의 `reason` 과 콘텐츠 스크립트의 분기가 **문자열로만** 이어져 있다 — 어긋나면 안내가 영영 안 뜨고 조용히 폴백만 한다. 소스 대조 테스트로 고정했다.

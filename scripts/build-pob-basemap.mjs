@@ -1,21 +1,20 @@
-// PoB base·유니크 이름 맵 생성 — poe-game-data 의 name.{kr,en}을 KR 키로 평탄화.
-//   {game}/json/**/*_base_types.json → src/lib/pobBaseMap.json    { "<kr>": ["<en>", "<classId>"] }
-//   {game}/uniques/json/uniques.json → src/lib/pobUniqueMap.json  { "<kr>": "<en>" }
-// (PoB import는 base 이름이 EN이어야 파싱되고, 유니크는 EN 이름으로 매칭됨. classId는 "Item Class:" 라인용)
+// PoB base 맵 생성 — poe-game-data 의 name.{kr,en}을 KR 키로 평탄화.
+//   {game}/json/**/*_base_types.json → src/lib/pobBaseMap.json  { "<kr>": ["<en>", "<classId>"] }
+// (PoB import는 base 이름이 EN이어야 파싱되고, classId는 "Item Class:" 라인용)
 //
 // 2026-08-23: 소스를 poe-i18n-json-data-generator-dev(은퇴) → poe-game-data(GGPK 1차 추출)로 옮겼다.
-// 유니크는 클래스별 *_unique_items.json 이 아니라 단일 uniques.json 이라 별도로 읽는다.
+// 2026-08-24: 유니크 이름 맵(pobUniqueMap) 생성을 뺐다 — PoB 복사가 영문 원본을 받아오게 되면서
+//   유니크 이름 번역이 필요 없어졌다(폴백에서는 한글 이름을 그대로 둔다). 자세한 배경은 src/lib/pobExport.js 머리말.
 //
-// 실행: node scripts/build-pob-basemap.mjs [game] [base출력명] [unique출력명]
+// 실행: node scripts/build-pob-basemap.mjs [game] [출력명]
 //   poe2(기본): node scripts/build-pob-basemap.mjs
-//   poe1:       node scripts/build-pob-basemap.mjs poe1 pobBaseMap.poe1.json pobUniqueMap.poe1.json
+//   poe1:       node scripts/build-pob-basemap.mjs poe1 pobBaseMap.poe1.json
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const game = process.argv[2] || 'poe2'
 const baseOut = process.argv[3] || 'pobBaseMap.json'
-const uniqueOut = process.argv[4] || 'pobUniqueMap.json'
 const here = dirname(fileURLToPath(import.meta.url))
 const libDir = join(here, '..', 'src', 'lib')
 
@@ -37,11 +36,9 @@ if (!dataRoot) {
   process.exit(1)
 }
 const root = join(dataRoot, game, 'json')
-const uniquesPath = join(dataRoot, game, 'uniques', 'json', 'uniques.json')
 
-const baseFiles = [], uniqueFiles = []
+const baseFiles = []
 ;(function walk(d) { for (const f of readdirSync(d)) { const p = join(d, f); if (statSync(p).isDirectory()) walk(p); else if (/base_types.*\.json$/.test(f)) baseFiles.push(p) } })(root)
-try { if (statSync(uniquesPath).isFile()) uniqueFiles.push(uniquesPath) } catch { /* 유니크 없으면 base 만 만든다 */ }
 
 const map = {}
 let total = 0, dup = 0
@@ -60,18 +57,3 @@ for (const f of baseFiles) {
 }
 writeFileSync(join(libDir, baseOut), JSON.stringify(map), 'utf8')
 console.log(`${baseOut} 생성: ${Object.keys(map).length} bases (입력 ${total}, EN 충돌 ${dup})`)
-
-const uniq = {}
-let utotal = 0
-for (const f of uniqueFiles) {
-  const arr = JSON.parse(readFileSync(f, 'utf8'))
-  if (!Array.isArray(arr)) continue
-  for (const it of arr) {
-    const kr = it?.name?.kr, en = it?.name?.en
-    if (!kr || !en) continue
-    utotal++
-    if (!uniq[kr]) uniq[kr] = en
-  }
-}
-writeFileSync(join(libDir, uniqueOut), JSON.stringify(uniq), 'utf8')
-console.log(`${uniqueOut} 생성: ${Object.keys(uniq).length} uniques (입력 ${utotal})`)

@@ -199,7 +199,7 @@ function pobFlash(btn, title, sub) {
 // 불러 KR→EN 번역을 했는데, 영문 원본 경로가 정본이 된 뒤로 그 번역은 **쓰이면 틀리는** 비상구였다
 // (제보 아이템 실물 검증: `Radius: 변수`·3줄 mod 첫 줄 유실·`+-16%` 부호 겹침 — PoB 가 못 읽는다).
 // baseMap 만 남긴 이유: 영문 응답에 **Item Class 가 없고**, 폴백에서도 베이스 타입을 영문으로
-// 줘야 PoB 가 아이템을 식별한다. 나머지 2.2MB 는 이제 아무도 안 쓴다.
+// 줘야 PoB 가 아이템을 식별한다. 나머지 2.2MB 와 번역 코드는 2026-08-24 에 저장소에서 지웠다.
 async function ensurePobMaps() {
   if (!pobMaps) {
     const b = await (game === 'poe1' ? import('../lib/pobBaseMap.poe1.json') : import('../lib/pobBaseMap.json'))
@@ -233,7 +233,7 @@ async function fetchEnItem(id) {
 }
 
 // 영문 거래소는 기본 권한(host_permissions)이라 보통 여기 오지 않는다. 오는 경우는 사용자가
-// 크롬에서 이 확장의 사이트 접근을 직접 내렸을 때다. 그때 **조용히** 번역으로 떨어지면
+// 크롬에서 이 확장의 사이트 접근을 직접 내렸을 때다. 그때 **조용히** 한글로 떨어지면
 // 사용자는 왜 결과가 나빠졌는지 영영 모른다(제보 2026-08-18) — 한 번은 알려야 한다.
 // ⚠ 매번 띄우지 않는다. PoB 복사는 반복 동작이라 클릭마다 토스트가 뜨면 잔소리가 된다.
 // ⚠ 여기서 권한을 직접 요청할 수 없다 — chrome.permissions 는 콘텐츠 스크립트에 없고,
@@ -242,7 +242,7 @@ let enPermNoticed = false
 function noticeEnPermission() {
   if (enPermNoticed) return
   enPermNoticed = true
-  panel.toast('이 확장의 영문 거래소(pathofexile) 접근이 꺼져 있어요. 확장 아이콘 → "접근 다시 켜기"를 누르면 PoB 복사가 영문 원본 그대로 나갑니다. 지금은 번역본으로 복사했어요.')
+  panel.toast('이 확장의 영문 거래소(pathofexile) 접근이 꺼져 있어요. 확장 아이콘 → "접근 다시 켜기"를 누르면 PoB 복사가 영문 원본 그대로 나갑니다. 지금은 한글 원문으로 복사했어요.')
 }
 
 async function pobCopy(item, btn, id) {
@@ -254,7 +254,7 @@ async function pobCopy(item, btn, id) {
       // (영문 JSON 에는 그 필드가 없다 — 2026-08-17 실측).
       const maps = await ensurePobMaps()
       const itemClass = (maps.baseMap[item.baseType] || [])[1] || null
-      const { text } = buildPobText(enItem, {}, {}, {}, {}, {}, { en: true, itemClass })
+      const { text } = buildPobText(enItem, {}, { en: true, itemClass })
       await pobCopyText(text)
       pobFlash(btn, '복사됨', '영문 원본 ✓')
       return
@@ -265,7 +265,7 @@ async function pobCopy(item, btn, id) {
     // 틀린 영문보다 한글 원문이 정직하다 — 사용자가 "PoB 가 이상하다"가 아니라
     // "영문 조회가 안 됐구나"로 읽는다. 베이스 타입만 baseMap 으로 영문화해 PoB 가 아이템은 알아보게 한다.
     const maps = await ensurePobMaps()
-    const { text } = buildPobText(item, {}, maps.baseMap, {}, {}, {}, { verbatim: true })
+    const { text } = buildPobText(item, maps.baseMap)
     await pobCopyText(text)
     pobFlash(btn, '복사됨', '한글 원문')
     LOG('PoB — 영문 조회 실패로 한글 원문 복사:', reason)
@@ -288,8 +288,8 @@ async function reportMissing(item, btn, id) {
     const { item: enItem, reason } = await fetchEnItem(id)
     const itemClass = (maps.baseMap[item.baseType] || [])[1] || null
     const { text } = enItem
-      ? buildPobText(enItem, {}, {}, {}, {}, {}, { en: true, itemClass })
-      : buildPobText(item, {}, maps.baseMap, {}, {}, {}, { verbatim: true })
+      ? buildPobText(enItem, {}, { en: true, itemClass })
+      : buildPobText(item, maps.baseMap)
     const report = [
       '[POE 북마크 아틀라스] PoB 복사 결과 제보',
       `게임: ${game} / 경로: ${enItem ? '영문 원본' : `한글 원문(영문 조회 실패: ${reason})`}`,
