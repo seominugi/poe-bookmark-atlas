@@ -16,7 +16,7 @@ import { renderSetsBar } from '../lib/pageSets.js'
 import { addHistory, markUsedByUrl, ensureSchema, backfillQuery, isWatched, addWatch, removeWatch, listWatched, listConditionSets, WATCH_CAP } from '../store/store.js'
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
-import { buildPobText, buildReportText } from '../lib/pobExport.js'
+import { buildPobText } from '../lib/pobExport.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -175,7 +175,7 @@ const pobItems = new Map() // result.id → item. 스크롤 페이지네이션 f
 const pobPrices = new Map() // result.id → listing.price({amount, currency}) — 엑잘 환산 칩용
 const pobSellers = new Map() // result.id → listing.account.name — 찜한 매물 표시용
 let lastRates = null // BE 원본 응답({exchange_rates, items}) — 검색마다 스냅샷 fetch에서 갱신. items엔 큐레이션 4종 밖 60여 화폐(쥬얼러·색채 등) 시세
-let pobMaps = null // { statMap, baseMap } — 클릭 시 1회 lazy 로드(~775KB JSON, 초기 번들 무영향)
+let pobMaps = null // { baseMap } — 클릭 시 1회 lazy 로드. 번역 맵 3종은 2026-08-23 에 뺐다(아래 ensurePobMaps 주석)
 
 function pobCopyText(t) {
   if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(t)
@@ -195,12 +195,15 @@ function pobFlash(btn, title, sub) {
   setTimeout(() => btn.classList.remove('ba-pob-flash'), 500)
   setTimeout(() => { btn.innerHTML = t; btn.disabled = false }, 1600)
 }
+// ⚠ **baseMap 만 싣는다** (2026-08-23). 예전엔 statMap·uniqueMap·uniqueModMap 까지 4종(약 2.5MB)을
+// 불러 KR→EN 번역을 했는데, 영문 원본 경로가 정본이 된 뒤로 그 번역은 **쓰이면 틀리는** 비상구였다
+// (제보 아이템 실물 검증: `Radius: 변수`·3줄 mod 첫 줄 유실·`+-16%` 부호 겹침 — PoB 가 못 읽는다).
+// baseMap 만 남긴 이유: 영문 응답에 **Item Class 가 없고**, 폴백에서도 베이스 타입을 영문으로
+// 줘야 PoB 가 아이템을 식별한다. 나머지 2.2MB 는 이제 아무도 안 쓴다.
 async function ensurePobMaps() {
   if (!pobMaps) {
-    const [s, b, u, m] = await Promise.all(game === 'poe1'
-      ? [import('../lib/pobStatMap.poe1.json'), import('../lib/pobBaseMap.poe1.json'), import('../lib/pobUniqueMap.poe1.json'), import('../lib/pobUniqueModMap.poe1.json')]
-      : [import('../lib/pobStatMap.json'), import('../lib/pobBaseMap.json'), import('../lib/pobUniqueMap.json'), import('../lib/pobUniqueModMap.json')])
-    pobMaps = { statMap: s.default, baseMap: b.default, uniqueMap: u.default, modMap: m.default }
+    const b = await (game === 'poe1' ? import('../lib/pobBaseMap.poe1.json') : import('../lib/pobBaseMap.json'))
+    pobMaps = { baseMap: b.default }
   }
   return pobMaps
 }
@@ -256,26 +259,45 @@ async function pobCopy(item, btn, id) {
       pobFlash(btn, '복사됨', '영문 원본 ✓')
       return
     }
-    // 라이브 KR 템플릿이 있어야 값 위치를 정확히 안다(pobExport.valuesByKoTemplate).
-    // 없으면 "1초마다 생명력 26.8 재생"의 1 을 값으로 오인한다 — 그래서 기다린다.
-    const [maps] = await Promise.all([ensurePobMaps(), ensureStatMap()])
-    const { text, missing, warnings } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap, statMap)
+    // ── 최소 폴백 — 영문 조회가 실패했을 때 ──────────────────────────────
+    // **번역하지 않는다.** 번역 경로는 값을 맞히려다 PoB 가 못 읽는 텍스트를 만들었다
+    // (제보 아이템 실물 검증 2026-08-23: `Radius: 변수`·3줄 mod 첫 줄 유실·`+-16%` 부호 겹침).
+    // 틀린 영문보다 한글 원문이 정직하다 — 사용자가 "PoB 가 이상하다"가 아니라
+    // "영문 조회가 안 됐구나"로 읽는다. 베이스 타입만 baseMap 으로 영문화해 PoB 가 아이템은 알아보게 한다.
+    const maps = await ensurePobMaps()
+    const { text } = buildPobText(item, {}, maps.baseMap, {}, {}, {}, { verbatim: true })
     await pobCopyText(text)
-    // 배지는 '진짜 미변환'만 센다 — warnings(번역은 됐지만 의심스러운 것)까지 세면 정상 복사가 실패처럼 보인다
-    pobFlash(btn, '복사됨', missing.length ? `미변환 ${missing.length}` : '✓')
-    if (missing.length) LOG('PoB 미변환 항목:', missing)
-    if (warnings && warnings.length) LOG('PoB 의심 항목(번역은 됐으나 확인 필요):', warnings)
+    pobFlash(btn, '복사됨', '한글 원문')
+    LOG('PoB — 영문 조회 실패로 한글 원문 복사:', reason)
+    // 조용히 떨어지면 사용자는 왜 한글인지 모른다. 권한 문제는 위에서 이미 안내했으므로 그 외만.
+    if (reason !== 'no-permission') {
+      panel.toast('영문 거래소에서 이 매물을 못 받아 한글 원문으로 복사했어요. 매물이 팔렸거나 연결이 끊긴 경우예요 — 잠시 뒤 다시 시도해 주세요.')
+    }
   } catch (err) { LOG('PoB 복사 실패', String(err)); pobFlash(btn, '복사 실패', '다시 시도') }
 }
-// Shift+클릭 — 미변환 mod를 수동으로 제보(웹훅 없이: 클라이언트에 Discord 웹훅 시크릿을 두면 추출·악용 위험이 있어
+// Shift+클릭 — PoB 결과가 이상할 때 제보(웹훅 없이: 클라이언트에 Discord 웹훅 시크릿을 두면 추출·악용 위험이 있어
 // 제보 텍스트를 클립보드에 복사 + 기존 공개 초대 링크로 Discord를 열어 사용자가 직접 붙여넣게 한다).
+//
+// ⚠ 목적이 바뀌었다 (2026-08-23). 예전엔 '번역 미변환'을 모았는데, 번역을 걷어낸 지금은 모을 게 없다.
+// 대신 **실제로 복사된 결과와 어느 경로였는지**를 담는다 — 영문 원본이 이상하다는 제보가 오면
+// 그때 필요한 게 정확히 이것이다(어느 매물의 어떤 출력이었나).
 const DISCORD_URL = 'https://discord.gg/kEm2G2qcZQ'
-async function reportMissing(item, btn) {
+async function reportMissing(item, btn, id) {
   try {
-    const [maps] = await Promise.all([ensurePobMaps(), ensureStatMap()])
-    const { missing, warnings } = buildPobText(item, maps.statMap, maps.baseMap, maps.uniqueMap, maps.modMap, statMap)
-    const report = buildReportText(item, missing, game, warnings)
-    if (!report) { pobFlash(btn, '제보할 내용 없음', '번역 정상 ✓'); return }
+    const maps = await ensurePobMaps()
+    const { item: enItem, reason } = await fetchEnItem(id)
+    const itemClass = (maps.baseMap[item.baseType] || [])[1] || null
+    const { text } = enItem
+      ? buildPobText(enItem, {}, {}, {}, {}, {}, { en: true, itemClass })
+      : buildPobText(item, {}, maps.baseMap, {}, {}, {}, { verbatim: true })
+    const report = [
+      '[POE 북마크 아틀라스] PoB 복사 결과 제보',
+      `게임: ${game} / 경로: ${enItem ? '영문 원본' : `한글 원문(영문 조회 실패: ${reason})`}`,
+      `아이템: ${item.name || ''} ${item.baseType || ''}`.trim(),
+      '무엇이 이상한지 한 줄로 적어 주세요: ',
+      '────────',
+      text,
+    ].join('\n')
     await pobCopyText(report)
     window.open(DISCORD_URL, '_blank', 'noopener')
     pobFlash(btn, '제보 정보 복사됨', 'Discord에 붙여넣기')
@@ -563,11 +585,11 @@ function injectPobButtons() {
     btn.className = 'ba-pob-btn' // 바이올렛 글래스모피즘(pobEnsureStyle) — 사이트 버튼 룩 사용 안 함
     btn.innerHTML = '<b>PoB</b><span>영문 복사</span>' // 정적 문자열(사용자 데이터 없음)
     // 네이티브 title 대신 커스텀 툴팁(#ba-page-tip) — "Discord로 제보"를 별도 줄+강조색으로 눈에 띄게
-    btn.setAttribute('data-tip', '이 아이템을 영문 텍스트로 복사\nPoB(Path of Building)에 Ctrl+V\n\nShift+클릭 → 번역 안 되는 부분\n《Discord로 제보》')
+    btn.setAttribute('data-tip', '이 아이템을 영문 텍스트로 복사\nPoB(Path of Building)에 Ctrl+V\n\nShift+클릭 → 결과가 이상할 때\n《Discord로 제보》')
     bindPageTip(btn)
     btn.addEventListener('click', (ev) => {
       ev.preventDefault(); ev.stopPropagation()
-      if (ev.shiftKey) reportMissing(item, btn); else pobCopy(item, btn, id)
+      if (ev.shiftKey) reportMissing(item, btn, id); else pobCopy(item, btn, id)
     })
     // 찜(★) — PoB 버튼과 한 그룹으로 묶어 아래 3단 배치 폴백이 그룹 하나만 옮기면 되게 한다
     const star = makeWatchButton(id, item)

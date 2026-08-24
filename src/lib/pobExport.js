@@ -1,9 +1,15 @@
 // 작업3 — 영문 PoB(Path of Building) import 텍스트 조립 핵심 로직.
-// KR 거래소 아이템의 mod(stat id + KR 설명)를 번들 EN 맵(pobStatMap.json)으로 영문화한다.
-//   1) stat id로 EN 템플릿(#-패턴) 조회 — 다중변형(Area/Map 등)은 KR 설명을 숫자 정규화해 택1
-//   2) KR 설명에서 실제 값 추출 → 템플릿의 #를 순서대로 치환
-// 한계(MVP): 필터 텍스트에 #가 없는 mod(예 "an additional Chest")는 값 손실 — 주로 비-gear(지도/서판)라 PoB 무관.
-//   KR/EN 값 순서가 다른 하이브리드 mod는 순서 그대로 치환(대부분 동일). 미매핑 id는 en=null.
+//
+// 입력 경로는 둘인데, 실제로 쓰는 건 사실상 하나다.
+//   ① 영문 원본 (기본) — 같은 매물 id 를 pathofexile.com API 에서 받아 그대로 조립한다.
+//      호출부가 `{ en: true }` 로 부른다. 번역이 개입하지 않으니 값이 틀릴 수가 없다.
+//   ② 최소 폴백 — ①이 실패했을 때(권한 없음·네트워크·레이트) `{ verbatim: true }` 로 부른다.
+//      KR 설명을 **번역하지 않고 그대로** 낸다. 베이스 이름(pobBaseMap)만 영문이라 PoB 가
+//      아이템 종류는 알아본다. 한글이라 사용자가 "영문 복사가 됐다"고 오해하지 않는다.
+//
+// 아래 번역 계층(translateMod/pickTemplateInfo/valuesByKoTemplate…)은 ②의 옛 구현이다.
+// 2026-08-23 실측에서 이 경로가 **쓰이면 틀린다**는 게 확인돼(3줄 mod 첫 줄 유실, `+-16%`
+// 부호 겹침, `Radius: 변수`) 호출부에서 뺐다. 맵 3종(2.2MB) 삭제는 별도 작업으로 남아 있다.
 
 // [Key|표시텍스트] / [텍스트] 게임 마크업 제거 → 표시 텍스트만
 export function stripTags(s) {
@@ -156,7 +162,8 @@ export function translateMod(id, koDesc, map, modMap = {}, koMap = {}) {
 // 그래서 모르는 값은 **추측해 채우지 않는다** — 원문 그대로 내보내고 missing 에 `radius:<원문>` 으로 남긴다.
 // 제보가 오면 그 값을 여기 추가하면 된다.
 // 실측 출처: 작게 = '불가능한 탈출'(진청록색 주얼) / 대형 = '완력 해결' 등(코발트색 주얼)
-const RADIUS_EN = { 작게: 'Small', 대형: 'Large' }
+// 변수 = '희망의 실타래'(진홍색 주얼) — 같은 매물 id 를 두 호스트에서 받아 KR '변수' ↔ EN 'Variable' 로 대조했다(2026-08-23).
+const RADIUS_EN = { 작게: 'Small', 대형: 'Large', 변수: 'Variable' }
 const propValue = (item, re) => {
   const p = ((item && item.properties) || []).find((x) => re.test(String((x && x.name) || '')))
   const raw = p && p.values && p.values[0] && p.values[0][0]
@@ -212,9 +219,18 @@ export function influenceLines(item) {
  *   번역을 건너뛰고 설명을 그대로 쓴다 — 번역이 없으니 미변환·의심 항목도 없다.
  * @param {string|null} [opts.itemClass] 영문 경로에서 넘겨받는 Item Class.
  *   영문 아이템 JSON 에는 이 필드가 없어서(2026-08-17 실측) KR 아이템의 baseMap 으로 구한다.
+ * @param {boolean} [opts.verbatim] **최소 폴백** — 영문 조회가 실패했을 때 쓴다.
+ *   KR mod 를 번역하지 않고 그대로 낸다. 베이스 타입·Item Class 는 baseMap 으로 영문화한다
+ *   (그게 없으면 PoB 가 아이템을 식별조차 못 한다).
+ *
+ *   왜 번역을 버렸나 (2026-08-23 제보 아이템 실물 검증): 번역 경로는 값을 맞히려다 **틀린 영문**을
+ *   만들어냈다 — `Radius: 변수`, 3줄 mod 첫 줄 유실, `+-16%` 부호 겹침. PoB 가 읽을 수 없는 텍스트다.
+ *   틀린 영문보다 **한글 원문이 정직하다** — 사용자가 "PoB 가 이상하다"가 아니라
+ *   "영문 조회가 안 됐구나"로 읽는다.
  */
 export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}, koMap = {}, opts = {}) {
   const en = !!opts.en
+  const verbatim = en || !!opts.verbatim // 설명을 있는 그대로 쓰는가 (번역하지 않는가)
   const missing = []
   const warnings = [] // 번역은 됐지만 의심스러운 것 — '미변환' 배지에는 안 세고 제보 텍스트에만 담는다
   const base = en ? null : baseMap[item.baseType]
@@ -224,7 +240,8 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
   let name = item.name
   if (name && item.rarity === 'Unique') {
     // 영문 경로에서는 유니크 이름이 이미 영문이다(실측: '종말의 발' → 'Apocalypse Span') — 사전이 필요 없다.
-    if (en) { /* 그대로 */ }
+    // 최소 폴백에서는 사전을 안 쓴다(uniqueMap 이 비어 온다) — 한글 이름 그대로 두고 미변환으로 세지 않는다.
+    if (en || opts.verbatim) { /* 그대로 */ }
     else if (uniqueMap[name]) name = uniqueMap[name]
     else missing.push('unique:' + name)
   } else if (name) {
@@ -243,8 +260,8 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
     const outLines = []
     ;(list || []).forEach((m, i) => {
       const ko = typeof m === 'string' ? m : m.description
-      // 영문 경로: 설명이 이미 영문이라 번역 자체를 건너뛴다. 게임 마크업([Block|막기])만 벗긴다.
-      if (en) {
+      // 있는 그대로 경로(영문 원본 / 최소 폴백): 번역을 건너뛰고 게임 마크업([Block|막기])만 벗긴다.
+      if (verbatim) {
         stripTags(ko).split('\n').forEach((l) => { const s = l.trim(); if (s) outLines.push(s + suffix) })
         return
       }
@@ -281,7 +298,8 @@ export function buildPobText(item, statMap, baseMap, uniqueMap = {}, modMap = {}
   const rad = radiusLine(item)
   if (rad) {
     // 영문 경로에서는 반경 표기가 이미 영문이라 RADIUS_EN(KR→EN) 에 없는 게 정상 — 미변환으로 세지 않는다.
-    if (!en && !rad.known) missing.push('radius:' + rad.raw) // 모르는 표기는 그대로 내보내되 제보에 남긴다
+    // 최소 폴백도 마찬가지: 번역을 포기한 경로라 '미변환'을 셀 이유가 없다(제보해도 고칠 대상이 없다).
+    if (!verbatim && !rad.known) missing.push('radius:' + rad.raw) // 모르는 표기는 그대로 내보내되 제보에 남긴다
     props.push(rad.line)
   }
   if (props.length) sections.push(props)
