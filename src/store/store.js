@@ -663,9 +663,9 @@ export async function restoreScope(snapshot) {
 }
 
 /**
- * 교체 직전 자동 백업 — **stale 필터를 걸지 않는다.** exportBookmarksJSON(공유용)과 목적이 다르다:
- * 이건 되돌릴 수 없게 되기 전의 마지막 사본이라 하나라도 빠지면 안 된다. lastUsedAt은 PC마다 따로라
- * "집에서만 쓰는 북마크"가 직장에서는 stale로 잡히는데, 그걸 뺀 채 교체하면 영구 소실이다.
+ * 교체 직전 자동 백업 — **어떤 필터도 걸지 않는다.** exportBookmarksJSON(공유용)과 목적이 다르다:
+ * 이건 되돌릴 수 없게 되기 전의 마지막 사본이라 하나라도 빠지면 안 된다. 내보내기가 빼는
+ * '허용 도메인 외 URL'까지 담는 이유가 그것이다 — 지워진 뒤엔 원본이 어디에도 없다.
  * 형식은 내보내기와 같아 그대로 가져오기로 되살릴 수 있다.
  */
 export async function backupBookmarksJSON(game, now = Date.now()) {
@@ -681,21 +681,24 @@ export async function backupBookmarksJSON(game, now = Date.now()) {
 }
 
 // ── JSON 내보내기 / 가져오기 ──
-const EXPORT_STALE_MS = 14 * 24 * 60 * 60 * 1000 // 오래된(14일↑ 미사용) 북마크는 내보내기에서 제외
 
 /**
  * 북마크를 JSON으로 내보낼 데이터 생성. folderId === undefined → 전체, null → 미분류, 'fid' → 특정 폴더.
- * stale(14일↑ 미사용) 북마크는 항상 제외하고 제외 개수를 함께 반환.
- * @returns {Promise<{json: object, count: number, staleExcluded: number}>}
+ *
+ * **오래 안 쓴 북마크도 그대로 담는다.** 사용자가 '오래된 정리'(removeStaleBookmarks)를 직접
+ * 누르지 않은 이상 그건 아직 쓰는 북마크다 — 삭제 판단은 이 함수가 아니라 사용자가 한다.
+ * 게다가 lastUsedAt은 PC마다 따로라 "집에서만 쓰는 북마크"가 직장 PC에서는 오래된 것으로
+ * 잡히는데, 그걸 뺀 파일로 '교체'하면 영구 소실이다.
+ *
+ * 허용 도메인 외 URL만 제외하고(피싱 전파 차단) 그 개수를 함께 반환한다.
+ * @returns {Promise<{json: object, count: number, unsafeExcluded: number}>}
  */
 export async function exportBookmarksJSON(game, folderId, now = Date.now()) {
   const all = await listByKind('bookmark', game)
   let scoped = folderId === undefined ? all : all.filter((b) => (b.folderId ?? null) === folderId)
   const total = scoped.length
-  scoped = scoped.filter((b) => now - (b.lastUsedAt || b.createdAt || b.updatedAt || 0) <= EXPORT_STALE_MS)
-  const staleExcluded = total - scoped.length
   scoped = scoped.filter((b) => isAllowedTradeUrl(b.url)) // 허용 도메인 외 URL은 내보내지 않음(피싱 전파 차단)
-  const unsafeExcluded = total - staleExcluded - scoped.length
+  const unsafeExcluded = total - scoped.length
   const folders =
     folderId === undefined
       ? await listFolders(game)
@@ -704,10 +707,9 @@ export async function exportBookmarksJSON(game, folderId, now = Date.now()) {
     json: {
       app: 'poe-bookmark-atlas', version: 1, exportedAt: new Date(now).toISOString(),
       game: game ?? null, scope: folderId === undefined ? 'all' : (folderId || 'uncategorized'),
-      staleExcluded, unsafeExcluded, folders, bookmarks: scoped,
+      unsafeExcluded, folders, bookmarks: scoped,
     },
     count: scoped.length,
-    staleExcluded,
     unsafeExcluded,
   }
 }

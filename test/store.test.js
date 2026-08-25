@@ -226,7 +226,9 @@ describe('store v1.1 (폴더·순서·덮어쓰기)', () => {
 })
 
 describe('store v1.2 (JSON 내보내기/가져오기)', () => {
-  it('exportBookmarksJSON: 전체 내보내기 + stale(14일↑) 제외', async () => {
+  // 오래 안 쓴 북마크도 내보낸다 — '오래된 정리'를 누르지 않은 이상 아직 쓰는 북마크다.
+  // 뺐다가는 그 파일로 '교체'한 다른 PC에서 영구 소실된다(제보 2026-08-25).
+  it('exportBookmarksJSON: 전체 내보내기 — 오래된(14일↑ 미사용) 북마크도 담는다', async () => {
     const now = 2_000_000_000_000
     const day = 24 * 60 * 60 * 1000
     const fresh = await addBookmark(rec({ title: 'fresh' }), 'fresh')
@@ -235,10 +237,10 @@ describe('store v1.2 (JSON 내보내기/가져오기)', () => {
     records.find((r) => r.id === fresh.id).lastUsedAt = now - day
     records.find((r) => r.id === old.id).lastUsedAt = now - 20 * day
     await chrome.storage.local.set({ records })
-    const { json, count, staleExcluded } = await exportBookmarksJSON('poe2', undefined, now)
-    expect(count).toBe(1)
-    expect(staleExcluded).toBe(1)
-    expect(json.bookmarks.map((b) => b.title)).toEqual(['fresh'])
+    const { json, count, unsafeExcluded } = await exportBookmarksJSON('poe2', undefined, now)
+    expect(count).toBe(2)
+    expect(unsafeExcluded).toBe(0)
+    expect(json.bookmarks.map((b) => b.title).sort()).toEqual(['fresh', 'old'])
     expect(json.app).toBe('poe-bookmark-atlas')
   })
 

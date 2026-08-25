@@ -505,7 +505,7 @@ function folderHtml(g, items, lg, currentLeague) {
     : ''
   const fActions =
     g.id !== null
-      ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 13)}</span>${clearBtn}<span class="ba-folder-del" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
+      ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기">${icon('download', 13)}</span>${clearBtn}<span class="ba-folder-del" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
       : clearBtn
   // 현재 거래소 검색을 이 폴더에 바로 저장 — 본문 하단 전체폭 칩(시인성↑). 저장 다이얼로그가 이 폴더를 미리 선택한 채 열림
   const saveChip = `<button class="ba-folder-savechip" data-id="${g.id ?? ''}" data-tip="현재 거래소 검색을 이 폴더에 저장">${icon('plus', 13)}이 폴더에 현재 검색 저장</button>`
@@ -647,7 +647,7 @@ export async function renderList(listEl, root, ui = {}) {
     ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}${allCollapsed ? '전체 펼치기' : '전체 접기'}</button>`
     : ''
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
-  html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기 (오래된 북마크 제외)">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
+  html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const sortItems = (arr) => {
     if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
@@ -948,7 +948,8 @@ function bindAll(listEl, ui, ctx) {
     await addFolder(name || '새 폴더', ui.game); changed()
   })
 
-  // ⬆⬇ JSON 가져오기 / 내보내기 (전체 + 폴더 단위, stale 14일↑ 제외)
+  // ⬆⬇ JSON 가져오기 / 내보내기 (전체 + 폴더 단위)
+  // 오래 안 쓴 북마크도 그대로 내보낸다 — 지우는 건 사용자가 '오래된 정리'를 누를 때뿐이다(store.js 참조).
   const downloadJSON = (obj, name) => {
     const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' })
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
@@ -958,19 +959,17 @@ function bindAll(listEl, ui, ctx) {
   const today = () => new Date().toISOString().slice(0, 10)
   const exportBtn = listEl.querySelector('.ba-export')
   if (exportBtn) exportBtn.addEventListener('click', async () => {
-    const { json, count, staleExcluded, unsafeExcluded } = await exportBookmarksJSON(ui.game)
-    if (!count) { toast(staleExcluded || unsafeExcluded ? '내보낼 북마크가 없습니다 (오래됨·차단 제외).' : '내보낼 북마크가 없습니다.'); return }
+    const { json, count, unsafeExcluded } = await exportBookmarksJSON(ui.game)
+    if (!count) { toast(unsafeExcluded ? '내보낼 북마크가 없습니다 (안전하지 않은 링크 제외).' : '내보낼 북마크가 없습니다.'); return }
     downloadJSON(json, `bookmark-atlas-${today()}.json`)
-    const ex = [staleExcluded ? `오래된 ${staleExcluded}개` : '', unsafeExcluded ? `안전하지 않은 ${unsafeExcluded}개` : ''].filter(Boolean).join(', ')
-    toast(`북마크 ${count}개를 내보냈습니다${ex ? ` (${ex} 제외)` : ''}.`)
+    toast(`북마크 ${count}개를 내보냈습니다${unsafeExcluded ? ` (안전하지 않은 ${unsafeExcluded}개 제외)` : ''}.`)
   })
   listEl.querySelectorAll('.ba-folder-export').forEach((b) => b.addEventListener('click', async (e) => {
     e.stopPropagation()
-    const { json, count, staleExcluded, unsafeExcluded } = await exportBookmarksJSON(ui.game, b.dataset.id)
+    const { json, count, unsafeExcluded } = await exportBookmarksJSON(ui.game, b.dataset.id)
     if (!count) { toast('내보낼 북마크가 없습니다.'); return }
     downloadJSON(json, `bookmark-atlas-${b.dataset.name}-${today()}.json`)
-    const ex = [staleExcluded ? `오래된 ${staleExcluded}개` : '', unsafeExcluded ? `안전하지 않은 ${unsafeExcluded}개` : ''].filter(Boolean).join(', ')
-    toast(`"${b.dataset.name}" 북마크 ${count}개를 내보냈습니다${ex ? ` (${ex} 제외)` : ''}.`)
+    toast(`"${b.dataset.name}" 북마크 ${count}개를 내보냈습니다${unsafeExcluded ? ` (안전하지 않은 ${unsafeExcluded}개 제외)` : ''}.`)
   }))
   // 가져오기 — 파일을 고른 **뒤** 합치기/교체를 묻는다. 예전엔 고르는 즉시 병합돼서 되돌릴 지점이 없었고,
   // 합치기만으로는 저쪽의 삭제·이름변경이 전파되지 않아 두 PC를 오갈수록 단조증가했다(제보 2026-08-24).
