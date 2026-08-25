@@ -180,9 +180,23 @@ describe('교체 가져오기 (importBookmarksJSON replace)', () => {
 })
 
 describe('교체 직전 자동 백업 (backupBookmarksJSON)', () => {
-  // 내보내기는 14일↑ 미사용을 뺀다. 그런데 lastUsedAt은 PC마다 따로라 "집에서만 쓰는 북마크"가
-  // 직장에서는 stale로 잡힌다 — 그걸 뺀 채 교체하면 영구 소실이다. 백업은 하나도 빼지 않아야 한다.
-  it('오래된 북마크도 담는다 — 내보내기와 다른 지점', async () => {
+  // 내보내기는 허용 도메인 외 URL을 뺀다(피싱 전파 차단). 백업은 지워지기 전 마지막 사본이라
+  // 그것까지 담아야 한다 — 교체가 끝나면 원본이 어디에도 남지 않는다.
+  it('안전하지 않은 링크까지 담는다 — 내보내기와 다른 지점', async () => {
+    await addBookmark(rec({ dedupeKey: 'ok' }), '정상')
+    await addBookmark(rec({ dedupeKey: 'bad', url: 'https://evil.example.com/trade2/search/poe2/x' }), '수상한것')
+
+    const exported = await exportBookmarksJSON('poe2')
+    const backup = await backupBookmarksJSON('poe2')
+
+    expect(exported.unsafeExcluded).toBe(1)
+    expect(names(exported.json.bookmarks)).toEqual(['정상'])
+    expect(names(backup.json.bookmarks)).toEqual(['수상한것', '정상'])
+    expect(backup.count).toBe(2)
+  })
+
+  // 오래 안 쓴 북마크는 이제 내보내기·백업 **둘 다** 담는다 — 지우는 건 '오래된 정리'뿐이다.
+  it('오래된 북마크는 내보내기·백업 모두 담는다', async () => {
     const old = Date.now() - 30 * 24 * 60 * 60 * 1000
     await addBookmark(rec({ dedupeKey: 'fresh' }), '최근것')
     await addBookmark(rec({ dedupeKey: 'stale', lastUsedAt: old, createdAt: old, updatedAt: old }), '오래된것')
@@ -190,10 +204,8 @@ describe('교체 직전 자동 백업 (backupBookmarksJSON)', () => {
     const exported = await exportBookmarksJSON('poe2')
     const backup = await backupBookmarksJSON('poe2')
 
-    expect(exported.staleExcluded).toBe(1)
-    expect(names(exported.json.bookmarks)).toEqual(['최근것'])
+    expect(names(exported.json.bookmarks)).toEqual(['오래된것', '최근것'])
     expect(names(backup.json.bookmarks)).toEqual(['오래된것', '최근것'])
-    expect(backup.count).toBe(2)
   })
 
   it('백업 파일은 그대로 가져오기로 되살릴 수 있다', async () => {
