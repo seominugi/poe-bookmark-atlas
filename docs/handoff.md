@@ -49,20 +49,35 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 
 ## 현재 목표
 
-**0.12.0 릴리즈 준비 완료 · `main` 반영은 보류 (2026-08-25, 사용자 결정)**
+**0.12.0 릴리즈 게시 완료 · 스토어 심사 제출 완료 — 결과 대기 (2026-08-25)**
 
-`develop` = `711a17b`(버전 범프 포함). **`main`(`f83f9bd`) 대비 14커밋, fast-forward 가능함을 확인.**
-아직 `main` 을 건드리지 않았고 `v0.12.0` 태그도 만들지 않았다 — **사용자가 보류를 택했다.**
+`develop` → `main` **fast-forward(`f83f9bd..2a2c8a3`, 21커밋)** → **`v0.12.0` 태그 publish(現 `Latest`, 대상 `main`)**.
+`deploy/poe-bookmark-atlas-0.12.0.zip`(33파일·373KB, manifest 루트·`0.12.0`·host_permissions 3개·optional 없음).
+**사용자가 스토어 심사 제출까지 완료. 남은 것: 심사 결과 회신.**
+통과하면 이 절을 "스토어 배포 완료"로 바꾸고 사이클을 닫는다.
 
-**재개할 때 여기서부터** (앞 단계는 전부 끝나 있다):
+확인한 것: `origin/main` == `origin/develop` == `2a2c8a3` · 태그 `v0.12.0` 도 같은 커밋 ·
+릴리즈 draft/prerelease 아님 · **릴리즈 본문에 `[[mock:` 0개**.
+
+- **`main` 은 브랜치를 갈아타지 않고 refspec 으로 밀었다** — `git push origin origin/develop:refs/heads/main`.
+  메인 체크아웃은 여러 세션이 공유하므로 `git checkout main` 으로 갈아타면 남의 작업 기준이 흔들린다(§4.8).
+  강제 푸시가 아니라 FF 가 아니면 거절되므로 안전하다. **다음 릴리즈도 이 방법을 권한다.**
+- ⚠ **용량이 869KB → 373KB (-57%)** · 파일 39 → 33개. PoB 번역 계층 물리 제거(`c330695`)가 이번에 실렸다.
+
+⏳ **실물 육안 확인이 안 된 항목** — 이번 사이클에 실제 거래소에서 본 것은 **결과 행 버튼 배치뿐**이다.
+일괄 삭제·교체 가져오기·업데이트 노트 목업 3종·헤더 변경은 전부 하네스(목 데이터)에서만 봤다.
+검증 원장(`~/.claude/journal/verify-queue.jsonl`) 참조 — 이상 제보가 오면 여기부터 의심할 것.
+
+**다음 릴리즈에서 그대로 쓸 절차**
 
 ```bash
-git checkout main; git merge --ff-only origin/develop; git push origin main
-gh release create v0.12.0 --target main --title v0.12.0 --notes-file deploy/RELEASE-0.12.0.md
-# → dist 를 zip 으로 (deploy/poe-bookmark-atlas-0.12.0.zip, manifest 가 zip 루트에 오게)
+# main 은 갈아타지 말고 밀어 넣는다(공유 체크아웃 보호)
+git fetch origin && git merge-base --is-ancestor origin/main origin/develop   # FF 가능 확인
+git push origin origin/develop:refs/heads/main
+gh release create v<버전> --target main --title v<버전> --notes-file deploy/RELEASE-<버전>.md
 ```
 
-- ⚠ **릴리즈 노트는 본문 그대로가 아니다 — `[[mock:…]]` 지시자 3개를 걷어내야 한다**
+- ⚠ **릴리즈 노트는 본문 그대로가 아니다 — `[[mock:…]]` 지시자를 걷어내야 한다**
   (`sync-merge-replace` · `folder-clear` · `row-btn-fix`). 그건 **패널 안 노트 창 전용**이라 GitHub 에
   그대로 두면 독자에게 `[[mock:folder-clear]]` 라는 글자가 보인다. 0.11.0 때와 같은 처리다 →
   `deploy/RELEASE-0.12.0.md` 로 만들어 올린다.
@@ -80,22 +95,27 @@ gh release create v0.12.0 --target main --title v0.12.0 --notes-file deploy/RELE
 
   **만든 뒤 반드시 검사한다** — 항목 수 · 역슬래시 0 · `manifest.json` 이 루트에 있는지.
   (`[IO.Compression.ZipFile]::OpenRead(...)` 로 `Entries.FullName` 을 훑으면 된다.)
-- **스토어 제출 충돌 없음** — 0.11.0 이 이미 심사를 통과·배포됐다(아래). 0.6.x·0.7.0 때처럼
-  "제출분이 대체된다" 를 걱정할 상황이 아니다.
+- **이번엔 제출 충돌이 없었다** — 0.11.0 이 이미 통과·배포된 뒤라 대체될 제출분이 없었다.
+  ⚠ **다음 릴리즈는 다시 확인할 것**: 0.12.0 이 심사 중이면 새 버전을 올리는 순간 대체된다
+  (0.6.1→0.6.2 · 0.6.3→0.6.4 · 0.7.0 에서 세 번 겪었다).
 
-**0.12.0 담기는 것** (main 대비 14커밋)
+**0.12.0 에 담긴 것** (main 대비 21커밋)
 
 | | |
 |---|---|
 | 북마크 일괄 삭제 — 폴더 비우기, **미분류 포함** | PR #19 |
 | 가져오기 **'교체' 모드** — 자동 백업 + 실행취소 | PR #19 |
 | 결과 행 ★·PoB 버튼 겹침 수정 — **영문 거래소 배치도 함께** | PR #22 |
-| 업데이트 노트 0.12.0 | PR #21 · #24 |
+| 업데이트 노트 0.12.0 — 목업 3종 포함 | PR #21 · #24 · #27 |
+| 노트 문구 다듬기(1인칭 단수·표현 명확화) | PR #28 |
+| 업데이트 노트 버전 구분선 — 호박색 유리 막대 | PR #29 · #30 |
+| 패널 헤더 — 칩 좌측 정렬 + 후원 문구(l 밴드+) | PR #31 |
 | 버전 범프 0.11.0 → 0.12.0 | PR #25 |
+| PoB 번역 계층 물리 제거 (다른 세션) | `c330695` · `41130a5` |
 
 - **권한 변화 없음** — `storage`·`tabs` + host 3개 그대로. **재승인이 걸리지 않는다.**
   0.10.0 때와 다르니 **릴리즈 노트에 재승인 안내를 넣지 말 것.**
-- 검증: `547 passed` · `npm run build` OK · `dist/manifest.json` `0.12.0` · host_permissions 3 · optional 없음.
+- 검증: `551 passed` · `npm run build` OK · `dist/manifest.json` `0.12.0` · host_permissions 3 · optional 없음.
 
 **0.11.0 스토어 배포 완료 (2026-08-25 사용자 확인) — 사이클 종료**
 
