@@ -12,29 +12,15 @@
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
+import { resolveLockedGameDataRoot } from './poe-game-data-lock.mjs'
 
 const game = process.argv[2] || 'poe2'
 const baseOut = process.argv[3] || 'pobBaseMap.json'
 const here = dirname(fileURLToPath(import.meta.url))
 const libDir = join(here, '..', 'src', 'lib')
 
-// poe-game-data 는 이웃 저장소다 — repo 루트부터 위로 훑어 찾는다(dev·prod 동일 해석).
-// 하드코딩 기본값으로 떨어지지 않는다: 못 찾으면 멈추고 사용법을 알린다.
-function siblingDir(name) {
-  let d = join(here, '..')
-  for (;;) {
-    const p = join(d, name)
-    try { if (statSync(p).isDirectory()) return p } catch { /* 없으면 계속 위로 */ }
-    const parent = dirname(d)
-    if (parent === d) return null
-    d = parent
-  }
-}
-const dataRoot = siblingDir('poe-game-data')
-if (!dataRoot) {
-  console.error('[pob-basemap] poe-game-data 를 찾지 못했습니다 — 이웃 저장소로 클론되어 있어야 합니다.')
-  process.exit(1)
-}
+// 이웃 저장소 또는 POE_GAME_DATA_ROOT를 허용하되, 루트 lock과 동일한 snapshot만 읽는다.
+const dataRoot = resolveLockedGameDataRoot({ startDir: join(here, '..') })
 const root = join(dataRoot, game, 'json')
 
 const baseFiles = []

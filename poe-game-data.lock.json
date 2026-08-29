@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 2,
+  "repository": "seominugi/poe-game-data",
+  "tag": "v2026.08.30.1",
+  "commit": "da1235efdae006e3b12daf185b171a1e91d2c732",
+  "snapshot": "v2026.08.30.1",
+  "icons": {
+    "manifestSha256": "8e5d7de2b08eebffcc812cd16248f8c8d2161002fc4c1937bbcae6263e4fb93c",
+    "source": "local-ggpk-build",
+    "distribution": "poe-loot-overlay-derived-only"
+  }
+}
