@@ -163,6 +163,41 @@ describe('둘러보기로 데려오는 신호', () => {
     expect(root.getElementById('ba-gear-dot').hidden).toBe(true)
   })
 
+  it('이미 투어를 본 기존 사용자에게 새로워진 기능으로 한 번 알린다', async () => {
+    // ⚠ 이게 이 기능의 조용한 실패 경로다: WHATS_NEW_VERSION 만 올리고 스텝의 since 를 안 올리면
+    //    filter 가 빈 배열이라 **아무것도 안 뜨고 표시만 찍힌다.** 에러도 안 난다.
+    await chrome.storage.local.set({ tourDone: true, whatsNewSeen: '0.9.0' })
+    await mount()
+    const card = await waitForTour(2500) // 1.2초 뒤에 뜬다
+    expect(card, '새로워진 기능 안내가 안 떴다 — 스텝의 since 가 WHATS_NEW_VERSION 과 어긋났을 수 있다').not.toBeNull()
+    expect(card.querySelector('.ba-tour-step').textContent).toContain('새로워진 기능')
+    // 소식의 알맹이는 설정 둘러보기다 — 설정이 실제로 열리고 갈래가 있어야 한다.
+    expect(card.querySelector('.ba-tour-title').textContent).toContain('설정')
+    expect(card.querySelector('.ba-tour-branch'), '갈래 버튼이 없다').not.toBeNull()
+    expect(root.getElementById('ba-namebar').hidden, '설정 모달이 안 열렸다').toBe(false)
+  })
+
+  it('한 번 본 사람에게는 다시 뜨지 않고, 투어가 끝나면 모달도 닫힌다', async () => {
+    await chrome.storage.local.set({ tourDone: true, whatsNewSeen: '0.9.0' })
+    await mount()
+    const card = await waitForTour(2500)
+    const seenVer = () => chrome.storage.local.get('whatsNewSeen').then((r) => r.whatsNewSeen)
+    expect(await seenVer()).toBe('0.9.0')
+    card.querySelector('.ba-tour-next').click()   // 1스텝이라 '완료'
+    await new Promise((r) => setTimeout(r, 40))
+    expect(root.querySelector('.ba-tour-card')).toBeNull()
+    // 투어가 연 모달은 투어가 되닫는다 — 사용자가 연 게 아니므로 남기면 안 된다.
+    expect(root.getElementById('ba-namebar').hidden, '투어가 연 모달이 안 닫혔다').toBe(true)
+    const ver = await seenVer()
+    expect(ver).not.toBe('0.9.0')
+
+    // 같은 값이 저장됐으니 다시 마운트해도 안 뜬다
+    document.body.innerHTML = ''
+    await mount()
+    await new Promise((r) => setTimeout(r, 1600))
+    expect(root.querySelector('.ba-tour-card')).toBeNull()
+  })
+
   it('둘러보기는 첫 실행 가이드를 본 것으로 기록하지 않는다', async () => {
     // ⚠ 이게 깨지면 둘러보기만 본 신규 사용자가 본 투어를 영영 못 본다.
     await chrome.storage.local.remove(['tourDone', 'whatsNewSeen'])

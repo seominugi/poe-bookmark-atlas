@@ -1311,8 +1311,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 이 스텝은 설정 모달을 **실제로 연다**. 글로만 읽고 지나가면 다섯 개가 있다는 게 전달되지 않는다 —
     // "패널 위치를 바꿀 수 있는 줄 몰랐다"는 문의가 계속 오는 이유가 그것이다.
     // 갈래 버튼을 누른 사람만 +5스텝으로 이어간다(투어 전체를 18→23 으로 늘리지 않는다).
-    { sel: '#ba-folder-pick', open: 'settings', since: '0.9.0', title: '설정 — 내 방식대로',
-      body: '⚙ 안에 다섯 가지가 있어요 — <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>패널 폭</b>(기본~최대), <b>보기</b>(기본 / 간략), <b>필터 퍼지 검색</b>. 각 항목 옆 <b>?</b> 에 마우스를 올리면 무슨 설정인지 알려줘요 (Alt+O).',
+    { sel: '#ba-folder-pick', open: 'settings', since: '0.13.0', title: '설정 — 내 방식대로',
+      body: '⚙ 안에 다섯 가지가 있어요 — <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>패널 폭</b>(기본~최대), <b>보기</b>(기본 / 간략), <b>필터 퍼지 검색</b>. 아래 <b>하나씩 볼게요</b>를 누르면 다섯 가지를 차례로 짚어드려요 (Alt+O).',
       branch: { label: '하나씩 볼게요', steps: SETTINGS_TOUR } },
     { sel: '#ba-handle', title: '언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
     { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
@@ -1321,7 +1321,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 투어를 이미 본 사용자(tourDone)는 스텝을 아무리 고쳐도 **영영 다시 보지 않는다.**
   // 그래서 이번 버전에서 바뀐 스텝(since)만 골라 한 번 보여준다. 전체 투어를 다시 돌리면
   // 이미 아는 15스텝을 또 보게 되므로, 새 것만 추린다.
-  const WHATS_NEW_VERSION = '0.9.0'
+  //
+  // ⚠ 여기를 올릴 때는 **보여줄 스텝의 since 도 같이 올려야 한다.** 필터가 정확히 일치라
+  // 상수만 올리면 목록이 비어 아무것도 안 뜨고 표시만 조용히 찍힌다(아래 가드가 그 경우다).
+  // 옛 버전이 적힌 since 는 그대로 둔다 — 이제 안 뽑히지만 '언제 들어온 스텝인가'의 기록이다.
+  //
+  // 0.13.0: 설정 둘러보기. ⚙ 스텝이 설정을 실제로 열고 '하나씩 볼게요'로 5스텝이 이어진다.
+  //         이미 투어를 본 사람에게는 이 한 스텝이 유일한 소식 경로다(⚙ 점은 안 눌러 본 사람용).
+  const WHATS_NEW_VERSION = '0.13.0'
   const whatsNewSteps = () => TOUR.filter((s) => s.since === WHATS_NEW_VERSION)
 
   /**
@@ -1511,7 +1518,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       if (scroll && target) target.scrollIntoView({ block: 'center' }) // instant — 동기 스크롤이라 직후 rect가 정확
       const boxRect = place(target) // 동기 즉시 배치 — rAF·setTimeout은 비활성 탭에서 지연/정지되므로 사용 안 함
       const rc = target ? target.getBoundingClientRect() : null
-      card.style.top = (rc ? Math.min(window.innerHeight - 180, Math.max(8, rc.bottom + 12)) : 80) + 'px'
+      // 아래 클램프는 카드의 **실제 높이**로 잰다. 상수 180 이었는데 카드가 221px 이라 창이 낮으면
+      // 아래가 잘렸다 — ⚙ 스텝의 대상이 작은 버튼에서 설정 목록(412px)으로 바뀌며 드러났다.
+      const cardH = card.offsetHeight || 200
+      card.style.top = (rc ? Math.min(window.innerHeight - cardH - 12, Math.max(8, rc.bottom + 12)) : 80) + 'px'
       // 카드는 패널 **바깥 옆**에 선다. 420px 고정이었는데 그건 최소폭(384) 시절의 값이라, 폭을 넓힌
       // 사용자에게는 카드가 패널 위에 겹쳤다(설정 모달이 패널 안이라 둘러보기에서 특히 크게 드러난다).
       // 화면 밖으로 나가지 않게 반대쪽 여백도 남긴다.
