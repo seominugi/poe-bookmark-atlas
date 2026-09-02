@@ -24,6 +24,23 @@ const discordUrl = chrome.runtime.getURL(discordIcon)
 const ECON_ITEMS = { poe1: 'https://seominugi.com/poe1/economy/items', poe2: 'https://seominugi.com/poe2/economy/items' }
 const ECON_TREND = { poe1: 'https://seominugi.com/poe1/economy/trends', poe2: 'https://seominugi.com/poe2/economy/trends' }
 
+// ── 설정 둘러보기 (5스텝) ──────────────────────────────────────────
+// 항목 옆 ? 툴팁과 **같은 말을 반복하지 않는다.** 툴팁은 '무엇을 정하는가'를 답하고,
+// 여기서는 '언제 바꾸고 싶어지는가'를 말한다 — 그게 안 되면 두 번 쓴 값이 없다.
+// 스포트라이트가 클릭을 막지 않아 여기 뜬 채로 그대로 눌러 바꿀 수 있다(try 힌트가 그걸 알린다).
+export const SETTINGS_TOUR = [
+  { sel: '.ba-setting[data-setting="side"]', open: 'settings', try: true, title: '패널 위치 — 가리지 않는 쪽으로',
+    body: '패널이 거래소 필터를 가리면 반대쪽으로 옮기세요. 왼쪽·오른쪽 버튼이 <b>선택지가 뜻하는 방향 그대로</b> 놓여 있어요.' },
+  { sel: '.ba-setting[data-setting="open"]', open: 'settings', try: true, title: '검색 열기 — 보던 화면을 두고 갈지',
+    body: '북마크를 클릭했을 때 어디에 열지 정합니다. 어느 쪽으로 정해도 <b>Ctrl 클릭은 언제나 반대로</b> 열어서 나머지 하나를 잃지 않아요. Shift 클릭은 라이브로 엽니다.' },
+  { sel: '.ba-setting[data-setting="width"]', open: 'settings', try: true, title: '패널 폭 — 넓힐수록 줄이 합쳐진다',
+    body: '넓힐수록 상단·검색·푸터가 한 줄로 합쳐져 목록에 자리가 납니다. <b>최대</b>로 두면 카드마다 라이브·복사·갱신 버튼이 늘 보여요. 창이 좁아 못 쓰는 칸은 빗금으로 표시됩니다.' },
+  { sel: '.ba-setting[data-setting="brief"]', open: 'settings', try: true, title: '보기 — 한 화면에 약 2배',
+    body: '<b>간략</b>은 카드를 한 줄로 접습니다. 조건·가격이 사라지는 게 아니라 아이콘 옆으로 접히고, 마우스를 올리면 그대로 다 보여요.' },
+  { sel: '.ba-setting[data-setting="fuzzy"]', open: 'settings', try: true, title: '퍼지 검색 — 단어가 들어간 것 전부',
+    body: '거래소 능력치 칸 맨 앞에 <b>~</b> 를 자동으로 넣어, 입력한 단어가 <b>들어간</b> 항목을 모두 찾습니다. 정확히 그 스탯만 보고 싶을 땐 끄세요 — 거래소 기본 동작 그대로가 됩니다.' },
+]
+
 export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migrateSearch, applyConditionSet, getStatMap, tourDemo }) {
   if (document.getElementById('ba-panel-host')) return { toggle() {}, show() {}, hide() {} }
   const host = document.createElement('div')
@@ -105,7 +122,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         <a class="ba-foot-soc ba-foot-soc--dc" href="https://discord.gg/kEm2G2qcZQ" target="_blank" rel="noopener" data-tip="디스코드 서버 참여"><img src="${discordUrl}" alt="디스코드"></a>
         <div class="ba-foot-row2">
           <button class="ba-foot-guide" id="ba-foot-guide">${icon('sparkle', 13)}사용법 가이드 다시 보기</button>
-          <button class="ba-gear" id="ba-gear" data-tip="설정 (Alt+O)">${icon('settings', 15)}설정</button>
+          <!-- ⚙ 옆 점 — 둘러보기를 아직 안 본 사용자에게만. '설정에 볼 게 있다'는 유일한 신호라
+               투어를 건너뛴 사람에게 닿는 경로는 이것뿐이다(둘러보기가 시작되면 사라진다). -->
+          <button class="ba-gear" id="ba-gear" data-tip="설정 (Alt+O)">${icon('settings', 15)}설정<span class="ba-gear-dot" id="ba-gear-dot" hidden></span></button>
         </div>
       </div>
     </div>
@@ -129,6 +148,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const $ = (id) => root.getElementById(id)
   const elRoot = $('ba-root')
 
+  // ── 설정 모달 ↔ 둘러보기 투어의 생명주기 ──────────────────────────────
+  // 넷이 서로를 알아야 한다: 모달이 닫히면 그 위의 투어도 끝나야 하고, 투어가 연 모달은 투어가
+  // 되닫아야 하며, 그 되닫기가 투어 자신을 끝내면 안 되고, 설정을 눌러 패널이 움직이면 투어가
+  // 따라와야 한다. ⚠ applyWidth 가 마운트 중에 부르므로 **그보다 먼저** 선언해야 한다(TDZ).
+  let closeSettings = null          // 설정 모달이 열려 있으면 그것을 닫는 함수
+  let settingsOpenedByTour = false  // 지금 열린 모달을 투어가 열었나 (되닫을 책임이 누구에게 있나)
+  let activeTourFinish = null       // 투어가 도는 중이면 그 종료 함수
+  let activeTourLayout = null       // 투어가 도는 중이면 그 배치 재계산 함수
+
   // 접기/펼치기 = 표시/숨김 (핸들·✕·툴바 아이콘 공통, 상태 유지). 핸들은 항상 보여 다시 열 수 있음.
   const isCollapsed = () => elRoot.classList.contains('collapsed')
   let panelSide = 'right' // 패널 좌/우 배치 (uiPanelSide 선호)
@@ -143,6 +171,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 여기서 px 로 분기하지 않는 이유: 경계가 두 곳에 생기면 반드시 갈라진다(폭 결합 4곳 사고와 같은 종류).
     elRoot.dataset.band = panelBand(panelW)
     applyPagePush(isCollapsed())
+    if (activeTourLayout) activeTourLayout() // 투어 중 폭을 바꾸면 카드·스포트라이트도 따라온다
   }
   let fuzzyOn = true // 거래소 필터칸 "~" 퍼지 접두사 강제 (uiFuzzyPrefix, 기본 켬 — fuzzyPrefix.js가 실제 동작 담당)
   // 펼쳤을 때 페이지 콘텐츠를 패널 반대쪽으로 밀어 자리를 확보(도킹) → 검색 영역과 겹침 방지. 좌/우 배치에 따라 방향 반전.
@@ -186,6 +215,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     elRoot.setAttribute('data-side', panelSide)
     applyPagePush(isCollapsed())
     writeLayoutCache()
+    if (activeTourLayout) activeTourLayout() // 좌↔우로 옮기면 카드가 반대편으로 따라와야 한다
   }
   // 간략 보기 — 카드를 한 줄로 접는다. 기본은 끔(기존 화면 그대로).
   // 정본은 chrome.storage 이고 localStorage 거울에도 써 둔다 — 다음 로드의 첫 프레임에 필요하다.
@@ -194,6 +224,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     briefOn = !!on
     if (briefOn) elRoot.setAttribute('data-brief', '1')
     else elRoot.removeAttribute('data-brief')
+    if (activeTourLayout) activeTourLayout() // 카드가 접히며 대상 위치가 밀린다
   }
   // 접힘 시 핸들에 북마크 수 배지 표시
   const updateHandleBadge = async () => {
@@ -672,7 +703,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   }
 
   // 설정 모달 — ba-namebar 재사용. 현재는 '패널 위치'(좌/우). 향후 설정을 여기 모은다.
-  function showSettings() {
+  // opt.fromTour: 메인 투어의 ⚙ 스텝이 연 것 — 자동 둘러보기를 걸지 않는다(갈래 버튼이 그 역할).
+  function showSettings(opt = {}) {
     const bar = $('ba-namebar'); const input = $('ba-name-input'); const msg = $('ba-modal-msg')
     const ok = $('ba-name-ok'); const cancel = $('ba-name-cancel'); const alt = $('ba-name-alt'); const pick = $('ba-folder-pick')
     $('ba-modal-title').textContent = '설정'
@@ -686,52 +718,68 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       // 설정 이름만 보고는 무엇을 정하는지 모르겠다는 제보(2026-08-16). 라벨 옆 ? 배지에 설명을 건다 —
       // 세그먼트 자체에 걸면 '설명이 있다'는 신호가 없어서, 있는 줄도 모른 채 지나친다.
       const lbl = (name, help) => `<span class="lbl">${name}<span class="ba-lbl-help" data-tip="${help}">?</span></span>`
+      // 항목을 하나씩 감싼다 — 라벨·세그먼트·힌트가 **한 덩어리**여야 '설정 둘러보기'의 스포트라이트가
+      // 항목 전체를 비출 수 있다(라벨만 또는 세그먼트만 비추면 무엇에 대한 설명인지 안 보인다).
+      // .ba-setting 은 .ba-folder-pick 과 같은 flex 규칙을 그대로 이어받아 **여백이 감싸기 전과 같다**.
+      const row = (key, ...parts) => `<div class="ba-setting" data-setting="${key}">${parts.join('')}</div>`
       pick.innerHTML =
-        lbl('패널 위치', '패널을 화면 왼쪽에 붙일지 오른쪽에 붙일지 정합니다.&#10;거래소 필터를 가리지 않는 쪽으로 고르면 편해요.') +
-        // 선택지를 뜻하는 방향 그대로 배치한다 — '왼쪽'이 왼쪽 칸, '오른쪽'이 오른쪽 칸.
-        // 반대로 두면 버튼 위치와 결과가 어긋나 매번 라벨을 읽어야 한다.
-        `<span class="ba-seg ba-set-seg">
-          <span class="ba-set-opt${panelSide === 'left' ? ' active' : ''}" data-side="left">왼쪽</span>
-          <span class="ba-set-opt${panelSide === 'right' ? ' active' : ''}" data-side="right">오른쪽</span>
-        </span>` +
+        row('side',
+          lbl('패널 위치', '패널을 화면 왼쪽에 붙일지 오른쪽에 붙일지 정합니다.&#10;거래소 필터를 가리지 않는 쪽으로 고르면 편해요.'),
+          // 선택지를 뜻하는 방향 그대로 배치한다 — '왼쪽'이 왼쪽 칸, '오른쪽'이 오른쪽 칸.
+          // 반대로 두면 버튼 위치와 결과가 어긋나 매번 라벨을 읽어야 한다.
+          `<span class="ba-seg ba-set-seg">
+            <span class="ba-set-opt${panelSide === 'left' ? ' active' : ''}" data-side="left">왼쪽</span>
+            <span class="ba-set-opt${panelSide === 'right' ? ' active' : ''}" data-side="right">오른쪽</span>
+          </span>`,
+        ) +
         // 저장된 검색을 어디에 열지. 새 탭으로 여는 기능은 원래 Ctrl/⌘ 클릭으로만 있었는데(a88d1e5)
         // 아무 데도 적혀 있지 않아 "없다"는 제보로 돌아왔다(2026-08-15). 기본값은 바꾸지 않는다 —
         // 켠 사람에게만 달라진다. 수식키는 값을 고정하지 않고 이 설정을 뒤집는다(lib/openTarget.js).
-        lbl('검색 열기', '북마크·히스토리·찜을 클릭했을 때 어디에서 열지 정합니다.&#10;Ctrl(⌘) 클릭은 항상 반대로 열고, Shift 클릭은 라이브로 엽니다.') +
-        `<span class="ba-seg ba-set-seg">
-          <span class="ba-set-opt${getOpenInNewTab() ? '' : ' active'}" data-nt="0">현재 탭</span>
-          <span class="ba-set-opt${getOpenInNewTab() ? ' active' : ''}" data-nt="1">새 탭</span>
-        </span>` +
-        `<span class="ba-set-hint">Ctrl 클릭은 항상 반대로 엽니다</span>` +
+        row('open',
+          lbl('검색 열기', '북마크·히스토리·찜을 클릭했을 때 어디에서 열지 정합니다.&#10;Ctrl(⌘) 클릭은 항상 반대로 열고, Shift 클릭은 라이브로 엽니다.'),
+          `<span class="ba-seg ba-set-seg">
+            <span class="ba-set-opt${getOpenInNewTab() ? '' : ' active'}" data-nt="0">현재 탭</span>
+            <span class="ba-set-opt${getOpenInNewTab() ? ' active' : ''}" data-nt="1">새 탭</span>
+          </span>`,
+          `<span class="ba-set-hint">Ctrl 클릭은 항상 반대로 엽니다</span>`,
+        ) +
         // 패널 폭 — 가장자리 드래그는 그대로 두고(스냅하지 않는다: 사용자가 놓은 자리를 옮기면
         // "왜 내 자리가 아니지"가 된다), 여기서 구간을 바로 고를 수 있게 한다. 그립을 못 찾은 사람이 많다.
         // 선택 표시는 정확한 px 이 아니라 activePreset(= 자기 이하 중 가장 큰 프리셋)이라,
         // 601px 처럼 사이값에 멈춰도 빈 선택이 되지 않는다.
-        lbl('패널 폭', '넓힐수록 상단·검색·푸터가 한 줄로 합쳐져 목록에 자리가 생겨요.&#10;가장 넓게 두면 카드에 자주 쓰는 버튼(라이브·복사·갱신)이 나옵니다.') +
-        `<span class="ba-seg ba-set-seg">${(() => {
-          const cur = activePreset(panelW, window.innerWidth)
-          const LBL = { base: '기본', wide: '넓게', wider: '더 넓게', max: '최대' }
-          return widthPresets(window.innerWidth).map((p) => {
-            const cls = (p.key === cur ? ' active' : '') + (p.enabled ? '' : ' off')
-            // 못 쓰는 칸은 이유를 말한다 — 조용히 무시하면 '눌러도 안 되는 버튼'이 된다.
-            const tip = p.enabled ? `${p.w}px` : `창이 좁아 이 폭은 쓸 수 없어요 (지금 최대 ${widthPresets(window.innerWidth)[3].w}px)`
-            return `<span class="ba-set-opt${cls}" data-pw="${p.enabled ? p.w : ''}" data-tip="${tip}">${LBL[p.key]}</span>`
-          }).join('')
-        })()}</span>` +
-        `<span class="ba-set-hint">가장자리를 끌어 그 사이 값으로도 맞출 수 있어요</span>` +
+        row('width',
+          lbl('패널 폭', '넓힐수록 상단·검색·푸터가 한 줄로 합쳐져 목록에 자리가 생겨요.&#10;가장 넓게 두면 카드에 자주 쓰는 버튼(라이브·복사·갱신)이 나옵니다.'),
+          `<span class="ba-seg ba-set-seg">${(() => {
+            const cur = activePreset(panelW, window.innerWidth)
+            const LBL = { base: '기본', wide: '넓게', wider: '더 넓게', max: '최대' }
+            return widthPresets(window.innerWidth).map((p) => {
+              const cls = (p.key === cur ? ' active' : '') + (p.enabled ? '' : ' off')
+              // 못 쓰는 칸은 이유를 말한다 — 조용히 무시하면 '눌러도 안 되는 버튼'이 된다.
+              const tip = p.enabled ? `${p.w}px` : `창이 좁아 이 폭은 쓸 수 없어요 (지금 최대 ${widthPresets(window.innerWidth)[3].w}px)`
+              return `<span class="ba-set-opt${cls}" data-pw="${p.enabled ? p.w : ''}" data-tip="${tip}">${LBL[p.key]}</span>`
+            }).join('')
+          })()}</span>`,
+          `<span class="ba-set-hint">가장자리를 끌어 그 사이 값으로도 맞출 수 있어요</span>`,
+        ) +
         // 정보 밀도 — "한 화면에 더 많이 보고 싶다"는 피드백(#1·#5). 기본 화면은 그대로 두고
         // 원하는 사람만 켠다. 카드를 숨기는 게 아니라 한 줄로 접는 것이라 액션·경고는 남는다.
-        lbl('보기', '간략을 고르면 카드를 한 줄로 접어 한 화면에 약 2배를 보여줍니다.&#10;조건·가격은 사라지지 않고 아이콘 옆으로 접히며, 호버하면 전체가 그대로 보여요.') +
-        `<span class="ba-seg ba-set-seg">
-          <span class="ba-set-opt${briefOn ? '' : ' active'}" data-bv="0">기본</span>
-          <span class="ba-set-opt${briefOn ? ' active' : ''}" data-bv="1">간략</span>
-        </span>` +
+        row('brief',
+          lbl('보기', '간략을 고르면 카드를 한 줄로 접어 한 화면에 약 2배를 보여줍니다.&#10;조건·가격은 사라지지 않고 아이콘 옆으로 접히며, 호버하면 전체가 그대로 보여요.'),
+          `<span class="ba-seg ba-set-seg">
+            <span class="ba-set-opt${briefOn ? '' : ' active'}" data-bv="0">기본</span>
+            <span class="ba-set-opt${briefOn ? ' active' : ''}" data-bv="1">간략</span>
+          </span>`,
+        ) +
         // 거래소 필터칸의 "~"(부분 일치) 강제. 정확히 일치하는 스탯만 찾을 때는 방해가 된다는 제보로 추가.
-        lbl('필터 퍼지 검색 (~)', '켜면 거래소 검색칸 맨 앞에 ~를 자동으로 넣어 입력한 단어가 &#10;포함된 항목을 모두 찾습니다. 끄면 거래소 기본 동작 그대로예요.') +
-        `<span class="ba-seg ba-set-seg">
-          <span class="ba-set-opt${fuzzyOn ? ' active' : ''}" data-fz="1">켬</span>
-          <span class="ba-set-opt${fuzzyOn ? '' : ' active'}" data-fz="0">끔</span>
-        </span>`
+        row('fuzzy',
+          lbl('필터 퍼지 검색 (~)', '켜면 거래소 검색칸 맨 앞에 ~를 자동으로 넣어 입력한 단어가 &#10;포함된 항목을 모두 찾습니다. 끄면 거래소 기본 동작 그대로예요.'),
+          `<span class="ba-seg ba-set-seg">
+            <span class="ba-set-opt${fuzzyOn ? ' active' : ''}" data-fz="1">켬</span>
+            <span class="ba-set-opt${fuzzyOn ? '' : ' active'}" data-fz="0">끔</span>
+          </span>`,
+        ) +
+        // 다시 보기 경로. 자동 시작은 1회뿐이라 되돌아갈 길이 없으면 두 번째부터는 볼 방법이 사라진다.
+        `<button class="ba-setting-guide" id="ba-setting-guide" type="button">${icon('sparkle', 12)}설정 둘러보기 — 5가지를 하나씩 알려드려요</button>`
       // 두 세그먼트가 .ba-set-opt를 공유하므로 각자의 data 속성으로 갈라 잡는다(안 그러면 서로의 클릭까지 받는다)
       pick.querySelectorAll('.ba-set-opt[data-side]').forEach((o) => o.addEventListener('click', async () => {
         applySide(o.dataset.side)
@@ -762,6 +810,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         try { await chrome.storage.local.set({ uiFuzzyPrefix: fuzzyOn }) } catch (_) {}
         render()
       }))
+      // render() 는 클릭마다 innerHTML 을 다시 만든다 — 진입점 핸들러도 매번 다시 건다.
+      const guideBtn = pick.querySelector('#ba-setting-guide')
+      if (guideBtn) guideBtn.onclick = () => startSettingsTour()
     }
     render()
     pick.hidden = false; bar.hidden = false; ok.focus()
@@ -769,10 +820,25 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       bar.hidden = true; pick.hidden = true; pick.innerHTML = ''
       input.hidden = false; cancel.hidden = false; ok.textContent = '저장' // 다른 다이얼로그용 원복
       ok.removeEventListener('click', finish); bar.removeEventListener('click', onOverlay); root.removeEventListener('keydown', onKey, true)
+      closeSettings = null
+      // 모달이 닫히면 그 위에서 돌던 둘러보기도 끝낸다 — 안 그러면 사라진 항목을 가리키는 카드만 남는다.
+      // 단 투어가 스스로 연 모달을 되닫는 길에서는 끝내지 않는다(그 투어는 계속 진행 중이다).
+      if (!settingsOpenedByTour && activeTourFinish) activeTourFinish()
     }
+    closeSettings = finish
     const onOverlay = (e) => { if (e.target === bar) finish() }
     const onKey = (e) => { if (e.key === 'Enter' || e.key === 'Escape') { e.preventDefault(); finish() } }
     ok.addEventListener('click', finish); bar.addEventListener('click', onOverlay); root.addEventListener('keydown', onKey, true)
+    // 처음 여는 사람에게는 둘러보기를 1회 자동으로 — '열긴 열었는데 이름 다섯 줄만 보고 닫는' 상태를 끊는다.
+    // 스포트라이트가 클릭을 막지 않으므로, 설정을 바꾸러 급히 온 사람도 그 자리에서 그대로 누르면 된다.
+    // fromTour 는 제외한다: 메인 투어의 ⚙ 스텝에는 갈래 버튼이 따로 있어 두 번 뜨게 된다.
+    if (!opt.fromTour) {
+      chrome.storage.local.get('settingsTourSeen').then((r) => {
+        if (r && r.settingsTourSeen) return
+        if (bar.hidden || activeTourFinish) return // 그새 닫혔거나 이미 다른 투어가 도는 중이면 끼어들지 않는다
+        startSettingsTour()
+      }).catch(() => {})
+    }
   }
 
   // 저장 다이얼로그 — 이름 + 폴더 선택(미분류·기존 폴더·+새 폴더). @returns {Promise<{name, folderId}|null>}
@@ -1242,7 +1308,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     { sel: '.ba-io-group', title: '백업 · 공유 (JSON)', body: '북마크를 JSON 파일로 내보내 백업하거나 다른 사람과 공유할 수 있어요. 받은 JSON은 가져오기로 합쳐집니다. 특정 폴더만 내보내려면 폴더 헤더의 ⬇ 아이콘을 쓰세요.' },
     { sel: '.ba-sec-hist', title: '자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
     { sel: '.ba-econ-row', title: '시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
-    { sel: '.ba-gear', since: '0.9.0', title: '설정 — 내 방식대로', body: '⚙ 에서 <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>보기</b>(기본 / 간략 — 카드를 한 줄로 접어 한 화면에 약 2배), 필터 퍼지 검색을 정합니다. 각 항목 옆 <b>?</b> 에 마우스를 올리면 무슨 설정인지 알려줘요 (Alt+O).' },
+    // 이 스텝은 설정 모달을 **실제로 연다**. 글로만 읽고 지나가면 다섯 개가 있다는 게 전달되지 않는다 —
+    // "패널 위치를 바꿀 수 있는 줄 몰랐다"는 문의가 계속 오는 이유가 그것이다.
+    // 갈래 버튼을 누른 사람만 +5스텝으로 이어간다(투어 전체를 18→23 으로 늘리지 않는다).
+    { sel: '#ba-folder-pick', open: 'settings', since: '0.9.0', title: '설정 — 내 방식대로',
+      body: '⚙ 안에 다섯 가지가 있어요 — <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>패널 폭</b>(기본~최대), <b>보기</b>(기본 / 간략), <b>필터 퍼지 검색</b>. 각 항목 옆 <b>?</b> 에 마우스를 올리면 무슨 설정인지 알려줘요 (Alt+O).',
+      branch: { label: '하나씩 볼게요', steps: SETTINGS_TOUR } },
     { sel: '#ba-handle', title: '언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
     { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
   ]
@@ -1253,8 +1324,19 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const WHATS_NEW_VERSION = '0.9.0'
   const whatsNewSteps = () => TOUR.filter((s) => s.since === WHATS_NEW_VERSION)
 
-  async function startTour(steps, label) {
-    const list = steps && steps.length ? steps : TOUR
+  /**
+   * @param steps 없으면 전체 TOUR
+   * @param label 카드 좌상단에 붙는 꼬리표('새로워진 기능'·'설정')
+   * @param opt.seedDemo 빈 화면에 예시 데이터를 심을지 (설정 투어는 가리킬 대상이 모달 안이라 불필요)
+   * @param opt.markDone 끝났을 때 '가이드 봤음'으로 기록할지
+   */
+  async function startTour(steps, label, opt = {}) {
+    const { seedDemo = true, markDone = true } = opt
+    // 투어 둘이 겹치면 모달 소유권(settingsOpenedByTour)과 정리 훅이 서로를 지운다 — 앞의 것을 먼저 닫는다.
+    if (activeTourFinish) activeTourFinish()
+    // ⚠ 반드시 사본이다. 인자가 없으면 목록이 TOUR **그 자체**라, 갈래(branch)로 스텝을 끼우는 순간
+    //   원본이 영구히 늘어나 다음에 여는 투어가 23스텝이 된다.
+    const list = (steps && steps.length ? steps : TOUR).slice()
     const wasCollapsed = isCollapsed()
     setCollapsed(false)
     // 패널이 접혀 있다가 열리는 거면 .ba-root의 슬라이드인(.26s)이 끝날 때까지 기다린다 — 그 전에 첫 스텝을
@@ -1271,13 +1353,13 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         { pageLeague: league, history: await listByKind('history', game) },
         leagueInfo(ui.getLeagueMap()),
       ) || '예전 리그'
-    try { if (await needsTourDemo(game)) { await seedDemoData(game, demoLeague); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
+    try { if (seedDemo && await needsTourDemo(game)) { await seedDemoData(game, demoLeague); demoOn = true; await refresh(); await new Promise((r) => setTimeout(r, 90)) } } catch (_) {}
     // 조건 묶음 줄은 묶음이 0개면 hidden — 북마크 데모와 판정이 달라 따로 심는다(store.needsConditionSetDemo 주석 참조).
     let setDemoOn = false
     // 접혀 있으면 투어가 가리킬 칩이 없다 — 투어 동안은 펼친다(사용자가 접어둔 상태는 저장값에 그대로 남는다)
-    const setsWasCollapsed = setsCollapsed
-    if (setsCollapsed) { setsCollapsed = false; await renderSets() }
-    try { if (await needsConditionSetDemo(game)) { await seedDemoSets(game); setDemoOn = true; await renderSets(); await new Promise((r) => setTimeout(r, 60)) } } catch (_) {}
+    const setsWasCollapsed = seedDemo ? setsCollapsed : false // 데모를 안 심는 투어는 묶음 줄을 건드리지 않으므로 되돌릴 것도 없다
+    if (seedDemo && setsCollapsed) { setsCollapsed = false; await renderSets() }
+    try { if (seedDemo && await needsConditionSetDemo(game)) { await seedDemoSets(game); setDemoOn = true; await renderSets(); await new Promise((r) => setTimeout(r, 60)) } } catch (_) {}
     let i = 0
     const card = document.createElement('div')
     card.className = 'ba-tour-card'
@@ -1289,7 +1371,13 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     root.appendChild(box)
     root.appendChild(arrow)
     root.appendChild(card)
-    const finish = () => { box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setsWasCollapsed) setsCollapsed = true; if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } else if (setsWasCollapsed) { renderSets() } try { chrome.storage.local.set({ tourDone: true, whatsNewSeen: WHATS_NEW_VERSION }) } catch (_) {} }
+    // 투어가 스스로 연 설정 모달만 되닫는다 — 이미 열려 있던 모달(설정 안에서 시작한 둘러보기)은 남겨 둔다.
+    const closeOwnModal = () => { if (!settingsOpenedByTour) return; settingsOpenedByTour = false; if (closeSettings) closeSettings() }
+    const finish = () => { activeTourFinish = null; activeTourLayout = null; closeOwnModal(); box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setsWasCollapsed) setsCollapsed = true; if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } else if (setsWasCollapsed) { renderSets() }
+      // ⚠ 설정 둘러보기는 이 표시를 남기지 않는다(markDone:false). 남기면 둘러보기만 본 신규 사용자가
+      //   '첫 실행 가이드를 이미 봤다'로 처리돼 **본 투어를 영영 못 본다.**
+      if (markDone) { try { chrome.storage.local.set({ tourDone: true, whatsNewSeen: WHATS_NEW_VERSION }) } catch (_) {} } }
+    activeTourFinish = finish
     const goNext = () => { i += 1; if (i >= list.length) finish(); else render() }
     const goPrev = () => { if (i > 0) { i -= 1; render() } }
     // 방향키로도 이전/다음 이동 — 페이지 검색창 등에 포커스가 있으면(텍스트 커서 이동 용도) 가로채지 않는다
@@ -1366,6 +1454,37 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     }
     const render = () => {
       const step = list[i]
+      // 이 스텝이 설정 모달 안을 가리키면 먼저 연다 — 대상을 재기 전이어야 rect 가 맞는다.
+      // 이미 열려 있으면(설정 안에서 시작한 둘러보기) 그대로 쓰고, 되닫을 책임도 지지 않는다.
+      // 닫혀 있으면 연다 — 사용자가 Esc 로 닫고 다음 스텝으로 넘어온 경우에도 다시 붙는다.
+      if (step.open === 'settings') {
+        if ($('ba-namebar').hidden) { settingsOpenedByTour = true; showSettings({ fromTour: true }) }
+      } else closeOwnModal()
+      // try: 스포트라이트가 클릭을 막지 않는다는 걸 알린다 — 이걸 모르면 읽기만 하고 지나간다.
+      const tryHint = step.try ? '<div class="ba-tour-try">지금 눌러도 바로 적용돼요</div>' : ''
+      const branchBtn = step.branch ? `<button class="ba-tour-branch">${step.branch.label}</button>` : ''
+      card.innerHTML = `<div class="ba-tour-step">${label ? label + ' · ' : ''}${i + 1} / ${list.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p>${tryHint}<div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button>${i > 0 ? '<button class="ba-tour-prev">이전</button>' : ''}${branchBtn}<button class="ba-tour-next">${i === list.length - 1 ? '완료' : '다음'}</button></div><div class="ba-tour-kbdhint">${i > 0 ? '<kbd>←</kbd>' : ''}<kbd>→</kbd> 방향키로 이동</div>`
+      card.querySelector('.ba-tour-next').onclick = goNext
+      card.querySelector('.ba-tour-skip').onclick = finish
+      const prevBtn = card.querySelector('.ba-tour-prev'); if (prevBtn) prevBtn.onclick = goPrev
+      // 갈래 — 지금 자리 뒤에 하위 스텝을 끼우고 바로 넘어간다. 이전→다시 눌러도 두 번 끼우지 않는다.
+      const brBtn = card.querySelector('.ba-tour-branch')
+      if (brBtn) brBtn.onclick = () => {
+        const sub = step.branch.steps
+        if (list[i + 1] !== sub[0]) list.splice(i + 1, 0, ...sub)
+        // 여기로 들어가면 다섯 스텝을 실제로 보게 된다 = 둘러보기를 본 것이다. 표시를 안 남기면
+        // 방금 다 본 사람에게 ⚙ 점이 그대로 남고 다음에 설정을 열 때 같은 투어가 또 뜬다.
+        markSettingsTourSeen()
+        goNext()
+      }
+      layout(true)
+    }
+    // ── 배치만 다시 계산 ──────────────────────────────────────────────
+    // 카드 내용과 분리한 이유: 투어 중에 **설정을 눌러 패널이 움직인다**(좌↔우·폭·간략).
+    // 그때 배치를 다시 안 잡으면 패널은 반대편으로 갔는데 카드와 스포트라이트만 제자리에 남는다.
+    // 대상은 매번 다시 찾는다 — 설정 모달은 클릭마다 innerHTML 을 새로 만들어 옛 노드가 떨어져 나간다.
+    const layout = (scroll = false) => {
+      const step = list[i]; if (!step) return
       // global: 패널(shadow root) 밖 — 거래소 페이지에 주입한 PoB 버튼·환산 칩처럼 document 쪽 대상.
       // 검색 결과 없이 투어를 시작하면 아직 안 떠 있을 수 있어(스포트라이트만 자동 숨김, place()의 기존 0-rect 처리로 대응).
       const scope = step.global ? document : root
@@ -1388,20 +1507,42 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           target = [...scope.querySelectorAll(step.sel)].find((e) => e.getBoundingClientRect().width) || target
         }
       }
-      card.innerHTML = `<div class="ba-tour-step">${label ? label + ' · ' : ''}${i + 1} / ${list.length}</div><div class="ba-tour-title">${step.title}</div><p>${step.body}</p><div class="ba-tour-btns"><button class="ba-tour-skip">건너뛰기</button>${i > 0 ? '<button class="ba-tour-prev">이전</button>' : ''}<button class="ba-tour-next">${i === list.length - 1 ? '완료' : '다음'}</button></div><div class="ba-tour-kbdhint">${i > 0 ? '<kbd>←</kbd>' : ''}<kbd>→</kbd> 방향키로 이동</div>`
-      card.querySelector('.ba-tour-next').onclick = goNext
-      card.querySelector('.ba-tour-skip').onclick = finish
-      const prevBtn = card.querySelector('.ba-tour-prev'); if (prevBtn) prevBtn.onclick = goPrev
-      if (target) target.scrollIntoView({ block: 'center' }) // instant — 동기 스크롤이라 직후 rect가 정확
+      // 스크롤은 스텝을 넘길 때만 — 폭 드래그 중에는 매 프레임 목록이 튄다.
+      if (scroll && target) target.scrollIntoView({ block: 'center' }) // instant — 동기 스크롤이라 직후 rect가 정확
       const boxRect = place(target) // 동기 즉시 배치 — rAF·setTimeout은 비활성 탭에서 지연/정지되므로 사용 안 함
       const rc = target ? target.getBoundingClientRect() : null
       card.style.top = (rc ? Math.min(window.innerHeight - 180, Math.max(8, rc.bottom + 12)) : 80) + 'px'
-      if (panelSide === 'left') { card.style.left = '420px'; card.style.right = 'auto' } // 좌/우 배치 대응
-      else { card.style.right = '420px'; card.style.left = 'auto' }
+      // 카드는 패널 **바깥 옆**에 선다. 420px 고정이었는데 그건 최소폭(384) 시절의 값이라, 폭을 넓힌
+      // 사용자에게는 카드가 패널 위에 겹쳤다(설정 모달이 패널 안이라 둘러보기에서 특히 크게 드러난다).
+      // 화면 밖으로 나가지 않게 반대쪽 여백도 남긴다.
+      const cardW = card.offsetWidth || 300
+      const off = Math.max(12, Math.min(panelW + 36, window.innerWidth - cardW - 12))
+      if (panelSide === 'left') { card.style.left = off + 'px'; card.style.right = 'auto' } // 좌/우 배치 대응
+      else { card.style.right = off + 'px'; card.style.left = 'auto' }
       positionArrow(boxRect)
     }
+    activeTourLayout = layout
     render()
   }
+
+  // ── 설정 둘러보기 시작 · ⚙ 미확인 점 ────────────────────────────────
+  // 저장하는 건 '설정을 열었나'가 **아니라 둘러보기가 실제로 시작됐나**다. '열었나'로 하면
+  // 메인 투어가 ⚙ 를 여는 것만으로 표시가 켜져, 갈래를 안 고른 사람이 설명도 못 받고 점까지 잃는다.
+  const updateGearDot = async () => {
+    const dot = $('ba-gear-dot'); if (!dot) return
+    try { const r = await chrome.storage.local.get('settingsTourSeen'); dot.hidden = !!(r && r.settingsTourSeen) }
+    catch (_) { dot.hidden = true } // 못 읽으면 조용히 감춘다 — 근거 없이 점을 띄우지 않는다
+  }
+  const markSettingsTourSeen = () => {
+    try { chrome.storage.local.set({ settingsTourSeen: true }) } catch (_) {}
+    updateGearDot()
+  }
+  const startSettingsTour = () => {
+    markSettingsTourSeen()
+    // 데모 데이터는 심지 않는다(가리킬 대상이 전부 모달 안이다) · 첫 실행 가이드를 봤다고 기록하지 않는다.
+    startTour(SETTINGS_TOUR, '설정', { seedDemo: false, markDone: false })
+  }
+  updateGearDot()
 
   // 단축키 칩: 호버 시 팝오버 표시(.ba-kbd-wrap:hover). 패널이 overflow:hidden이라
   // absolute면 잘림 → position:fixed로 띄우고 JS로 칩 아래 배치(.ba-root 기준, 패널 좌우 클램프).
@@ -1439,6 +1580,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       if (changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
       if (changes.uiPanelWidth) applyWidth(changes.uiPanelWidth.newValue)
       if (changes.uiFuzzyPrefix) fuzzyOn = changes.uiFuzzyPrefix.newValue !== false // 다른 탭에서 바꾸면 설정 모달 표시도 따라간다
+      if (changes.settingsTourSeen) updateGearDot() // 다른 탭에서 둘러보기를 봤으면 이 탭의 점도 사라진다
       if (changes.conditionSets) renderSets() // 다른 탭에서 묶음을 추가·삭제하면 칩 줄도 따라간다
     })
   } catch (_) {}
