@@ -307,6 +307,22 @@
 /* 설정 모달의 '내 리그' 셀렉트 — 기본 select 룩은 밝은 시스템 색이라 패널과 겉돈다 */
 /* 세그먼트 밑 한 줄 보조 설명 — 라벨(.lbl)과 달리 다음 항목의 제목으로 읽히면 안 되므로 톤을 낮춘다 */
 .ba-set-hint { width: 100%; margin: -2px 0 2px; font-size: 11px; line-height: 1.5; color: var(--ba-text-muted); }
+/* 설정 항목 한 덩어리(라벨+세그먼트+힌트) — '설정 둘러보기'의 스포트라이트가 잡는 단위.
+   ⚠ .ba-folder-pick 의 flex 규칙을 **그대로** 복제한다. 자식들이 width:100% 로 줄을 차지하고
+   간격이 같은 gap:6px 이라, 감싸기 전후로 여백이 달라지지 않는다(달라지면 이 래퍼는 실패다). */
+.ba-setting { width: 100%; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+/* 둘러보기 진입점 — 자동 시작은 1회뿐이라 여기가 유일한 '다시 보기' 경로다.
+   설정 항목이 아니므로 톤을 낮추고(점선) 항목 세그먼트와 눈에 띄게 구분한다. */
+.ba-setting-guide {
+  width: 100%; margin-top: 3px; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 8px 11px; border-radius: 9px; font-family: inherit; font-size: 11.5px; font-weight: 700;
+  color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px dashed var(--ba-violet-line);
+  cursor: pointer; transition: background .15s, border-color .15s, transform .16s var(--ba-ease-out);
+}
+.ba-setting-guide:hover { background: rgba(167, 139, 250, 0.24); border-color: var(--ba-violet-2); }
+/* 누름 피드백은 패널 공용 언어를 그대로 쓴다 — 0.97 + transform 전환(.ba-seg > *·.ba-toast-act 와 동일).
+   전환 없이 0.99 로 두면 눌린 게 안 읽히고, 다른 버튼과 눌림감이 어긋난다. */
+.ba-setting-guide:active { transform: scale(0.97); }
 
 /* ---- 리스트 컨테이너 ----
    scrollbar-gutter: stable — 항목이 늘어 스크롤바가 생기는 순간 콘텐츠 폭이 7px 줄어들며
@@ -939,6 +955,21 @@
    헤더 .ba-brand 행이 아이콘 과밀로 타이틀을 줄바꿈시켜 이쪽으로 이동했음 */
 .ba-gear { flex: none; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 14px; white-space: nowrap; font-family: inherit; font-size: 12px; font-weight: 700; border-radius: 9px; color: var(--ba-text-muted); background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
 .ba-gear:hover { color: var(--ba-violet-2); background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+/* ⚙ 미확인 점 — 둘러보기를 아직 안 본 사용자에게만. 투어를 건너뛴 사람에게 '설정에 볼 게 있다'가
+   닿는 유일한 경로라 눈에 걸려야 하고, 한 번 보면 사라지므로 상시 모션이 남지 않는다.
+   ⚠ absolute 로 띄운다 — 흐름에 넣으면 버튼이 12px 넓어져 최소폭(384px)에서 푸터 줄이 접힌다.
+   테두리처럼 두른 그림자는 버튼 배경색이라, 점이 글자에 겹쳐도 경계가 살아 있다. */
+.ba-gear { position: relative; }
+.ba-gear-dot {
+  position: absolute; top: 5px; right: 6px; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--ba-violet-2); box-shadow: 0 0 0 2px var(--ba-panel-bg), 0 0 8px 1px rgba(167, 139, 250, 0.9);
+  animation: ba-gear-dot-pulse 2.4s ease-in-out infinite;   /* reduced-motion 은 상단 .ba-root * 규칙이 끈다 */
+}
+.ba-gear-dot[hidden] { display: none; }
+@keyframes ba-gear-dot-pulse {
+  0%, 100% { transform: scale(1);    opacity: .85; }
+  50%      { transform: scale(1.25); opacity: 1; }
+}
 /* 헤더 단축키 칩 — 호버 시 확장 팝업의 단축키 섹션 디자인(kbd 키캡+그룹)을 팝오버로 차용. margin-left:auto로 '제작' 칩과 함께 우측 정렬 */
 /* 단축키 칩·'서미누기 제작' 은 **제목 바로 뒤에 붙는다**(사용자 요청 2026-08-25).
    종전엔 여기 margin-left:auto 가 있어서 후원 버튼의 auto 와 둘이 남는 공간을 나눠 가졌고,
@@ -1040,6 +1071,21 @@
 .ba-tour-prev:hover { color: var(--ba-violet-2); border-color: var(--ba-violet-line); }
 .ba-tour-next { font-size: 11.5px; font-weight: 800; color: #0b0a16; background: linear-gradient(135deg, #b6a6fb, #8b7cf0); border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer; font-family: inherit; }
 .ba-tour-kbdhint { display: flex; align-items: center; justify-content: flex-end; gap: 5px; margin-top: 8px; font-size: 10.5px; color: var(--ba-text-muted); }
+/* '지금 눌러도 바로 적용돼요' — 스포트라이트가 pointer-events:none 이라 밑을 그대로 누를 수 있다는
+   사실은 화면만 봐서는 알 수 없다. 이 줄이 없으면 설정 투어는 읽기만 하고 지나가는 글이 된다.
+   본문과 같은 회색이면 문장의 연장으로 읽혀 묻히므로, 공유·복사 계열의 시안으로 구분한다. */
+.ba-tour-try {
+  margin-top: 10px; padding-top: 9px; border-top: 1px solid rgba(255, 255, 255, .09);
+  display: flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; color: var(--ba-cyan);
+}
+.ba-tour-try::before { content: "⌁"; font-size: 12px; line-height: 1; }
+/* 갈래 버튼 — '다음'(주 동선)과 '건너뛰기'(이탈) 사이의 선택지. 주 동선을 뺏지 않게 세컨더리로 둔다. */
+.ba-tour-branch {
+  font-size: 11.5px; font-weight: 800; border-radius: 8px; padding: 6px 12px; cursor: pointer; font-family: inherit;
+  color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line);
+  transition: background .15s, border-color .15s;
+}
+.ba-tour-branch:hover { background: rgba(167, 139, 250, 0.24); border-color: var(--ba-violet-2); }
 /* 투어 스포트라이트 박스 — 대상 rect에 fixed로 띄워 주변을 어둡게(box-shadow spread) + 숨쉬는 테두리.
    깊이·외부(shadow 직계)·형제 문제와 무관하게 정확히 그 영역만 강조한다. */
 .ba-tour-spot {
