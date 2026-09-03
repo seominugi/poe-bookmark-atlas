@@ -21,6 +21,9 @@ describe('normalizeModText — 게임 문구', () => {
   it('고정 숫자와 괄호 범위가 섞인 물결도 슬롯 둘 (PoE2 흔한 형태)', () => {
     expect(normalizeModText('공격 시 냉기 피해 1~(2-3) 추가', 2)).toBe('공격 시 냉기 피해 #~# 추가')
   })
+  it('범위 앞에 상수가 있어도 물결에 붙은 쪽을 슬롯으로 본다', () => {
+    expect(normalizeModText('10초마다 냉기 피해 1~(2-3) 추가', 2)).toBe('10초마다 냉기 피해 #~# 추가')
+  })
   it('슬롯 수가 모자라면 남은 상수를 슬롯으로 올린다', () => {
     expect(normalizeModText('모든 근접 스킬 레벨 1', 1)).toBe('모든 근접 스킬 레벨 #')
   })

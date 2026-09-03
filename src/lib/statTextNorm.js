@@ -6,7 +6,10 @@
 // 대신 양쪽이 같은 GGPK 문구에서 나오므로, 수치 자리를 지우면 문자열이 일치한다.
 // PoE2 기준 5,848개 중 97.0%가 이 방법으로 붙는다(2026-09-04 실측).
 
-const SLOT = '\u0001' // 치환 중간 표식 — 실제 문구에 나오지 않는 제어문자
+// 치환 중간 표식 — 실제 게임 문구에 나오지 않는 제어문자.
+// 소스에는 항상 `\x01` 이스케이프로 적는다. 제어문자를 눈에 안 보이게 박아 넣으면
+// 나중에 읽는 사람이 정규식을 해석할 수 없다.
+const SLOT = '\x01'
 
 /** 거래소 문구 → 비교 키. `+#`·`-#`의 부호를 떼고 공백을 정리한다. */
 export function normalizeTradeText(text) {
@@ -26,14 +29,20 @@ export function normalizeModText(text, slotCount = 0) {
   let t = String(text)
     .replace(/\(\s*[+\-]?\d+(?:\.\d+)?\s*[-~]\s*[+\-]?\d+(?:\.\d+)?\s*\)/g, SLOT) // (30-35)
     .replace(/[+\-]?\d+(?:\.\d+)?\s*~\s*[+\-]?\d+(?:\.\d+)?/g, SLOT + '~' + SLOT)  // 1~2
-  // 표식과 물결로 이어진 상수도 값 슬롯이다: `1~(2-3)` → 슬롯 둘
-  t = t
-    .replace(new RegExp('[+\-]?\d+(?:\.\d+)?(\s*~\s*)' + SLOT, 'g'), SLOT + '$1' + SLOT)
-    .replace(new RegExp(SLOT + '(\s*~\s*)[+\-]?\d+(?:\.\d+)?', 'g'), SLOT + '$1' + SLOT)
 
-  let filled = (t.match(new RegExp(SLOT, 'g')) || []).length
+  // 표식과 물결로 이어진 상수도 값 슬롯이다: `1~(2-3)` → 슬롯 둘.
+  // 이 두 줄이 없으면 아래 상수 승격이 '왼쪽부터' 채우느라 엉뚱한 숫자를 값으로 잡는다
+  // (`10초마다 … 1~(2-3)` 에서 10 을 값으로 오인).
+  //
+  // ⚠ 정규식은 반드시 **리터럴**로 쓴다. 문자열로 만들면 `'\d'` 가 그냥 `d` 가 되어
+  //   숫자 대신 알파벳을 찾는데, 아래 상수 승격이 결과를 덮어 테스트는 통과해 버린다.
+  t = t
+    .replace(/[+\-]?\d+(?:\.\d+)?(\s*~\s*)\x01/g, SLOT + '$1' + SLOT)
+    .replace(/\x01(\s*~\s*)[+\-]?\d+(?:\.\d+)?/g, SLOT + '$1' + SLOT)
+
+  let filled = (t.match(/\x01/g) || []).length
   if (slotCount > filled) {
     t = t.replace(/[+\-]?\d+(?:\.\d+)?/g, (m) => (filled < slotCount ? (filled++, SLOT) : m))
   }
-  return t.replace(new RegExp(SLOT, 'g'), '#').replace(/[+\-]\s*#/g, '#').replace(/\s+/g, ' ').trim()
+  return t.replace(/\x01/g, '#').replace(/[+\-]\s*#/g, '#').replace(/\s+/g, ' ').trim()
 }
