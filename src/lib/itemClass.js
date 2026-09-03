@@ -77,11 +77,20 @@ export const MOD_FILE_BY_POB_CLASS = {
   'Mana Flasks': 'ManaFlask',
 }
 
+/**
+ * 객체 리터럴을 표로 쓸 때 `obj[key]` 는 프로토타입 속성까지 집는다 —
+ * `표['toString']` 이 함수를 돌려주므로, 자기 속성일 때만 값을 낸다.
+ * @returns {string|null}
+ */
+function own(table, key) {
+  return table && Object.hasOwn(table, key) ? table[key] : null
+}
+
 /** @returns {string|null} modifiers 파일명, 부위를 특정할 수 없으면 null */
 export function classFromCategory(option) {
   if (option == null) return null
   const key = String(option)
-  return MOD_FILE_BY_CATEGORY[key] || FLAT_CATEGORY[key] || null
+  return own(MOD_FILE_BY_CATEGORY, key) || own(FLAT_CATEGORY, key)
 }
 
 /**
@@ -90,9 +99,9 @@ export function classFromCategory(option) {
  */
 export function classFromBaseName(name, baseMap) {
   if (!name || !baseMap) return null
-  const entry = baseMap[String(name)]
-  const pobClass = entry && entry[1]
-  return (pobClass && MOD_FILE_BY_POB_CLASS[pobClass]) || null
+  const entry = own(baseMap, String(name))
+  const pobClass = Array.isArray(entry) ? entry[1] : null
+  return pobClass ? own(MOD_FILE_BY_POB_CLASS, pobClass) : null
 }
 
 /** 거래소가 변형 아이템의 type 을 {option, discriminator} 객체로 보내는 경우를 흡수한다. */

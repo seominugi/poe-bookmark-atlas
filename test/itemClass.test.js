@@ -19,6 +19,11 @@ describe('classFromCategory', () => {
     expect(classFromCategory(null)).toBe(null)
     expect(classFromCategory('nope')).toBe(null)
   })
+  it('프로토타입 속성 이름을 넣어도 null (객체 리터럴 조회 함정)', () => {
+    for (const key of ['toString', 'constructor', 'valueOf', 'hasOwnProperty', '__proto__']) {
+      expect(classFromCategory(key)).toBe(null)
+    }
+  })
 })
 
 describe('classFromBaseName', () => {
