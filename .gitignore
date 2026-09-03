@@ -26,3 +26,6 @@ Thumbs.db
 # Logs
 *.log
 npm-debug.log*
+
+# 티어 표 빌드 캐시 (거래소 능력치 응답 원본 — 산출물만 커밋)
+scripts/.cache/
