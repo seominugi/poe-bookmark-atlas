@@ -90,7 +90,9 @@ function own(table, key) {
 export function classFromCategory(option) {
   if (option == null) return null
   const key = String(option)
-  return own(MOD_FILE_BY_CATEGORY, key) || own(FLAT_CATEGORY, key)
+  // `??` 를 쓴다 — `own()` 은 없을 때 정확히 null 을 낸다. `||` 로 두면 나중에 표 값이
+  // 빈 문자열이 되는 실수가 생겼을 때 조용히 다음 표로 새어 나간다.
+  return own(MOD_FILE_BY_CATEGORY, key) ?? own(FLAT_CATEGORY, key)
 }
 
 /**
@@ -114,11 +116,16 @@ function typeText(v) {
 /**
  * category 를 베이스 이름보다 우선한다 — 사용자가 유형을 바꾸면 베이스 이름이 남아 있어도
  * 지금 찾는 것은 새 유형이다.
+ *
+ * 단 **묶음 category**(`weapon`·`weapon.onemelee` 등)는 부위를 특정하지 못하므로
+ * `classFromCategory` 가 null 을 내고, 그때는 베이스 이름으로 내려간다. 의도한 동작이다 —
+ * "모든 무기" 를 고른 채 베이스를 지정했다면 베이스 쪽이 더 좁은 정보다.
+ *
  * @param {any} query 거래소 검색 바디의 query
  * @param {Record<string,[string,string]>} baseMap
  */
 export function classFromQuery(query, baseMap) {
   if (!query) return null
   const option = query?.filters?.type_filters?.filters?.category?.option
-  return classFromCategory(option) || classFromBaseName(typeText(query.type), baseMap)
+  return classFromCategory(option) ?? classFromBaseName(typeText(query.type), baseMap)
 }

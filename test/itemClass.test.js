@@ -15,6 +15,9 @@ describe('classFromCategory', () => {
     expect(classFromCategory('armour')).toBe(null)
     expect(classFromCategory('weapon.onemelee')).toBe(null)
   })
+  it('점이 없어도 부위가 하나면 매핑한다 (jewel)', () => {
+    expect(classFromCategory('jewel')).toBe('Jewel')
+  })
   it('모르는 값은 null', () => {
     expect(classFromCategory(null)).toBe(null)
     expect(classFromCategory('nope')).toBe(null)
