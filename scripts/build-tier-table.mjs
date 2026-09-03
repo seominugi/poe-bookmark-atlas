@@ -51,13 +51,33 @@ function buildTradeIndex(stats) {
   return index
 }
 
+/**
+ * 모드의 값 슬롯을 **문장 단위로 잘라낸다.**
+ *
+ * `mod.valueRanges` 는 모든 문장의 슬롯이 하나로 이어붙은 배열이다. 한 모드가 두 문장을 갖는
+ * 하이브리드(예: 활의 `시야 반경 15% 증가` + `정확도 41~60`)에서 이걸 통째로 쓰면, 한 문장짜리
+ * 능력치에 옆 문장의 값이 따라붙어 표가 조용히 오염된다(2026-09-04 검수에서 25건 발견).
+ * @returns {number[][][]} 문장별 [min,max] 배열
+ */
+export function rangesByLine(mod, lines) {
+  const all = mod.valueRanges ?? []
+  const out = []
+  let offset = 0
+  for (const line of lines) {
+    const slots = (line.stats ?? []).length
+    out.push(all.slice(offset, offset + slots))
+    offset += slots
+  }
+  return out
+}
+
 /** 모드의 각 문장이 어떤 거래소 stat id 후보들과 맞는지. 하나라도 못 찾으면 null. */
 function candidatesForMod(mod, tradeIndex) {
   const lines = (mod.stats ?? []).filter((s) => s?.text?.kr)
   if (!lines.length) return null
   const keys = lines.map((s) => normalizeModText(s.text.kr, (s.stats ?? []).length))
   const cands = keys.map((k) => tradeIndex.get(k))
-  return cands.some((c) => !c) ? null : { keys, cands }
+  return cands.some((c) => !c) ? null : { keys, cands, lines }
 }
 
 /** 표시 배율이 적용되지 않아 값을 그대로 쓸 수 없는 모드인가. */
@@ -66,10 +86,10 @@ function isUnscaled(mod) {
 }
 
 /** 같은 요구 레벨에 값이 둘 이상이면 티어 순서를 정할 수 없다. */
-function hasValueConflict(rows) {
+export function hasValueConflict(rows) {
   const seen = new Map()
   for (const row of rows) {
-    const sig = JSON.stringify(row.ranges)
+    const sig = JSON.stringify(row.byLine)
     if (seen.has(row.ilvl) && seen.get(row.ilvl) !== sig) return true
     seen.set(row.ilvl, sig)
   }
@@ -95,7 +115,13 @@ async function main() {
   const argv = process.argv.slice(2)
   const arg = (name, fallback) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : fallback }
   const game = arg('--game', 'poe2')
+  // NaN 이면 아래 `rate < minMatch` 가 항상 거짓이 되어 임계치 검사가 통째로 무력해진다.
+  // 이 검사는 "거래소 문구가 바뀌었다"를 알려주는 유일한 경보라 오타 하나로 잃으면 안 된다.
   const minMatch = Number(arg('--min-match', '90'))
+  if (!Number.isFinite(minMatch)) {
+    console.error(`--min-match 값이 숫자가 아닙니다: ${arg('--min-match', '')}`)
+    process.exit(1)
+  }
 
   const dataRoot = resolveLockedGameDataRoot({ startDir: join(here, '..') })
   const modDir = join(dataRoot, game, 'modifiers', 'json')
@@ -130,20 +156,22 @@ async function main() {
         matched++
         const key = found.keys.join('\n') + '|' + affix
         if (!families.has(key)) families.set(key, { cands: found.cands, rows: [] })
-        families.get(key).rows.push({ ilvl: mod.tier, ranges: mod.valueRanges })
+        families.get(key).rows.push({ ilvl: mod.tier, byLine: rangesByLine(mod, found.lines) })
       }
     }
     const byStat = {}
     for (const { cands, rows } of families.values()) {
       if (hasValueConflict(rows)) { conflicts++; continue }
       rows.sort((a, b) => b.ilvl - a.ilvl) // 필요 아이템 레벨이 높은 쪽이 T1
-      const tiers = rows.map((row, i) => ({ t: i + 1, l: row.ilvl, v: row.ranges }))
-      // 후보 id 전부에 같은 사다리를 단다. 같은 stat 이 여러 계열에 걸리면 티어가 더 많은 쪽을 남긴다.
-      for (const ids of cands) {
+      // **문장마다 따로** 사다리를 만든다 — 한 모드가 두 문장을 가지면 값 슬롯도 문장별로 갈린다.
+      // 통째로 쓰면 한 문장짜리 능력치에 옆 문장 값이 따라붙는다.
+      cands.forEach((ids, lineIndex) => {
+        const tiers = rows.map((row, i) => ({ t: i + 1, l: row.ilvl, v: row.byLine[lineIndex] }))
+        // 후보 id 전부에 같은 사다리를 단다. 같은 stat 이 여러 계열에 걸리면 티어가 더 많은 쪽을 남긴다.
         for (const id of ids) {
           if (!byStat[id] || byStat[id].length < tiers.length) byStat[id] = tiers
         }
-      }
+      })
     }
     if (Object.keys(byStat).length) table[cls] = byStat
   }
@@ -151,18 +179,22 @@ async function main() {
   const rate = (100 * matched) / total
   const out = join(here, '..', 'src', 'lib', `statTiers.${game}.json`)
   const json = JSON.stringify(table)
-  writeFileSync(out, json, 'utf8')
-
   const statCount = Object.values(table).reduce((a, c) => a + Object.keys(c).length, 0)
+
   console.log(`${game}: 모드 ${total}`)
   console.log(`  표시 배율 미적용으로 제외 : ${unscaled}`)
   console.log(`  문구 매칭                : ${matched} (${rate.toFixed(1)}%)`)
   console.log(`  값 충돌로 버린 계열       : ${conflicts}`)
-  console.log(`${Object.keys(table).length} 부위 · ${statCount} 능력치 · gzip ${(gzipSync(json).length / 1024).toFixed(1)}KB → ${out}`)
+  console.log(`${Object.keys(table).length} 부위 · ${statCount} 능력치 · gzip ${(gzipSync(json).length / 1024).toFixed(1)}KB`)
+
+  // 임계치를 넘은 뒤에만 쓴다 — 실패해 놓고 파일을 남기면, 종료 코드를 놓친 사람이
+  // 깨진 표를 그대로 커밋한다. 대응표 검증 실패도 쓰기 전에 끝내므로 두 실패 경로가 일관된다.
   if (rate < minMatch) {
-    console.error(`매칭률이 임계치(${minMatch}%) 아래입니다 — 거래소 문구가 바뀌었을 수 있습니다.`)
+    console.error(`매칭률이 임계치(${minMatch}%) 아래입니다 — 거래소 문구가 바뀌었을 수 있습니다. 표를 쓰지 않았습니다.`)
     process.exit(1)
   }
+  writeFileSync(out, json, 'utf8')
+  console.log(`→ ${out}`)
 }
 
 // 테스트가 verifyClassBridge 만 가져올 수 있도록, 직접 실행할 때만 main 을 돈다.
