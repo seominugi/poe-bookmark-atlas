@@ -26,6 +26,8 @@ export function normalizeTradeText(text) {
  * `모든 근접 스킬 레벨 1` 류가 통째로 빠져 매칭률이 97.0% → 91.0%로 떨어진다.
  */
 export function normalizeModText(text, slotCount = 0) {
+  // 여기서는 `~` 주변 공백을 버리고 아래 3단계는 `$1` 로 보존하는데, 둘 다 상관없다 —
+  // 맨 마지막에 공백을 한 칸으로 정규화하므로 그 차이는 결과 키에 남지 않는다.
   let t = String(text)
     .replace(/\(\s*[+\-]?\d+(?:\.\d+)?\s*[-~]\s*[+\-]?\d+(?:\.\d+)?\s*\)/g, SLOT) // (30-35)
     .replace(/[+\-]?\d+(?:\.\d+)?\s*~\s*[+\-]?\d+(?:\.\d+)?/g, SLOT + '~' + SLOT)  // 1~2
