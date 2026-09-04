@@ -46,4 +46,23 @@ describe('tiersFor', () => {
   it('칩 개수는 세 개다', () => {
     expect(CHIP_COUNT).toBe(3)
   })
+
+  // 표는 JSON 에서 온 평범한 객체다 — 프로토타입 속성 이름이 들어와도 자기 속성만 봐야 한다.
+  // (itemClass.js 가 같은 이유로 own() 을 쓴다)
+  describe('프로토타입 속성 이름이 들어와도 안전하다', () => {
+    const PROTO_KEYS = ['toString', 'constructor', 'valueOf', 'hasOwnProperty', '__proto__']
+
+    it('부위 자리에 오면 no-class 다 (no-stat 이 아니다 — 부르는 쪽이 부위를 물어봐야 한다)', () => {
+      for (const key of PROTO_KEYS) {
+        expect(tiersFor({ table, itemClass: key, statId: 'stat.fire_res' }).status).toBe('no-class')
+      }
+    })
+
+    it('능력치 자리에 오면 no-stat 이고 예외를 던지지 않는다', () => {
+      for (const key of PROTO_KEYS) {
+        expect(() => tiersFor({ table, itemClass: 'Ring', statId: key })).not.toThrow()
+        expect(tiersFor({ table, itemClass: 'Ring', statId: key }).status).toBe('no-stat')
+      }
+    })
+  })
 })

@@ -10,6 +10,15 @@
 export const CHIP_COUNT = 3
 
 /**
+ * 표는 JSON 에서 온 평범한 객체라 `obj[key]` 가 프로토타입 속성까지 집는다.
+ * `표['constructor']` 는 함수를 돌려주고, 그걸 배열로 다루면 그 자리에서 터진다.
+ * (`src/lib/itemClass.js` 가 같은 이유로 같은 모양의 헬퍼를 쓴다 — 세 번째 소비처가 생기면 공용화한다)
+ */
+function own(obj, key) {
+  return obj && Object.hasOwn(obj, key) ? obj[key] : null
+}
+
+/**
  * @param {object} args
  * @param {Record<string, Record<string, Array<{t:number,l:number,v:number[][]}>>>} args.table statTiers.<game>.json
  * @param {string|null} args.itemClass modifiers 파일명 (예: 'Ring')
@@ -19,9 +28,10 @@ export const CHIP_COUNT = 3
  */
 export function tiersFor({ table, itemClass, statId, ilvlMax = null }) {
   const empty = (status) => ({ status, tiers: [] })
-  if (!itemClass || !table || !table[itemClass]) return empty('no-class')
-  const rows = table[itemClass][statId]
-  if (!rows || !rows.length) return empty('no-stat')
+  const byStat = itemClass ? own(table, itemClass) : null
+  if (!byStat) return empty('no-class')
+  const rows = own(byStat, statId)
+  if (!Array.isArray(rows) || !rows.length) return empty('no-stat')
   if (rows.some((r) => (r.v ?? []).length !== 1)) return empty('multi-slot')
 
   const reachable = ilvlMax == null ? rows : rows.filter((r) => r.l <= ilvlMax)
