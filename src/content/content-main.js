@@ -18,7 +18,7 @@ import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText } from '../lib/pobExport.js'
 import { attachTierChips } from './tier-chip.js'
-import { classFromCategory, classFromBaseName } from '../lib/itemClass.js'
+import { classFromQuery } from '../lib/itemClass.js'
 import { normalizeTradeText } from '../lib/statTextNorm.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
@@ -698,27 +698,37 @@ function ensureStatIdIndex() {
   return statIdIndex
 }
 
-// 행에서 능력치 이름만 남긴다 — 입력칸·버튼(우리 칩 포함)을 걷어내고 텍스트를 긁는다.
+// 행에서 능력치 이름만 남긴다 — 입력칸·버튼(우리 칩 포함)을 빼고 텍스트를 모은다.
 // 클래스 이름에 기대지 않는 이유: GGG 가 화면 구조를 바꿔도 이 방식은 살아남는다.
+// 딥 클론을 쓰지 않는다 — 화면 감시가 100ms 마다 돌고 그때마다 행 전체를 복제하는 건 낭비다.
+const STAT_TEXT_SKIP = new Set(['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA'])
+function collectStatText(node, out) {
+  for (const child of node.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) out.push(child.textContent)
+    else if (child.nodeType === Node.ELEMENT_NODE && !STAT_TEXT_SKIP.has(child.tagName)) collectStatText(child, out)
+  }
+  return out
+}
 function statTextOf(row) {
-  const clone = row.cloneNode(true)
-  for (const el of clone.querySelectorAll('input, button, select, textarea')) el.remove()
-  return clone.textContent.replace(/\s+/g, ' ').trim()
+  return collectStatText(row, []).join('').replace(/\s+/g, ' ').trim()
 }
 
 // 부위 판정 — 유형 필터의 category 로 끝나면 베이스 이름표(260KB)를 아예 안 부른다.
 // ⚠ pobBaseMap 을 정적 import 하면 안 된다: 2026-08-23 에 이 맵을 지연 로딩으로 돌린 결정이
 // 무효가 되고, PoE1 페이지에서도 쓰지 않는 260KB 가 콘텐츠 스크립트에 실려 들어간다.
+//
+// 판정 자체는 classFromQuery 를 그대로 쓴다 — 여기서 다시 구현하면 그 함수의 테스트가
+// 실제 배선 경로를 더 이상 지키지 못한다(변형 아이템의 {option} 형태 처리 등).
+// classFromBaseName 이 baseMap === null 을 안전하게 다루므로, 이름표가 없으면 자연히 null 이 나온다.
 let tierBaseMap = null
 let tierBaseMapLoading = null
 function tierItemClass(query) {
-  const byCategory = classFromCategory(query?.filters?.type_filters?.filters?.category?.option)
-  if (byCategory) return byCategory
-  const name = typeof query?.type === 'string' ? query.type : query?.type?.option
-  if (!name) return null
-  if (tierBaseMap) return classFromBaseName(String(name), tierBaseMap)
-  // 처음 필요해진 순간에만 불러온다. 이번 회차는 부위 미상으로 두고 다음 kick 에서 판정한다.
-  if (!tierBaseMapLoading) {
+  const cls = classFromQuery(query, tierBaseMap)
+  if (cls) return cls
+  // 이름은 있는데 이름표가 아직 없다 → 그때 한 번 불러온다. 이번 회차는 부위 미상으로 두고
+  // 다음 화면 감시에서 판정한다(statMap 을 기다리는 방식과 같다).
+  // 실패하면 재시도하지 않는다 — 페이지를 새로 열면 복구된다. 매 회차 재시도는 낭비다.
+  if (!tierBaseMap && !tierBaseMapLoading && query?.type) {
     tierBaseMapLoading = import('../lib/pobBaseMap.json')
       .then((m) => { tierBaseMap = m.default })
       .catch((err) => { LOG('베이스 이름표 로드 실패', String(err)) })
@@ -727,6 +737,7 @@ function tierItemClass(query) {
 }
 
 // 티어 표(155KB)도 같은 이유로 지연 로딩한다 — PoE1 페이지에서는 한 번도 쓰지 않는다.
+// 여기도 실패 시 재시도하지 않는다 — 페이지를 새로 열면 복구된다.
 let tierTable = null
 let tierTableLoading = null
 function ensureTierTable() {
