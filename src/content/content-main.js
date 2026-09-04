@@ -1,7 +1,7 @@
 // content-main.js (ISOLATED world)
 // page-bridge가 가로챈 search·fetch 이벤트를 받아 기록을 만들고 저장한다.
 import { parseSearchQuery, searchIdentity } from '../lib/searchParser.js'
-import { buildStatMap } from '../lib/statMap.js'
+import { buildStatMap, buildStatIdIndex } from '../lib/statMap.js'
 import { buildFilterMap } from '../lib/filterMap.js'
 import { buildLeagueMap } from '../lib/leagueMap.js'
 import { enFetchPath, isSafeListingId, pickItem } from '../lib/enListing.js'
@@ -17,6 +17,11 @@ import { addHistory, markUsedByUrl, ensureSchema, backfillQuery, isWatched, addW
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText } from '../lib/pobExport.js'
+import { attachTierChips } from './tier-chip.js'
+import { classFromQuery } from '../lib/itemClass.js'
+import { normalizeTradeText } from '../lib/statTextNorm.js'
+import statTiersPoe2 from '../lib/statTiers.poe2.json'
+import pobBaseMapPoe2 from '../lib/pobBaseMap.json'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -407,7 +412,19 @@ function pobEnsureStyle() {
   .ba-page-set:active { transform: scale(0.97); }
   .ba-page-set:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
   .ba-page-set[disabled] { opacity: 0.55; cursor: default; }
-  @media (prefers-reduced-motion: reduce) { .ba-page-set { transition-property: background, border-color, color; } .ba-page-set:active { transform: none; } }`
+  @media (prefers-reduced-motion: reduce) { .ba-page-set { transition-property: background, border-color, color; } .ba-page-set:active { transform: none; } }
+  .ba-tier-chip, .ba-tier-ask {
+    min-height: 28px; min-width: 34px; margin-left: 4px; padding: 3px 9px;
+    border-radius: 8px; cursor: pointer; vertical-align: middle;
+    border: 1px solid rgba(167, 139, 250, 0.45);
+    background: rgba(43, 35, 64, 0.85); color: #ddd4f7;
+    font: 600 12px/1.2 system-ui, -apple-system, sans-serif;
+    transition: border-color .15s, background .15s; }
+  .ba-tier-chip:hover, .ba-tier-ask:hover {
+    border-color: rgba(167, 139, 250, 0.95); background: rgba(60, 48, 88, 0.95); }
+  .ba-tier-chip:focus-visible, .ba-tier-ask:focus-visible {
+    outline: 2px solid #a78bfa; outline-offset: 2px; }
+  .ba-tier-ask { border-style: dashed; }`
   document.head.appendChild(st)
 }
 // 페이지 표면 커스텀 툴팁 — data-tip의 《...》를 강조색(시안) span으로 치환(패널 .ba-tip과 동일 관례).
@@ -654,7 +671,7 @@ let pobKickPending = false
 function pobKick() {
   if (pobKickPending) return
   pobKickPending = true
-  setTimeout(() => { pobKickPending = false; injectPobButtons(); renderPageSets() }, 100)
+  setTimeout(() => { pobKickPending = false; injectPobButtons(); renderPageSets(); renderTierChips() }, 100)
 }
 let pobBodyObserver = null
 function pobEnsureObserver() {
@@ -667,7 +684,54 @@ function schedulePobInject() {
   ensureCurrencyStatic() // 화폐 아이콘·한글명 맵을 첫 fetch 시점에 미리 로드(환율 도착 전에 준비)
   try { pobEnsureObserver() } catch (err) { LOG('PoB 옵저버 실패', String(err)) }
   pobTimers.forEach(clearTimeout)
-  pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(() => { injectPobButtons(); renderPageSets() }, ms))
+  pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(() => { injectPobButtons(); renderPageSets(); renderTierChips() }, ms))
+}
+
+// ── 능력치 필터 티어 칩 ──
+// 부위·아이템 레벨은 최근 검색 조건에서 읽는다. 한 번도 검색하지 않았으면 부위를 모르는 상태로
+// 시작해 '부위?' 버튼이 뜬다. PoE1 은 티어 표가 아직 없으므로 건너뛴다.
+let statIdIndex = null
+let statIdIndexSize = -1
+function ensureStatIdIndex() {
+  const size = Object.keys(statMap).length
+  if (statIdIndex && statIdIndexSize === size) return statIdIndex
+  statIdIndex = buildStatIdIndex(statMap)
+  statIdIndexSize = size
+  return statIdIndex
+}
+
+// 행에서 능력치 이름만 남긴다 — 입력칸·버튼(우리 칩 포함)을 걷어내고 텍스트를 긁는다.
+// 클래스 이름에 기대지 않는 이유: GGG 가 화면 구조를 바꿔도 이 방식은 살아남는다.
+function statTextOf(row) {
+  const clone = row.cloneNode(true)
+  for (const el of clone.querySelectorAll('input, button, select, textarea')) el.remove()
+  return clone.textContent.replace(/\s+/g, ' ').trim()
+}
+
+let lastTierLog = ''
+function renderTierChips() {
+  if (game !== 'poe2') return
+  if (!Object.keys(statMap).length) return // statMap 도착 전 — 다음 kick 에서 다시 시도한다
+  try {
+    const index = ensureStatIdIndex()
+    const ilvl = lastQuery?.filters?.type_filters?.filters?.ilvl
+    const seen = attachTierChips(document, {
+      table: statTiersPoe2,
+      itemClass: classFromQuery(lastQuery, pobBaseMapPoe2),
+      ilvlMax: ilvl?.max ?? null,
+      statIdOf: (row) => {
+        const text = statTextOf(row)
+        return text ? index.get(normalizeTradeText(text)) || null : null
+      },
+      onAskClass: () => panel.toast('아이템 종류를 먼저 고르면 T1 수치를 넣어 드려요.'),
+      onApply: (result) => {
+        if (result === 'failed') panel.toast('거래소가 값을 받지 않았어요. 수치를 직접 넣어 주세요.')
+      },
+    })
+    // 같은 상태를 반복해 찍지 않는다 — 화면 감시가 자주 돈다.
+    const line = JSON.stringify(seen)
+    if (seen.minInputs && line !== lastTierLog) { lastTierLog = line; LOG('티어 칩', seen) }
+  } catch (err) { LOG('티어 칩 실패', String(err)) }
 }
 
 // ── 거래소 화면의 '조건 묶음' 칩 줄 ──
