@@ -8,24 +8,29 @@
 const nativeSetter = () =>
   Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')?.set
 
+/** 값을 써 넣고 Vue 가 듣는 이벤트를 발생시킨다. */
+function write(el, text) {
+  const set = nativeSetter()
+  if (set) set.call(el, text)
+  else el.value = text
+  el.dispatchEvent(new Event('input', { bubbles: true }))
+  el.dispatchEvent(new Event('change', { bubbles: true }))
+}
+
 /**
  * @param {HTMLInputElement|null} el
  * @param {string} value
- * @returns {'native'|'exec'|'failed'}
+ * @returns {'native'|'exec'|'failed'} 'failed' 면 입력칸은 부르기 전 상태 그대로다
  */
 export function setInputValue(el, value) {
   if (!el) return 'failed'
   const text = String(value)
+  const original = el.value // 다 실패하면 여기로 되돌린다
 
   // 1) 네이티브 setter + 이벤트 — Vue 는 addEventListener 로 듣기 때문에 isTrusted 여부는 상관없다
   try {
-    const set = nativeSetter()
-    if (set) {
-      set.call(el, text)
-      el.dispatchEvent(new Event('input', { bubbles: true }))
-      el.dispatchEvent(new Event('change', { bubbles: true }))
-      if (el.value === text) return 'native'
-    }
+    write(el, text)
+    if (el.value === text) return 'native'
   } catch (_) { /* 다음 경로 */ }
 
   // 2) 실제 타이핑 경로 — 값을 비우고 넣는다
@@ -34,6 +39,13 @@ export function setInputValue(el, value) {
     el.select?.()
     if (document.execCommand('insertText', false, text) && el.value === text) return 'exec'
   } catch (_) { /* 다음 경로 */ }
+
+  // 3) 둘 다 실패. 이때 칸에는 우리가 넣으려던 값도, 사용자의 원래 값도 아닌 것이 남아 있을 수 있다 —
+  // 상한이 걸린 칸이면 Vue 가 잘라서 써 넣는다. 그대로 두면 사용자는 넣지도 않은 숫자로 검색하게 된다.
+  // 'failed' 를 "아무것도 안 바뀌었다"로 만들어 두면 부르는 쪽이 단순해진다.
+  try {
+    if (el.value !== original) write(el, original)
+  } catch (_) { /* 최선 노력 — 되돌리기까지 막히면 더 할 수 있는 게 없다 */ }
 
   return 'failed'
 }
