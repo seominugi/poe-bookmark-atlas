@@ -12,7 +12,11 @@ import { setInputValue } from './setInputValue.js'
 export const CHIP_CLASS = 'ba-tier-chip'
 export const ASK_CLASS = 'ba-tier-ask'
 
-const MARK = 'baTierChip' // dataset 표식 — 한 번 처리한 최소 입력칸은 다시 건드리지 않는다
+// dataset 표식. **불리언이 아니라 '무엇으로 그렸는지'를 담는다.**
+// 사용자가 같은 행에서 능력치를 바꿔도 Vue 는 보통 그 입력칸 DOM 을 재사용하므로,
+// 한 번 처리했다고 영영 건너뛰면 옛 능력치의 칩이 남아 틀린 값을 넣게 된다.
+// 유형·아이템 레벨 상한이 바뀔 때도 같다.
+const MARK = 'baTierChip'
 const MAX_CLIMB = 6
 const SKIP_TAGS = new Set(['INPUT', 'BUTTON', 'SELECT'])
 
@@ -74,6 +78,17 @@ function insertAfterMin(min, node) {
   min.parentElement.insertBefore(node, min.nextSibling)
 }
 
+/** 이 입력칸에 우리가 앞서 붙였던 것만 걷어낸다 (거래소 자신의 요소는 건드리지 않는다). */
+function clearOwnButtons(min) {
+  let node = min.nextSibling
+  while (node) {
+    const next = node.nextSibling
+    const cl = node.nodeType === Node.ELEMENT_NODE ? node.classList : null
+    if (cl && (cl.contains(CHIP_CLASS) || cl.contains(ASK_CLASS))) node.remove()
+    node = next
+  }
+}
+
 /**
  * @param {Document|Element} root
  * @param {object} ctx
@@ -90,13 +105,17 @@ export function attachTierChips(root, ctx) {
   const minInputs = inputs.filter(isMinInput)
 
   for (const min of minInputs) {
-    if (min.dataset[MARK]) continue // 이미 처리됨
     try {
       const row = findRow(min, minInputs, root)
       if (!row) continue
-      min.dataset[MARK] = '1' // 행을 찾았으면 결과와 무관하게 다시 시도하지 않는다
 
       const statId = statIdOf(row)
+      // 그린 결과를 결정하는 값들. 하나라도 다르면 다시 그린다.
+      const signature = `${statId ?? ''}|${itemClass ?? ''}|${ilvlMax ?? ''}`
+      if (min.dataset[MARK] === signature) continue
+      min.dataset[MARK] = signature
+      clearOwnButtons(min) // 이전에 그린 것을 걷어내고 새로 붙인다
+
       if (!statId) continue
 
       const { status, tiers } = tiersFor({ table, itemClass, statId, ilvlMax })

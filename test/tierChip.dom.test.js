@@ -107,6 +107,37 @@ describe('평평한 구조 — 화염 저항 (T1~T3)', () => {
     expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(3)
   })
 
+  // 사용자가 같은 행에서 능력치를 바꾸면 Vue 는 보통 그 입력칸 DOM 을 재사용한다.
+  // 한 번 처리한 칸을 영영 건너뛰면 옛 능력치의 칩이 그대로 남아 틀린 값을 넣게 된다.
+  it('같은 행의 능력치가 바뀌면 칩을 새 능력치로 갈아 끼운다', () => {
+    let statId = 'stat.fire_res'
+    const c = () => ({ table, itemClass: 'Ring', statIdOf: () => statId })
+
+    attachTierChips(document, c())
+    expect([...row.querySelectorAll('.' + CHIP_CLASS)].map((b) => b.title)[0]).toBe('41~45 · 아이템 레벨 82 이상')
+
+    statId = 'stat.added_fire' // 슬롯 둘 → 칩이 사라져야 한다
+    attachTierChips(document, c())
+    expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
+  })
+
+  it('아이템 레벨 상한이 바뀌면 칩을 다시 계산한다', () => {
+    attachTierChips(document, ctx())
+    expect([...row.querySelectorAll('.' + CHIP_CLASS)].map((b) => b.textContent)).toEqual(['T1', 'T2', 'T3'])
+
+    attachTierChips(document, { ...ctx(), ilvlMax: 65 })
+    expect([...row.querySelectorAll('.' + CHIP_CLASS)].map((b) => b.textContent)).toEqual(['T3'])
+  })
+
+  it('부위가 정해지면 부위? 버튼이 칩으로 바뀐다', () => {
+    attachTierChips(document, { ...ctx(), itemClass: null })
+    expect(row.querySelectorAll('.' + ASK_CLASS)).toHaveLength(1)
+
+    attachTierChips(document, ctx())
+    expect(row.querySelectorAll('.' + ASK_CLASS)).toHaveLength(0)
+    expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(3)
+  })
+
   it('ilvlMax: 65 면 T3 만 붙는다', () => {
     attachTierChips(document, { ...ctx(), ilvlMax: 65 })
     const chips = row.querySelectorAll('.' + CHIP_CLASS)
