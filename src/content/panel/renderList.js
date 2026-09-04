@@ -18,6 +18,7 @@ import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
 import researcherIcon from '../../icons/mascot-researcher.webp'
 import { nextDelay, retryAfterMs, waitSeconds } from '../../lib/tradeRate.js'
+import { SECTIONS, SECTION_LABEL, DEFAULT_SEC_ORDER, normalizeSecOrder } from '../../lib/secOrder.js'
 
 // content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
 // import 값은 '/assets/..'(호스트 페이지 기준 절대경로)라 그대로 쓰면 poe.kakaogames.com/assets/.. → 404.
@@ -31,6 +32,10 @@ let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보�
 let bmSearch = '' // 통합 빠른 검색어 (북마크·히스토리 동시 필터, 모듈 레벨 — 재렌더 후에도 유지)
 let bmSort = 'recent' // 북마크 정렬 기본: recent(최근·저장 순 → 저장하면 상단). order(수동)·name도 선택 가능
 const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
+// 섹션(북마크·찜한 매물·히스토리)의 순서와 접힘. 시즌 끝물엔 북마크보다 찜을 더 자주 본다는
+// 제보(2026-09-04)로 만들었다 — "찜 리스트가 한 창에 안 보인다"가 실제 증상이다.
+let secOrder = [...DEFAULT_SEC_ORDER]
+const collapsedSecs = new Set() // 접힌 섹션 키. 헤더·개수는 남기고 본문만 접는다
 
 // 저장된 검색을 새 탭에서 열지 여부. 기본은 false(현재 탭) — 기존 동작이고, 대부분의 사용자에겐
 // 아무것도 달라지지 않는다. 설정을 켠 사람에게만 바뀐다(피드백 2026-08-15: 선택하게 해달라).
@@ -42,10 +47,13 @@ async function hydrateUiState() {
   if (uiHydrated) return
   uiHydrated = true
   try {
-    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders', 'uiOpenInNewTab'])
+    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders', 'uiOpenInNewTab', 'uiSecOrder', 'uiCollapsedSecs'])
     if (r.uiBmSort) bmSort = r.uiBmSort
     if (typeof r.uiOpenInNewTab === 'boolean') openNewTab = r.uiOpenInNewTab
     if (Array.isArray(r.uiCollapsedFolders)) { collapsedFolders.clear(); r.uiCollapsedFolders.forEach((k) => collapsedFolders.add(k)) }
+    // 저장값을 그대로 믿지 않는다 — 모르는 키는 버리고 빠진 키는 뒤에 채운다(secOrder.js 주석 참조)
+    secOrder = normalizeSecOrder(r.uiSecOrder)
+    if (Array.isArray(r.uiCollapsedSecs)) { collapsedSecs.clear(); r.uiCollapsedSecs.filter((k) => SECTIONS.includes(k)).forEach((k) => collapsedSecs.add(k)) }
   } catch (_) {}
 }
 // 카드 툴팁은 **지금 설정으로 무슨 일이 일어나는지**를 그대로 읽어 준다.
@@ -64,11 +72,24 @@ export function setOpenInNewTab(v) {
 }
 const saveCollapsed = () => { try { chrome.storage.local.set({ uiCollapsedFolders: [...collapsedFolders] }) } catch (_) {} }
 const saveSort = () => { try { chrome.storage.local.set({ uiBmSort: bmSort }) } catch (_) {} }
+const saveCollapsedSecs = () => { try { chrome.storage.local.set({ uiCollapsedSecs: [...collapsedSecs] }) } catch (_) {} }
+
+// 섹션 순서 — 설정 모달(panel.js)이 바꾸고 여기가 그린다. 값을 두 곳에서 각자 들면 갈라진다.
+export const getSecOrder = () => [...secOrder]
+export function setSecOrder(next) {
+  secOrder = normalizeSecOrder(next)
+  try { chrome.storage.local.set({ uiSecOrder: secOrder }) } catch (_) {}
+}
+// 가져오기가 진행 중인가. **모듈 레벨**이어야 한다 — 진행 중에 changed()가 목록을 다시 그리면
+// 버튼 DOM이 통째로 바뀌므로, 상태를 버튼에 들려 두면 잠금이 그 순간 풀린다.
+// 제보(2026-09-04): "파일 불러오고 리스트 갱신되는데 약간의 딜레이가 있어 중간에 꼬인다."
+// 실제 위험은 느린 것 자체가 아니라 **그동안 다시 눌러도 막히지 않는 것**이다(두 번째 가져오기가 겹친다).
+let importBusy = false
 let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
 let focusBookmarkId = null // 저장·승격 후 스크롤·강조 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
-const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export'
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export, .ba-sec-title[data-sec]'
 function applyA11y(listEl) {
   listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
     if (el.matches('button, a, input')) return
@@ -97,6 +118,8 @@ export function highlightBookmark(container, id, opts = {}) {
   if (!row) return
   const folded = row.closest('.ba-folder--collapsed')
   if (folded) folded.classList.remove('ba-folder--collapsed') // 접힌 폴더 안이면 펼쳐 대상이 보이게(안 그러면 0-size라 스크롤·hole-punch가 어긋남)
+  const secFolded = row.closest('.ba-sec--collapsed')
+  if (secFolded) secFolded.classList.remove('ba-sec--collapsed') // 섹션째 접혀 있어도 같은 이유로 펼친다
   // hold(다이얼로그 focus): 즉시 가운데로 — 팝오버는 행 바로 아래 붙어 겹칠 게 없고, 사용자가 '제대로 된 위치'로 인지하는 것도 center. 자동 해제 안 함(대화 동안 유지)
   row.scrollIntoView(opts.hold ? { block: 'center' } : { block: 'center', behavior: 'smooth' })
   const rootEl = container.closest('.ba-root')
@@ -288,7 +311,12 @@ function applyFilters(listEl) {
   const hsHead = listEl.querySelector('.ba-sec-hist')
   let hsNoRes = listEl.querySelector('.ba-no-result-hs')
   if (term && hsVisible === 0 && hsHead) {
-    if (!hsNoRes) { hsNoRes = document.createElement('div'); hsNoRes.className = 'ba-no-result ba-no-result-hs'; hsHead.after(hsNoRes) }
+    // 섹션 **본문 안**에 넣는다 — 헤더 뒤(본문 밖)에 두면 히스토리를 접어도 안내문만 남는다.
+    if (!hsNoRes) {
+      hsNoRes = document.createElement('div'); hsNoRes.className = 'ba-no-result ba-no-result-hs'
+      const body = hsHead.parentElement && hsHead.parentElement.querySelector(':scope > .ba-sec-body')
+      if (body) body.prepend(hsNoRes); else hsHead.after(hsNoRes)
+    }
     hsNoRes.textContent = `"${bmSearch.trim()}"에 해당하는 히스토리가 없습니다.`; hsNoRes.hidden = false
   } else if (hsNoRes) { hsNoRes.hidden = true }
   // 북마크
@@ -631,13 +659,23 @@ export async function renderList(listEl, root, ui = {}) {
       <span class="ba-sort-seg ${bmSort === 'recent' ? 'active' : ''}" data-sort="recent" data-tip="최근 사용순">최근</span>
       <span class="ba-sort-seg ${bmSort === 'name' ? 'active' : ''}" data-sort="name" data-tip="이름순">이름</span>
     </span>`
+  // ── 섹션 머리 ────────────────────────────────────────────────────────
+  // 제목이 곧 접기 버튼이다 — 폴더 헤더와 **같은 언어**(chevron 회전 + 본문 숨김)라 새로 배울 게 없고,
+  // 버튼을 더하지 않으므로 액션 행·머리 줄의 폭 예산에 아무것도 얹지 않는다(3번 깨진 자리다).
+  // 접혀도 헤더와 개수는 남는다 — 몇 개 있는지가 안 보이면 '사라졌다'로 읽힌다.
+  const secHead = (key, ic, label, count, actions = '', extraCls = '') =>
+    `<div class="ba-sec-head${extraCls ? ' ' + extraCls : ''}"><span class="ba-sec-title" data-sec="${key}" data-tip="클릭하면 ${SECTION_LABEL[key]} 목록을 접거나 펼쳐요">`
+    + `<span class="ba-sec-chevron">${icon('chevronRight', 13)}</span>${ic}<span>${label}</span><span class="ba-sec-count">${count}</span></span>`
+    + (actions ? `<span class="ba-sec-actions">${actions}</span>` : '') + `</div>`
   // ⚠ 섹션 머리와 검색을 .ba-list-head 로 감싸는 건 폭 밴드 때문이다 — m 밴드부터 이 둘이 한 줄로 합쳐진다
   //   (.ba-sec-head 를 display:contents 로 풀어 제목·검색·정렬을 같은 flex 줄에 올린다. panel.css 참조).
   //   히스토리 섹션 머리는 감싸지 않는다 — 거긴 검색이 없어 합칠 게 없다.
-  let html = `<div class="ba-list-head">`
-  html += `<div class="ba-sec-head"><span class="ba-sec-title">${icon('bookmark', 15)}<span>북마크</span><span class="ba-sec-count">${bookmarks.length}</span></span><span class="ba-sec-actions">${sortToggle}</span></div>`
-  html += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크·히스토리 검색 (Alt+K)" data-tip="이름·조건으로 찾기 — Alt+K로 어디서나 여기에 포커스" value="${escapeHtml(bmSearch)}" /></span></div>`
-  html += `</div>`
+  // ⚠ **검색행은 .ba-sec-body 밖이다.** 이 검색창은 북마크와 히스토리를 **동시에** 훑으므로,
+  //   북마크를 접었다고 같이 사라지면 히스토리를 찾을 방법이 없어진다.
+  let bmHtml = `<div class="ba-list-head">`
+  bmHtml += secHead('bookmarks', icon('bookmark', 15), '북마크', bookmarks.length, sortToggle)
+  bmHtml += `<div class="ba-search-row"><span class="ba-search">${icon('search', 13)}<input class="ba-search-input" data-scope="bm" placeholder="북마크·히스토리 검색 (Alt+K)" data-tip="이름·조건으로 찾기 — Alt+K로 어디서나 여기에 포커스" value="${escapeHtml(bmSearch)}" /></span></div>`
+  bmHtml += `</div>`
   // 모든 폴더 접기/펼치기 토글 — 실폴더가 있을 때만(미분류 포함 2개 이상). 라벨은 현재 접힘 상태로 결정.
   const allKeys = ['', ...folders.map((f) => f.id)]
   const allCollapsed = allKeys.every((k) => collapsedFolders.has(k))
@@ -647,16 +685,19 @@ export async function renderList(listEl, root, ui = {}) {
     ? `<button class="ba-collapse-all" data-tip="${allCollapsed ? '모든 폴더 펼치기' : '모든 폴더 접기'}">${icon(allCollapsed ? 'chevronDown' : 'chevronRight', 12)}${allCollapsed ? '전체 펼치기' : '전체 접기'}</button>`
     : ''
   // 검색 아래 별도 액션 행 (.dc.html): 오래된 정리 · 가져오기 · 내보내기 · 모두 접기 · 폴더 추가 (우측 정렬)
-  html += `<div class="ba-action-row">${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
+  let bmBody = `<div class="ba-action-row">${cleanupBtn}<span class="ba-io-group"><span class="ba-import" data-tip="JSON에서 북마크 가져오기">${icon('upload', 14)}</span><span class="ba-export" data-tip="북마크를 JSON으로 내보내기">${icon('download', 14)}</span></span>${collapseAllBtn}<button class="ba-add-folder" data-tip="새 폴더 만들기">${icon('folderPlus', 13)}폴더 추가</button></div>`
   const groups = [{ id: null, name: '미분류' }, ...folders]
   const sortItems = (arr) => {
     if (bmSort === 'recent') return [...arr].sort((a, b) => (b.lastUsedAt || b.updatedAt || 0) - (a.lastUsedAt || a.updatedAt || 0))
     if (bmSort === 'name') return [...arr].sort((a, b) => String(a.name || a.title).localeCompare(String(b.name || b.title), 'ko'))
     return arr
   }
-  // 빈 상태 — 북마크·폴더·히스토리 전부 없을 때 (마스코트 안내)
-  if (bookmarks.length === 0 && folders.length === 0 && history.length === 0) {
-    html += `<div class="ba-empty-bm">
+  // 빈 상태 — 북마크·폴더가 없을 때 (마스코트 안내)
+  // ⚠ 예전엔 히스토리까지 비어야 떴고, 그 조건에 걸리면 **찜한 매물 섹션까지 통째로 안 그렸다**
+  //   (else 안에 다 들어 있었다). 찜만 있는 사용자는 자기 찜을 못 봤다. 섹션을 조각으로 나누면서
+  //   그 결합이 자연히 풀렸다 — 이제 각 섹션이 자기 데이터만 보고 자기 몫을 그린다.
+  if (bookmarks.length === 0 && folders.length === 0) {
+    bmBody += `<div class="ba-empty-bm">
       <img src="${analystUrl}" alt="">
       <b>저장된 북마크가 없어요</b>
       <small>좋은 검색을 찾으면 상단 <span class="hl">현재 검색 저장</span>으로<br>북마크해 두고 언제든 다시 열어보세요</small>
@@ -672,22 +713,31 @@ export async function renderList(listEl, root, ui = {}) {
     // 안 한 것처럼 보이고 드래그해 넣을 대상조차 없어진다(사용자 제보 2026-07-27).
     for (const g of groups) {
       const items = sortItems(bookmarks.filter((b) => (b.folderId ?? null) === g.id))
-      html += folderHtml(g, items, lg, currentLeague)
-    }
-    // ── 찜한 매물 — 개별 매물. 팔리면 사라지므로 '아직 있나'를 답하는 게 이 섹션의 값어치다.
-    //    상태 갱신은 자동으로 하지 않는다(거래소 fetch API에 rate limit) — 사용자가 누를 때만.
-    if (watched.length) {
-      html += `<div class="ba-sec-head ba-sec-watch"><span class="ba-sec-title">${icon('star', 14)}<span>찜한 매물</span><span class="ba-sec-count">${watched.length}</span></span>`
-        + `</div>`
-      html += watched.map((w) => watchRowHtml(w)).join('')
-    }
-    // ── 히스토리 — 리그 구분 없이 전체 통합(시간순, listByKind가 이미 최신순 정렬) ──
-    if (history.length) {
-      html += `<div class="ba-sec-head ba-sec-hist"><span class="ba-sec-title">${icon('clock', 14)}<span>히스토리</span><span class="ba-sec-count">${history.length}</span></span><span class="ba-sec-actions"><button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button></span></div>`
-      html += history.slice(0, historyLimit).map((r) => rowHtml(r, 'history', lg)).join('')
-      if (history.length > historyLimit) html += `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>`
+      bmBody += folderHtml(g, items, lg, currentLeague)
     }
   }
+  // ── 섹션 조각 — 순서는 사용자가 정한다(설정 → 섹션 순서) ────────────────
+  // 시즌 끝물엔 북마크보다 찜을 더 자주 본다는 제보(2026-09-04)로 만들었다.
+  // 각 조각은 자기 데이터만 보고 자기 몫을 그린다 — 조각끼리 서로를 모르게 하는 게 이 구조의 핵심이다.
+  const sec = (key, head, body) =>
+    `<div class="ba-sec${collapsedSecs.has(key) ? ' ba-sec--collapsed' : ''}" data-sec="${key}">${head}<div class="ba-sec-body">${body}</div></div>`
+  const parts = {
+    bookmarks: () => sec('bookmarks', bmHtml, bmBody),
+    // ── 찜한 매물 — 개별 매물. 팔리면 사라지므로 '아직 있나'를 답하는 게 이 섹션의 값어치다.
+    //    상태 갱신은 자동으로 하지 않는다(거래소 fetch API에 rate limit) — 사용자가 누를 때만.
+    watch: () => (watched.length
+      ? sec('watch', secHead('watch', icon('star', 14), '찜한 매물', watched.length, '', 'ba-sec-watch'), watched.map((w) => watchRowHtml(w)).join(''))
+      : ''),
+    // ── 히스토리 — 리그 구분 없이 전체 통합(시간순, listByKind가 이미 최신순 정렬) ──
+    history: () => (history.length
+      ? sec('history',
+        secHead('history', icon('clock', 14), '히스토리', history.length,
+          `<button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button>`, 'ba-sec-hist'),
+        history.slice(0, historyLimit).map((r) => rowHtml(r, 'history', lg)).join('')
+        + (history.length > historyLimit ? `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>` : ''))
+      : ''),
+  }
+  const html = secOrder.map((k) => (parts[k] ? parts[k]() : '')).join('')
 
   listEl.innerHTML = html
   bindAll(listEl, ui, { lg, currentLeague })
@@ -975,17 +1025,34 @@ function bindAll(listEl, ui, ctx) {
   // 합치기만으로는 저쪽의 삭제·이름변경이 전파되지 않아 두 PC를 오갈수록 단조증가했다(제보 2026-08-24).
   const gameLabel = (g) => (g === 'poe1' ? 'POE1' : g === 'poe2' ? 'POE2' : String(g || '미상'))
   const importBtn = listEl.querySelector('.ba-import')
+  // 진행 표시 — 아이콘만 바꾼다(같은 14px). 라벨을 붙이면 액션 행이 넓어져 줄바꿈이 난다(3번 깨진 자리).
+  const setImportBusy = (on) => {
+    importBusy = on
+    const btn = listEl.querySelector('.ba-import')
+    if (!btn) return
+    btn.classList.toggle('ba-busy', on)
+    btn.setAttribute('aria-busy', on ? 'true' : 'false')
+    btn.innerHTML = on ? icon('refresh', 14) : icon('upload', 14)
+    btn.setAttribute('data-tip', on ? '가져오는 중이에요 — 끝나면 알려드릴게요' : 'JSON에서 북마크 가져오기')
+  }
+  if (importBusy) setImportBusy(true) // 진행 중에 목록이 다시 그려졌으면 새 버튼에도 잠금을 다시 칠한다
   if (importBtn) importBtn.addEventListener('click', () => {
+    // 파일 대화상자가 두 번 열리면 두 번째 가져오기가 첫 번째와 겹친다 — 그게 '꼬인다'의 실체다.
+    if (importBusy) { toast('가져오는 중이에요. 끝나면 알려드릴게요.'); return }
     const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'application/json,.json'
+    // 취소하면 onchange 가 아예 안 온다 — 그래서 잠금은 **파일이 실제로 골라진 뒤**에 건다.
     inp.onchange = () => {
       const f = inp.files && inp.files[0]; if (!f) return
+      setImportBusy(true)
+      const done = () => setImportBusy(false)
       const rd = new FileReader()
+      rd.onerror = () => { done(); toast('파일을 읽지 못했습니다.') }
       rd.onload = async () => {
         let data
-        try { data = JSON.parse(rd.result) } catch (_) { toast('JSON 형식이 올바르지 않습니다.'); return }
+        try { data = JSON.parse(rd.result) } catch (_) { done(); toast('JSON 형식이 올바르지 않습니다.'); return }
         const inB = Array.isArray(data && data.bookmarks) ? data.bookmarks.length : 0
         const inF = Array.isArray(data && data.folders) ? data.folders.length : 0
-        if (!inB && !inF) { toast('이 파일에는 가져올 북마크가 없습니다.'); return }
+        if (!inB && !inF) { done(); toast('이 파일에는 가져올 북마크가 없습니다.'); return }
         // '지금 있는 것'은 **교체가 실제로 지울 대상과 같은 기준**으로 센다 — 게임 표시가 없는 레거시
         // 폴더는 두 게임 모두에 보여서 교체가 건드리지 않으므로 여기서도 뺀다(숫자가 거짓말하면 안 된다).
         const [nowB, allF] = await Promise.all([listByKind('bookmark', ui.game), listFolders(ui.game)])
@@ -1003,13 +1070,23 @@ function bindAll(listEl, ui, ctx) {
         const choice = ui.showChoice
           ? await ui.showChoice({ title: '북마크 가져오기', message: msg, ok: '합치기', alt: nowB.length ? `교체 (${nowB.length}개 삭제)` : '교체' })
           : 'ok'
-        if (!choice) return
+        if (!choice) { done(); return }
         const replace = choice === 'alt'
-        if (replace) { // 지우기 전 마지막 사본 — stale 필터 없는 전체 백업(내보내기와 달리 하나도 빼지 않는다)
-          const bk = await backupBookmarksJSON(ui.game)
-          if (bk.count) downloadJSON(bk.json, `bookmark-atlas-backup-${today()}.json`)
+        // 여기부터가 실제로 시간이 걸리는 구간이다(백업 내려받기 → 저장 → 목록 재조립).
+        // 지금까지는 이 동안 화면에 아무 표시가 없어서 "멈췄나" 싶은 자리였다.
+        toast(replace ? '교체하는 중이에요…' : '가져오는 중이에요…')
+        let result
+        try {
+          if (replace) { // 지우기 전 마지막 사본 — stale 필터 없는 전체 백업(내보내기와 달리 하나도 빼지 않는다)
+            const bk = await backupBookmarksJSON(ui.game)
+            if (bk.count) downloadJSON(bk.json, `bookmark-atlas-backup-${today()}.json`)
+          }
+          result = await importBookmarksJSON(ui.game, data, { replace })
+        } catch (_) {
+          done(); toast('가져오지 못했어요. 잠시 뒤 다시 시도해 주세요.'); return
         }
-        const { added, skipped, blocked, snapshot } = await importBookmarksJSON(ui.game, data, { replace })
+        const { added, skipped, blocked, snapshot } = result
+        done() // changed() 보다 **먼저** 푼다 — 다시 그려진 버튼이 잠긴 채로 남지 않게
         changed()
         if (replace) {
           toast(`북마크 ${added}개로 교체했어요 (이전 ${nowB.length}개는 백업 파일에 있어요).`, {
@@ -1188,6 +1265,16 @@ function bindAll(listEl, ui, ctx) {
     saveCollapsed()
   }))
 
+  // 섹션 제목 클릭 → 그 섹션 접기/펼치기. 폴더 접기와 **독립**이다(폴더는 폴더대로 기억한다).
+  // 재렌더 없이 클래스만 토글한다 — 200개 목록을 다시 그릴 이유가 없고, 검색어·스크롤도 그대로 남는다.
+  listEl.querySelectorAll('.ba-sec-title[data-sec]').forEach((title) => title.addEventListener('click', () => {
+    const key = title.dataset.sec
+    const sec = title.closest('.ba-sec')
+    if (!sec) return
+    if (sec.classList.toggle('ba-sec--collapsed')) collapsedSecs.add(key)
+    else collapsedSecs.delete(key)
+    saveCollapsedSecs()
+  }))
 
   bindDnD(listEl, toast)
   applyA11y(listEl)
