@@ -18,10 +18,8 @@ import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText } from '../lib/pobExport.js'
 import { attachTierChips } from './tier-chip.js'
-import { classFromQuery } from '../lib/itemClass.js'
+import { classFromCategory, classFromBaseName } from '../lib/itemClass.js'
 import { normalizeTradeText } from '../lib/statTextNorm.js'
-import statTiersPoe2 from '../lib/statTiers.poe2.json'
-import pobBaseMapPoe2 from '../lib/pobBaseMap.json'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -708,16 +706,51 @@ function statTextOf(row) {
   return clone.textContent.replace(/\s+/g, ' ').trim()
 }
 
+// 부위 판정 — 유형 필터의 category 로 끝나면 베이스 이름표(260KB)를 아예 안 부른다.
+// ⚠ pobBaseMap 을 정적 import 하면 안 된다: 2026-08-23 에 이 맵을 지연 로딩으로 돌린 결정이
+// 무효가 되고, PoE1 페이지에서도 쓰지 않는 260KB 가 콘텐츠 스크립트에 실려 들어간다.
+let tierBaseMap = null
+let tierBaseMapLoading = null
+function tierItemClass(query) {
+  const byCategory = classFromCategory(query?.filters?.type_filters?.filters?.category?.option)
+  if (byCategory) return byCategory
+  const name = typeof query?.type === 'string' ? query.type : query?.type?.option
+  if (!name) return null
+  if (tierBaseMap) return classFromBaseName(String(name), tierBaseMap)
+  // 처음 필요해진 순간에만 불러온다. 이번 회차는 부위 미상으로 두고 다음 kick 에서 판정한다.
+  if (!tierBaseMapLoading) {
+    tierBaseMapLoading = import('../lib/pobBaseMap.json')
+      .then((m) => { tierBaseMap = m.default })
+      .catch((err) => { LOG('베이스 이름표 로드 실패', String(err)) })
+  }
+  return null
+}
+
+// 티어 표(155KB)도 같은 이유로 지연 로딩한다 — PoE1 페이지에서는 한 번도 쓰지 않는다.
+let tierTable = null
+let tierTableLoading = null
+function ensureTierTable() {
+  if (tierTable) return tierTable
+  if (!tierTableLoading) {
+    tierTableLoading = import('../lib/statTiers.poe2.json')
+      .then((m) => { tierTable = m.default })
+      .catch((err) => { LOG('티어 표 로드 실패', String(err)) })
+  }
+  return null
+}
+
 let lastTierLog = ''
 function renderTierChips() {
   if (game !== 'poe2') return
   if (!Object.keys(statMap).length) return // statMap 도착 전 — 다음 kick 에서 다시 시도한다
+  const table = ensureTierTable()
+  if (!table) return // 표 도착 전 — 다음 kick 에서 다시 시도한다
   try {
     const index = ensureStatIdIndex()
     const ilvl = lastQuery?.filters?.type_filters?.filters?.ilvl
     const seen = attachTierChips(document, {
-      table: statTiersPoe2,
-      itemClass: classFromQuery(lastQuery, pobBaseMapPoe2),
+      table,
+      itemClass: tierItemClass(lastQuery),
       ilvlMax: ilvl?.max ?? null,
       statIdOf: (row) => {
         const text = statTextOf(row)
