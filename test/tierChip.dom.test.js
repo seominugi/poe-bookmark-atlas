@@ -260,3 +260,80 @@ describe('한 행이 터져도 다른 행은 계속 처리한다', () => {
     expect(boom.row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
   })
 })
+
+// 실제 거래소 마크업을 아무도 못 봤으므로, 칩이 안 뜰 때 왜 안 뜨는지 알 방법이 필요하다.
+// 이 요약이 Task 9 실측에서 그대로 진단 자료가 된다.
+describe('진단 요약을 돌려준다', () => {
+  it('붙은 것과 안 붙은 이유를 센다', () => {
+    const ok = flatRow('화염 저항 #%')
+    const multi = flatRow('공격 시 화염 피해 #~# 추가')
+    const unknown = flatRow('우리가 모르는 능력치')
+    for (const r of [ok, multi, unknown]) document.body.appendChild(r.row)
+
+    const byName = {
+      '화염 저항 #%': 'stat.fire_res',
+      '공격 시 화염 피해 #~# 추가': 'stat.added_fire',
+    }
+    const seen = attachTierChips(document, {
+      table,
+      itemClass: 'Ring',
+      statIdOf: (row) => byName[row.textContent.trim()] ?? null,
+    })
+
+    expect(seen.minInputs).toBe(3)
+    expect(seen.chips).toBe(3) // ok 행의 T1·T2·T3
+    expect(seen.multiSlot).toBe(1) // 슬롯 둘이라 못 붙임
+    expect(seen.noStatId).toBe(1) // 능력치를 알아보지 못함
+    expect(seen.noRow).toBe(0)
+  })
+
+  it('행을 못 찾으면 noRow 로 잡힌다 — 조용히 사라지지 않는다', () => {
+    // 이름이 텍스트 노드가 아니라 aria-label 로만 있는 구조 (실제 거래소가 이럴 수 있다)
+    const row = el('div')
+    row.setAttribute('aria-label', '화염 저항')
+    row.appendChild(el('input', { placeholder: '최소' }))
+    document.body.appendChild(row)
+
+    const seen = attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
+    expect(seen.minInputs).toBe(1)
+    expect(seen.noRow).toBe(1)
+    expect(seen.chips).toBe(0)
+  })
+
+  it('두 번째 호출은 unchanged 로 잡혀 다시 그리지 않는다', () => {
+    const { row } = flatRow('화염 저항 #%')
+    document.body.appendChild(row)
+    const c = { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' }
+    attachTierChips(document, c)
+    const seen = attachTierChips(document, c)
+    expect(seen.unchanged).toBe(1)
+    expect(seen.chips).toBe(0)
+  })
+})
+
+describe('행 찾기의 알려진 한계 (의도된 동작을 못박는다)', () => {
+  it('한 행에 최소 입력칸이 둘이면 컨테이너로 오판해 칩을 안 붙인다', () => {
+    const row = el('div')
+    row.appendChild(el('span', { textContent: '화염 저항 #%' }))
+    row.appendChild(el('input', { placeholder: '최소' }))
+    row.appendChild(el('input', { placeholder: '최소' })) // 같은 행에 둘
+    document.body.appendChild(row)
+
+    const seen = attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
+    expect(seen.noRow).toBe(2)
+    expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
+  })
+
+  it('이름이 7단계 위에 있으면 깊이 상한(6)에 막힌다', () => {
+    let node = el('div')
+    const min = el('input', { placeholder: '최소' })
+    node.appendChild(min)
+    for (let i = 0; i < 6; i += 1) { const up = el('div'); up.appendChild(node); node = up }
+    node.appendChild(el('span', { textContent: '화염 저항 #%' })) // 7단계 위에만 이름이 있다
+    document.body.appendChild(node)
+
+    const seen = attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
+    expect(seen.noRow).toBe(1)
+    expect(document.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
+  })
+})

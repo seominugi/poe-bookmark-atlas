@@ -98,25 +98,33 @@ function clearOwnButtons(min) {
  * @param {(row: Element) => string|null} ctx.statIdOf   행 → 거래소 stat id
  * @param {(row: Element) => void} [ctx.onAskClass]      '부위?' 를 눌렀을 때
  * @param {(result: string, tier: object) => void} [ctx.onApply]  칩을 눌러 값을 넣은 뒤
+ *
+ * @returns {{minInputs:number, chips:number, ask:number, noRow:number, noStatId:number,
+ *            noStat:number, multiSlot:number, none:number, unchanged:number}}
+ *   왜 칩이 안 붙었는지 세어 돌려준다. 실제 거래소 마크업을 아무도 못 본 상태라, 칩이 안 뜰 때
+ *   "행을 못 찾았나 / 능력치를 못 알아봤나 / 그 부위에 없는 옵션인가"를 구분할 방법이 필요하다.
+ *   부르는 쪽이 이 값을 로그로 남기면 실측 때 그대로 진단 자료가 된다.
  */
 export function attachTierChips(root, ctx) {
   const { table, itemClass, ilvlMax = null, statIdOf, onAskClass, onApply } = ctx
   const inputs = Array.from(root.querySelectorAll('input'))
   const minInputs = inputs.filter(isMinInput)
+  const seen = { minInputs: minInputs.length, chips: 0, ask: 0, noRow: 0, noStatId: 0, noStat: 0, multiSlot: 0, none: 0, unchanged: 0 }
 
   for (const min of minInputs) {
     try {
       const row = findRow(min, minInputs, root)
-      if (!row) continue
+      if (!row) { seen.noRow += 1; continue }
 
       const statId = statIdOf(row)
       // 그린 결과를 결정하는 값들. 하나라도 다르면 다시 그린다.
+      // (`table` 은 넣지 않는다 — 빌드에 박혀 들어오는 정적 데이터라 실행 중에 바뀌지 않는다)
       const signature = `${statId ?? ''}|${itemClass ?? ''}|${ilvlMax ?? ''}`
-      if (min.dataset[MARK] === signature) continue
+      if (min.dataset[MARK] === signature) { seen.unchanged += 1; continue }
       min.dataset[MARK] = signature
       clearOwnButtons(min) // 이전에 그린 것을 걷어내고 새로 붙인다
 
-      if (!statId) continue
+      if (!statId) { seen.noStatId += 1; continue }
 
       const { status, tiers } = tiersFor({ table, itemClass, statId, ilvlMax })
 
@@ -128,10 +136,17 @@ export function attachTierChips(root, ctx) {
           onAskClass?.(row)
         })
         insertAfterMin(min, askBtn)
+        seen.ask += 1
         continue
       }
 
-      if (status !== 'ok') continue // no-stat · multi-slot · none — 아무것도 붙이지 않는다
+      if (status !== 'ok') {
+        // no-stat · multi-slot · none — 아무것도 붙이지 않는다. 이유만 세어 둔다.
+        if (status === 'no-stat') seen.noStat += 1
+        else if (status === 'multi-slot') seen.multiSlot += 1
+        else if (status === 'none') seen.none += 1
+        continue
+      }
 
       // 항상 `min.parentElement.insertBefore(chip, min.nextSibling)` 로 넣으므로, 화면에
       // T1 T2 T3 순으로 보이려면 뒤에서부터(T3→T1) 밀어 넣는다.
@@ -145,9 +160,11 @@ export function attachTierChips(root, ctx) {
           onApply?.(result, tier)
         })
         insertAfterMin(min, chip)
+        seen.chips += 1
       }
     } catch (_) {
       // 한 행에서 터져도 나머지 행은 계속 처리한다
     }
   }
+  return seen
 }
