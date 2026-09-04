@@ -9,6 +9,10 @@
 //    단 execCommand는 user activation(실제 사용자 제스처)이 있을 때만 동작하므로,
 //    클릭·타이핑 등 제스처가 있는 순간엔 항상 보장된다. 제스처 없는 자동 포커스(페이지 로드)는
 //    첫 키 입력 시점의 input 핸들러가 "~"를 보강한다(라이브 trusted 입력으로 검증).
+//
+// 형제 파일: src/content/setInputValue.js 가 **숫자 칸**(능력치 필터의 min/max)에 같은 문제를
+// 다룬다. 대상 요소가 겹치지 않아 서로 간섭하지 않는다(여기는 placeholder 로 이름·검색 칸만 고른다).
+// execCommand 관련 동작이 바뀌면 두 파일을 함께 봐야 한다.
 
 const PREFIX = '~'
 const SETTING_KEY = 'uiFuzzyPrefix'

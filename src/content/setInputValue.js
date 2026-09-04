@@ -19,11 +19,18 @@ function write(el, text) {
 
 /**
  * @param {HTMLInputElement|null} el
- * @param {string} value
- * @returns {'native'|'exec'|'failed'} 'failed' 면 입력칸은 부르기 전 상태 그대로다
+ * @param {string|number} value
+ * @returns {'native'|'exec'|'failed'}
+ *
+ * `'failed'` 면 **원래 값으로 되돌리려 시도한다 — 보장이 아니라 최선 노력이다.**
+ * 무엇을 넣든 덮어쓰는 칸(범위 밖 값을 항상 잘라내는 검증기 등)은 복구도 같은 방해를 받는다.
+ * 그런 칸은 어떤 방법으로도 이길 수 없으므로, 부르는 쪽은 `'failed'` 를 "값이 안 들어갔다"로만
+ * 읽고 화면 상태를 스스로 가정하지 않아야 한다.
  */
 export function setInputValue(el, value) {
-  if (!el) return 'failed'
+  // null·undefined 를 그냥 넘기면 String() 이 "null" 을 만들어 검색창에 글자로 박힌다.
+  // 설계상 여기 올 일은 없지만, 오면 조용히 틀린 검색이 되므로 입구에서 끊는다.
+  if (!el || value == null) return 'failed'
   const text = String(value)
   const original = el.value // 다 실패하면 여기로 되돌린다
 
@@ -42,10 +49,11 @@ export function setInputValue(el, value) {
 
   // 3) 둘 다 실패. 이때 칸에는 우리가 넣으려던 값도, 사용자의 원래 값도 아닌 것이 남아 있을 수 있다 —
   // 상한이 걸린 칸이면 Vue 가 잘라서 써 넣는다. 그대로 두면 사용자는 넣지도 않은 숫자로 검색하게 된다.
-  // 'failed' 를 "아무것도 안 바뀌었다"로 만들어 두면 부르는 쪽이 단순해진다.
+  // 되돌려 보되 결과를 확인하지는 않는다: 모든 입력을 덮어쓰는 칸이면 이 시도도 같은 방해를 받고,
+  // 그때 할 수 있는 게 더 없다(위 JSDoc 의 '최선 노력'이 이 뜻이다).
   try {
     if (el.value !== original) write(el, original)
-  } catch (_) { /* 최선 노력 — 되돌리기까지 막히면 더 할 수 있는 게 없다 */ }
+  } catch (_) { /* 되돌리기까지 막히면 더 할 수 있는 게 없다 */ }
 
   return 'failed'
 }
