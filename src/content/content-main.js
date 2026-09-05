@@ -375,6 +375,21 @@ function pobEnsureStyle() {
     opacity: 0; transition: opacity .16s cubic-bezier(0.23, 1, 0.32, 1); }
   .ba-demo-card.show { opacity: 1; }
   .ba-demo-badge { font-size: 10.5px; font-weight: 700; color: #a5f3fc; margin-bottom: 9px; }
+  /* 예시 카드 안의 구역 이름 — 칩이 '검색 조건' 쪽에, PoB·환산이 '검색 결과' 쪽에 붙는다는 걸
+     구분해 준다. 둘을 한 카드에 담으면서 이 라벨이 없으면 어디에 뜨는 건지 알 수 없다. */
+  .ba-demo-where { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; color: #8b84a5;
+    margin: 0 0 5px; }
+  .ba-demo-filter + .ba-demo-where { margin-top: 11px; }
+  .ba-demo-filter { display: flex; align-items: center; justify-content: center; flex-wrap: nowrap; min-width: 0; }
+  /* 카드 폭 260px 안에서 이 줄의 여유는 15px 뿐이다(하네스 실측). 카드는 font-family: inherit 이라
+     거래소 폰트가 더 넓으면 넘치는데, nowrap 이라 줄바꿈 대신 **점선 카드 밖으로 삐져나간다.**
+     이름만 줄어들게 해서 그 경우에도 칩과 '최소'는 자리를 지키게 한다. */
+  .ba-demo-stat { min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    font-size: 11px; font-weight: 600; color: #cbc5e8; white-space: nowrap; }
+  /* 줄어드는 건 이름뿐이다 — 칩과 '최소'까지 같이 줄면 T1 글자가 잘린다(실측: 29 → 23px). */
+  .ba-demo-filter .ba-tier-chip, .ba-demo-min { flex: none; }
+  .ba-demo-min { margin-left: 7px; padding: 1px 7px; font-size: 10px; color: #8b84a5;
+    border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 3px; white-space: nowrap; }
   .ba-demo-name { font-size: 13px; font-weight: 800; color: #fde68a; }
   .ba-demo-price { display: flex; align-items: center; justify-content: center; gap: 2px;
     margin-top: 6px; font-size: 11.5px; font-weight: 600; color: #cbc5e8; }
@@ -1046,7 +1061,9 @@ function showTourDemo(side) {
   ensureCurrencyStatic() // 아직 안 받았으면 지금 받는다 — 도착하면 refreshTourDemoChip 이 아이콘으로 바꾼다
   // 문구는 정적 한국어 리터럴. 화폐 칩만 실제 칩과 같은 자산(GGG CDN 이미지)을 쓴다 — demoChipHtml 참조.
   el.innerHTML = `
-    <div class="ba-demo-badge">예시 · 검색 결과가 있을 때 이렇게 보여요</div>
+    <div class="ba-demo-badge">예시 · 실제 화면에서는 이렇게 보여요</div>
+    ${game === 'poe2' ? demoTierHtml() : ''}
+    <div class="ba-demo-where">검색 결과</div>
     <div class="ba-demo-name">형상 없는 반지</div>
     <div class="ba-demo-price">제시 가격 12 <span class="ba-exr-chip">${demoChipHtml()}</span></div>
     <div class="ba-pob-wrap"><button type="button" class="ba-pob-btn" tabindex="-1"><b>PoB</b><span>영문 복사</span></button></div>`
@@ -1059,6 +1076,25 @@ function showTourDemo(side) {
   el.style.left = Math.max(16, Math.round((freeStart + freeEnd) / 2 - w / 2)) + 'px'
   el.classList.add('show')
 }
+/**
+ * 투어 데모의 능력치 필터 행 — 티어 칩 스텝이 가리킬 대상.
+ *
+ * 칩은 **실제와 같은 클래스**(`.ba-tier-chip`)를 쓴다. 스타일이 `pobEnsureStyle` 하나에서만
+ * 나오므로 모양이 갈라질 수 없고, 투어 셀렉터도 그대로 `.ba-tier-chip` 이면 된다.
+ *
+ * ⚠ '최소' 칸을 진짜 `<input placeholder="최소">` 로 만들면 안 된다.
+ *    `attachTierChips` 는 문서의 **모든 input** 에서 최소 칸을 찾으므로, 예시에 진짜 입력칸을 두면
+ *    거기에 실제 칩을 붙이려 들고 dataset 표식까지 남긴다. 보이기만 하면 되니 span 으로 둔다.
+ */
+function demoTierHtml() {
+  const chips = ['T1', 'T2', 'T3']
+    .map((t) => `<button type="button" class="ba-tier-chip" tabindex="-1">${t}</button>`)
+    .join('')
+  return `
+    <div class="ba-demo-where">검색 조건 — 능력치 필터</div>
+    <div class="ba-demo-filter"><span class="ba-demo-stat">화염 저항 #%</span>${chips}<span class="ba-demo-min">최소</span></div>`
+}
+
 /**
  * 투어 데모의 환산 칩 내용 — **실제 칩과 같은 자산**을 쓴다(chipKindOf).
  * 예전엔 '≈ 24 카오스' 텍스트를 하드코딩했는데, 그건 실제 칩의 **폴백 모습**이라

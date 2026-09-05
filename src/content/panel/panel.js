@@ -1356,6 +1356,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const TOUR = [
     { sel: '#ba-save', title: '자주하는 검색은 북마크로', body: '거래소에서 검색하면 자동 기록돼요. 그중 자주 쓰는 검색은 "현재 검색 저장"으로 영구 보관하고, 저장할 때 폴더도 바로 고를 수 있어요.' },
     { sel: '#ba-sets', title: '조건 묶음 — 클릭 1회로 조건 얹기', body: '자주 쓰는 조건 뭉치를 "묶음"으로 저장해두고, 칩을 누르면 지금 검색 위에 통째로 얹어요. 거래소에서 손으로 넣으면 조건 하나당 드롭다운·타이핑·선택·수치 입력이 반복되는데, 여기선 클릭 1회입니다. 가격·정렬은 그대로 두고 조건만 더해요. 묶음은 카드의 ⋯ → "조건 묶음으로 등록"으로 만듭니다.' },
+    // 티어 칩은 PoE2 전용이다(content-main renderTierChips 가 poe2 가 아니면 바로 나간다).
+    // game: 'poe2' 로 표시해 두면 forGame 이 PoE1 사용자에게서 이 스텝을 뺀다 —
+    // 없는 기능을 가르치면 "내 화면엔 왜 없냐"는 문의가 그대로 돌아온다.
+    { sel: '.ba-tier-chip', global: true, demo: true, game: 'poe2', since: '0.13.0', title: 'T1 수치를 클릭 한 번에',
+      body: '능력치 필터에서 이름 뒤에 <b>T1 T2 T3</b> 칩이 붙어요. 누르면 그 티어의 최소 수치가 <b>최소</b> 칸에 바로 들어갑니다 — DB에서 숫자를 찾아 옮겨 적지 않아도 돼요. 값은 <b>아이템 유형</b>과 <b>아이템 레벨</b>에 따라 달라집니다(반지 생명력 T1은 100, 갑옷은 200). 유형을 아직 안 고르셨으면 칩 대신 <b>부위?</b>가 떠요. 지금은 PoE2 거래소에서만 동작합니다.' },
     { sel: '.ba-pob-btn', global: true, demo: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요.' },
     { sel: '.ba-exr-chip', global: true, demo: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준.' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },
@@ -1397,7 +1402,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 0.13.0: 설정 둘러보기. ⚙ 스텝이 설정을 실제로 열고 '하나씩 볼게요'로 5스텝이 이어진다.
   //         이미 투어를 본 사람에게는 이 한 스텝이 유일한 소식 경로다(⚙ 점은 안 눌러 본 사람용).
   const WHATS_NEW_VERSION = '0.13.0'
-  const whatsNewSteps = () => TOUR.filter((s) => s.since === WHATS_NEW_VERSION)
+  /**
+   * 게임 전용 스텝을 걸러낸다. 스텝에 `game` 이 없으면 두 게임 공통이다.
+   * 여기서 걸러야 하는 이유: PoE1 사용자에게 티어 칩 스텝을 보여주면 가리킬 대상도 없고
+   * 없는 기능을 배우게 된다. `whatsNewSteps` 와 `startTour` **양쪽**에 걸어야 한다 —
+   * 한쪽만 걸면 "보여줄 게 없으면 조용히 넘긴다" 가드가 걸러지기 전 개수로 판정한다.
+   */
+  const forGame = (steps) => steps.filter((s) => !s.game || s.game === game)
+  const whatsNewSteps = () => forGame(TOUR.filter((s) => s.since === WHATS_NEW_VERSION))
 
   /**
    * @param steps 없으면 전체 TOUR
@@ -1410,8 +1422,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 투어 둘이 겹치면 모달 소유권(settingsOpenedByTour)과 정리 훅이 서로를 지운다 — 앞의 것을 먼저 닫는다.
     if (activeTourFinish) activeTourFinish()
     // ⚠ 반드시 사본이다. 인자가 없으면 목록이 TOUR **그 자체**라, 갈래(branch)로 스텝을 끼우는 순간
-    //   원본이 영구히 늘어나 다음에 여는 투어가 23스텝이 된다.
-    const list = (steps && steps.length ? steps : TOUR).slice()
+    //   원본이 영구히 늘어나 다음에 여는 투어가 23스텝이 된다. forGame 의 filter 가 새 배열을 만들지만,
+    //   그 사실에 기대지 않도록 .slice() 를 남겨 둔다 — forGame 이 언젠가 원본을 돌려주게 바뀌어도 안전하다.
+    const list = forGame(steps && steps.length ? steps : TOUR).slice()
     const wasCollapsed = isCollapsed()
     setCollapsed(false)
     // 패널이 접혀 있다가 열리는 거면 .ba-root의 슬라이드인(.26s)이 끝날 때까지 기다린다 — 그 전에 첫 스텝을
