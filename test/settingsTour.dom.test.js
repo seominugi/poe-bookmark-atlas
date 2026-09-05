@@ -55,7 +55,7 @@ describe('설정 둘러보기가 기대는 마크업', () => {
   it('스텝마다 가리킬 항목이 정확히 하나 있다', async () => {
     await mount()
     await openSettings()
-    expect(SETTINGS_TOUR.length).toBe(5)
+    expect(SETTINGS_TOUR.length).toBe(7)
     for (const step of SETTINGS_TOUR) {
       // 0개면 스포트라이트가 아무것도 못 잡고, 2개 이상이면 엉뚱한 쪽을 잡을 수 있다.
       expect(root.querySelectorAll(step.sel), `스텝 대상 없음/중복: ${step.sel}`).toHaveLength(1)
@@ -69,7 +69,9 @@ describe('설정 둘러보기가 기대는 마크업', () => {
       const row = root.querySelector(step.sel)
       // 라벨만 또는 세그먼트만 비추면 '무엇에 대한 설명인지'가 화면에서 사라진다.
       expect(row.querySelector('.lbl'), `라벨 없음: ${step.sel}`).not.toBeNull()
-      expect(row.querySelector('.ba-set-seg'), `세그먼트 없음: ${step.sel}`).not.toBeNull()
+      // 조작 요소는 세그먼트가 기본이지만 '섹션 순서'는 ▲▼ 목록이다(세그먼트로는 6가지 순열을 못 담는다).
+      // 중요한 건 위젯 종류가 아니라 **라벨과 조작이 한 덩어리 안에 함께 있다**는 것이다.
+      expect(row.querySelector('.ba-set-seg, .ba-secorder'), `조작 요소 없음: ${step.sel}`).not.toBeNull()
       expect(row.querySelector('.ba-lbl-help[data-tip]'), `? 도움말 없음: ${step.sel}`).not.toBeNull()
     }
   })
@@ -78,10 +80,11 @@ describe('설정 둘러보기가 기대는 마크업', () => {
     await mount()
     await openSettings()
     const pick = root.getElementById('ba-folder-pick')
-    // 핸들러는 pick 기준 후손 선택자로 걸린다. 래퍼가 생겨도 이 다섯이 다 잡혀야 한다.
-    for (const attr of ['data-side', 'data-pw', 'data-nt', 'data-bv', 'data-fz']) {
+    // 핸들러는 pick 기준 후손 선택자로 걸린다. 래퍼가 생겨도 이것들이 다 잡혀야 한다.
+    for (const attr of ['data-side', 'data-pw', 'data-nt', 'data-bv', 'data-hc', 'data-fz']) {
       expect(pick.querySelectorAll(`.ba-set-opt[${attr}]`).length, `핸들러 대상 없음: ${attr}`).toBeGreaterThan(0)
     }
+    expect(pick.querySelectorAll('.ba-secorder-mv').length, '섹션 순서 ▲▼ 없음').toBe(6) // 3섹션 × 2방향
     // 실제로 눌러 값이 반영되는지 — 스포트라이트는 클릭을 막지 않으므로 투어 중에도 이 경로가 쓰인다.
     root.querySelector('.ba-set-opt[data-side="left"]').click()
     await new Promise((r) => setTimeout(r, 10))
@@ -171,9 +174,15 @@ describe('둘러보기로 데려오는 신호', () => {
     const card = await waitForTour(2500) // 1.2초 뒤에 뜬다
     expect(card, '새로워진 기능 안내가 안 떴다 — 스텝의 since 가 WHATS_NEW_VERSION 과 어긋났을 수 있다').not.toBeNull()
     expect(card.querySelector('.ba-tour-step').textContent).toContain('새로워진 기능')
-    // 소식의 알맹이는 설정 둘러보기다 — 설정이 실제로 열리고 갈래가 있어야 한다.
-    expect(card.querySelector('.ba-tour-title').textContent).toContain('설정')
-    expect(card.querySelector('.ba-tour-branch'), '갈래 버튼이 없다').not.toBeNull()
+    // 0.13.0 소식은 두 가지다: 섹션 접기·순서(목록에서 벌어지는 일) → 설정 둘러보기(⚙ 안의 일곱 가지).
+    // 첫 스텝이 섹션인 이유: 섹션 제목이 접기 버튼이라는 건 화면만 봐선 알 수 없어 말해 주지 않으면 영영 모른다.
+    expect(card.querySelector('.ba-tour-title').textContent).toContain('섹션')
+    card.querySelector('.ba-tour-next').click()
+    await new Promise((r) => setTimeout(r, 40))
+    const card2 = root.querySelector('.ba-tour-card')
+    // 마지막 스텝은 설정 — 실제로 열리고 갈래가 있어야 한다.
+    expect(card2.querySelector('.ba-tour-title').textContent).toContain('설정')
+    expect(card2.querySelector('.ba-tour-branch'), '갈래 버튼이 없다').not.toBeNull()
     expect(root.getElementById('ba-namebar').hidden, '설정 모달이 안 열렸다').toBe(false)
   })
 
@@ -183,7 +192,9 @@ describe('둘러보기로 데려오는 신호', () => {
     const card = await waitForTour(2500)
     const seenVer = () => chrome.storage.local.get('whatsNewSeen').then((r) => r.whatsNewSeen)
     expect(await seenVer()).toBe('0.9.0')
-    card.querySelector('.ba-tour-next').click()   // 1스텝이라 '완료'
+    card.querySelector('.ba-tour-next').click()   // 0.13.0 소식은 2스텝(섹션 → 설정)
+    await new Promise((r) => setTimeout(r, 40))
+    root.querySelector('.ba-tour-card').querySelector('.ba-tour-next').click() // '완료'
     await new Promise((r) => setTimeout(r, 40))
     expect(root.querySelector('.ba-tour-card')).toBeNull()
     // 투어가 연 모달은 투어가 되닫는다 — 사용자가 연 게 아니므로 남기면 안 된다.

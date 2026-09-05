@@ -15,6 +15,7 @@ const PATHS = {
   search: '<path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4.2-4.2"/>',
   chart: '<path d="M3 20.5h18M6.5 20.5v-6M11.5 20.5V8M16.5 20.5v-9"/>',
   chevronDown: '<path d="M6 9.5l6 6 6-6"/>',
+  chevronUp: '<path d="M6 14.5l6-6 6 6"/>',
   chevronRight: '<path d="M9.5 6l6 6-6 6"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   external: '<path d="M14 4h6v6M20 4l-8.5 8.5M18 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 4 18.5v-11A1.5 1.5 0 0 1 5.5 6H10"/>',

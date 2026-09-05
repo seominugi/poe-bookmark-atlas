@@ -1,5 +1,6 @@
 import css from './panel.css?inline'
-import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague, getOpenInNewTab, setOpenInNewTab } from './renderList.js'
+import { renderList, highlightBookmark, clearHighlight, resolveSaveConflict, overwriteSource, analystUrl, researcherUrl, leagueInfo, resolveCurrentLeague, getOpenInNewTab, setOpenInNewTab, getSecOrder, setSecOrder } from './renderList.js'
+import { SECTION_LABEL, moveSection } from '../../lib/secOrder.js'
 import { icon } from '../../lib/icons.js'
 import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, needsTourDemo, seedDemoData, clearDemoData,
   needsConditionSetDemo, seedDemoSets, clearDemoSets,
@@ -37,6 +38,10 @@ export const SETTINGS_TOUR = [
     body: '넓힐수록 상단·검색·푸터가 한 줄로 합쳐져 목록에 자리가 납니다. <b>최대</b>로 두면 카드마다 라이브·복사·갱신 버튼이 늘 보여요. 창이 좁아 못 쓰는 칸은 빗금으로 표시됩니다.' },
   { sel: '.ba-setting[data-setting="brief"]', open: 'settings', try: true, title: '보기 — 한 화면에 약 2배',
     body: '<b>간략</b>은 카드를 한 줄로 접습니다. 조건·가격이 사라지는 게 아니라 아이콘 옆으로 접히고, 마우스를 올리면 그대로 다 보여요.' },
+  { sel: '.ba-setting[data-setting="header"]', open: 'settings', try: true, title: '상단 영역 — 목록에 자리를 내주기',
+    body: '<b>간결</b>로 두면 맨 위 제목 줄과 <b>아이템 시세·시장 동향</b> 버튼이 접혀 목록이 그만큼 위로 올라옵니다. <b>현재 검색 저장</b>과 <b>⌨ 단축키</b>는 그대로 남아요 — 자리만 줄이고 기능은 하나도 잃지 않습니다.' },
+  { sel: '.ba-setting[data-setting="secorder"]', open: 'settings', try: true, title: '섹션 순서 — 자주 보는 것을 위로',
+    body: '<b>북마크 · 찜한 매물 · 히스토리</b>의 순서를 ▲▼로 바꿉니다. 시즌 끝물처럼 찜을 더 자주 보는 때엔 찜을 맨 위로 올려 두세요. 목록에서 <b>섹션 제목을 클릭하면 그 섹션이 통째로 접힙니다</b> — 접어도 개수는 남아요.' },
   { sel: '.ba-setting[data-setting="fuzzy"]', open: 'settings', try: true, title: '퍼지 검색 — 단어가 들어간 것 전부',
     body: '거래소 능력치 칸 맨 앞에 <b>~</b> 를 자동으로 넣어, 입력한 단어가 <b>들어간</b> 항목을 모두 찾습니다. 정확히 그 스탯만 보고 싶을 땐 끄세요 — 거래소 기본 동작 그대로가 됩니다.' },
 ]
@@ -206,7 +211,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       const prev = readLayoutCache() || {}
       // collapsed 는 **사용자가 직접 토글했을 때만** 기록한다(patch 로 넘어올 때).
       // 창 폭 휴리스틱으로 접힌 상태를 취향으로 굳히면, 다음 로드에 접힌 채 남아 '패널이 사라졌다'가 된다.
-      localStorage.setItem(CACHE_KEY, JSON.stringify({ ...prev, side: panelSide, width: panelW, brief: briefOn, ...(patch || {}) }))
+      localStorage.setItem(CACHE_KEY, JSON.stringify({ ...prev, side: panelSide, width: panelW, brief: briefOn, headCompact, ...(patch || {}) }))
     } catch (_) {}
   }
 
@@ -225,6 +230,26 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     if (briefOn) elRoot.setAttribute('data-brief', '1')
     else elRoot.removeAttribute('data-brief')
     if (activeTourLayout) activeTourLayout() // 카드가 접히며 대상 위치가 밀린다
+  }
+  // 상단 간결 모드 — 브랜드 줄과 시세·동향을 숨겨 목록에 자리를 낸다(제보 2026-09-04).
+  // 저장 버튼과 ⌨ 칩은 **남긴다**: 저장은 핵심 동작이고, 단축키 목록은 그 팝오버에만 있다.
+  // ⌨ 는 숨기는 대신 econ 행으로 **옮긴다** — 마크업을 복제하지 않는다(두 벌이 되면 반드시 갈라진다).
+  let headCompact = false
+  const applyHeadCompact = (on) => {
+    headCompact = !!on
+    const kbd = root.querySelector('.ba-kbd-wrap')
+    const brand = root.querySelector('.ba-brand')
+    const econ = root.querySelector('.ba-econ-row')
+    if (headCompact) {
+      elRoot.setAttribute('data-headcompact', '1')
+      if (kbd && econ && kbd.parentElement !== econ) econ.appendChild(kbd)
+    } else {
+      elRoot.removeAttribute('data-headcompact')
+      // 원위치는 '제작 칩 앞' — .ba-brand 의 원래 순서(로고·제목·⌨·제작·후원)를 그대로 되돌린다.
+      const credit = brand && brand.querySelector('.ba-brand-credit')
+      if (kbd && brand && kbd.parentElement !== brand) brand.insertBefore(kbd, credit || null)
+    }
+    if (activeTourLayout) activeTourLayout() // 상단이 사라지며 아래 요소들이 통째로 올라온다
   }
   // 접힘 시 핸들에 북마크 수 배지 표시
   const updateHandleBadge = async () => {
@@ -255,6 +280,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 간략 보기도 캐시에서 **첫 프레임에** 건다. 나중에 storage 로 켜면 카드가 두 줄 → 한 줄로
   // 접히는 게 눈에 보인다(같은 이유로 폭·배치도 여기서 정한다).
   applyBrief(!!(cached && cached.brief))
+  // 상단 간결도 같은 이유로 첫 프레임에 건다 — 나중에 storage 로 켜면 브랜드 줄이 잠깐 보였다 사라진다.
+  applyHeadCompact(!!(cached && cached.headCompact))
   if (cached) {
     panelSide = cached.side
     elRoot.setAttribute('data-side', panelSide)
@@ -273,11 +300,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   setTimeout(settled, 400) // 정본이 영영 안 와도(컨텍스트 무효화 등) 반드시 푼다 — 실패해도 '애니메이션 없음'뿐
   applyWidth(cached ? cached.width : panelW)
   try {
-    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth', 'uiBriefView']).then((r) => {
+    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth', 'uiBriefView', 'uiHeadCompact']).then((r) => {
       applyWidth((r && r.uiPanelWidth) || panelW)
       if (r && r.uiPanelSide) applySide(r.uiPanelSide)
       if (r && typeof r.uiFuzzyPrefix === 'boolean') fuzzyOn = r.uiFuzzyPrefix
       if (r && typeof r.uiBriefView === 'boolean') applyBrief(r.uiBriefView)
+      if (r && typeof r.uiHeadCompact === 'boolean') applyHeadCompact(r.uiHeadCompact)
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
       updateHandleBadge()
       writeLayoutCache() // 정본(storage)으로 거울을 맞춘다 — 다른 탭에서 바꿨을 수 있다
@@ -770,6 +798,28 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
             <span class="ba-set-opt${briefOn ? ' active' : ''}" data-bv="1">간략</span>
           </span>`,
         ) +
+        // 상단 영역 — "젤 위 타이틀이랑 저장, 시세 등등도 하단으로 내리거나 숨김"(제보 2026-09-04).
+        // 목록에 자리를 내주는 게 목적이라 숨기는 쪽을 골랐다. 저장·⌨ 는 남긴다(panel.css 주석 참조).
+        row('header',
+          lbl('상단 영역', '간결로 두면 맨 위 제목 줄과 시세·동향 버튼을 접어 목록에 자리를 냅니다.&#10;현재 검색 저장과 ⌨ 단축키는 그대로 남아요.'),
+          `<span class="ba-seg ba-set-seg">
+            <span class="ba-set-opt${headCompact ? '' : ' active'}" data-hc="0">표시</span>
+            <span class="ba-set-opt${headCompact ? ' active' : ''}" data-hc="1">간결</span>
+          </span>`,
+        ) +
+        // 섹션 순서 — 시즌 끝물엔 북마크보다 찜을 더 자주 본다는 제보(2026-09-04).
+        // ▲▼ 를 **설정 안에** 둔 이유: 목록의 섹션 머리는 넓은 폭에서 검색창·정렬과 한 줄로 합쳐지는데,
+        // 거기에 버튼 2개를 더하면 그 줄이 깨진다(액션 행이 같은 이유로 3번 깨졌다).
+        row('secorder',
+          lbl('섹션 순서', '목록에 그려지는 순서를 바꿉니다. 자주 보는 것을 위로 올리세요.&#10;목록에서 섹션 제목을 클릭하면 그 섹션이 통째로 접힙니다.'),
+          `<span class="ba-secorder">${getSecOrder().map((k, i, arr) => `
+            <span class="ba-secorder-row">
+              <span class="ba-secorder-n">${i + 1}</span>
+              <span class="ba-secorder-nm">${esc(SECTION_LABEL[k] || k)}</span>
+              <button class="ba-secorder-mv" type="button" data-sec="${k}" data-dir="-1"${i === 0 ? ' disabled' : ''} data-tip="위로">${icon('chevronUp', 12)}</button>
+              <button class="ba-secorder-mv" type="button" data-sec="${k}" data-dir="1"${i === arr.length - 1 ? ' disabled' : ''} data-tip="아래로">${icon('chevronDown', 12)}</button>
+            </span>`).join('')}</span>`,
+        ) +
         // 거래소 필터칸의 "~"(부분 일치) 강제. 정확히 일치하는 스탯만 찾을 때는 방해가 된다는 제보로 추가.
         row('fuzzy',
           lbl('필터 퍼지 검색 (~)', '켜면 거래소 검색칸 맨 앞에 ~를 자동으로 넣어 입력한 단어가 &#10;포함된 항목을 모두 찾습니다. 끄면 거래소 기본 동작 그대로예요.'),
@@ -779,7 +829,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
           </span>`,
         ) +
         // 다시 보기 경로. 자동 시작은 1회뿐이라 되돌아갈 길이 없으면 두 번째부터는 볼 방법이 사라진다.
-        `<button class="ba-setting-guide" id="ba-setting-guide" type="button">${icon('sparkle', 12)}설정 둘러보기 — 5가지를 하나씩 알려드려요</button>`
+        `<button class="ba-setting-guide" id="ba-setting-guide" type="button">${icon('sparkle', 12)}설정 둘러보기 — 7가지를 하나씩 알려드려요</button>`
       // 두 세그먼트가 .ba-set-opt를 공유하므로 각자의 data 속성으로 갈라 잡는다(안 그러면 서로의 클릭까지 받는다)
       pick.querySelectorAll('.ba-set-opt[data-side]').forEach((o) => o.addEventListener('click', async () => {
         applySide(o.dataset.side)
@@ -804,6 +854,19 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         writeLayoutCache() // 다음 로드의 첫 프레임부터 이 값으로 그리게(카드가 접히는 게 보이지 않게)
         try { await chrome.storage.local.set({ uiBriefView: briefOn }) } catch (_) {}
         render()
+      }))
+      pick.querySelectorAll('.ba-set-opt[data-hc]').forEach((o) => o.addEventListener('click', async () => {
+        applyHeadCompact(o.dataset.hc === '1')
+        writeLayoutCache() // 다음 로드의 첫 프레임부터 이 값으로 — 상단이 보였다 사라지는 걸 막는다
+        try { await chrome.storage.local.set({ uiHeadCompact: headCompact }) } catch (_) {}
+        render()
+      }))
+      // 섹션 순서 ▲▼ — 목록을 다시 그려야 순서가 반영된다(renderList 가 저장된 순서로 조립한다).
+      pick.querySelectorAll('.ba-secorder-mv').forEach((o) => o.addEventListener('click', () => {
+        if (o.disabled) return
+        setSecOrder(moveSection(getSecOrder(), o.dataset.sec, Number(o.dataset.dir)))
+        render() // 번호·비활성 상태 갱신
+        document.dispatchEvent(new CustomEvent('ba:records-changed'))
       }))
       pick.querySelectorAll('.ba-set-opt[data-fz]').forEach((o) => o.addEventListener('click', async () => {
         fuzzyOn = o.dataset.fz === '1'
@@ -1308,11 +1371,16 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     { sel: '.ba-io-group', title: '백업 · 공유 (JSON)', body: '북마크를 JSON 파일로 내보내 백업하거나 다른 사람과 공유할 수 있어요. 받은 JSON은 가져오기로 합쳐집니다. 특정 폴더만 내보내려면 폴더 헤더의 ⬇ 아이콘을 쓰세요.' },
     { sel: '.ba-sec-hist', title: '자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
     { sel: '.ba-econ-row', title: '시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
-    // 이 스텝은 설정 모달을 **실제로 연다**. 글로만 읽고 지나가면 다섯 개가 있다는 게 전달되지 않는다 —
+    // 섹션 제목이 접기 버튼이라는 건 **화면만 봐서는 알 수 없다**(chevron 하나가 유일한 신호다).
+    // 순서 변경은 설정에 있고, 접기는 목록에 있다 — 둘은 같은 요구("찜이 한 화면에 안 보인다")에서 나왔으므로
+    // 한 스텝에서 같이 말한다. 안 그러면 설정만 보고 접기를 영영 모른다.
+    { sel: '.ba-sec-title[data-sec="bookmarks"]', since: '0.13.0', title: '섹션을 접고, 순서를 바꾸고',
+      body: '<b>북마크 · 찜한 매물 · 히스토리</b> 제목을 클릭하면 그 섹션이 통째로 접혀요 — 접어도 <b>개수는 남습니다</b>. 순서는 ⚙ 설정 → <b>섹션 순서</b>에서 ▲▼로 바꿉니다. 찜을 자주 보신다면 맨 위로 올려 두세요.' },
+    // 이 스텝은 설정 모달을 **실제로 연다**. 글로만 읽고 지나가면 일곱 개가 있다는 게 전달되지 않는다 —
     // "패널 위치를 바꿀 수 있는 줄 몰랐다"는 문의가 계속 오는 이유가 그것이다.
-    // 갈래 버튼을 누른 사람만 +5스텝으로 이어간다(투어 전체를 18→23 으로 늘리지 않는다).
+    // 갈래 버튼을 누른 사람만 +7스텝으로 이어간다(투어 전체를 통째로 늘리지 않는다).
     { sel: '#ba-folder-pick', open: 'settings', since: '0.13.0', title: '설정 — 내 방식대로',
-      body: '⚙ 안에 다섯 가지가 있어요 — <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>패널 폭</b>(기본~최대), <b>보기</b>(기본 / 간략), <b>필터 퍼지 검색</b>. 아래 <b>하나씩 볼게요</b>를 누르면 다섯 가지를 차례로 짚어드려요 (Alt+O).',
+      body: '⚙ 안에 일곱 가지가 있어요 — <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>패널 폭</b>(기본~최대), <b>보기</b>(기본 / 간략), <b>상단 영역</b>(표시 / 간결), <b>섹션 순서</b>, <b>필터 퍼지 검색</b>. 아래 <b>하나씩 볼게요</b>를 누르면 일곱 가지를 차례로 짚어드려요 (Alt+O).',
       branch: { label: '하나씩 볼게요', steps: SETTINGS_TOUR } },
     { sel: '#ba-handle', title: '언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
     { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
