@@ -18,7 +18,17 @@ export const ASK_CLASS = 'ba-tier-ask'
 // 유형·아이템 레벨 상한이 바뀔 때도 같다.
 const MARK = 'baTierChip'
 const MAX_CLIMB = 6
-const SKIP_TAGS = new Set(['INPUT', 'BUTTON', 'SELECT'])
+
+// 행 텍스트를 읽을 때 건너뛰는 것.
+// `I` 가 들어 있는 이유 — 거래소 실측(2026-09-04):
+//   <div class="filter-title">
+//     <i class="mutate-type mutate-type-explicit">비고정</i>   ← 그룹 배지
+//     <span>화염 저항 #%</span>                                ← 진짜 능력치 이름
+//   </div>
+// `<i>` 를 빼지 않으면 "비고정 화염 저항 #%" 가 나와 거래소 스탯 목록과 **한 건도 안 맞는다**
+// (실제 페이지 대조: 빼기 전 0/2 → 뺀 뒤 2/2). 클래스가 아니라 태그로 거른다 —
+// GGG 가 `mutate-type` 을 바꿔도 배지가 `<i>` 인 한 살아남는다.
+const SKIP_TAGS = new Set(['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'I'])
 
 function isMinInput(el) {
   if (!el || el.tagName !== 'INPUT') return false
@@ -26,7 +36,26 @@ function isMinInput(el) {
   return ph === '최소' || ph === 'min'
 }
 
-/** node 안에서 input·button·select 서브트리를 뺀 텍스트가 있으면 true. */
+/**
+ * 행에서 **능력치 이름만** 읽는다 (그룹 배지 제외 — SKIP_TAGS 주석 참조).
+ * 부르는 쪽이 이 문구로 거래소 stat id 를 되찾는다.
+ * @param {Element} row
+ * @returns {string}
+ */
+export function rowStatText(row) {
+  const out = []
+  collectText(row, out)
+  return out.join('').replace(/\s+/g, ' ').trim()
+}
+
+function collectText(node, out) {
+  for (const child of node.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) out.push(child.textContent)
+    else if (child.nodeType === Node.ELEMENT_NODE && !SKIP_TAGS.has(child.tagName)) collectText(child, out)
+  }
+}
+
+/** node 안에서 SKIP_TAGS 서브트리를 뺀 텍스트가 있으면 true. */
 function hasOwnText(node) {
   for (const child of node.childNodes) {
     if (child.nodeType === Node.TEXT_NODE) {

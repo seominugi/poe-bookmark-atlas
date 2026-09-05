@@ -17,7 +17,7 @@ import { addHistory, markUsedByUrl, ensureSchema, backfillQuery, isWatched, addW
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText } from '../lib/pobExport.js'
-import { attachTierChips } from './tier-chip.js'
+import { attachTierChips, rowStatText } from './tier-chip.js'
 import { classFromQuery } from '../lib/itemClass.js'
 import { normalizeTradeText } from '../lib/statTextNorm.js'
 
@@ -698,21 +698,6 @@ function ensureStatIdIndex() {
   return statIdIndex
 }
 
-// 행에서 능력치 이름만 남긴다 — 입력칸·버튼(우리 칩 포함)을 빼고 텍스트를 모은다.
-// 클래스 이름에 기대지 않는 이유: GGG 가 화면 구조를 바꿔도 이 방식은 살아남는다.
-// 딥 클론을 쓰지 않는다 — 화면 감시가 100ms 마다 돌고 그때마다 행 전체를 복제하는 건 낭비다.
-const STAT_TEXT_SKIP = new Set(['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA'])
-function collectStatText(node, out) {
-  for (const child of node.childNodes) {
-    if (child.nodeType === Node.TEXT_NODE) out.push(child.textContent)
-    else if (child.nodeType === Node.ELEMENT_NODE && !STAT_TEXT_SKIP.has(child.tagName)) collectStatText(child, out)
-  }
-  return out
-}
-function statTextOf(row) {
-  return collectStatText(row, []).join('').replace(/\s+/g, ' ').trim()
-}
-
 // 부위 판정 — 유형 필터의 category 로 끝나면 베이스 이름표(260KB)를 아예 안 부른다.
 // ⚠ pobBaseMap 을 정적 import 하면 안 된다: 2026-08-23 에 이 맵을 지연 로딩으로 돌린 결정이
 // 무효가 되고, PoE1 페이지에서도 쓰지 않는 260KB 가 콘텐츠 스크립트에 실려 들어간다.
@@ -764,7 +749,7 @@ function renderTierChips() {
       itemClass: tierItemClass(lastQuery),
       ilvlMax: ilvl?.max ?? null,
       statIdOf: (row) => {
-        const text = statTextOf(row)
+        const text = rowStatText(row)
         return text ? index.get(normalizeTradeText(text)) || null : null
       },
       onAskClass: () => panel.toast('아이템 종류를 먼저 고르면 T1 수치를 넣어 드려요.'),

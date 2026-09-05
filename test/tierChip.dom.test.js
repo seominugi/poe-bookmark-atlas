@@ -1,12 +1,12 @@
 // @vitest-environment jsdom
 // tier-chip.js — 능력치 필터 행에 T1 T2 T3 칩을 붙인다.
 //
-// 실제 거래소 마크업(클래스 이름)은 확인된 적이 없다(한국 IP 에서 카카오 로그인으로 리다이렉트돼
-// 접근 불가). 그래서 여기서는 클래스 이름을 전혀 쓰지 않는 여러 형태의 DOM 을 직접 만들어
-// "이름 텍스트 + 최소/최대 입력칸" 구조만으로 행을 찾는지 검증한다.
+// 클래스 이름에 기대지 않고 "이름 텍스트 + 최소/최대 입력칸" 구조만으로 행을 찾는지 검증한다.
+// 앞쪽 describe 들은 그 규칙이 여러 형태의 DOM 에서 버티는지 보고, 맨 아래
+// '실제 거래소 마크업' describe 는 2026-09-04 에 라이브 페이지에서 그대로 떠온 것으로 확인한다.
 
 import { describe, it, expect, beforeEach } from 'vitest'
-import { attachTierChips, CHIP_CLASS, ASK_CLASS } from '../src/content/tier-chip.js'
+import { attachTierChips, rowStatText, CHIP_CLASS, ASK_CLASS } from '../src/content/tier-chip.js'
 
 const table = {
   Ring: {
@@ -335,5 +335,55 @@ describe('행 찾기의 알려진 한계 (의도된 동작을 못박는다)', ()
     const seen = attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
     expect(seen.noRow).toBe(1)
     expect(document.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
+  })
+})
+
+// 2026-09-04 거래소(poe.kakaogames.com/trade2)에서 그대로 떠온 마크업이다.
+// 그룹 배지 <i>비고정</i> 을 빼지 않으면 "비고정 화염 저항 #%" 가 나와 스탯 목록과
+// 한 건도 안 맞는다 — 실제 페이지 대조에서 빼기 전 0/2, 뺀 뒤 2/2 였다.
+describe('실제 거래소 마크업 (2026-09-04 실측)', () => {
+  const REAL_ROW = `
+    <span class="filter-body">
+      <div class="filter-title filter-title-clickable">
+        <i class="mutate-type mutate-type-explicit">비고정</i> <span>화염 저항 #%</span>
+      </div>
+      <!----> <!---->
+      <span class="sep"></span>
+      <input type="number" placeholder="최소" class="form-control minmax modified">
+      <span class="sep"></span>
+      <input type="number" placeholder="최대" class="form-control minmax">
+    </span>`
+
+  function mountReal() {
+    const host = el('div')
+    host.innerHTML = REAL_ROW
+    document.body.appendChild(host)
+    return host.querySelector('.filter-body')
+  }
+
+  it('그룹 배지를 빼고 능력치 이름만 읽는다', () => {
+    const row = mountReal()
+    expect(rowStatText(row)).toBe('화염 저항 #%')
+  })
+
+  it('실제 마크업에서 행을 찾아 칩을 붙인다', () => {
+    mountReal()
+    const seen = attachTierChips(document, {
+      table,
+      itemClass: 'Ring',
+      // 배선(content-main)이 하는 것과 같은 방식 — 읽은 문구로 id 를 되찾는다
+      statIdOf: (row) => (rowStatText(row) === '화염 저항 #%' ? 'stat.fire_res' : null),
+    })
+    expect(seen.noRow).toBe(0)
+    expect(seen.chips).toBe(3)
+    expect([...document.querySelectorAll('.' + CHIP_CLASS)].map((c) => c.textContent)).toEqual(['T1', 'T2', 'T3'])
+  })
+
+  it('칩을 누르면 그 행의 최소 칸에 값이 들어간다', () => {
+    const row = mountReal()
+    attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
+    const min = row.querySelector('input[placeholder="최소"]')
+    ;[...document.querySelectorAll('.' + CHIP_CLASS)].find((c) => c.textContent === 'T2').click()
+    expect(min.value).toBe('36')
   })
 })
