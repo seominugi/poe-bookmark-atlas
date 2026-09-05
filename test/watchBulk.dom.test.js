@@ -86,6 +86,68 @@ describe('전체 확인 버튼이 뜨는 조건', () => {
   })
 })
 
+// ── '지금 확인할까요?' 권유 ──────────────────────────────────────────────
+// 자동 주기(④-b) 대신 채택한 방식(사용자 결정 2026-09-05). 판정 규칙은 watchRefresh.test.js 가 지킨다.
+// 여기서 보는 건 배선이다: 눌렀을 때 정말 도는가 / ✕ 가 정말 닫는가 / 닫힌 게 남는가.
+describe('지금 확인할까요? 배너', () => {
+  const OLD = Date.now() - 3 * 60 * 60 * 1000 // 3시간 전 확인 = 오래됨
+  const seedStale = async (n) => {
+    for (let i = 0; i < n; i++) await addWatch(watch({ listingId: 'S' + i }))
+    // addWatch 는 checkedAt 을 일부러 비운다('확인한 적 없음'). 여기선 '오래됨' 을 만들려고 직접 심는다.
+    const all = (await chrome.storage.local.get('watchlist')).watchlist
+    await chrome.storage.local.set({ watchlist: all.map((w) => ({ ...w, checkedAt: OLD })) })
+  }
+  const nudge = (list) => list.querySelector('.ba-wnudge')
+
+  it('오래된 찜이 둘 이상이면 뜬다 — 개수를 그대로 말한다', async () => {
+    await seedStale(3)
+    const list = await render()
+    expect(nudge(list)).toBeTruthy()
+    expect(nudge(list).textContent).toContain('3개')
+  })
+
+  it('방금 확인했으면 안 뜬다', async () => {
+    for (const id of ['A', 'B', 'C']) await addWatch(watch({ listingId: id }))
+    const all = (await chrome.storage.local.get('watchlist')).watchlist
+    await chrome.storage.local.set({ watchlist: all.map((w) => ({ ...w, checkedAt: Date.now() })) })
+    expect(nudge(await render())).toBeNull()
+  })
+
+  it("'지금 확인' 을 누르면 배너가 사라지고 순회가 돈다", async () => {
+    await seedStale(2)
+    const list = await render()
+    nudge(list).querySelector('.ba-wnudge-go').click()
+    expect(nudge(list), '배너가 남아 있으면 다시 눌러 중단이 돼 버린다').toBeNull()
+    await waitToast()
+    expect(fetchCalls).toHaveLength(2)
+    expect(toasts.some((t) => t.includes('확인했어요'))).toBe(true)
+  })
+
+  it('확인이 끝나면 더는 안 뜬다 — 방금 봤으니까', async () => {
+    await seedStale(2)
+    const list = await render()
+    nudge(list).querySelector('.ba-wnudge-go').click()
+    await waitToast()
+    expect(nudge(await render())).toBeNull()
+  })
+
+  // ⚠ **스누즈 검증은 한 테스트로 묶는다.** 스누즈는 모듈 레벨이라 한 번 켜지면 이 파일의
+  //    뒤 테스트에서도 배너가 안 뜬다 — 나눠 쓰면 두 번째가 "배너 없음" 으로 터진다(실제로 겪었다).
+  it('✕ 는 요청 없이 배너만 닫고, 그 상태가 저장돼 다시 그려도 안 뜬다', async () => {
+    await seedStale(2)
+    const list = await render()
+    nudge(list).querySelector('.ba-wnudge-x').click()
+    expect(nudge(list)).toBeNull()
+    expect(fetchCalls, '✕ 가 조회를 시작하면 안 된다').toHaveLength(0)
+    const until = (await chrome.storage.local.get('uiWatchNudgeSnooze')).uiWatchNudgeSnooze
+    expect(until, '스누즈가 저장되지 않았다').toBeGreaterThan(Date.now())
+    expect(nudge(await render()), '닫았는데 다시 그리니 또 떴다').toBeNull()
+  })
+
+  // ⚠ 여기서 켜진 스누즈가 아래 '돌리기' 까지 이어진다. 그래서 아래 테스트는 배너를 쓰지 않고
+  //    섹션 머리의 '전체 확인' 버튼만 누른다.
+})
+
 describe('돌리기', () => {
   it('여기 것만 조회하고 결과를 저장한다', async () => {
     await addWatch(watch({ listingId: 'A' }))
