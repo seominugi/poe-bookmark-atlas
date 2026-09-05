@@ -175,6 +175,45 @@ export const MOCKUPS = {
   },
 
   // 결과 행 버튼 겹침. 증상이 **위치**라 글로는 안 온다 — 겹친 모습을 실제로 겹쳐 그린다.
+  // 0.13.0 — 섹션 순서·접기. "제목을 누르면 접힌다" 는 글로만 읽으면 어디를 누르라는 건지 모른다.
+  'sec-order': {
+    caption: '목록의 <b>제목 줄</b> — 누르면 접히고, 순서는 설정에서 바꿉니다',
+    html: `
+      ${card(`
+        <div class="mk-fold">
+          <span class="mk-fold-name">${icon('chevronRight', 11)}${icon('bookmark', 13)}<span class="mk-point">북마크</span><span class="mk-count">42</span></span>
+          <span class="mk-facts"><span class="mk-chip mk-chip--tight">접힘</span></span>
+        </div>
+        <div class="mk-fold">
+          <span class="mk-fold-name">${icon('chevronDown', 11)}${icon('star', 13)}찜한 매물<span class="mk-count">12</span></span>
+        </div>
+        <div class="mk-fold">
+          <span class="mk-fold-name">${icon('chevronDown', 11)}${icon('clock', 13)}히스토리<span class="mk-count">60</span></span>
+        </div>`)}
+      <div class="mk-note">접어도 <b>개수는 남습니다</b>. 북마크를 접어도 <b>검색창은 그대로</b>예요 — 그 검색은 히스토리까지 찾아 주거든요.</div>`,
+  },
+
+  // 0.13.0 — 찜 일괄 확인. 버튼의 자리와 '도는 중' 모습을 같이 보여야 중단이 가능한 걸 안다.
+  'watch-bulk': {
+    caption: '<b>찜한 매물</b> 제목 줄 오른쪽',
+    html: `
+      ${card(`
+        <div class="mk-fold">
+          <span class="mk-fold-name">${icon('chevronDown', 11)}${icon('star', 13)}찜한 매물<span class="mk-count">12</span></span>
+          <span class="mk-facts"><span class="mk-chip mk-chip--tight mk-point">${icon('refresh', 11)}전체 확인</span></span>
+        </div>
+        <div class="mk-line">
+          <span class="mk-open">${icon('clock', 11)}<b>12개</b>를 확인한 지 오래됐어요</span>
+          <span class="mk-chip mk-chip--tight mk-point">지금 확인</span>
+        </div>`)}
+      ${card(`
+        <div class="mk-fold">
+          <span class="mk-fold-name">${icon('chevronDown', 11)}${icon('star', 13)}찜한 매물<span class="mk-count">12</span></span>
+          <span class="mk-facts"><span class="mk-chip mk-chip--tight mk-point">${icon('x', 11)}중단 (5/12)</span></span>
+        </div>`)}
+      <div class="mk-note">도는 동안 <b>몇 개째인지</b> 보이고, <b>다시 누르면 멈춥니다</b>.</div>`,
+  },
+
   'row-btn-fix': {
     caption: '거래소 검색 결과에서 <b>★ · PoB</b> 버튼의 자리',
     html: `<div class="mk-pair">
