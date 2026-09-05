@@ -1,7 +1,7 @@
 // content-main.js (ISOLATED world)
 // page-bridge가 가로챈 search·fetch 이벤트를 받아 기록을 만들고 저장한다.
 import { parseSearchQuery, searchIdentity } from '../lib/searchParser.js'
-import { buildStatMap } from '../lib/statMap.js'
+import { buildStatMap, buildStatIdIndex } from '../lib/statMap.js'
 import { buildFilterMap } from '../lib/filterMap.js'
 import { buildLeagueMap } from '../lib/leagueMap.js'
 import { enFetchPath, isSafeListingId, pickItem } from '../lib/enListing.js'
@@ -17,6 +17,9 @@ import { addHistory, markUsedByUrl, ensureSchema, backfillQuery, isWatched, addW
 import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText } from '../lib/pobExport.js'
+import { attachTierChips, rowStatText } from './tier-chip.js'
+import { classFromQuery } from '../lib/itemClass.js'
+import { normalizeTradeText } from '../lib/statTextNorm.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -407,7 +410,34 @@ function pobEnsureStyle() {
   .ba-page-set:active { transform: scale(0.97); }
   .ba-page-set:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
   .ba-page-set[disabled] { opacity: 0.55; cursor: default; }
-  @media (prefers-reduced-motion: reduce) { .ba-page-set { transition-property: background, border-color, color; } .ba-page-set:active { transform: none; } }`
+  @media (prefers-reduced-motion: reduce) { .ba-page-set { transition-property: background, border-color, color; } .ba-page-set:active { transform: none; } }
+  /* 티어 칩 — 능력치 이름 바로 뒤에 붙는다 (자리 선정 사유는 tier-chip.js findTextHost).
+     !important 와 display/float/width 재지정은 취향이 아니라 필수다: 거래소 CSS 가
+     이 행의 자식에게 display:block; float:left; width:80px 를 먹여, 그대로 두면 칩이
+     세로로 쌓이고 행 높이가 30 → 70px 로 무너진다(2026-09-05 실측).
+     높이 18px 은 실측값 — 16/18px 에서 행이 30px 그대로고 20px 부터 32px 로 밀린다. */
+  .ba-tier-chip, .ba-tier-ask {
+    box-sizing: border-box !important; display: inline-flex !important; align-items: center !important;
+    float: none !important; width: auto !important; min-width: 0 !important;
+    height: 18px !important; min-height: 0 !important; margin: 0 0 0 4px !important; padding: 0 7px !important;
+    vertical-align: middle !important; white-space: nowrap;
+    border: 1px solid rgba(167, 139, 250, 0.45); border-radius: 999px !important;
+    background: rgba(43, 35, 64, 0.85); color: #ddd4f7; cursor: pointer;
+    font: 600 11px/1 system-ui, -apple-system, sans-serif !important;
+    transition: background .15s ease, border-color .15s ease, color .15s ease,
+                transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-tier-chip:hover, .ba-tier-ask:hover {
+      border-color: rgba(167, 139, 250, 0.95); background: rgba(60, 48, 88, 0.95); color: #fff; }
+  }
+  .ba-tier-chip:active, .ba-tier-ask:active { transform: scale(0.97); }
+  .ba-tier-chip:focus-visible, .ba-tier-ask:focus-visible {
+    outline: 2px solid #a78bfa; outline-offset: 1px; }
+  .ba-tier-ask { border-style: dashed; }
+  @media (prefers-reduced-motion: reduce) {
+    .ba-tier-chip, .ba-tier-ask { transition-property: background, border-color, color; }
+    .ba-tier-chip:active, .ba-tier-ask:active { transform: none; }
+  }`
   document.head.appendChild(st)
 }
 // 페이지 표면 커스텀 툴팁 — data-tip의 《...》를 강조색(시안) span으로 치환(패널 .ba-tip과 동일 관례).
@@ -654,7 +684,7 @@ let pobKickPending = false
 function pobKick() {
   if (pobKickPending) return
   pobKickPending = true
-  setTimeout(() => { pobKickPending = false; injectPobButtons(); renderPageSets() }, 100)
+  setTimeout(() => { pobKickPending = false; injectPobButtons(); renderPageSets(); renderTierChips() }, 100)
 }
 let pobBodyObserver = null
 function pobEnsureObserver() {
@@ -667,7 +697,102 @@ function schedulePobInject() {
   ensureCurrencyStatic() // 화폐 아이콘·한글명 맵을 첫 fetch 시점에 미리 로드(환율 도착 전에 준비)
   try { pobEnsureObserver() } catch (err) { LOG('PoB 옵저버 실패', String(err)) }
   pobTimers.forEach(clearTimeout)
-  pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(() => { injectPobButtons(); renderPageSets() }, ms))
+  pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(() => { injectPobButtons(); renderPageSets(); renderTierChips() }, ms))
+}
+
+// ── 능력치 필터 티어 칩 ──
+// 부위·아이템 레벨은 최근 검색 조건에서 읽는다. 한 번도 검색하지 않았으면 부위를 모르는 상태로
+// 시작해 '부위?' 버튼이 뜬다. PoE1 은 티어 표가 아직 없으므로 건너뛴다.
+let statIdIndex = null
+let statIdIndexSize = -1
+function ensureStatIdIndex() {
+  const size = Object.keys(statMap).length
+  if (statIdIndex && statIdIndexSize === size) return statIdIndex
+  statIdIndex = buildStatIdIndex(statMap)
+  statIdIndexSize = size
+  return statIdIndex
+}
+
+// 부위 판정 — 유형 필터의 category 로 끝나면 베이스 이름표(260KB)를 아예 안 부른다.
+// ⚠ pobBaseMap 을 정적 import 하면 안 된다: 2026-08-23 에 이 맵을 지연 로딩으로 돌린 결정이
+// 무효가 되고, PoE1 페이지에서도 쓰지 않는 260KB 가 콘텐츠 스크립트에 실려 들어간다.
+//
+// 판정 자체는 classFromQuery 를 그대로 쓴다 — 여기서 다시 구현하면 그 함수의 테스트가
+// 실제 배선 경로를 더 이상 지키지 못한다(변형 아이템의 {option} 형태 처리 등).
+// classFromBaseName 이 baseMap === null 을 안전하게 다루므로, 이름표가 없으면 자연히 null 이 나온다.
+let tierBaseMap = null
+let tierBaseMapLoading = null
+function tierItemClass(query) {
+  const cls = classFromQuery(query, tierBaseMap)
+  if (cls) return cls
+  // 이름은 있는데 이름표가 아직 없다 → 그때 한 번 불러온다. 이번 회차는 부위 미상으로 두고
+  // 다음 화면 감시에서 판정한다(statMap 을 기다리는 방식과 같다).
+  // 실패하면 재시도하지 않는다 — 페이지를 새로 열면 복구된다. 매 회차 재시도는 낭비다.
+  if (!tierBaseMap && !tierBaseMapLoading && query?.type) {
+    tierBaseMapLoading = import('../lib/pobBaseMap.json')
+      .then((m) => { tierBaseMap = m.default })
+      .catch((err) => { LOG('베이스 이름표 로드 실패', String(err)) })
+  }
+  return null
+}
+
+// 티어 표(155KB)도 같은 이유로 지연 로딩한다 — PoE1 페이지에서는 한 번도 쓰지 않는다.
+// 여기도 실패 시 재시도하지 않는다 — 페이지를 새로 열면 복구된다.
+let tierTable = null
+let tierTableLoading = null
+function ensureTierTable() {
+  if (tierTable) return tierTable
+  if (!tierTableLoading) {
+    tierTableLoading = import('../lib/statTiers.poe2.json')
+      .then((m) => { tierTable = m.default })
+      .catch((err) => { LOG('티어 표 로드 실패', String(err)) })
+  }
+  return null
+}
+
+/**
+ * `lastQuery` 는 검색 **바디**(`{ query, sort }`)다 — `page-bridge` 가 POST 본문을 통째로 넘긴다.
+ * 조건은 그 안의 `query` 에 들어 있다(기존 `parseSearchQuery` 도 `payload?.query` 로 한 겹 벗긴다).
+ *
+ * ⚠ 이 한 겹을 빼먹으면 유형·아이템 레벨을 영영 못 읽어 칩 대신 '부위?' 만 뜬다.
+ * 라이브에서 실제로 그렇게 났다(2026-09-05) — jsdom 테스트는 벗겨진 query 를 직접 넣어서 못 잡았다.
+ * 이미 벗겨진 형태로 올 수도 있어 둘 다 받는다.
+ */
+function currentQuery() {
+  return lastQuery?.query ?? lastQuery ?? null
+}
+
+let lastTierLog = ''
+function renderTierChips() {
+  if (game !== 'poe2') return
+  if (!Object.keys(statMap).length) return // statMap 도착 전 — 다음 kick 에서 다시 시도한다
+  const table = ensureTierTable()
+  if (!table) return // 표 도착 전 — 다음 kick 에서 다시 시도한다
+  try {
+    const index = ensureStatIdIndex()
+    const query = currentQuery()
+    const ilvl = query?.filters?.type_filters?.filters?.ilvl
+    const seen = attachTierChips(document, {
+      table,
+      itemClass: tierItemClass(query),
+      ilvlMax: ilvl?.max ?? null,
+      statIdOf: (row) => {
+        const text = rowStatText(row)
+        return text ? index.get(normalizeTradeText(text)) || null : null
+      },
+      onAskClass: () => panel.toast('아이템 종류를 먼저 고르면 T1 수치를 넣어 드려요.'),
+      onApply: (result) => {
+        if (result === 'failed') panel.toast('거래소가 값을 받지 않았어요. 수치를 직접 넣어 주세요.')
+      },
+    })
+    // 같은 상태를 반복해 찍지 않는다 — 화면 감시가 자주 돈다.
+    // 객체가 아니라 **문자열**로 찍는다 — 콘솔이 접어서 "Object" 로만 보이면 진단이 안 된다.
+    const line = Object.entries(seen).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(' ')
+    if (seen.minInputs && line !== lastTierLog) {
+      lastTierLog = line
+      LOG('티어 칩 —', line, '| 부위:', tierItemClass(query) ?? '미상')
+    }
+  } catch (err) { LOG('티어 칩 실패', String(err)) }
 }
 
 // ── 거래소 화면의 '조건 묶음' 칩 줄 ──
