@@ -18,6 +18,7 @@ import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
 import researcherIcon from '../../icons/mascot-researcher.webp'
 import { nextDelay, retryAfterMs, waitSeconds } from '../../lib/tradeRate.js'
+import { runBulkWatchCheck, watchNudge, NUDGE_SNOOZE_MS } from '../../lib/watchRefresh.js'
 import { SECTIONS, SECTION_LABEL, DEFAULT_SEC_ORDER, normalizeSecOrder } from '../../lib/secOrder.js'
 
 // content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
@@ -47,10 +48,11 @@ async function hydrateUiState() {
   if (uiHydrated) return
   uiHydrated = true
   try {
-    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders', 'uiOpenInNewTab', 'uiSecOrder', 'uiCollapsedSecs'])
+    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders', 'uiOpenInNewTab', 'uiSecOrder', 'uiCollapsedSecs', 'uiWatchNudgeSnooze'])
     if (r.uiBmSort) bmSort = r.uiBmSort
     if (typeof r.uiOpenInNewTab === 'boolean') openNewTab = r.uiOpenInNewTab
     if (Array.isArray(r.uiCollapsedFolders)) { collapsedFolders.clear(); r.uiCollapsedFolders.forEach((k) => collapsedFolders.add(k)) }
+    if (Number.isFinite(r.uiWatchNudgeSnooze)) watchNudgeSnoozeUntil = r.uiWatchNudgeSnooze
     // 저장값을 그대로 믿지 않는다 — 모르는 키는 버리고 빠진 키는 뒤에 채운다(secOrder.js 주석 참조)
     secOrder = normalizeSecOrder(r.uiSecOrder)
     if (Array.isArray(r.uiCollapsedSecs)) { collapsedSecs.clear(); r.uiCollapsedSecs.filter((k) => SECTIONS.includes(k)).forEach((k) => collapsedSecs.add(k)) }
@@ -89,7 +91,7 @@ let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
 let focusBookmarkId = null // 저장·승격 후 스크롤·강조 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
-const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export, .ba-sec-title[data-sec]'
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export, .ba-sec-title[data-sec], .ba-wnudge-x'
 function applyA11y(listEl) {
   listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
     if (el.matches('button, a, input')) return
@@ -587,15 +589,29 @@ function watchRowHtml(w) {
 //
 // 지금 페이지와 origin 이 같은 매물만 확인한다 — 다른 거래소 매물을 여기서 조회하면 무조건 null 이
 // 와서 멀쩡한 걸 '판매됨'으로 오판한다. 그래서 버튼 자체를 그리지 않는다(watchRowHtml 의 here).
-let lastWatchReqAt = 0
-let watchBlockedUntil = 0
+// 개별 확인과 일괄 확인이 **같은 창구를 본다.** 각자 세면 둘이 함께 계정 규칙(6요청/4초)을 넘긴다.
+const watchGate = { lastAt: 0, blockedUntil: 0 }
+const watchFetchPath = (game) => (game === 'poe2' ? '/api/trade2/fetch/' : '/api/trade/fetch/')
+/** 지금 페이지에서 확인할 수 있는 찜만 — 다른 거래소 매물은 조회하면 무조건 null 이 와서 '판매됨'으로 오판한다. */
+const checkableWatches = (list) => (list || []).filter((w) => w.origin === location.host)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+// 일괄 확인이 도는 중인가 / 중단이 눌렸는가. 재렌더가 버튼 DOM 을 바꾸므로 모듈 레벨이어야 한다.
+let bulkWatchRunning = false
+let bulkWatchCancel = false
+// '지금 확인할까요?' 권유를 ✕ 로 닫은 시각 + 24시간. 영구 숨김이 아니라 스누즈다(watchRefresh.js 주석).
+let watchNudgeSnoozeUntil = 0
+const snoozeWatchNudge = () => {
+  watchNudgeSnoozeUntil = Date.now() + NUDGE_SNOOZE_MS
+  try { chrome.storage.local.set({ uiWatchNudgeSnooze: watchNudgeSnoozeUntil }) } catch (_) {}
+}
 
 async function checkOneWatch(btn, row, ui, toast) {
+  // 일괄이 도는 중이면 개별 요청을 끼워 넣지 않는다 — 같은 창구를 둘이 동시에 쓰면 간격 계산이 어긋난다.
+  if (bulkWatchRunning) { toast('전체 확인이 도는 중이에요. 끝나면 눌러 주세요.'); return }
   const w = (await listWatched(ui.game)).find((x) => x.id === row.dataset.id)
   if (!w) return
 
-  const gate = nextDelay(lastWatchReqAt, Date.now(), watchBlockedUntil)
+  const gate = nextDelay(watchGate.lastAt, Date.now(), watchGate.blockedUntil)
   // 막혀 있으면 말없이 기다리지 않고 알린다 — 10초를 멈춰 있으면 고장으로 읽고, 재시도하면 더 길어진다.
   if (gate.blocked) { toast(`거래소 요청 제한 — ${waitSeconds(gate.wait)}초 뒤에 다시 눌러 주세요.`); return }
 
@@ -604,12 +620,11 @@ async function checkOneWatch(btn, row, ui, toast) {
   btn.textContent = '확인 중…'
   try {
     if (gate.wait) await sleep(gate.wait) // 연타해도 계정 규칙(6요청/4초)을 넘지 않게
-    lastWatchReqAt = Date.now()
-    const path = ui.game === 'poe2' ? '/api/trade2/fetch/' : '/api/trade/fetch/'
-    const res = await fetch(path + encodeURIComponent(w.listingId))
+    watchGate.lastAt = Date.now()
+    const res = await fetch(watchFetchPath(ui.game) + encodeURIComponent(w.listingId))
     if (res.status === 429) {
-      watchBlockedUntil = Date.now() + retryAfterMs(res.headers)
-      toast(`거래소 요청 제한에 걸렸어요 — ${waitSeconds(watchBlockedUntil - Date.now())}초 뒤에 다시 눌러 주세요.`)
+      watchGate.blockedUntil = Date.now() + retryAfterMs(res.headers)
+      toast(`거래소 요청 제한에 걸렸어요 — ${waitSeconds(watchGate.blockedUntil - Date.now())}초 뒤에 다시 눌러 주세요.`)
       return
     }
     if (!res.ok) { toast('상태를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.'); return }
@@ -621,6 +636,74 @@ async function checkOneWatch(btn, row, ui, toast) {
   } catch (_) {
     toast('상태를 확인하지 못했어요. 잠시 뒤 다시 시도해 주세요.')
   } finally { btn.disabled = false; btn.innerHTML = orig }
+}
+
+// ── 찜 일괄 확인 ────────────────────────────────────────────────────────
+// "리스트가 많으면 거래 사이트 뻑날려나요?" — **그렇다.** 그래서 한 번에 다 돌지 않는다.
+// 규칙은 runBulkWatchCheck 가 갖고 있고(lib/watchRefresh.js), 여기는 화면과 문구만 맡는다.
+//
+// 멈추는 이유가 넷이라 문구도 넷이다. 이유를 안 알리면 "덜 확인하고 멈췄다"가 고장으로 읽힌다.
+const BULK_STOP_MSG = {
+  budget: (r) => `${r.done}개 확인했어요. 거래소를 계속 쓰실 수 있게 요청 여유를 남기고 멈췄어요 — 잠시 뒤 다시 눌러 이어서 확인하세요.`,
+  cap: (r) => `${r.done}개 확인했어요. 한 번에 이만큼만 확인해요 — 잠시 뒤 다시 눌러 이어서 확인하세요.`,
+  cancelled: (r) => `${r.done}개까지 확인하고 멈췄어요.`,
+  blocked: (r) => `거래소 요청 제한에 걸렸어요 — ${waitSeconds(r.blockedMs)}초 뒤에 이어서 확인해 주세요. (${r.done}개 확인함)`,
+  error: (r) => `${r.done}개까지 확인했어요. 거래소가 응답하지 않아 멈췄습니다.`,
+}
+
+async function checkAllWatches(btn, ui, toast) {
+  // 두 번째 클릭 = 중단. 별도 버튼을 두지 않는 이유는 찜 섹션 머리에 자리가 한 칸뿐이어서다.
+  if (bulkWatchRunning) {
+    bulkWatchCancel = true
+    btn.textContent = '멈추는 중…'
+    return
+  }
+  const items = checkableWatches(await listWatched(ui.game))
+  if (!items.length) { toast('여기서 확인할 수 있는 찜이 없어요.'); return }
+
+  bulkWatchRunning = true
+  bulkWatchCancel = false
+  const orig = btn.innerHTML
+  // 재렌더로 버튼이 갈릴 수 있다 — 떨어진 버튼에 쓰면 조용히 사라지므로 붙어 있을 때만 그린다.
+  const paint = (done) => { if (btn.isConnected) btn.innerHTML = `${icon('x', 12)}중단 (${done}/${items.length})` }
+  paint(0)
+
+  let r
+  try {
+    r = await runBulkWatchCheck({
+      items,
+      gate: watchGate,
+      sleep,
+      cancelled: () => bulkWatchCancel,
+      onProgress: ({ done }) => paint(done),
+      fetchOne: async (w) => {
+        const res = await fetch(watchFetchPath(ui.game) + encodeURIComponent(w.listingId))
+        if (!res.ok) return { ok: false, status: res.status, headers: res.headers }
+        const hit = (((await res.json()) || {}).result || [])[0]
+        return {
+          ok: true, status: res.status, headers: res.headers,
+          alive: !!hit, price: (hit && hit.listing && hit.listing.price) || undefined,
+        }
+      },
+    })
+  } finally {
+    bulkWatchRunning = false
+    bulkWatchCancel = false
+    if (btn.isConnected) btn.innerHTML = orig
+  }
+
+  if (r.results.length) {
+    await applyWatchStatus(r.results)
+    document.dispatchEvent(new CustomEvent('ba:records-changed'))
+  }
+  const sold = r.results.filter((x) => !x.alive).length
+  if (r.stopped === 'done') {
+    toast(sold
+      ? `찜 ${r.done}개를 확인했어요 — ${sold}개가 판매된 것 같아요.`
+      : `찜 ${r.done}개를 확인했어요 — 전부 아직 있어요.`)
+    return
+  }
+  toast((BULK_STOP_MSG[r.stopped] || BULK_STOP_MSG.error)(r))
 }
 
 // 드래그로 순서를 바꿨는데 정렬이 '최근'·'이름'이면 **저장은 되고 화면은 되돌아간다**.
@@ -725,9 +808,27 @@ export async function renderList(listEl, root, ui = {}) {
     bookmarks: () => sec('bookmarks', bmHtml, bmBody),
     // ── 찜한 매물 — 개별 매물. 팔리면 사라지므로 '아직 있나'를 답하는 게 이 섹션의 값어치다.
     //    상태 갱신은 자동으로 하지 않는다(거래소 fetch API에 rate limit) — 사용자가 누를 때만.
-    watch: () => (watched.length
-      ? sec('watch', secHead('watch', icon('star', 14), '찜한 매물', watched.length, '', 'ba-sec-watch'), watched.map((w) => watchRowHtml(w)).join(''))
-      : ''),
+    watch: () => {
+      if (!watched.length) return ''
+      // 일괄 확인은 **여기서 확인할 수 있는 찜이 있을 때만** 그린다. 다른 거래소 매물뿐이면
+      // 눌러도 아무 일이 없는데, 눌러도 아무 일 없는 버튼은 고장으로 읽힌다(폴더 비우기와 같은 규칙).
+      const mine = checkableWatches(watched)
+      const bulkBtn = mine.length > 1
+        ? `<button class="ba-wcheck-all" data-tip="찜 ${mine.length}개의 생존·가격을 하나씩 확인해요\n거래소 요청 제한 때문에 천천히 돌고, 다시 누르면 멈춰요">${icon('refresh', 12)}전체 확인</button>`
+        : ''
+      // 오래된 것이 쌓이면 먼저 말을 건다 — 자동 주기 대신 채택한 방식이다(사용자 결정 2026-09-05).
+      // 도는 중에는 그리지 않는다: 지금 갱신되고 있는데 "오래됐다"고 말하면 어긋난다.
+      const nudge = watchNudge({ items: mine, snoozeUntil: watchNudgeSnoozeUntil })
+      const nudgeHtml = (nudge.show && !bulkWatchRunning)
+        ? `<div class="ba-wnudge">
+            <span class="ba-wnudge-tx">${icon('clock', 12)}찜 <b>${nudge.count}개</b>를 확인한 지 오래됐어요</span>
+            <button class="ba-wnudge-go" data-tip="지금 하나씩 확인해요 — 도는 동안 다시 누르면 멈춰요">지금 확인</button>
+            <span class="ba-wnudge-x" data-tip="오늘은 그만 보기 (24시간 뒤 다시 알려드려요)">${icon('x', 12)}</span>
+          </div>`
+        : ''
+      return sec('watch', secHead('watch', icon('star', 14), '찜한 매물', watched.length, bulkBtn, 'ba-sec-watch'),
+        nudgeHtml + watched.map((w) => watchRowHtml(w)).join(''))
+    },
     // ── 히스토리 — 리그 구분 없이 전체 통합(시간순, listByKind가 이미 최신순 정렬) ──
     history: () => (history.length
       ? sec('history',
@@ -770,6 +871,28 @@ function bindAll(listEl, ui, ctx) {
   listEl.querySelectorAll('.ba-wcheck').forEach((b) => b.addEventListener('click', (e) => {
     e.stopPropagation(); checkOneWatch(b, b.closest('.ba-wrow'), ui, toast)
   }))
+  const bulkBtn = listEl.querySelector('.ba-wcheck-all')
+  if (bulkBtn) bulkBtn.addEventListener('click', (e) => {
+    e.stopPropagation()
+    checkAllWatches(bulkBtn, ui, toast)
+  })
+  // '지금 확인' — 진행 표시는 섹션 머리 버튼이 이미 나르므로 **그 버튼에 위임한다.**
+  // 권유 배너는 먼저 지운다: 남겨 두면 도는 중에 다시 눌러 '중단'이 돼 버린다(누른 것과 반대 결과).
+  const nudgeEl = listEl.querySelector('.ba-wnudge')
+  if (nudgeEl) {
+    const go = nudgeEl.querySelector('.ba-wnudge-go')
+    if (go) go.addEventListener('click', (e) => {
+      e.stopPropagation()
+      nudgeEl.remove()
+      if (bulkBtn) checkAllWatches(bulkBtn, ui, toast)
+    })
+    const x = nudgeEl.querySelector('.ba-wnudge-x')
+    if (x) x.addEventListener('click', (e) => {
+      e.stopPropagation()
+      snoozeWatchNudge()
+      nudgeEl.remove() // 재렌더하지 않는다 — 목록 전체를 다시 그릴 이유가 없고 스크롤이 튄다
+    })
+  }
 
   // 행 열기 — 히스토리는 카드 전체 클릭, 북마크는 이름 칩(.ba-open)만 (오클릭 방지)
   listEl.querySelectorAll('.ba-row').forEach((row) => {
