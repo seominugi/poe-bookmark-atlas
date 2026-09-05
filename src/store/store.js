@@ -774,7 +774,11 @@ export async function importBookmarksJSON(game, data, opts = {}) {
 //     멀쩡한 매물이 null로 와서 "판매됨"으로 조용히 오판한다.
 //  2) 상태 갱신은 사용자가 트리거할 때만 한다(자동 폴링 없음). 거래소 fetch API에 rate limit이 있고,
 //     장기 보관 용도라 목록을 여는 순간이 곧 확인 시점이라 자동화 이득이 작다.
-export const WATCH_CAP = 100 // 상한 — 일괄 재조회가 rate limit을 때리지 않도록 묶어 둔다(10개씩 배치 → 최대 10요청)
+// 상한. 예전 주석은 "10개씩 배치 → 최대 10요청" 이라고 적혀 있었는데 그 배치 방식은 2026-08-13 에
+// 사라졌다(대기 없이 쏴서 429 를 맞았다). 지금은 **일괄 확인이 스스로 멈춘다** — 남은 요청 예산을
+// 헤더에서 읽고 사용자 몫을 남긴 채 중단한다(lib/watchRefresh.js). 그래도 상한을 두는 이유는
+// 저장 용량과 한 화면에 담기는 양이다.
+export const WATCH_CAP = 100
 
 async function readWatch() { return (await chrome.storage.local.get(WATCH_KEY))[WATCH_KEY] ?? [] }
 async function writeWatch(list) { await chrome.storage.local.set({ [WATCH_KEY]: list }) }

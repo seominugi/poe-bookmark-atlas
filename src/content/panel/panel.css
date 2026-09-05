@@ -1056,6 +1056,11 @@
 .ba-clear-hist { display: inline-flex; align-items: center; gap: 4px; font-family: inherit; font-size: 11px; font-weight: 700; color: #fda4af; background: var(--ba-danger-soft); border: 1px solid var(--ba-danger-line); border-radius: 7px; padding: 5px 9px; cursor: pointer; transition: background .15s, color .15s; }
 .ba-clear-hist:hover { background: rgba(251,113,133,0.24); color: #fecdd3; }
 .ba-clear-hist.armed { background: rgba(244,63,94,0.32); color: #fecdd3; border-color: #f43f5e; font-weight: 800; }
+/* 찜 일괄 확인 — 히스토리 '전체 삭제' 와 같은 자리(섹션 머리 우측)이지만 **파괴적이지 않아** 보라 톤이다.
+   로즈 톤을 쓰면 지우는 버튼으로 읽힌다. 라벨은 '전체 확인'(5자) 고정 — 도는 동안 '중단 (3/12)' 로 바뀌는데,
+   그때 폭이 늘어 섹션 머리가 접히지 않도록 min-width 로 넉넉한 쪽에 맞춰 둔다. */
+.ba-wcheck-all { display: inline-flex; align-items: center; justify-content: center; gap: 4px; box-sizing: border-box; min-width: 92px; font-family: inherit; font-size: 11px; font-weight: 700; color: var(--ba-violet-2); background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line); border-radius: 7px; padding: 5px 9px; cursor: pointer; white-space: nowrap; transition: background .15s, color .15s, border-color .15s; }
+.ba-wcheck-all:hover { background: rgba(167,139,250,0.24); color: #ddd6fe; }
 /* 오래됨(stale) 배지 — 삭제 동작이라 로즈(위험)색 */
 .ba-attn--del { color: #fda4af; background: var(--ba-danger-soft); border-color: var(--ba-danger-line); }
 
