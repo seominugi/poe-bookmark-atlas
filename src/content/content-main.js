@@ -735,6 +735,18 @@ function ensureTierTable() {
   return null
 }
 
+/**
+ * `lastQuery` 는 검색 **바디**(`{ query, sort }`)다 — `page-bridge` 가 POST 본문을 통째로 넘긴다.
+ * 조건은 그 안의 `query` 에 들어 있다(기존 `parseSearchQuery` 도 `payload?.query` 로 한 겹 벗긴다).
+ *
+ * ⚠ 이 한 겹을 빼먹으면 유형·아이템 레벨을 영영 못 읽어 칩 대신 '부위?' 만 뜬다.
+ * 라이브에서 실제로 그렇게 났다(2026-09-05) — jsdom 테스트는 벗겨진 query 를 직접 넣어서 못 잡았다.
+ * 이미 벗겨진 형태로 올 수도 있어 둘 다 받는다.
+ */
+function currentQuery() {
+  return lastQuery?.query ?? lastQuery ?? null
+}
+
 let lastTierLog = ''
 function renderTierChips() {
   if (game !== 'poe2') return
@@ -743,10 +755,11 @@ function renderTierChips() {
   if (!table) return // 표 도착 전 — 다음 kick 에서 다시 시도한다
   try {
     const index = ensureStatIdIndex()
-    const ilvl = lastQuery?.filters?.type_filters?.filters?.ilvl
+    const query = currentQuery()
+    const ilvl = query?.filters?.type_filters?.filters?.ilvl
     const seen = attachTierChips(document, {
       table,
-      itemClass: tierItemClass(lastQuery),
+      itemClass: tierItemClass(query),
       ilvlMax: ilvl?.max ?? null,
       statIdOf: (row) => {
         const text = rowStatText(row)
@@ -758,8 +771,12 @@ function renderTierChips() {
       },
     })
     // 같은 상태를 반복해 찍지 않는다 — 화면 감시가 자주 돈다.
-    const line = JSON.stringify(seen)
-    if (seen.minInputs && line !== lastTierLog) { lastTierLog = line; LOG('티어 칩', seen) }
+    // 객체가 아니라 **문자열**로 찍는다 — 콘솔이 접어서 "Object" 로만 보이면 진단이 안 된다.
+    const line = Object.entries(seen).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(' ')
+    if (seen.minInputs && line !== lastTierLog) {
+      lastTierLog = line
+      LOG('티어 칩 —', line, '| 부위:', tierItemClass(query) ?? '미상')
+    }
   } catch (err) { LOG('티어 칩 실패', String(err)) }
 }
 
