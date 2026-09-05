@@ -174,15 +174,26 @@ describe('둘러보기로 데려오는 신호', () => {
     const card = await waitForTour(2500) // 1.2초 뒤에 뜬다
     expect(card, '새로워진 기능 안내가 안 떴다 — 스텝의 since 가 WHATS_NEW_VERSION 과 어긋났을 수 있다').not.toBeNull()
     expect(card.querySelector('.ba-tour-step').textContent).toContain('새로워진 기능')
-    // 0.13.0 소식은 두 가지다: 섹션 접기·순서(목록에서 벌어지는 일) → 설정 둘러보기(⚙ 안의 일곱 가지).
-    // 첫 스텝이 섹션인 이유: 섹션 제목이 접기 버튼이라는 건 화면만 봐선 알 수 없어 말해 주지 않으면 영영 모른다.
-    expect(card.querySelector('.ba-tour-title').textContent).toContain('섹션')
-    card.querySelector('.ba-tour-next').click()
-    await new Promise((r) => setTimeout(r, 40))
-    const card2 = root.querySelector('.ba-tour-card')
+    // 0.13.0 소식은 셋이다: 티어 칩(PoE2 전용) · 섹션 접기·순서 · 설정 둘러보기.
+    // 셋 다 **화면만 봐선 알 수 없는 것**이라 말해 주지 않으면 영영 모른다 — 그게 이 배치의 기준이다.
+    // 순서·개수를 숫자로 박지 않는다: 스텝을 하나 넣을 때마다 깨지고, 정작 봐야 할 건
+    // "무엇이 들어 있고 어디서 끝나는가"다.
+    const titles = []
+    for (let n = 0; n < 10; n += 1) {
+      const t = root.querySelector('.ba-tour-title')
+      if (!t) break
+      titles.push(t.textContent)
+      const next = root.querySelector('.ba-tour-next')
+      if (next.textContent === '완료') break
+      next.click()
+      await new Promise((r) => setTimeout(r, 40))
+    }
+    expect(titles.some((t) => t.includes('T1')), '티어 칩 소식이 없다').toBe(true)
+    expect(titles.some((t) => t.includes('섹션')), '섹션 접기 소식이 없다').toBe(true)
     // 마지막 스텝은 설정 — 실제로 열리고 갈래가 있어야 한다.
-    expect(card2.querySelector('.ba-tour-title').textContent).toContain('설정')
-    expect(card2.querySelector('.ba-tour-branch'), '갈래 버튼이 없다').not.toBeNull()
+    const last = root.querySelector('.ba-tour-card')
+    expect(last.querySelector('.ba-tour-title').textContent).toContain('설정')
+    expect(last.querySelector('.ba-tour-branch'), '갈래 버튼이 없다').not.toBeNull()
     expect(root.getElementById('ba-namebar').hidden, '설정 모달이 안 열렸다').toBe(false)
   })
 
@@ -192,10 +203,14 @@ describe('둘러보기로 데려오는 신호', () => {
     const card = await waitForTour(2500)
     const seenVer = () => chrome.storage.local.get('whatsNewSeen').then((r) => r.whatsNewSeen)
     expect(await seenVer()).toBe('0.9.0')
-    card.querySelector('.ba-tour-next').click()   // 0.13.0 소식은 2스텝(섹션 → 설정)
-    await new Promise((r) => setTimeout(r, 40))
-    root.querySelector('.ba-tour-card').querySelector('.ba-tour-next').click() // '완료'
-    await new Promise((r) => setTimeout(r, 40))
+    // 스텝 수를 박지 않고 '완료'가 나올 때까지 넘긴다 — 소식이 늘어도 이 테스트가 보는 건
+    // "끝까지 가면 카드가 닫히고 모달도 되닫히는가"다.
+    for (let n = 0; n < 10; n += 1) {
+      const c = root.querySelector('.ba-tour-card')
+      if (!c) break
+      c.querySelector('.ba-tour-next').click()
+      await new Promise((r) => setTimeout(r, 40))
+    }
     expect(root.querySelector('.ba-tour-card')).toBeNull()
     // 투어가 연 모달은 투어가 되닫는다 — 사용자가 연 게 아니므로 남기면 안 된다.
     expect(root.getElementById('ba-namebar').hidden, '투어가 연 모달이 안 닫혔다').toBe(true)

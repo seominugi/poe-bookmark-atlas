@@ -36,6 +36,21 @@ const waitForTour = async (ms = 2500) => {
   }
   return null
 }
+// 투어를 끝까지 넘기며 제목을 모은다.
+// ⚠ **개수·순서를 고정하지 않는다.** 새 기능 안내에는 다른 세션이 넣는 스텝도 섞이므로
+//    (예: 티어 칩 — game:'poe2'), "N번째가 무엇인가" 로 쓰면 남의 작업에 깨진다.
+//    여기서 볼 것은 하나다: **찜 스텝이 목록에 있는가 없는가.**
+const tourTitles = async (max = 12) => {
+  const seen = []
+  for (let i = 0; i < max; i++) {
+    const card = root.querySelector('.ba-tour-card')
+    if (!card) break
+    seen.push(card.querySelector('.ba-tour-title').textContent)
+    card.querySelector('.ba-tour-next').click()
+    await new Promise((r) => setTimeout(r, 40))
+  }
+  return seen
+}
 const seedWatches = async (n) => {
   const list = Array.from({ length: n }, (_, i) => ({
     id: 'w' + i, listingId: 'L' + i, origin: location.host, game: 'poe2', league: 'New',
@@ -54,41 +69,42 @@ beforeEach(async () => {
 })
 afterEach(() => { document.body.innerHTML = '' })
 
+const WATCH_STEP = '찜한 매물, 한 번에 확인하기'
+
 describe('찜을 안 쓰는 사람', () => {
   it("'전체 확인' 버튼이 없으면 그 스텝을 통째로 뺀다", async () => {
     await mount()
     expect(root.querySelector('.ba-wcheck-all'), '전제: 찜이 없으니 버튼도 없다').toBeNull()
-    const card = await waitForTour()
-    expect(card, '새 기능 안내 자체는 떠야 한다').not.toBeNull()
-    // 찜 스텝이 빠져 남은 둘(섹션 → 설정)만 돈다
-    expect(card.querySelector('.ba-tour-step').textContent).toContain('1 / 2')
-    expect(card.querySelector('.ba-tour-title').textContent).toContain('섹션')
-  })
-
-  it('빠진 스텝의 설명이 화면 어디에도 안 남는다 — 카드만 뜨는 상태를 막는 게 목적이다', async () => {
-    await mount()
-    const card = await waitForTour()
-    card.querySelector('.ba-tour-next').click()
-    await new Promise((r) => setTimeout(r, 40))
-    const all = root.querySelector('.ba-tour-card').textContent
-    expect(all).not.toContain('한 번에 확인하기')
+    expect(await waitForTour(), '새 기능 안내 자체는 떠야 한다').not.toBeNull()
+    const titles = await tourTitles()
+    expect(titles.length, '남은 스텝이 있어야 한다').toBeGreaterThan(0)
+    expect(titles, `가리킬 대상도 없는 찜 스텝이 남았다: ${titles.join(' / ')}`).not.toContain(WATCH_STEP)
   })
 })
 
 describe('찜을 쓰는 사람', () => {
-  it("'전체 확인' 버튼이 있으면 그 스텝이 살아 있고 맨 앞에 온다", async () => {
+  it("'전체 확인' 버튼이 있으면 그 스텝이 살아 있다", async () => {
     await seedWatches(2)
     await mount()
     expect(root.querySelector('.ba-wcheck-all'), '전제: 찜 2개면 버튼이 그려진다').not.toBeNull()
-    const card = await waitForTour()
-    expect(card.querySelector('.ba-tour-step').textContent).toContain('1 / 3')
-    expect(card.querySelector('.ba-tour-title').textContent).toContain('찜한 매물')
+    await waitForTour()
+    expect(await tourTitles()).toContain(WATCH_STEP)
   })
 
   it('설명이 **왜 느린가**를 말한다 — 도중에 멈추는 걸 고장으로 읽지 않게', async () => {
     await seedWatches(2)
     await mount()
-    const body = (await waitForTour()).querySelector('p').textContent
+    await waitForTour()
+    // 찜 스텝까지 넘겨 가며 본문을 찾는다(앞에 다른 세션의 스텝이 섞일 수 있다)
+    let body = null
+    for (let i = 0; i < 12; i++) {
+      const card = root.querySelector('.ba-tour-card')
+      if (!card) break
+      if (card.querySelector('.ba-tour-title').textContent === WATCH_STEP) { body = card.querySelector('p').textContent; break }
+      card.querySelector('.ba-tour-next').click()
+      await new Promise((r) => setTimeout(r, 40))
+    }
+    expect(body, '찜 스텝을 못 찾았다').not.toBeNull()
     expect(body).toContain('천천히')
     expect(body).toContain('멈추')
   })
@@ -97,7 +113,7 @@ describe('찜을 쓰는 사람', () => {
     await seedWatches(1)
     await mount()
     expect(root.querySelector('.ba-wcheck-all')).toBeNull()
-    const card = await waitForTour()
-    expect(card.querySelector('.ba-tour-step').textContent).toContain('1 / 2')
+    await waitForTour()
+    expect(await tourTitles()).not.toContain(WATCH_STEP)
   })
 })
