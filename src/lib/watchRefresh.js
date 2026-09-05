@@ -19,6 +19,44 @@ import { nextDelay, retryAfterMs, parseRules } from './tradeRate.js'
 /** 이보다 긴 주기의 규칙만 '긴 창'으로 본다. 짧은 창은 700ms 간격이 이미 막고 있다. */
 export const LONG_WINDOW_MIN_S = 60
 
+// ── '지금 확인할까요?' 권유 ──────────────────────────────────────────────
+// 자동 주기(④-b) 대신 채택한 방식이다(사용자 결정 2026-09-05). 자동 주기의 값어치 대부분은
+// **잊지 않고 갱신되는 것**인데, 그건 "지금 오래됐다"고 알려 주기만 해도 얻어진다.
+// 그러면서 「기능 수용 기준」의 *백그라운드 상시 동작*에는 걸리지 않는다 — 사용자가 눌러야 돌고,
+// 안 돌면 그 자리에서 보인다.
+
+/**
+ * 이보다 오래 확인 안 한 찜을 '오래됐다'고 본다.
+ * ⚠ **측정값이 아니라 고른 값이다.** 매물은 분~시간 단위로 팔리므로 하루는 너무 길고, 몇 분은
+ * 같은 세션 안에서 계속 뜬다. 한 시간은 "페이지를 다시 열었을 때쯤"에 해당한다.
+ */
+export const WATCH_STALE_MS = 60 * 60 * 1000
+
+/**
+ * ✕ 로 닫았을 때 다시 안 뜨는 기간. **영구 숨김은 두지 않는다** —
+ * 한 번 잘못 누르면 기능이 영영 사라지는데, 사용자는 그걸 되돌릴 방법을 못 찾는다.
+ */
+export const NUDGE_SNOOZE_MS = 24 * 60 * 60 * 1000
+
+/**
+ * 권유를 띄울까.
+ *
+ * @param {object} o
+ * @param {Array<{checkedAt?:number}>} o.items **여기서 확인할 수 있는** 찜만 넘길 것
+ *   (다른 거래소 매물은 눌러도 확인되지 않으므로 권유의 근거가 될 수 없다)
+ * @param {number} [o.now]
+ * @param {number} [o.snoozeUntil] ✕ 로 닫은 시각 + NUDGE_SNOOZE_MS
+ * @param {number} [o.staleMs]
+ * @returns {{show:boolean, count:number}}
+ */
+export function watchNudge({ items, now = Date.now(), snoozeUntil = 0, staleMs = WATCH_STALE_MS } = {}) {
+  // 확인한 적 없는 것도 '오래됐다'로 본다 — 그게 가장 모르는 상태다.
+  const count = (items || []).filter((w) => !w.checkedAt || now - w.checkedAt > staleMs).length
+  // 하나뿐이면 안 띄운다. 그건 행의 개별 '확인' 버튼으로 충분하고,
+  // 한 건 때문에 배너를 띄우면 그 배너가 목록보다 커 보인다.
+  return { show: count >= 2 && now >= (snoozeUntil || 0), count }
+}
+
 /**
  * 사용자 몫으로 남겨 둘 요청 수. 거래소 검색 한 번이 `/fetch` 를 1~3회 부르므로
  * 30이면 남은 창 동안 최소 열 번쯤은 검색할 수 있다.

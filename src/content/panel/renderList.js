@@ -18,7 +18,7 @@ import exaltedIcon from '../../icons/exalted.png'
 import analystIcon from '../../icons/mascot-analyst.webp'
 import researcherIcon from '../../icons/mascot-researcher.webp'
 import { nextDelay, retryAfterMs, waitSeconds } from '../../lib/tradeRate.js'
-import { runBulkWatchCheck } from '../../lib/watchRefresh.js'
+import { runBulkWatchCheck, watchNudge, NUDGE_SNOOZE_MS } from '../../lib/watchRefresh.js'
 import { SECTIONS, SECTION_LABEL, DEFAULT_SEC_ORDER, normalizeSecOrder } from '../../lib/secOrder.js'
 
 // content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
@@ -48,10 +48,11 @@ async function hydrateUiState() {
   if (uiHydrated) return
   uiHydrated = true
   try {
-    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders', 'uiOpenInNewTab', 'uiSecOrder', 'uiCollapsedSecs'])
+    const r = await chrome.storage.local.get(['uiBmSort', 'uiCollapsedFolders', 'uiOpenInNewTab', 'uiSecOrder', 'uiCollapsedSecs', 'uiWatchNudgeSnooze'])
     if (r.uiBmSort) bmSort = r.uiBmSort
     if (typeof r.uiOpenInNewTab === 'boolean') openNewTab = r.uiOpenInNewTab
     if (Array.isArray(r.uiCollapsedFolders)) { collapsedFolders.clear(); r.uiCollapsedFolders.forEach((k) => collapsedFolders.add(k)) }
+    if (Number.isFinite(r.uiWatchNudgeSnooze)) watchNudgeSnoozeUntil = r.uiWatchNudgeSnooze
     // 저장값을 그대로 믿지 않는다 — 모르는 키는 버리고 빠진 키는 뒤에 채운다(secOrder.js 주석 참조)
     secOrder = normalizeSecOrder(r.uiSecOrder)
     if (Array.isArray(r.uiCollapsedSecs)) { collapsedSecs.clear(); r.uiCollapsedSecs.filter((k) => SECTIONS.includes(k)).forEach((k) => collapsedSecs.add(k)) }
@@ -90,7 +91,7 @@ let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
 let focusBookmarkId = null // 저장·승격 후 스크롤·강조 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
-const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export, .ba-sec-title[data-sec]'
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export, .ba-sec-title[data-sec], .ba-wnudge-x'
 function applyA11y(listEl) {
   listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
     if (el.matches('button, a, input')) return
@@ -597,6 +598,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 // 일괄 확인이 도는 중인가 / 중단이 눌렸는가. 재렌더가 버튼 DOM 을 바꾸므로 모듈 레벨이어야 한다.
 let bulkWatchRunning = false
 let bulkWatchCancel = false
+// '지금 확인할까요?' 권유를 ✕ 로 닫은 시각 + 24시간. 영구 숨김이 아니라 스누즈다(watchRefresh.js 주석).
+let watchNudgeSnoozeUntil = 0
+const snoozeWatchNudge = () => {
+  watchNudgeSnoozeUntil = Date.now() + NUDGE_SNOOZE_MS
+  try { chrome.storage.local.set({ uiWatchNudgeSnooze: watchNudgeSnoozeUntil }) } catch (_) {}
+}
 
 async function checkOneWatch(btn, row, ui, toast) {
   // 일괄이 도는 중이면 개별 요청을 끼워 넣지 않는다 — 같은 창구를 둘이 동시에 쓰면 간격 계산이 어긋난다.
@@ -805,11 +812,22 @@ export async function renderList(listEl, root, ui = {}) {
       if (!watched.length) return ''
       // 일괄 확인은 **여기서 확인할 수 있는 찜이 있을 때만** 그린다. 다른 거래소 매물뿐이면
       // 눌러도 아무 일이 없는데, 눌러도 아무 일 없는 버튼은 고장으로 읽힌다(폴더 비우기와 같은 규칙).
-      const n = checkableWatches(watched).length
-      const bulkBtn = n > 1
-        ? `<button class="ba-wcheck-all" data-tip="찜 ${n}개의 생존·가격을 하나씩 확인해요\n거래소 요청 제한 때문에 천천히 돌고, 다시 누르면 멈춰요">${icon('refresh', 12)}전체 확인</button>`
+      const mine = checkableWatches(watched)
+      const bulkBtn = mine.length > 1
+        ? `<button class="ba-wcheck-all" data-tip="찜 ${mine.length}개의 생존·가격을 하나씩 확인해요\n거래소 요청 제한 때문에 천천히 돌고, 다시 누르면 멈춰요">${icon('refresh', 12)}전체 확인</button>`
         : ''
-      return sec('watch', secHead('watch', icon('star', 14), '찜한 매물', watched.length, bulkBtn, 'ba-sec-watch'), watched.map((w) => watchRowHtml(w)).join(''))
+      // 오래된 것이 쌓이면 먼저 말을 건다 — 자동 주기 대신 채택한 방식이다(사용자 결정 2026-09-05).
+      // 도는 중에는 그리지 않는다: 지금 갱신되고 있는데 "오래됐다"고 말하면 어긋난다.
+      const nudge = watchNudge({ items: mine, snoozeUntil: watchNudgeSnoozeUntil })
+      const nudgeHtml = (nudge.show && !bulkWatchRunning)
+        ? `<div class="ba-wnudge">
+            <span class="ba-wnudge-tx">${icon('clock', 12)}찜 <b>${nudge.count}개</b>를 확인한 지 오래됐어요</span>
+            <button class="ba-wnudge-go" data-tip="지금 하나씩 확인해요 — 도는 동안 다시 누르면 멈춰요">지금 확인</button>
+            <span class="ba-wnudge-x" data-tip="오늘은 그만 보기 (24시간 뒤 다시 알려드려요)">${icon('x', 12)}</span>
+          </div>`
+        : ''
+      return sec('watch', secHead('watch', icon('star', 14), '찜한 매물', watched.length, bulkBtn, 'ba-sec-watch'),
+        nudgeHtml + watched.map((w) => watchRowHtml(w)).join(''))
     },
     // ── 히스토리 — 리그 구분 없이 전체 통합(시간순, listByKind가 이미 최신순 정렬) ──
     history: () => (history.length
@@ -858,6 +876,23 @@ function bindAll(listEl, ui, ctx) {
     e.stopPropagation()
     checkAllWatches(bulkBtn, ui, toast)
   })
+  // '지금 확인' — 진행 표시는 섹션 머리 버튼이 이미 나르므로 **그 버튼에 위임한다.**
+  // 권유 배너는 먼저 지운다: 남겨 두면 도는 중에 다시 눌러 '중단'이 돼 버린다(누른 것과 반대 결과).
+  const nudgeEl = listEl.querySelector('.ba-wnudge')
+  if (nudgeEl) {
+    const go = nudgeEl.querySelector('.ba-wnudge-go')
+    if (go) go.addEventListener('click', (e) => {
+      e.stopPropagation()
+      nudgeEl.remove()
+      if (bulkBtn) checkAllWatches(bulkBtn, ui, toast)
+    })
+    const x = nudgeEl.querySelector('.ba-wnudge-x')
+    if (x) x.addEventListener('click', (e) => {
+      e.stopPropagation()
+      snoozeWatchNudge()
+      nudgeEl.remove() // 재렌더하지 않는다 — 목록 전체를 다시 그릴 이유가 없고 스크롤이 튄다
+    })
+  }
 
   // 행 열기 — 히스토리는 카드 전체 클릭, 북마크는 이름 칩(.ba-open)만 (오클릭 방지)
   listEl.querySelectorAll('.ba-row').forEach((row) => {

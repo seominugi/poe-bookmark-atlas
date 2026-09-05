@@ -7,6 +7,7 @@ import { describe, it, expect } from 'vitest'
 import {
   longWindowHeadroom, canSendMore, runBulkWatchCheck,
   LONG_WINDOW_MIN_S, USER_RESERVE, MAX_PER_RUN_UNKNOWN,
+  watchNudge, WATCH_STALE_MS, NUDGE_SNOOZE_MS,
 } from '../src/lib/watchRefresh.js'
 import { MIN_GAP_MS } from '../src/lib/tradeRate.js'
 
@@ -249,5 +250,52 @@ describe('runBulkWatchCheck — 순차로 돌고 스스로 멈춘다', () => {
       onProgress: (p) => seen.push(p),
     })
     expect(seen).toEqual([{ done: 1, total: 3 }, { done: 2, total: 3 }, { done: 3, total: 3 }])
+  })
+})
+
+// ── '지금 확인할까요?' 권유 ──────────────────────────────────────────────
+// 자동 주기(④-b) 대신 채택한 방식이다(사용자 결정 2026-09-05).
+// 여기가 지키는 건 **안 뜰 때 안 뜨는 것**이다 — 배너가 늘 떠 있으면 그건 잔소리이고,
+// 사용자는 배너를 넘어 기능째로 안 보게 된다.
+describe('watchNudge — 오래된 것이 쌓였을 때만 말을 건다', () => {
+  const T = 10_000_000_000
+  const HOUR = 60 * 60 * 1000
+  const w = (agoMs) => (agoMs === null ? {} : { checkedAt: T - agoMs })
+
+  it('둘 이상이 오래됐으면 뜬다', () => {
+    expect(watchNudge({ items: [w(2 * HOUR), w(3 * HOUR)], now: T })).toEqual({ show: true, count: 2 })
+  })
+
+  it('하나뿐이면 안 뜬다 — 그건 행의 개별 확인으로 충분하다', () => {
+    expect(watchNudge({ items: [w(2 * HOUR), w(1000)], now: T })).toEqual({ show: false, count: 1 })
+  })
+
+  it('전부 방금 확인했으면 안 뜬다', () => {
+    expect(watchNudge({ items: [w(1000), w(2000), w(3000)], now: T }).show).toBe(false)
+  })
+
+  it('확인한 적 없는 것은 오래된 것으로 센다 — 그게 가장 모르는 상태다', () => {
+    expect(watchNudge({ items: [w(null), w(null)], now: T })).toEqual({ show: true, count: 2 })
+  })
+
+  it('경계 — 딱 한 시간이면 아직 아니고, 넘으면 오래된 것이다', () => {
+    expect(watchNudge({ items: [w(WATCH_STALE_MS), w(WATCH_STALE_MS)], now: T }).count).toBe(0)
+    expect(watchNudge({ items: [w(WATCH_STALE_MS + 1), w(WATCH_STALE_MS + 1)], now: T }).count).toBe(2)
+  })
+
+  it('✕ 로 닫아 둔 동안은 개수를 세도 안 뜬다', () => {
+    // 개수는 그대로 돌려준다 — 숨기는 것이지 없어진 게 아니다
+    expect(watchNudge({ items: [w(null), w(null)], now: T, snoozeUntil: T + 1000 })).toEqual({ show: false, count: 2 })
+  })
+
+  it('스누즈가 지나면 다시 뜬다 — 영구 숨김은 두지 않는다', () => {
+    expect(watchNudge({ items: [w(null), w(null)], now: T, snoozeUntil: T }).show).toBe(true)
+    expect(Number.isFinite(NUDGE_SNOOZE_MS)).toBe(true)
+    expect(NUDGE_SNOOZE_MS).toBeGreaterThan(0)
+  })
+
+  it('빈 목록·인자 없음에도 터지지 않는다', () => {
+    expect(watchNudge({ items: [] })).toEqual({ show: false, count: 0 })
+    expect(watchNudge()).toEqual({ show: false, count: 0 })
   })
 })
