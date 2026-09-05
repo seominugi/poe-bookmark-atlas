@@ -103,19 +103,31 @@ function makeAskButton() {
   return btn
 }
 
-function insertAfterMin(min, node) {
-  min.parentElement.insertBefore(node, min.nextSibling)
+/**
+ * 칩을 붙일 자리 — **능력치 이름을 담은 가장 안쪽 요소**.
+ *
+ * 왜 min 입력칸 뒤가 아닌가 (거래소 실측 2026-09-05): 그 행에는 가로 여유가 **0** 이다.
+ *   제목 502 + 최소 84 + 최대 64 = 656 = 행 전폭
+ * 게다가 GGG CSS 가 우리 `<button>` 에 `display:block; float:left; width:80px` 를 먹여,
+ * min 뒤에 넣으면 칩이 **세로로 쌓이고 행 높이가 30 → 70px 로 무너진다**(실측).
+ * 반면 제목 칸은 502px 인데 이름은 95~110px 뿐이라 **약 390px 이 비어 있다.**
+ * 이름 바로 뒤에 붙이면 행 높이가 30px 그대로다(칩 높이 18px 기준 실측).
+ *
+ * 클래스 이름(`filter-title`)에는 기대지 않는다 — 텍스트를 가진 자식이 하나뿐인 동안
+ * 계속 내려간다. 우리 버튼은 SKIP_TAGS 라 이미 붙어 있어도 경로가 흔들리지 않는다.
+ */
+function findTextHost(row) {
+  let cur = row
+  for (;;) {
+    const kids = Array.from(cur.children).filter((c) => !SKIP_TAGS.has(c.tagName) && hasOwnText(c))
+    if (kids.length !== 1) return cur
+    cur = kids[0]
+  }
 }
 
-/** 이 입력칸에 우리가 앞서 붙였던 것만 걷어낸다 (거래소 자신의 요소는 건드리지 않는다). */
-function clearOwnButtons(min) {
-  let node = min.nextSibling
-  while (node) {
-    const next = node.nextSibling
-    const cl = node.nodeType === Node.ELEMENT_NODE ? node.classList : null
-    if (cl && (cl.contains(CHIP_CLASS) || cl.contains(ASK_CLASS))) node.remove()
-    node = next
-  }
+/** 이 행에 우리가 앞서 붙였던 것만 걷어낸다 (거래소 자신의 요소는 건드리지 않는다). */
+function clearOwnButtons(row) {
+  for (const node of row.querySelectorAll('.' + CHIP_CLASS + ', .' + ASK_CLASS)) node.remove()
 }
 
 /**
@@ -151,7 +163,8 @@ export function attachTierChips(root, ctx) {
       const signature = `${statId ?? ''}|${itemClass ?? ''}|${ilvlMax ?? ''}`
       if (min.dataset[MARK] === signature) { seen.unchanged += 1; continue }
       min.dataset[MARK] = signature
-      clearOwnButtons(min) // 이전에 그린 것을 걷어내고 새로 붙인다
+      clearOwnButtons(row) // 이전에 그린 것을 걷어내고 새로 붙인다
+      const host = findTextHost(row)
 
       if (!statId) { seen.noStatId += 1; continue }
 
@@ -164,7 +177,7 @@ export function attachTierChips(root, ctx) {
           e.stopPropagation()
           onAskClass?.(row)
         })
-        insertAfterMin(min, askBtn)
+        host.appendChild(askBtn)
         seen.ask += 1
         continue
       }
@@ -177,10 +190,7 @@ export function attachTierChips(root, ctx) {
         continue
       }
 
-      // 항상 `min.parentElement.insertBefore(chip, min.nextSibling)` 로 넣으므로, 화면에
-      // T1 T2 T3 순으로 보이려면 뒤에서부터(T3→T1) 밀어 넣는다.
-      for (let i = tiers.length - 1; i >= 0; i -= 1) {
-        const tier = tiers[i]
+      for (const tier of tiers) {
         const chip = makeChipButton(tier)
         chip.addEventListener('click', (e) => {
           e.preventDefault()
@@ -188,7 +198,7 @@ export function attachTierChips(root, ctx) {
           const result = setInputValue(min, String(tier.min))
           onApply?.(result, tier)
         })
-        insertAfterMin(min, chip)
+        host.appendChild(chip)
         seen.chips += 1
       }
     } catch (_) {

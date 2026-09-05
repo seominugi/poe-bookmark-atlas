@@ -411,18 +411,33 @@ function pobEnsureStyle() {
   .ba-page-set:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
   .ba-page-set[disabled] { opacity: 0.55; cursor: default; }
   @media (prefers-reduced-motion: reduce) { .ba-page-set { transition-property: background, border-color, color; } .ba-page-set:active { transform: none; } }
+  /* 티어 칩 — 능력치 이름 바로 뒤에 붙는다 (자리 선정 사유는 tier-chip.js findTextHost).
+     !important 와 display/float/width 재지정은 취향이 아니라 필수다: 거래소 CSS 가
+     이 행의 자식에게 display:block; float:left; width:80px 를 먹여, 그대로 두면 칩이
+     세로로 쌓이고 행 높이가 30 → 70px 로 무너진다(2026-09-05 실측).
+     높이 18px 은 실측값 — 16/18px 에서 행이 30px 그대로고 20px 부터 32px 로 밀린다. */
   .ba-tier-chip, .ba-tier-ask {
-    min-height: 28px; min-width: 34px; margin-left: 4px; padding: 3px 9px;
-    border-radius: 8px; cursor: pointer; vertical-align: middle;
-    border: 1px solid rgba(167, 139, 250, 0.45);
-    background: rgba(43, 35, 64, 0.85); color: #ddd4f7;
-    font: 600 12px/1.2 system-ui, -apple-system, sans-serif;
-    transition: border-color .15s, background .15s; }
-  .ba-tier-chip:hover, .ba-tier-ask:hover {
-    border-color: rgba(167, 139, 250, 0.95); background: rgba(60, 48, 88, 0.95); }
+    box-sizing: border-box !important; display: inline-flex !important; align-items: center !important;
+    float: none !important; width: auto !important; min-width: 0 !important;
+    height: 18px !important; min-height: 0 !important; margin: 0 0 0 4px !important; padding: 0 7px !important;
+    vertical-align: middle !important; white-space: nowrap;
+    border: 1px solid rgba(167, 139, 250, 0.45); border-radius: 999px !important;
+    background: rgba(43, 35, 64, 0.85); color: #ddd4f7; cursor: pointer;
+    font: 600 11px/1 system-ui, -apple-system, sans-serif !important;
+    transition: background .15s ease, border-color .15s ease, color .15s ease,
+                transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-tier-chip:hover, .ba-tier-ask:hover {
+      border-color: rgba(167, 139, 250, 0.95); background: rgba(60, 48, 88, 0.95); color: #fff; }
+  }
+  .ba-tier-chip:active, .ba-tier-ask:active { transform: scale(0.97); }
   .ba-tier-chip:focus-visible, .ba-tier-ask:focus-visible {
-    outline: 2px solid #a78bfa; outline-offset: 2px; }
-  .ba-tier-ask { border-style: dashed; }`
+    outline: 2px solid #a78bfa; outline-offset: 1px; }
+  .ba-tier-ask { border-style: dashed; }
+  @media (prefers-reduced-motion: reduce) {
+    .ba-tier-chip, .ba-tier-ask { transition-property: background, border-color, color; }
+    .ba-tier-chip:active, .ba-tier-ask:active { transform: none; }
+  }`
   document.head.appendChild(st)
 }
 // 페이지 표면 커스텀 툴팁 — data-tip의 《...》를 강조색(시안) span으로 치환(패널 .ba-tip과 동일 관례).

@@ -67,11 +67,16 @@ describe('평평한 구조 — 화염 저항 (T1~T3)', () => {
     statIdOf: () => 'stat.fire_res',
   })
 
-  it('상위 세 티어 칩이 min 입력칸 바로 뒤에 순서대로 붙는다', () => {
+  // 자리: 능력치 이름 바로 뒤. min 뒤가 아니다 — 그 행에는 가로 여유가 0 이라 칩이
+  // 세로로 쌓이며 행 높이를 무너뜨린다(tier-chip.js findTextHost 주석의 실측).
+  it('상위 세 티어 칩이 능력치 이름 바로 뒤에 순서대로 붙는다', () => {
     attachTierChips(document, ctx())
     const chips = row.querySelectorAll('.' + CHIP_CLASS)
     expect(Array.from(chips).map((c) => c.textContent)).toEqual(['T1', 'T2', 'T3'])
-    expect(min.nextElementSibling).toBe(chips[0])
+    const nameEl = row.querySelector('span')
+    expect(chips[0].parentElement).toBe(nameEl)
+    expect(nameEl.firstChild.textContent).toBe('화염 저항 #%') // 이름 텍스트 뒤에 온다
+    expect(min.previousElementSibling).toBe(nameEl) // 입력칸 앞 순서는 그대로
   })
 
   it('title 은 "최소~최대 · 아이템 레벨 L 이상"', () => {
@@ -152,7 +157,8 @@ describe('입력칸이 한 겹 더 감싸인 구조', () => {
     attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
     const chips = row.querySelectorAll('.' + CHIP_CLASS)
     expect(chips).toHaveLength(3)
-    expect(min.nextElementSibling).toBe(chips[0]) // 칩은 항상 min 바로 뒤
+    expect(chips[0].parentElement).toBe(row.querySelector('span')) // 이름 뒤
+    expect(min.parentElement).not.toBe(chips[0].parentElement) // 입력칸 칸은 안 건드린다
   })
 })
 
@@ -162,7 +168,8 @@ describe('영문 거래소 — placeholder 가 min/max', () => {
     document.body.appendChild(row)
     attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
     expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(3)
-    expect(min.nextElementSibling.className).toBe(CHIP_CLASS)
+    expect(row.querySelector('span').lastElementChild.className).toBe(CHIP_CLASS)
+    expect(min.value).toBe('') // 입력칸은 그대로
   })
 })
 
@@ -385,5 +392,34 @@ describe('실제 거래소 마크업 (2026-09-04 실측)', () => {
     const min = row.querySelector('input[placeholder="최소"]')
     ;[...document.querySelectorAll('.' + CHIP_CLASS)].find((c) => c.textContent === 'T2').click()
     expect(min.value).toBe('36')
+  })
+
+  // 2026-09-05 실측 회귀. min 입력칸 뒤에 넣었더니 거래소 CSS 가 우리 버튼에
+  // `display:block; float:left; width:80px` 를 먹여 칩이 세로로 쌓이고 행 높이가
+  // 30 → 70px 로 무너졌다. 그 행에는 가로 여유가 0 이고(제목 502 + 최소 84 + 최대 64
+  // = 656 = 전폭), 여유는 제목 칸 안쪽(약 390px)에만 있다.
+  // jsdom 은 높이를 재지 못하므로 **자리**를 고정해 재발을 막는다.
+  it('칩은 이름 <span> 안에 들어가고 입력칸 형제로는 새지 않는다', () => {
+    const row = mountReal()
+    attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
+
+    const nameSpan = row.querySelector('.filter-title span')
+    const chips = [...document.querySelectorAll('.' + CHIP_CLASS)]
+    expect(chips).toHaveLength(3)
+    for (const c of chips) expect(c.parentElement).toBe(nameSpan)
+    expect(nameSpan.firstChild.textContent).toBe('화염 저항 #%') // 이름이 먼저, 칩이 뒤
+
+    // 입력칸이 있는 칸(.filter-body 직속)에는 우리 버튼이 하나도 없어야 한다
+    const min = row.querySelector('input[placeholder="최소"]')
+    expect([...min.parentElement.children].filter((c) => c.classList.contains(CHIP_CLASS))).toHaveLength(0)
+  })
+
+  it('다시 그려도 이름 텍스트가 살아 있고 칩이 3개다', () => {
+    const row = mountReal()
+    const c = (ilvlMax) => ({ table, itemClass: 'Ring', ilvlMax, statIdOf: () => 'stat.fire_res' })
+    attachTierChips(document, c(null))
+    attachTierChips(document, c(90)) // 서명이 바뀌어 다시 그린다
+    expect(rowStatText(row)).toBe('화염 저항 #%')
+    expect(document.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(3)
   })
 })
