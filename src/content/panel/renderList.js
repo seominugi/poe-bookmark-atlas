@@ -821,7 +821,12 @@ export async function renderList(listEl, root, ui = {}) {
       const nudge = watchNudge({ items: mine, snoozeUntil: watchNudgeSnoozeUntil })
       const nudgeHtml = (nudge.show && !bulkWatchRunning)
         ? `<div class="ba-wnudge">
-            <span class="ba-wnudge-tx">${icon('clock', 12)}찜 <b>${nudge.count}개</b>를 확인한 지 오래됐어요</span>
+            <!-- ⚠ 문구에 '찜' 을 다시 넣지 말 것 — 바로 위 섹션 제목이 이미 '찜한 매물' 이다.
+                 하네스 실측(2026-09-06, 최악 폰트 system-ui·Malgun / 최소폭 384 / 개수 100=상한):
+                 가용 324 = 버튼 71 + ✕ 22 + 간격 16 + 문구 181 → **여유 34px**(한글 3자쯤).
+                 '찜 ' 을 되살리면 여유가 16px 로 줄어든다. 넘어가도 wrap 이라 잘리진 않고 버튼이
+                 아랫줄로 내려갈 뿐이지만, 이 줄은 여유를 남겨 두는 편이 낫다. -->
+            <span class="ba-wnudge-tx">${icon('clock', 12)}<b>${nudge.count}개</b>를 확인한 지 오래됐어요</span>
             <button class="ba-wnudge-go" data-tip="지금 하나씩 확인해요 — 도는 동안 다시 누르면 멈춰요">지금 확인</button>
             <span class="ba-wnudge-x" data-tip="오늘은 그만 보기 (24시간 뒤 다시 알려드려요)">${icon('x', 12)}</span>
           </div>`

@@ -1374,6 +1374,12 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     { sel: '.ba-folder-ic[data-id]', title: '폴더 색상 구분', body: '폴더 아이콘을 클릭하면 색을 바꿀 수 있어요. 색으로 분류하면 원하는 폴더를 한눈에 찾습니다.' },
     { sel: '.ba-action-row', title: '정리 도구', body: '모든 폴더 접기·펼치기와 새 폴더 추가가 여기 모여 있어요.' },
     { sel: '.ba-io-group', title: '백업 · 공유 (JSON)', body: '북마크를 JSON 파일로 내보내 백업하거나 다른 사람과 공유할 수 있어요. 받은 JSON은 가져오기로 합쳐집니다. 특정 폴더만 내보내려면 폴더 헤더의 ⬇ 아이콘을 쓰세요.' },
+    // ⚠ 이 스텝은 **찜을 쓰는 사람에게만** 뜬다(skipIfMissing). 대상인 '전체 확인' 버튼은 여기서
+    //   확인할 수 있는 찜이 2개 이상일 때만 그려지는데, 그게 곧 이 설명이 쓸모 있는 조건이다.
+    //   찜을 한 번도 안 한 사람에게 "찜 한 번에 확인하는 법" 을 먼저 말하면 순서가 뒤집힌다.
+    // 설명의 알맹이는 버튼의 존재가 아니라 **왜 느린가**다 — 80개 중 40개에서 멈추면 고장으로 읽힌다.
+    { sel: '.ba-wcheck-all', since: '0.13.0', skipIfMissing: true, title: '찜한 매물, 한 번에 확인하기',
+      body: '<b>전체 확인</b>을 누르면 찜을 하나씩 확인해 <b>아직 있는지·가격이 바뀌었는지</b> 갱신해요. 거래소 요청 제한 때문에 <b>일부러 천천히</b> 돌고, 여러분이 쓸 몫을 남기려고 <b>도중에 스스로 멈추기도 합니다</b> — 그때는 잠시 뒤 다시 누르면 이어서 확인해요. 도는 중에 다시 누르면 멈춥니다. 오래 확인 안 한 게 쌓이면 <b>먼저 알려드려요</b>.' },
     { sel: '.ba-sec-hist', title: '자동 기록된 히스토리', body: '최근 검색이 시간과 함께 자동 적재됩니다. ☆를 누르면 바로 북마크로 승격돼요.' },
     { sel: '.ba-econ-row', title: '시세는 서미누기에서', body: '아이템 시세·시장 동향 버튼으로 서미누기의 POE 경제 데이터를 바로 확인할 수 있어요.' },
     // 섹션 제목이 접기 버튼이라는 건 **화면만 봐서는 알 수 없다**(chevron 하나가 유일한 신호다).
@@ -1424,7 +1430,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // ⚠ 반드시 사본이다. 인자가 없으면 목록이 TOUR **그 자체**라, 갈래(branch)로 스텝을 끼우는 순간
     //   원본이 영구히 늘어나 다음에 여는 투어가 23스텝이 된다. forGame 의 filter 가 새 배열을 만들지만,
     //   그 사실에 기대지 않도록 .slice() 를 남겨 둔다 — forGame 이 언젠가 원본을 돌려주게 바뀌어도 안전하다.
-    const list = forGame(steps && steps.length ? steps : TOUR).slice()
+    // ⚠ 거르는 축이 **둘**이다. 여기서는 게임(forGame — 지금 아는 값)만 거르고, 대상이 실제로
+    //   화면에 있는지(skipIfMissing)는 **데모 주입이 끝난 뒤** 아래에서 거른다. 시점이 달라 합칠 수 없다.
+    let list = forGame(steps && steps.length ? steps : TOUR).slice()
     const wasCollapsed = isCollapsed()
     setCollapsed(false)
     // 패널이 접혀 있다가 열리는 거면 .ba-root의 슬라이드인(.26s)이 끝날 때까지 기다린다 — 그 전에 첫 스텝을
@@ -1612,6 +1620,16 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       else { card.style.right = off + 'px'; card.style.left = 'auto' }
       positionArrow(boxRect)
     }
+    // ── 대상이 없는 스텝은 뺀다 (skipIfMissing) ─────────────────────────
+    // place() 는 대상을 못 찾으면 **스포트라이트만 숨기고 카드는 그대로 띄운다** — 에러도 없다.
+    // 그래서 "찜을 한 번도 안 한 사람에게 찜 설명이 뜨는데 아무 데도 안 가리키는" 상태가 조용히 생긴다.
+    // 데모 데이터로 대상을 만들어 주는 스텝(북마크·폴더·조건 묶음)과 달리, 찜은 **안 쓰는 사람에게는
+    // 설명 자체가 무의미**하다. 그래서 심는 대신 뺀다.
+    // ⚠ 데모 주입이 끝난 **뒤에** 판정해야 한다 — 먼저 재면 데모가 만들 대상까지 없다고 보고 지운다.
+    list = list.filter((s) => !s.skipIfMissing || root.querySelector(s.sel))
+    // 다 빠지면 빈 카드를 띄우지 않는다. 새 기능 안내가 이 경우에 해당할 수 있다(그 버전의 스텝이
+    // 전부 조건부일 때). finish() 가 데모 정리·표시 저장까지 맡으므로 그대로 끝낸다.
+    if (!list.length) { finish(); return }
     activeTourLayout = layout
     render()
   }
