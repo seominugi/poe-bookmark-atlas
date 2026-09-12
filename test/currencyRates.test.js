@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseExaltedPerDivine, RatesCache, baseFromPrice, baseCurrencyOf, fmtCurAmount, itemsRate, indexItemsByName, divineFromPrice } from '../src/lib/currencyRates.js'
+import { parseExaltedPerDivine, RatesCache, baseFromPrice, baseCurrencyOf, basePerDivineOf, fmtCurAmount, itemsRate, indexItemsByName, divineFromPrice } from '../src/lib/currencyRates.js'
 
 describe('parseExaltedPerDivine', () => {
   it('exchange_rates에서 가격 추출', () => {
@@ -32,6 +32,26 @@ describe('divineFromPrice — 기본 화폐 가격 → 신성한 오브 (역방�
     expect(divineFromPrice({ amount: 350, currency: 'chaos' }, { exchange_rates: { chaos_per_divine: { price: 0 } } }, 'poe1')).toBeNull()
     expect(divineFromPrice({ amount: 350, currency: 'chaos' }, null, 'poe1')).toBeNull()
     expect(divineFromPrice(null, poe1, 'poe1')).toBeNull()
+  })
+})
+
+// 가격 스냅샷이 base → divine 으로 내려가는 계수. 게임마다 봐야 하는 키가 달라서, 그 지식이
+// 호출부로 새면 두 곳이 갈라진다(환산 칩이 실제로 그렇게 갈라져 한 번 조용히 죽었다).
+describe('basePerDivineOf — 기본 화폐 → 신성한 환산 계수', () => {
+  // 아래 값은 2026-09-13 BE 실측(poe2 Forbidden Rites / poe1 Standard)
+  it('poe2 는 exalted_per_divine 를 본다', () => {
+    const rd = { exchange_rates: { exalted_per_divine: { price: 327.55583 }, chaos_per_divine: { price: 9.07869 } } }
+    expect(basePerDivineOf(rd, 'poe2')).toBeCloseTo(327.55583, 5)
+  })
+  it('poe1 은 chaos_per_divine 를 본다 — 기본 화폐가 카오스이므로', () => {
+    const rd = { exchange_rates: { exalted_per_divine: { price: 62 }, chaos_per_divine: { price: 773.33333 } } }
+    expect(basePerDivineOf(rd, 'poe1')).toBeCloseTo(773.33333, 5)
+  })
+  it('없거나 0이거나 payload 가 없으면 0 — 호출부가 폴백으로 간다', () => {
+    expect(basePerDivineOf(null, 'poe2')).toBe(0)
+    expect(basePerDivineOf({}, 'poe2')).toBe(0)
+    expect(basePerDivineOf({ exchange_rates: {} }, 'poe2')).toBe(0)
+    expect(basePerDivineOf({ exchange_rates: { exalted_per_divine: { price: 0 } } }, 'poe2')).toBe(0)
   })
 })
 

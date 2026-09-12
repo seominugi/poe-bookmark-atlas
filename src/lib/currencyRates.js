@@ -12,11 +12,17 @@ export function baseCurrencyOf(game) {
 /**
  * BE items 맵을 **한글 이름으로** 색인한다.
  *
- * ⚠ items의 키는 거래소 화폐 id가 아니라 Metadata 경로(`Metadata/Items/Currency/...`)다.
- *   예전 코드가 `items[거래소화폐id]`로 조회해 실제로는 한 번도 매칭되지 않았고, 그 결과 환산 칩이
+ * 배경: 예전 코드가 `items[거래소화폐id]`로 조회해 실제로는 한 번도 매칭되지 않았고, 그 결과 환산 칩이
  *   큐레이션 4종(엑잘·디바인·미러)에서만 뜨고 색채·연금술 등은 조용히 빠져 있었다(2026-07-27 실측·제보).
- *   두 데이터를 잇는 유일한 공통 키가 한글 이름이라(거래소 static API의 화폐 text == 경제 API의 ko_name,
- *   818개 전부 보유·중복 0) 이름으로 색인한다.
+ *   두 데이터를 잇는 공통 키가 한글 이름이라(거래소 static API의 화폐 text == 경제 API의 ko_name,
+ *   중복 0) 이름으로 색인한다.
+ *
+ * ⚠ **이 자리에 있던 "items의 키는 Metadata 경로다"는 이제 사실이 아니다** (2026-09-13 실측 정정).
+ *   BE가 스키마를 바꿨다 — 지금 키는 거래소 화폐 id 형태의 슬러그(`regal`·`alch`·`vaal`)이고,
+ *   Metadata 경로는 `market_ids` 필드로 옮겨갔다(poe2 Forbidden Rites 600항목 중 `Metadata/` 로
+ *   시작하는 키 0개). 즉 id 직접 조회도 이제는 동작한다.
+ *   그래도 **이름 색인을 정본으로 유지한다**: 키 스키마는 BE 사정으로 또 바뀔 수 있고, ko_name 은
+ *   거래소 static API 와 맺은 계약이라 더 안정적이다. id 조회로 갈아타려면 양쪽 일치를 먼저 실측할 것.
  * @param {any} items @returns {Record<string, any>}
  */
 export function indexItemsByName(items) {
@@ -86,6 +92,21 @@ export function baseFromPrice(price, rateData, game, currencyNames) {
     per = name ? itemsRate(nameIndexOf(rateData.items), name, base) : null
   }
   return typeof per === 'number' && per > 0 ? price.amount * per : null
+}
+
+/**
+ * 기본 화폐 1개당 신성한 오브가 몇 개인가 — 즉 **base → divine 환산 계수**.
+ *
+ * 어느 환율 키를 봐야 하는지는 게임마다 다르다(poe2 `exalted_per_divine` / poe1 `chaos_per_divine`).
+ * 그 지식을 이 모듈 밖으로 새게 하지 않으려고 여기 둔다 — 호출부가 키를 직접 알면 게임이 늘 때
+ * 두 곳이 갈라진다(환산 칩이 실제로 그렇게 갈라져 한 번 조용히 죽었다, 위 indexItemsByName 주석 참조).
+ * @param {any} rateData BE 원본 응답 @param {string} game
+ * @returns {number} 못 구하면 0 — 호출부가 `> 0` 으로 판정한다
+ */
+export function basePerDivineOf(rateData, game) {
+  const ex = rateData?.exchange_rates || {}
+  const per = game === 'poe1' ? ex.chaos_per_divine?.price : ex.exalted_per_divine?.price
+  return typeof per === 'number' && per > 0 ? per : 0
 }
 
 /**
