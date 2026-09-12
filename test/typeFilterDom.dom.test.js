@@ -113,6 +113,64 @@ describe('아이템 유형 — 확정하면 안 되는 경우', () => {
   })
 })
 
+// 2026-09-13 사용자 콘솔에서 떠온 poe2 카카오 거래소의 실제 유형 필터 마크업(옵션 <li> 만 뺐다).
+// 선택값이 **글자가 아니라 입력칸**에 있다 — `<input class="multiselect__input" placeholder="갑옷">`,
+// value 프로퍼티도 "갑옷". 이걸 모르고 보이는 글자만 세서 닫힌 상태에서 'none' 이 났다(첫 배포 #49).
+// value 는 HTML 속성이 아니라 프로퍼티라 outerHTML 에 안 찍힌다 — mountRealType 이 JS 로 넣는다.
+describe('실제 거래소 마크업 (2026-09-13 실측)', () => {
+  const REAL = `
+    <div class="filter-group-body">
+      <div class="filter filter-property full-span"><!----> <span class="filter-body"><div class="filter-title"> 아이템 유형 <!----></div> <!----> <span class="sep"></span> <div tabindex="-1" class="multiselect filter-select modified" style="width: 271px;"><div class="multiselect__select"></div> <div class="multiselect__tags"><div class="multiselect__tags-wrap" style="display: none;"></div> <!----> <div class="multiselect__spinner" style="display: none;"></div> <input name="" type="text" autocomplete="off" placeholder="갑옷" class="multiselect__input"> <!----></div> <div class="multiselect__content-wrapper" style="max-height: 300px; display: none;"><ul class="multiselect__content" style="display: inline-block;"> <li><span>모두</span></li><li><span>갑옷</span></li><li><span>투구</span></li> </ul></div></div> <!----> <!----> <!----></span> <!----></div>
+      <div class="filter filter-property full-span"><!----> <span class="filter-body"><div class="filter-title"> 아이템 희귀도 <!----></div> <!----> <span class="sep"></span> <div tabindex="-1" class="multiselect filter-select" style="width: 271px;"><div class="multiselect__select"></div> <div class="multiselect__tags"><div class="multiselect__tags-wrap" style="display: none;"></div> <!----> <div class="multiselect__spinner" style="display: none;"></div> <input name="" type="text" autocomplete="off" placeholder="모두" class="multiselect__input"> <!----></div> <div class="multiselect__content-wrapper" style="max-height: 300px; display: none;"><ul class="multiselect__content" style="display: inline-block;"> <li><span>모두</span></li><li><span>고유</span></li> </ul></div></div> <!----> <!----> <!----></span> <!----></div>
+      <div class="filter filter-property"><!----> <span class="filter-body"><div class="filter-title"> 아이템 레벨 <!----></div> <!----> <!----> <!----> <!----> <span class="sep"></span> <input type="number" placeholder="최소" class="form-control minmax"> <span class="sep"></span> <input type="number" placeholder="최대" class="form-control minmax"></span> <!----></div>
+      <div class="filter filter-property spaced"><!----> <span class="filter-body"><div class="filter-title"> 아이템 퀄리티 <!----></div> <!----> <!----> <!----> <!----> <span class="sep"></span> <input type="number" placeholder="최소" class="form-control minmax"> <span class="sep"></span> <input type="number" placeholder="최대" class="form-control minmax"></span> <!----></div>
+    </div>`
+
+  function mountRealType({ typeValue = '갑옷', rarityValue = '모두', open = false } = {}) {
+    document.body.innerHTML = REAL
+    const [typeInput, rarityInput] = document.querySelectorAll('.multiselect__input')
+    typeInput.value = typeValue
+    typeInput.setAttribute('placeholder', typeValue)
+    rarityInput.value = rarityValue
+    if (open) typeInput.closest('.multiselect').querySelector('.multiselect__content-wrapper').style.display = ''
+    return { typeInput }
+  }
+
+  it('닫힌 드롭다운의 입력칸에서 선택값을 읽는다', () => {
+    mountRealType()
+    expect(readLiveTypeFilters(document, filterMap).category).toEqual({ status: 'ok', id: 'armour.chest' })
+  })
+
+  it('옆 행 아이템 희귀도의 "모두" 에 끌려가지 않는다 — 유형 "모두" 와 글자가 같다', () => {
+    mountRealType({ typeValue: '투구', rarityValue: '모두' })
+    expect(readLiveTypeFilters(document, filterMap).category).toEqual({ status: 'ok', id: 'armour.helmet' })
+  })
+
+  it('유형이 "모두" 면 id null 로 확정한다', () => {
+    mountRealType({ typeValue: '모두' })
+    expect(readLiveTypeFilters(document, filterMap).category).toEqual({ status: 'ok', id: null })
+  })
+
+  it('드롭다운이 열려 목록이 보이면 ambiguous — 로그에서 실제로 본 그대로', () => {
+    mountRealType({ open: true })
+    expect(readLiveTypeFilters(document, filterMap).category.status).toBe('ambiguous')
+  })
+
+  it('검색하려고 입력칸에 친 글자는 목록이 닫혀 있을 때만 믿는다 — 열려 있으면 ambiguous', () => {
+    const { typeInput } = mountRealType({ open: true })
+    typeInput.value = '투' // 치는 중 — placeholder 는 아직 '갑옷'
+    expect(readLiveTypeFilters(document, filterMap).category.status).toBe('ambiguous')
+  })
+
+  it('아이템 레벨 최대칸을 읽는다 (아이템 퀄리티는 별도 행이라 섞이지 않는다)', () => {
+    mountRealType()
+    const maxes = [...document.querySelectorAll('input[placeholder="최대"]')]
+    maxes[0].value = '70' // 아이템 레벨
+    maxes[1].value = '20' // 아이템 퀄리티
+    expect(readLiveTypeFilters(document, filterMap).ilvlMax).toEqual({ status: 'ok', value: 70 })
+  })
+})
+
 describe('아이템 레벨 최대', () => {
   it('최대칸 값을 숫자로 읽는다', () => {
     mount(ilvlRow('68'))

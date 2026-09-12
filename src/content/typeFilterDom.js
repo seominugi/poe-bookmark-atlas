@@ -1,7 +1,9 @@
 // src/content/typeFilterDom.js
 // 거래소 화면의 '아이템 유형'·'아이템 레벨(최대)' 을 읽는다. 검색 조건에 덮는 규칙은 src/lib/liveTypeFilters.js.
 //
-// ⚠ 거래소의 유형 드롭다운 마크업은 **확인된 적이 없다.** 그래서 tier-chip.js 와 같은 원칙을 따른다:
+// 마크업은 2026-09-13 사용자 콘솔로 한 번 실측했다(`test/typeFilterDom.dom.test.js` '실제 거래소 마크업').
+// 그 전에 추측으로 짠 첫 판(#49)은 **보이는 글자만** 세서, 선택값을 입력칸에 두는 실제 드롭다운을
+// 닫힌 상태에서 한 번도 못 읽었다. 그래도 클래스 이름에는 여전히 기대지 않는다 — tier-chip.js 와 같은 원칙:
 //   GGG 클래스 이름에 기대지 않고, **거래소 API(`data/filters`)가 준 라벨·옵션 텍스트**로 찾는다.
 //   (한국어·영문 거래소 모두 그 호스트의 언어로 내려오므로 번역을 우리가 만들 일이 없다)
 //
@@ -42,6 +44,17 @@ function readCategory(root, filterMap) {
       const opt = sel.options[sel.selectedIndex]
       const t = opt?.textContent.trim()
       if (t && byText.has(t)) hits.add(t)
+    }
+    // 실측(poe2 카카오 거래소 2026-09-13): 드롭다운이 닫혀 있으면 선택값이 **글자가 아니라 입력칸**에 있다 —
+    // `<input class="multiselect__input" placeholder="갑옷">` (value 프로퍼티도 "갑옷").
+    // placeholder 를 먼저 본다: 목록을 열고 검색어를 치는 동안 value 는 검색어로 바뀌지만
+    // placeholder 는 선택값을 유지한다. 입력칸 하나는 답 하나만 낸다.
+    for (const input of node.querySelectorAll('input')) {
+      if (!visibleWithin(input, node) || inOwnUi(input, node)) continue
+      const ph = (input.getAttribute('placeholder') || '').trim()
+      const val = (input.value || '').trim()
+      if (byText.has(ph)) hits.add(ph)
+      else if (byText.has(val)) hits.add(val)
     }
     for (const t of visibleTexts(node)) {
       if (t !== label && byText.has(t)) hits.add(t)
