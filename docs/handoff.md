@@ -12,6 +12,30 @@ POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확
 **제보**: 능력치 필터에 조건을 넣고 **아이템 유형을 고르면** 칩이 `부위?` 에서 그 유형의 티어로 바뀌어야 하는데
 안 바뀐다. 검색을 한 번 눌러야 바뀐다.
 
+> ### ⚠ 첫 판(#49)은 라이브에서 유형을 한 번도 못 읽었다 — 후속 PR 로 고쳤다
+>
+> 마크업을 못 본 채 **보이는 글자만** 세게 짰는데, 실제 드롭다운은 선택값을 **글자가 아니라 입력칸**에 둔다.
+> 사용자 콘솔 로그가 정확히 그걸 보여줬다 — `화면 유형: none`(닫힘) / `ambiguous`(열림) / `화면 레벨: ok`.
+> 마크업을 받아 보니:
+>
+> ```html
+> <div class="filter-title"> 아이템 유형 </div>
+> <div class="multiselect filter-select modified">
+>   <div class="multiselect__tags">
+>     <input class="multiselect__input" placeholder="갑옷">   ← value 프로퍼티도 "갑옷"
+>   </div>
+>   <div class="multiselect__content-wrapper" style="display: none;"> …목록… </div>
+> </div>
+> ```
+>
+> 이제 행 안의 입력칸도 본다 — **placeholder 먼저**(검색어를 치는 동안 value 는 바뀌지만 placeholder 는
+> 선택값을 유지한다), 없으면 value. 실측 마크업을 `typeFilterDom.dom.test.js` '실제 거래소 마크업
+> (2026-09-13 실측)' 에 그대로 넣었고, **수정 전에 닫힌 상태 3건이 라이브와 똑같이 실패하는 것을 확인**했다.
+> 행 구조도 확인됐다 — 유형·희귀도·레벨·퀄리티가 **각자 `.filter` 로 분리**돼 있어 옆 행을 읽지 않는다.
+>
+> **교훈**: 진단 로그에 `ok/none/ambiguous` 를 찍어 둔 게 한 번에 원인을 갈랐다. 추측으로 짠 DOM 코드는
+> **처음부터 실패 원인을 말하게** 만들어 둘 것.
+
 ### 원인은 둘이 겹쳐 있었다
 
 1. **데이터 출처 (확실)** — `tierItemClass(query)` 의 `query` 가 `currentQuery()` → `lastQuery`, 즉 `page-bridge` 가
