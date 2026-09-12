@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { resolveLockedGameDataRoot } from './poe-game-data-lock.mjs'
-import { normalizeTradeText, normalizeModText } from '../src/lib/statTextNorm.js'
+import { normalizeTradeText, modTextKeys } from '../src/lib/statTextNorm.js'
 import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -71,13 +71,26 @@ export function rangesByLine(mod, lines) {
   return out
 }
 
-/** 모드의 각 문장이 어떤 거래소 stat id 후보들과 맞는지. 하나라도 못 찾으면 null. */
-function candidatesForMod(mod, tradeIndex) {
+/**
+ * 모드의 각 문장이 어떤 거래소 stat id 후보들과 맞는지. 하나라도 못 찾으면 null.
+ *
+ * 문장마다 키 후보를 여러 개 받아(`modTextKeys`) **거래소에 실재하는 것**을 고른다.
+ * 어느 숫자가 값인지는 거래소 목록을 가진 이쪽만 판정할 수 있다.
+ * @param {string[]} ambiguous 후보 둘 이상이 동시에 붙은 문장을 여기 담는다(호출부가 보고·제외)
+ */
+function candidatesForMod(mod, tradeIndex, ambiguous) {
   const lines = (mod.stats ?? []).filter((s) => s?.text?.kr)
   if (!lines.length) return null
-  const keys = lines.map((s) => normalizeModText(s.text.kr, (s.stats ?? []).length))
-  const cands = keys.map((k) => tradeIndex.get(k))
-  return cands.some((c) => !c) ? null : { keys, cands, lines }
+  const keys = []
+  for (const line of lines) {
+    const hits = modTextKeys(line.text.kr, (line.stats ?? []).length).filter((k) => tradeIndex.has(k))
+    // 둘 이상 붙으면 어느 숫자가 값인지 판정할 수 없다. 임의로 고르면 '못 붙음'이 아니라
+    // **틀린 티어 값이 조용히 실린다** — 그래서 고르지 않고 버린다.
+    if (hits.length > 1) { ambiguous.push(`${line.text.kr} → ${hits.join(' | ')}`); return null }
+    if (!hits.length) return null
+    keys.push(hits[0])
+  }
+  return { keys, cands: keys.map((k) => tradeIndex.get(k)), lines }
 }
 
 /** 표시 배율이 적용되지 않아 값을 그대로 쓸 수 없는 모드인가. */
@@ -141,6 +154,7 @@ async function main() {
   const tradeIndex = buildTradeIndex(await loadStats(game, arg('--stats', null)))
   const table = {}
   let total = 0, matched = 0, unscaled = 0, conflicts = 0
+  const ambiguous = []
 
   for (const file of files) {
     const cls = file.replace('.json', '')
@@ -151,7 +165,7 @@ async function main() {
         if (!(mod.stats ?? []).some((s) => s?.text?.kr)) continue
         total++
         if (isUnscaled(mod)) { unscaled++; continue }
-        const found = candidatesForMod(mod, tradeIndex)
+        const found = candidatesForMod(mod, tradeIndex, ambiguous)
         if (!found) continue
         matched++
         const key = found.keys.join('\n') + '|' + affix
@@ -185,6 +199,9 @@ async function main() {
   console.log(`  표시 배율 미적용으로 제외 : ${unscaled}`)
   console.log(`  문구 매칭                : ${matched} (${rate.toFixed(1)}%)`)
   console.log(`  값 충돌로 버린 계열       : ${conflicts}`)
+  console.log(`  후보 모호로 버린 모드     : ${ambiguous.length}`)
+  // 버린 것을 조용히 넘기지 않는다 — 이 목록이 곧 '정규화 규칙을 손봐야 하는 자리'다.
+  for (const line of [...new Set(ambiguous)]) console.log(`      ${line}`)
   console.log(`${Object.keys(table).length} 부위 · ${statCount} 능력치 · gzip ${(gzipSync(json).length / 1024).toFixed(1)}KB`)
 
   // 임계치를 넘은 뒤에만 쓴다 — 실패해 놓고 파일을 남기면, 종료 코드를 놓친 사람이

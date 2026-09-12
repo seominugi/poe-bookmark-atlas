@@ -25,10 +25,20 @@ export function normalizeTradeText(text) {
  * 슬롯 수에 모자랄 때만 남은 상수를 슬롯으로 올린다. 이 마지막 단계가 없으면
  * `모든 근접 스킬 레벨 1` 류가 통째로 빠져 매칭률이 97.0% → 91.0%로 떨어진다.
  */
-export function normalizeModText(text, slotCount = 0) {
+const NUMBER = /[+\-]?\d+(?:\.\d+)?/g
+
+/**
+ * 문구에서 **의심할 여지 없는** 값 자리만 표식으로 바꾼 중간 형태.
+ * 괄호 범위·물결 범위·미치환 플레이스홀더가 여기 해당한다.
+ * @returns {{ t: string, filled: number }} 표식이 박힌 문구와 그 개수
+ */
+function withCertainSlots(text) {
   // 여기서는 `~` 주변 공백을 버리고 아래 3단계는 `$1` 로 보존하는데, 둘 다 상관없다 —
   // 맨 마지막에 공백을 한 칸으로 정규화하므로 그 차이는 결과 키에 남지 않는다.
   let t = String(text)
+    // 게임 데이터가 치환하지 못하고 내보낸 자리. 거래소에는 같은 문구가 `#` 로 있으므로
+    // 값 슬롯으로 인정해야 붙는다(poe2 스냅샷 실측 6건, 전부 맨몸 `{}`).
+    .replace(/\{\}/g, SLOT)
     .replace(/\(\s*[+\-]?\d+(?:\.\d+)?\s*[-~]\s*[+\-]?\d+(?:\.\d+)?\s*\)/g, SLOT) // (30-35)
     .replace(/[+\-]?\d+(?:\.\d+)?\s*~\s*[+\-]?\d+(?:\.\d+)?/g, SLOT + '~' + SLOT)  // 1~2
 
@@ -42,9 +52,57 @@ export function normalizeModText(text, slotCount = 0) {
     .replace(/[+\-]?\d+(?:\.\d+)?(\s*~\s*)\x01/g, SLOT + '$1' + SLOT)
     .replace(/\x01(\s*~\s*)[+\-]?\d+(?:\.\d+)?/g, SLOT + '$1' + SLOT)
 
-  let filled = (t.match(/\x01/g) || []).length
-  if (slotCount > filled) {
-    t = t.replace(/[+\-]?\d+(?:\.\d+)?/g, (m) => (filled < slotCount ? (filled++, SLOT) : m))
-  }
+  return { t, filled: (t.match(/\x01/g) || []).length }
+}
+
+/** 표식을 `#` 로 바꾸고 부호·공백을 정리해 비교 키를 완성한다. */
+function finishKey(t) {
   return t.replace(/\x01/g, '#').replace(/[+\-]\s*#/g, '#').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * 게임 모드 문구 → 비교 키.
+ * @param {string} text 예: '화염 저항 (30-35)%'
+ * @param {number} slotCount 이 문장이 가진 값 슬롯 수 (`stats[].stats[].length`)
+ *
+ * 순서가 중요하다. 괄호 범위·물결 범위를 먼저 표식으로 바꾸고, 그래도 표식 수가
+ * 슬롯 수에 모자랄 때만 남은 상수를 슬롯으로 올린다. 이 마지막 단계가 없으면
+ * `모든 근접 스킬 레벨 1` 류가 통째로 빠져 매칭률이 97.0% → 91.0%로 떨어진다.
+ *
+ * 상수 승격은 **왼쪽부터** 채운다 — 어느 숫자가 값인지 알 길이 없기 때문이다.
+ * 그 추측이 틀리는 문구가 있으므로, 붙일 곳을 고를 수 있는 호출부는 `modTextKeys` 를 쓴다.
+ */
+export function normalizeModText(text, slotCount = 0) {
+  let { t, filled } = withCertainSlots(text)
+  if (slotCount > filled) {
+    t = t.replace(NUMBER, (m) => (filled < slotCount ? (filled++, SLOT) : m))
+  }
+  return finishKey(t)
+}
+
+/**
+ * 비교 키 **후보**를 앞이 우선순위인 순서로 돌려준다. 첫 후보는 `normalizeModText` 와 같다.
+ *
+ * 상수 승격은 어느 숫자가 값인지 모르는 채 왼쪽부터 채우므로 두 방향으로 틀린다.
+ * - 값이 오른쪽에 있는 경우: `1초마다 충전 9 획득` 의 값은 9 인데 `1` 을 잡는다.
+ * - 거래소가 상수를 **리터럴로** 갖는 경우: `유탄 스킬이 투사체 1개 추가 발사` 는 그대로 있다.
+ *
+ * 그래서 판정을 호출부로 넘긴다 — 거래소 목록을 가진 쪽만 어느 키가 실재하는지 알 수 있다.
+ * ⚠ 호출부는 **후보 여럿이 동시에 붙는 경우를 반드시 걸러야 한다.** 그때는 어느 숫자가
+ *   값인지 판정할 수 없고, 임의로 하나를 고르면 틀린 티어 값이 조용히 실린다.
+ * @returns {string[]} 중복 없는 후보 키
+ */
+export function modTextKeys(text, slotCount = 0) {
+  const keys = [normalizeModText(text, slotCount)]
+  const { t, filled } = withCertainSlots(text)
+  // 승격해야 할 슬롯이 딱 하나 남았을 때만 대안을 낸다. 둘 이상이면 조합이 급격히 늘고,
+  // 실측(poe2)에서 그런 문구는 없다 — 근거 없이 후보를 늘리면 오탐만 키운다.
+  if (slotCount - filled === 1) {
+    for (const m of [...t.matchAll(NUMBER)]) {
+      keys.push(finishKey(t.slice(0, m.index) + SLOT + t.slice(m.index + m[0].length)))
+    }
+  }
+  // 승격을 아예 하지 않은 형태. 거래소가 상수를 리터럴로 갖는 문구가 여기서 붙는다.
+  keys.push(finishKey(t))
+  return [...new Set(keys)]
 }
