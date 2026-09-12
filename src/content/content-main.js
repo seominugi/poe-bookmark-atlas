@@ -9,7 +9,7 @@ import { nextDelay } from '../lib/tradeRate.js'
 import { buildItemMap } from '../lib/itemMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
-import { parseExaltedPerDivine, baseFromPrice, divineFromPrice, baseCurrencyOf, fmtCurAmount } from '../lib/currencyRates.js'
+import { parseExaltedPerDivine, baseFromPrice, divineFromPrice, baseCurrencyOf, basePerDivineOf, fmtCurAmount } from '../lib/currencyRates.js'
 import { searchApiPath, searchResultPath, isSafeSearchId, sanitizeQuery, searchHashFromUrl, isAllowedTradeUrl } from '../lib/tradeSearch.js'
 import { mergeConditionSet, SET_FAIL } from '../lib/conditionSet.js'
 import { renderSetsBar } from '../lib/pageSets.js'
@@ -489,11 +489,16 @@ let curIcon = null // 기본 화폐(카오스/엑잘) CDN 이미지 URL — 로�
 let divIcon = null // 신성한 오브 CDN 이미지 URL — 역방향 환산 칩용
 let curNames = null // { 화폐id: 한글명 } — 로드 전엔 큐레이션 4종만 환산
 let curStaticTried = false
+// ⚠ **약속(promise)을 들고 있다가 돌려준다.** 종전엔 fire-and-forget 이라, 같은 fetch 핸들러에서
+//   곧바로 계산하는 가격 스냅샷이 curNames 를 못 보고 지나가는 경합이 있었다 — 페이지를 열고 **첫
+//   검색**에서 items 맵 경로(연금술·제왕 등 수십 종)가 통째로 빠졌다. 두 번째 검색부터는 맞으니
+//   재현이 어렵고 조용하다. 스냅샷 쪽에서 await 할 수 있게 약속을 노출한다.
+let curStaticPromise = null
 function ensureCurrencyStatic() {
-  if (curStaticTried) return
+  if (curStaticTried) return curStaticPromise || Promise.resolve()
   curStaticTried = true
   const path = game === 'poe2' ? 'trade2' : 'trade'
-  fetch(`/api/${path}/data/static`) // 콘텐츠 스크립트 = 동일 출처. 호스트 고정 금지(글로벌 거래소 지원)
+  curStaticPromise = fetch(`/api/${path}/data/static`) // 콘텐츠 스크립트 = 동일 출처. 호스트 고정 금지(글로벌 거래소 지원)
     .then((r) => r.json())
     .then((s) => {
       const cur = (s.result || []).find((g) => g.id === 'Currency')
@@ -509,7 +514,8 @@ function ensureCurrencyStatic() {
       injectPobButtons() // 도착 즉시 칩 패스(이름 맵이 생겨 새로 환산되는 행이 있다)
       refreshTourDemoChip() // 투어 데모가 떠 있으면 텍스트 폴백 → 아이콘으로 바꿔 준다
     })
-    .catch((err) => LOG('화폐 static 로드 실패(큐레이션 4종만 환산)', String(err)))
+    .catch((err) => LOG('화폐 static 로드 실패(큐레이션 3종만 환산)', String(err)))
+  return curStaticPromise
 }
 
 // '제시 가격'(협상가)·'정가'(고정가) 라벨을 포함한 리프 요소의 부모(가격 블록) — 클래스명 추측 대신 텍스트 앵커
@@ -931,18 +937,39 @@ async function handleBridgeMessage(e) {
     try {
       // BE는 EN 리그 id(예: Mirage)를 요구 — poe1 URL은 KR 표시명(허상)이라 leagueMap으로 역변환(못 찾으면 그대로)
       const leagueId = Object.keys(leagueMap).find((id) => leagueMap[id] === pending.league) || pending.league
-      const rr = await send({ type: 'fetchRates', game, league: leagueId })
+      // 화폐 한글명 맵을 **기다린다** — items 맵 환산(연금술·제왕·바알 등 수십 종)이 이 이름에 걸려 있다.
+      // 환율과 병렬로 받아 추가 지연이 없다(둘 다 첫 fetch 시점에 시작된다).
+      const [rr] = await Promise.all([
+        send({ type: 'fetchRates', game, league: leagueId }),
+        ensureCurrencyStatic().catch(() => {}), // 실패해도 큐레이션 화폐로는 환산된다 — 막지 않는다
+      ])
       if (rr && rr.ok && rr.data && rr.data.exchange_rates) { lastRates = rr.data; injectPobButtons() } // 환율 도착 즉시 엑잘 칩 패스
-      const epd = rr && rr.ok ? parseExaltedPerDivine(rr.data) || 0 : 0
-      snapshot = priceSnapshot(listings, { exaltedPerDivine: epd })
-      LOG('snapshot:', snapshot, '| listings', listings.length, '| epd', epd)
+      const rateData = rr && rr.ok ? rr.data : null
+      const base = baseCurrencyOf(game)
+      // 결과 행의 환산 칩과 **같은 환산기**를 쓴다. 여기서 다시 구현하면 한 앱이 같은 가격에 두 답을 낸다.
+      // baseFromPrice 는 이미 기본 화폐인 가격에 null 을 주므로(칩을 띄울 필요가 없어서) 그건 통과시킨다.
+      const toBase = (l) => (String(l.currency || '').toLowerCase() === base
+        ? (l.amount > 0 ? l.amount : null)
+        : baseFromPrice(l, rateData, game, curNames))
+      snapshot = priceSnapshot(listings, {
+        toBase,
+        basePerDivine: basePerDivineOf(rateData, game),
+        exaltedPerDivine: (rateData ? parseExaltedPerDivine(rateData) : 0) || 0,
+        nameOf: (id) => (curNames && curNames[id]) || id,
+      })
+      LOG('snapshot:', snapshot, '| listings', listings.length,
+        '| 환산 못 함', snapshot ? snapshot.dropped : '(스냅샷 없음)', '| 화폐', curNames ? Object.keys(curNames).length : 0, '종')
     } catch (err) { LOG('환율/스냅샷 오류', String(err)) }
 
     const parsed = parseSearchQuery(pending.query, statMap, filterMap, itemMap)
     const key = dedupeKey(pending.query, pending.league)
     // 저장된 북마크를 열어 결과가 실제로 뜨면(만료 안 됨) lastUsedAt·스냅샷·아이콘 갱신 +
     // 검색 조건을 최신 파서 형식으로 재기록(구 북마크에 능력치 수치 등 반영 — 하위호환 업그레이드).
-    if (listings.length > 0) await markUsedByUrl(location.href, snapshot || undefined, icon || undefined, {
+    // ⚠ 게이트는 **결과가 떴나**다(가격을 낼 수 있었나가 아니다). 종전엔 `listings.length > 0` 이라,
+    //   가격 없는 매물만 있는 검색은 북마크를 열어도 lastUsedAt 이 갱신되지 않았다 → 매일 쓰는 북마크가
+    //   14일 뒤 「오래됨」 배지를 달고 「오래된 정리」의 삭제 대상이 됐다. 이 함수의 뜻은 "링크가 아직
+    //   살아 있다"이고 그 판정 근거는 결과 존재다.
+    if (results.length > 0) await markUsedByUrl(location.href, snapshot || undefined, icon || undefined, {
       title: parsed.title, itemType: parsed.itemType, stats: parsed.stats, statGroups: parsed.statGroups,
       otherFilters: parsed.otherFilters, priceFilter: parsed.priceFilter, dedupeKey: key, query: pending.query || undefined,
     })

@@ -432,10 +432,20 @@ function rowHtml(r, kind, lg, currentLeague) {
   const leagueName = lg ? lg.name(r.league) : r.league || ''
   const leagueLine = leagueName ? `[리그] 《${leagueName}》` : ''
   const condTipWithLeague = escapeHtml([leagueLine, condTipText(r)].filter(Boolean).join('\n────────\n'))
-  // 가격 툴팁 — snapshot 기준 "검색 시점 시세(빠른 판매가 p25)" + 표본 수
+  // 가격 툴팁 — snapshot 기준 "검색 시점 시세(빠른 판매가 p25)" + 표본 수 + **원래 화폐 구성**
   const priceAt = r.snapshotAt || (r.snapshot && r.snapshot.capturedAt)
   const sampleN = r.snapshot && r.snapshot.sampleN
-  const priceTip = price ? escapeHtml(`${priceAt ? ago(priceAt) + ' ' : ''}검색 시점 시세 — ${sampleN ? `매물 ${sampleN}개 중 ` : ''}빠르게 팔리는 가격(하위 25% 분위)`) : ''
+  // 매물은 엑잘·디바인만이 아니라 연금술·제왕·바알·카오스 등으로 올라온다. 표시값은 환산 결과라,
+  // **무엇을 환산한 것인지** 말해 주지 않으면 사용자가 그 숫자를 검증할 수 없다(사용자 요청 2026-09-13).
+  const mix = (r.snapshot && Array.isArray(r.snapshot.currencyMix)) ? r.snapshot.currencyMix : []
+  const mixLine = mix.length ? mix.map((m) => `${m.name} ${m.n}`).join(' · ') : ''
+  // 환산 못 한 매물이 있으면 숨기지 않는다 — 표본이 전부가 아니라는 사실이 시세 해석을 바꾼다.
+  const droppedN = (r.snapshot && r.snapshot.dropped) || 0
+  const priceTip = price ? escapeHtml([
+    `${priceAt ? ago(priceAt) + ' ' : ''}검색 시점 시세 — ${sampleN ? `매물 ${sampleN}개 중 ` : ''}빠르게 팔리는 가격(하위 25% 분위)`,
+    mixLine && `제시 화폐 — ${mixLine}`,
+    droppedN && `환율을 못 구해 ${droppedN}개는 제외했어요`,
+  ].filter(Boolean).join('\n')) : ''
   // 간략 보기용 가격 — 조건 칩 **안에** 얹는다(평소엔 CSS 로 숨김).
   // 한 줄로 접으면 이름에 남는 글자 폭이 384px 에서 32px 밖에 안 된다("회오…"). 가격을 칩 안으로
   // 넣으면 필 하나 분량의 테두리·좌우 여백·간격(약 32px)이 사라져 그만큼이 통째로 이름에 간다.
