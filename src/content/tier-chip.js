@@ -30,10 +30,18 @@ const MAX_CLIMB = 6
 // GGG 가 `mutate-type` 을 바꿔도 배지가 `<i>` 인 한 살아남는다.
 const SKIP_TAGS = new Set(['INPUT', 'BUTTON', 'SELECT', 'TEXTAREA', 'I'])
 
-function isMinInput(el) {
+function placeholderIs(el, ko, en) {
   if (!el || el.tagName !== 'INPUT') return false
   const ph = (el.getAttribute('placeholder') || '').trim().toLowerCase()
-  return ph === '최소' || ph === 'min'
+  return ph === ko || ph === en
+}
+
+function isMinInput(el) {
+  return placeholderIs(el, '최소', 'min')
+}
+
+function isMaxInput(el) {
+  return placeholderIs(el, '최대', 'max')
 }
 
 /**
@@ -86,12 +94,19 @@ function findRow(minInput, allMinInputs, root) {
   return null
 }
 
-function makeChipButton(tier) {
+/**
+ * @param {{t:number,l:number,min:number,max:number}} tier
+ * @param {'min'|'max'} fill 어느 칸에 넣는지 — title 이 그걸 말해야 한다.
+ *   음수 능력치는 최대칸에 들어가는데, 사용자가 그걸 모르면 칩을 눌러 놓고
+ *   "최소칸이 왜 안 채워졌나" 를 본다.
+ */
+function makeChipButton(tier, fill) {
   const btn = document.createElement('button')
   btn.type = 'button'
   btn.className = CHIP_CLASS
   btn.textContent = `T${tier.t}`
-  btn.title = `${tier.min}~${tier.max} · 아이템 레벨 ${tier.l} 이상`
+  const side = fill === 'max' ? '최대' : '최소'
+  btn.title = `${tier.min}~${tier.max} → ${side} ${tier[fill]} · 아이템 레벨 ${tier.l} 이상`
   return btn
 }
 
@@ -141,7 +156,7 @@ function clearOwnButtons(row) {
  * @param {(result: string, tier: object) => void} [ctx.onApply]  칩을 눌러 값을 넣은 뒤
  *
  * @returns {{minInputs:number, chips:number, ask:number, noRow:number, noStatId:number,
- *            noStat:number, multiSlot:number, none:number, unchanged:number}}
+ *            noStat:number, multiSlot:number, none:number, noMaxInput:number, unchanged:number}}
  *   왜 칩이 안 붙었는지 세어 돌려준다. 실제 거래소 마크업을 아무도 못 본 상태라, 칩이 안 뜰 때
  *   "행을 못 찾았나 / 능력치를 못 알아봤나 / 그 부위에 없는 옵션인가"를 구분할 방법이 필요하다.
  *   부르는 쪽이 이 값을 로그로 남기면 실측 때 그대로 진단 자료가 된다.
@@ -150,7 +165,7 @@ export function attachTierChips(root, ctx) {
   const { table, itemClass, ilvlMax = null, statIdOf, onAskClass, onApply } = ctx
   const inputs = Array.from(root.querySelectorAll('input'))
   const minInputs = inputs.filter(isMinInput)
-  const seen = { minInputs: minInputs.length, chips: 0, ask: 0, noRow: 0, noStatId: 0, noStat: 0, multiSlot: 0, none: 0, unchanged: 0 }
+  const seen = { minInputs: minInputs.length, chips: 0, ask: 0, noRow: 0, noStatId: 0, noStat: 0, multiSlot: 0, none: 0, noMaxInput: 0, unchanged: 0 }
 
   for (const min of minInputs) {
     try {
@@ -168,7 +183,7 @@ export function attachTierChips(root, ctx) {
 
       if (!statId) { seen.noStatId += 1; continue }
 
-      const { status, tiers } = tiersFor({ table, itemClass, statId, ilvlMax })
+      const { status, tiers, fill } = tiersFor({ table, itemClass, statId, ilvlMax })
 
       if (status === 'no-class') {
         const askBtn = makeAskButton()
@@ -190,12 +205,18 @@ export function attachTierChips(root, ctx) {
         continue
       }
 
+      // 음수 능력치는 최대칸에 넣는다(statTiers.js fillSideOf 주석). 그 칸이 없으면
+      // **아무것도 붙이지 않는다** — 최소칸에 대신 넣으면 "-25 이상"이 되어 조용히
+      // 모든 아이템이 걸리는 검색이 된다. 값이 없는 것보다 틀린 값이 나쁘다.
+      const target = fill === 'max' ? Array.from(row.querySelectorAll('input')).find(isMaxInput) : min
+      if (!target) { seen.noMaxInput += 1; continue }
+
       for (const tier of tiers) {
-        const chip = makeChipButton(tier)
+        const chip = makeChipButton(tier, fill)
         chip.addEventListener('click', (e) => {
           e.preventDefault()
           e.stopPropagation()
-          const result = setInputValue(min, String(tier.min))
+          const result = setInputValue(target, String(tier[fill]))
           onApply?.(result, tier)
         })
         host.appendChild(chip)

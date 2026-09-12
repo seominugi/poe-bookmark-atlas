@@ -10,7 +10,7 @@ import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { resolveLockedGameDataRoot } from './poe-game-data-lock.mjs'
-import { normalizeTradeText, modTextKeys } from '../src/lib/statTextNorm.js'
+import { normalizeTradeText, modTextKeys, polarityFlipped } from '../src/lib/statTextNorm.js'
 import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -37,18 +37,26 @@ export function verifyClassBridge(bridge, modFiles, pobClasses) {
   return problems
 }
 
-/** 거래소 능력치 목록 → 정규화 문구 → stat id 목록 */
+/**
+ * 거래소 능력치 목록 → `{ index, valueless }`.
+ * - `index`: 정규화 문구 → stat id 목록
+ * - `valueless`: 문구에 값 자리(`#`)가 없는 stat id — 거래소에 넣을 수치가 없으므로
+ *   **티어 사다리가 의미 없다**(`즉시 회복`·`반경이 대형으로 업그레이드` 류). 매칭 판정에는
+ *   그대로 쓰되 표에는 싣지 않는다. 실측(2026-09-13) 5건.
+ */
 function buildTradeIndex(stats) {
   const index = new Map()
+  const valueless = new Set()
   for (const group of stats.result ?? []) {
     if (group.label !== EXPLICIT_GROUP) continue
     for (const entry of group.entries ?? []) {
       const key = normalizeTradeText(entry.text)
       if (!index.has(key)) index.set(key, [])
       index.get(key).push(entry.id)
+      if (!key.includes('#')) valueless.add(entry.id)
     }
   }
-  return index
+  return { index, valueless }
 }
 
 /**
@@ -82,15 +90,48 @@ function candidatesForMod(mod, tradeIndex, ambiguous) {
   const lines = (mod.stats ?? []).filter((s) => s?.text?.kr)
   if (!lines.length) return null
   const keys = []
+  let inferred = false
   for (const line of lines) {
-    const hits = modTextKeys(line.text.kr, (line.stats ?? []).length).filter((k) => tradeIndex.has(k))
+    const slots = (line.stats ?? []).length
+    let hits = modTextKeys(line.text.kr, slots).filter((k) => tradeIndex.has(k))
     // 둘 이상 붙으면 어느 숫자가 값인지 판정할 수 없다. 임의로 고르면 '못 붙음'이 아니라
     // **틀린 티어 값이 조용히 실린다** — 그래서 고르지 않고 버린다.
     if (hits.length > 1) { ambiguous.push(`${line.text.kr} → ${hits.join(' | ')}`); return null }
+    if (!hits.length && allNegative(line)) {
+      // 거래소가 부호 있는 항목 하나로 통합하고 `증가` 문구만 갖는 경우(statTextNorm
+      // polarityFlipped 주석). **값이 음수일 때만** 시도한다 — 그게 이 추론의 근거다.
+      const flipped = polarityFlipped(line.text.kr)
+      const flipHits = flipped ? modTextKeys(flipped, slots).filter((k) => tradeIndex.has(k)) : []
+      if (flipHits.length > 1) { ambiguous.push(`${line.text.kr} (극성 치환) → ${flipHits.join(' | ')}`); return null }
+      if (flipHits.length === 1) { hits = flipHits; inferred = true }
+    }
     if (!hits.length) return null
     keys.push(hits[0])
   }
-  return { keys, cands: keys.map((k) => tradeIndex.get(k)), lines }
+  return { keys, cands: keys.map((k) => tradeIndex.get(k)), lines, inferred }
+}
+
+/** 이 문장의 값이 전부 음수인가 — 극성 치환을 허용할 근거. */
+function allNegative(line) {
+  const ranges = (line.stats ?? []).map((x) => x.valueRange).filter(Boolean)
+  return ranges.length > 0 && ranges.every((r) => r.every((v) => v < 0))
+}
+
+/**
+ * 같은 거래소 id 에 계열이 여럿 걸릴 때 새 사다리로 바꿀지.
+ *
+ * 극성 치환을 넣으면 `증가` 계열과 `감소` 계열이 한 id 로 몰린다 — 실측 2건(생명력·마나
+ * 플라스크의 `회복량 #% 증가` 에 양수 `회복량 (41-45)% 증가` 와 음수 `회복량 -50% 감소`).
+ * **추론은 직접 매칭을 덮지 않는다**: 직접 매칭된 계열이 사용자가 실제로 찾는 쪽이고,
+ * 치환은 우리가 끼워 넣은 판단이라 확신도가 낮다.
+ *
+ * 길이가 같으면 먼저 온 것을 지킨다 — 파일 순회 순서에 따라 표가 달라지면 재현이 깨진다.
+ * @returns {boolean} 바꿔야 하면 true
+ */
+export function preferLadder(prev, prevInferred, next, nextInferred) {
+  if (!prev) return true
+  if (prevInferred !== nextInferred) return prevInferred && !nextInferred
+  return prev.length < next.length
 }
 
 /** 표시 배율이 적용되지 않아 값을 그대로 쓸 수 없는 모드인가. */
@@ -151,9 +192,9 @@ async function main() {
     process.exit(1)
   }
 
-  const tradeIndex = buildTradeIndex(await loadStats(game, arg('--stats', null)))
+  const { index: tradeIndex, valueless } = buildTradeIndex(await loadStats(game, arg('--stats', null)))
   const table = {}
-  let total = 0, matched = 0, unscaled = 0, conflicts = 0
+  let total = 0, matched = 0, unscaled = 0, conflicts = 0, skippedValueless = 0
   const ambiguous = []
 
   for (const file of files) {
@@ -168,22 +209,31 @@ async function main() {
         const found = candidatesForMod(mod, tradeIndex, ambiguous)
         if (!found) continue
         matched++
-        const key = found.keys.join('\n') + '|' + affix
-        if (!families.has(key)) families.set(key, { cands: found.cands, rows: [] })
+        // 극성 치환으로 얻은 계열은 **별도 family** 다. 치환하면 키가 직접 매칭 계열과
+        // 같아지므로(`회복량 -50% 감소` → `회복량 #% 증가`) 그냥 두면 양수 계열과 음수 계열이
+        // 한 사다리로 합쳐진다 — 요구 레벨이 다르면 hasValueConflict 도 못 잡고 +45 와 -50 이
+        // 같은 사다리에 섞인다.
+        const key = found.keys.join('\n') + '|' + affix + (found.inferred ? '|flip' : '')
+        if (!families.has(key)) families.set(key, { cands: found.cands, rows: [], inferred: found.inferred })
         families.get(key).rows.push({ ilvl: mod.tier, byLine: rangesByLine(mod, found.lines) })
       }
     }
     const byStat = {}
-    for (const { cands, rows } of families.values()) {
+    const inferredById = {}
+    for (const { cands, rows, inferred } of families.values()) {
       if (hasValueConflict(rows)) { conflicts++; continue }
       rows.sort((a, b) => b.ilvl - a.ilvl) // 필요 아이템 레벨이 높은 쪽이 T1
       // **문장마다 따로** 사다리를 만든다 — 한 모드가 두 문장을 가지면 값 슬롯도 문장별로 갈린다.
       // 통째로 쓰면 한 문장짜리 능력치에 옆 문장 값이 따라붙는다.
       cands.forEach((ids, lineIndex) => {
         const tiers = rows.map((row, i) => ({ t: i + 1, l: row.ilvl, v: row.byLine[lineIndex] }))
-        // 후보 id 전부에 같은 사다리를 단다. 같은 stat 이 여러 계열에 걸리면 티어가 더 많은 쪽을 남긴다.
+        // 후보 id 전부에 같은 사다리를 단다. 여러 계열이 한 id 에 걸릴 때의 우선순위는 preferLadder.
         for (const id of ids) {
-          if (!byStat[id] || byStat[id].length < tiers.length) byStat[id] = tiers
+          if (valueless.has(id)) { skippedValueless++; continue } // 넣을 칸이 없는 능력치
+          if (preferLadder(byStat[id], inferredById[id], tiers, inferred)) {
+            byStat[id] = tiers
+            inferredById[id] = inferred
+          }
         }
       })
     }
@@ -200,6 +250,7 @@ async function main() {
   console.log(`  문구 매칭                : ${matched} (${rate.toFixed(1)}%)`)
   console.log(`  값 충돌로 버린 계열       : ${conflicts}`)
   console.log(`  후보 모호로 버린 모드     : ${ambiguous.length}`)
+  console.log(`  값 칸이 없어 표에서 뺀 것 : ${skippedValueless}`)
   // 버린 것을 조용히 넘기지 않는다 — 이 목록이 곧 '정규화 규칙을 손봐야 하는 자리'다.
   for (const line of [...new Set(ambiguous)]) console.log(`      ${line}`)
   console.log(`${Object.keys(table).length} 부위 · ${statCount} 능력치 · gzip ${(gzipSync(json).length / 1024).toFixed(1)}KB`)

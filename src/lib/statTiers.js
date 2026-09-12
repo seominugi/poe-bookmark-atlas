@@ -24,10 +24,12 @@ function own(obj, key) {
  * @param {string|null} args.itemClass modifiers 파일명 (예: 'Ring')
  * @param {string} args.statId 거래소 stat id
  * @param {number|null} [args.ilvlMax] 거래소 유형 필터의 아이템 레벨 상한
- * @returns {{status:'ok'|'no-class'|'no-stat'|'multi-slot'|'none', tiers:Array<{t:number,l:number,min:number,max:number}>}}
+ * @returns {{status:'ok'|'no-class'|'no-stat'|'multi-slot'|'none', fill:'min'|'max',
+ *            tiers:Array<{t:number,l:number,min:number,max:number}>}}
+ *   `fill` 은 **어느 입력칸에 값을 넣어야 하는가**다. 아래 주석 참조.
  */
 export function tiersFor({ table, itemClass, statId, ilvlMax = null }) {
-  const empty = (status) => ({ status, tiers: [] })
+  const empty = (status) => ({ status, fill: 'min', tiers: [] })
   const byStat = itemClass ? own(table, itemClass) : null
   if (!byStat) return empty('no-class')
   const rows = own(byStat, statId)
@@ -39,6 +41,24 @@ export function tiersFor({ table, itemClass, statId, ilvlMax = null }) {
 
   return {
     status: 'ok',
+    fill: fillSideOf(rows),
     tiers: reachable.slice(0, CHIP_COUNT).map((r) => ({ t: r.t, l: r.l, min: r.v[0][0], max: r.v[0][1] })),
   }
+}
+
+/**
+ * 값이 전부 음수인 능력치는 거래소에서 **작을수록 좋다** — 최대칸에 넣어야 한다.
+ * 최소칸에 -25 를 넣으면 "-25 이상"이라 더 나쁜 아이템도, 부호가 뒤집힌 아이템도 다 걸린다.
+ *
+ * 부호는 값 안에 이미 있으므로 표 스키마에 표식을 더하지 않는다.
+ * `reachable` 이 아니라 **모든 티어**를 본다 — 아이템 레벨 상한을 움직였다고 넣는 칸이
+ * 바뀌면 사용자가 같은 칩에서 다른 동작을 보게 된다.
+ *
+ * 부호가 섞이면(`[-5,3]`) 작을수록 좋다고 단정할 수 없으므로 기존 동작(최소칸)을 지킨다.
+ * @param {Array<{v:number[][]}>} rows
+ * @returns {'min'|'max'}
+ */
+function fillSideOf(rows) {
+  const allNegative = rows.every((r) => (r.v[0] ?? []).length > 0 && r.v[0].every((n) => n < 0))
+  return allNegative ? 'max' : 'min'
 }

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { normalizeTradeText, normalizeModText, modTextKeys } from '../src/lib/statTextNorm.js'
+import { normalizeTradeText, normalizeModText, modTextKeys, polarityFlipped } from '../src/lib/statTextNorm.js'
 
 describe('normalizeTradeText — 거래소 문구', () => {
   it('부호를 뗀다', () => {
@@ -66,5 +66,24 @@ describe('modTextKeys — 어느 숫자가 값인지 모를 때의 후보', () =
   it('후보에 중복은 없다', () => {
     const keys = modTextKeys('1초마다 충전 9 획득', 1)
     expect(new Set(keys).size).toBe(keys.length)
+  })
+})
+
+describe('polarityFlipped — 음수 모드가 거래소의 「증가」 항목에 걸리게', () => {
+  // 거래소는 부호 있는 stat 하나로 통합하고 「증가」 문구만 갖는다. 게임은 값이 음수일 때
+  // 문장을 「감소」로 뒤집어 쓴다. 실측(poe2 스냅샷): 거래소에 「감소」/「증가」 두 형태가
+  // 모두 있는 문구는 0개 → 치환이 다른 stat 으로 넘어갈 수 없다.
+  it('감소를 증가로 바꾼다', () => {
+    expect(polarityFlipped('능력치 요구사항 -15% 감소')).toBe('능력치 요구사항 -15% 증가')
+  })
+  it('한 문장에 여러 번 나오면 모두 바꾼다', () => {
+    expect(polarityFlipped('공격 속도 감소, 시야 감소')).toBe('공격 속도 증가, 시야 증가')
+  })
+  it('감소가 없으면 null — 부를 이유가 없다는 뜻', () => {
+    expect(polarityFlipped('화염 저항 (30-35)%')).toBeNull()
+  })
+  it('증가를 감소로 바꾸지는 않는다', () => {
+    // 실측에서 반대 방향은 한 건도 붙지 않았다. 안 쓰이는 경로를 만들지 않는다.
+    expect(polarityFlipped('화염 저항 30% 증가')).toBeNull()
   })
 })
