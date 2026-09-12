@@ -18,6 +18,8 @@ import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText } from '../lib/pobExport.js'
 import { attachTierChips, rowStatText } from './tier-chip.js'
+import { readLiveTypeFilters } from './typeFilterDom.js'
+import { applyLiveTypeFilters } from '../lib/liveTypeFilters.js'
 import { classFromQuery } from '../lib/itemClass.js'
 import { normalizeTradeText } from '../lib/statTextNorm.js'
 
@@ -712,6 +714,12 @@ function pobEnsureObserver() {
   if (pobBodyObserver) return
   pobBodyObserver = new MutationObserver(pobKick)
   pobBodyObserver.observe(document.body, { childList: true, subtree: true })
+  // DOM 구조가 안 바뀌는 조작도 깨운다 — 티어 칩이 화면의 유형·아이템 레벨을 따라가야 해서다.
+  // childList 감시만으로는 못 잡는다: 드롭다운 선택은 보통 글자만 갈아끼우고(characterData)
+  // 목록은 display 로 숨기며(attributes), 입력칸 타이핑은 DOM 변화가 아예 없다.
+  // characterData·attributes 를 body 전역으로 감시하는 대신 사용자 조작 이벤트를 받는다 —
+  // 거래소는 가격·시간 표시가 계속 바뀌어 그 감시가 훨씬 시끄럽다. 디바운스는 pobKick 이 한다.
+  for (const type of ['click', 'change', 'input', 'keyup']) document.addEventListener(type, pobKick, true)
 }
 let pobTimers = []
 function schedulePobInject() {
@@ -722,8 +730,9 @@ function schedulePobInject() {
 }
 
 // ── 능력치 필터 티어 칩 ──
-// 부위·아이템 레벨은 최근 검색 조건에서 읽는다. 한 번도 검색하지 않았으면 부위를 모르는 상태로
-// 시작해 '부위?' 버튼이 뜬다. PoE1 은 티어 표가 아직 없으므로 건너뛴다.
+// 부위·아이템 레벨은 **화면에서 지금 고른 값**을 먼저 보고, 화면에서 확정 못 하면 최근 검색 조건을 쓴다
+// (renderTierChips 참조). 둘 다 없으면 '부위?' 버튼이 뜬다. PoE1 은 티어 표가 아직 없으므로 건너뛴다.
+// ⚠ 2026-09-13 전에는 최근 검색 조건만 봐서, 유형을 바꿔도 검색을 한 번 누르기 전까지 칩이 안 바뀌었다.
 let statIdIndex = null
 let statIdIndexSize = -1
 function ensureStatIdIndex() {
@@ -791,11 +800,16 @@ function renderTierChips() {
   if (!table) return // 표 도착 전 — 다음 kick 에서 다시 시도한다
   try {
     const index = ensureStatIdIndex()
-    const query = currentQuery()
+    // 화면에서 **지금** 고른 유형·아이템 레벨이 마지막으로 보낸 검색 조건을 이긴다.
+    // 화면에서 확정 못 하면(드롭다운이 열림·마크업 불일치) 검색 조건을 그대로 쓴다 —
+    // 읽기가 실패해도 종전 동작과 같다(lib/liveTypeFilters.js · content/typeFilterDom.js 주석).
+    const live = readLiveTypeFilters(document, filterMap)
+    const query = applyLiveTypeFilters(currentQuery(), live)
     const ilvl = query?.filters?.type_filters?.filters?.ilvl
+    const itemClass = tierItemClass(query)
     const seen = attachTierChips(document, {
       table,
-      itemClass: tierItemClass(query),
+      itemClass,
       ilvlMax: ilvl?.max ?? null,
       statIdOf: (row) => {
         const text = rowStatText(row)
@@ -808,10 +822,13 @@ function renderTierChips() {
     })
     // 같은 상태를 반복해 찍지 않는다 — 화면 감시가 자주 돈다.
     // 객체가 아니라 **문자열**로 찍는다 — 콘솔이 접어서 "Object" 로만 보이면 진단이 안 된다.
-    const line = Object.entries(seen).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(' ')
+    // 화면 읽기 결과도 함께 찍는다 — 거래소 유형 드롭다운 마크업을 아무도 본 적이 없어서,
+    // 칩이 안 따라올 때 "화면에서 못 읽었나(none·ambiguous)" 를 사용자 콘솔만으로 가를 수 있어야 한다.
+    const line = Object.entries(seen).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(' ') +
+      ` | 부위: ${itemClass ?? '미상'} | 화면 유형: ${live.category.status} · 화면 레벨: ${live.ilvlMax.status}`
     if (seen.minInputs && line !== lastTierLog) {
       lastTierLog = line
-      LOG('티어 칩 —', line, '| 부위:', tierItemClass(query) ?? '미상')
+      LOG('티어 칩 —', line)
     }
   } catch (err) { LOG('티어 칩 실패', String(err)) }
 }

@@ -40,7 +40,7 @@ function isMinInput(el) {
   return placeholderIs(el, '최소', 'min')
 }
 
-function isMaxInput(el) {
+export function isMaxInput(el) {
   return placeholderIs(el, '최대', 'max')
 }
 
