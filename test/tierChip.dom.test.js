@@ -79,10 +79,11 @@ describe('평평한 구조 — 화염 저항 (T1~T3)', () => {
     expect(min.previousElementSibling).toBe(nameEl) // 입력칸 앞 순서는 그대로
   })
 
-  it('title 은 "최소~최대 · 아이템 레벨 L 이상"', () => {
+  // 넣는 칸이 능력치에 따라 갈리므로(음수는 최대칸) title 이 **어디에 무엇이** 들어가는지 말한다.
+  it('title 은 "범위 → 칸 값 · 아이템 레벨 L 이상"', () => {
     attachTierChips(document, ctx())
     const chip = row.querySelector('.' + CHIP_CLASS)
-    expect(chip.title).toBe('41~45 · 아이템 레벨 82 이상')
+    expect(chip.title).toBe('41~45 → 최소 41 · 아이템 레벨 82 이상')
   })
 
   it('T2 를 누르면 min 에 36 이 들어가고 onApply 가 불린다', () => {
@@ -119,7 +120,7 @@ describe('평평한 구조 — 화염 저항 (T1~T3)', () => {
     const c = () => ({ table, itemClass: 'Ring', statIdOf: () => statId })
 
     attachTierChips(document, c())
-    expect([...row.querySelectorAll('.' + CHIP_CLASS)].map((b) => b.title)[0]).toBe('41~45 · 아이템 레벨 82 이상')
+    expect([...row.querySelectorAll('.' + CHIP_CLASS)].map((b) => b.title)[0]).toBe('41~45 → 최소 41 · 아이템 레벨 82 이상')
 
     statId = 'stat.added_fire' // 슬롯 둘 → 칩이 사라져야 한다
     attachTierChips(document, c())
@@ -170,6 +171,71 @@ describe('영문 거래소 — placeholder 가 min/max', () => {
     expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(3)
     expect(row.querySelector('span').lastElementChild.className).toBe(CHIP_CLASS)
     expect(min.value).toBe('') // 입력칸은 그대로
+  })
+})
+
+// 값이 음수인 능력치는 거래소에서 작을수록 좋다. 최소칸에 -25 를 넣으면 "-25 이상"이 되어
+// 더 나쁜 아이템과 부호가 뒤집힌 아이템까지 다 걸린다 — 그래서 최대칸에 넣는다.
+// 실측(2026-09-13): 이 형태가 배포본에 이미 3건 들어 있었고(Belt 충전 소모량 2건 · Jewel 저주
+// 활성화 1건) 최소칸에 음수를 넣어 사실상 전부 걸리는 상태였다.
+describe('음수 능력치 — 최대칸에 넣는다', () => {
+  const negTable = {
+    Belt: {
+      'stat.charges_used': [
+        { t: 1, l: 68, v: [[-25, -23]] },
+        { t: 2, l: 55, v: [[-22, -20]] },
+      ],
+    },
+  }
+  const ctx = () => ({ table: negTable, itemClass: 'Belt', statIdOf: () => 'stat.charges_used' })
+
+  it('T1 을 누르면 최소칸이 아니라 최대칸에 -23 이 들어간다', () => {
+    const { row, min, max } = flatRow('호신부 충전 소모량 #% 감소')
+    document.body.appendChild(row)
+    let applied = null
+    attachTierChips(document, { ...ctx(), onApply: (result, tier) => { applied = { result, tier } } })
+    const t1 = Array.from(row.querySelectorAll('.' + CHIP_CLASS)).find((c) => c.textContent === 'T1')
+    t1.click()
+    expect(max.value).toBe('-23')
+    expect(min.value).toBe('') // 최소칸은 건드리지 않는다
+    expect(applied.tier.t).toBe(1)
+  })
+
+  it('title 이 최대칸임을 말한다', () => {
+    const { row } = flatRow('호신부 충전 소모량 #% 감소')
+    document.body.appendChild(row)
+    attachTierChips(document, ctx())
+    expect(row.querySelector('.' + CHIP_CLASS).title).toBe('-25~-23 → 최대 -23 · 아이템 레벨 68 이상')
+  })
+
+  it('영문 거래소의 max placeholder 도 찾는다', () => {
+    const { row, max } = flatRow('#% reduced Charm Charges used', 'Min', 'Max')
+    document.body.appendChild(row)
+    attachTierChips(document, ctx())
+    Array.from(row.querySelectorAll('.' + CHIP_CLASS)).find((c) => c.textContent === 'T2').click()
+    expect(max.value).toBe('-20')
+  })
+
+  // 넣을 칸이 없으면 **아무것도 붙이지 않는다.** 최소칸에 대신 넣으면 조용히 틀린 검색이 된다.
+  it('최대칸이 없으면 칩을 붙이지 않고 이유를 센다', () => {
+    const row = el('div')
+    row.appendChild(el('span', { textContent: '호신부 충전 소모량 #% 감소' }))
+    row.appendChild(el('input', { placeholder: '최소' }))
+    document.body.appendChild(row)
+    const seen = attachTierChips(document, ctx())
+    expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
+    expect(seen.chips).toBe(0)
+    expect(seen.noMaxInput).toBe(1)
+  })
+
+  it('양수 능력치는 최대칸이 없어도 그대로 붙는다', () => {
+    const row = el('div')
+    row.appendChild(el('span', { textContent: '화염 저항 #%' }))
+    const min = el('input', { placeholder: '최소' })
+    row.appendChild(min)
+    document.body.appendChild(row)
+    attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.fire_res' })
+    expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(3)
   })
 })
 

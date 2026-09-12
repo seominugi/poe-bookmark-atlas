@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { verifyClassBridge, rangesByLine, hasValueConflict } from '../scripts/build-tier-table.mjs'
+import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder } from '../scripts/build-tier-table.mjs'
 import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
 
 describe('verifyClassBridge — 부위 대응표 양방향 검증', () => {
@@ -85,5 +85,35 @@ describe('hasValueConflict — 같은 요구 레벨에 값이 갈리면 티어�
       { ilvl: 30, byLine: [[[15, 15]], [[21, 40]]] },
     ]
     expect(hasValueConflict(rows)).toBe(true)
+  })
+})
+
+describe('preferLadder — 같은 거래소 id 에 계열이 여럿 걸릴 때', () => {
+  // 극성 치환(감소→증가)을 넣으면 '증가' 계열과 '감소' 계열이 같은 거래소 id 로 몰린다.
+  // 실측(2026-09-13): poe2 스냅샷에서 2건 — 생명력·마나 플라스크의 `회복량 #% 증가` 에
+  // 양수 `회복량 (41-45)% 증가` 와 음수 `회복량 -50% 감소` 가 같이 걸린다.
+  const two = [{ t: 1 }, { t: 2 }]
+  const three = [{ t: 1 }, { t: 2 }, { t: 3 }]
+
+  it('비어 있으면 무엇이든 받는다', () => {
+    expect(preferLadder(null, false, two, true)).toBe(true)
+  })
+  it('추론은 직접 매칭을 덮지 않는다 — 사다리가 더 길어도', () => {
+    expect(preferLadder(two, false, three, true)).toBe(false)
+  })
+  it('직접 매칭은 추론을 덮는다 — 사다리가 더 짧아도', () => {
+    expect(preferLadder(three, true, two, false)).toBe(true)
+  })
+  it('둘 다 직접이면 사다리가 긴 쪽', () => {
+    expect(preferLadder(two, false, three, false)).toBe(true)
+    expect(preferLadder(three, false, two, false)).toBe(false)
+  })
+  it('둘 다 추론이면 사다리가 긴 쪽', () => {
+    expect(preferLadder(two, true, three, true)).toBe(true)
+    expect(preferLadder(three, true, two, true)).toBe(false)
+  })
+  it('길이가 같으면 먼저 온 것을 지킨다 — 순서에 따라 표가 달라지지 않게', () => {
+    expect(preferLadder(two, false, two, false)).toBe(false)
+    expect(preferLadder(two, true, two, true)).toBe(false)
   })
 })

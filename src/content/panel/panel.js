@@ -1360,7 +1360,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // game: 'poe2' 로 표시해 두면 forGame 이 PoE1 사용자에게서 이 스텝을 뺀다 —
     // 없는 기능을 가르치면 "내 화면엔 왜 없냐"는 문의가 그대로 돌아온다.
     { sel: '.ba-tier-chip', global: true, demo: true, game: 'poe2', since: '0.13.0', title: 'T1 수치를 클릭 한 번에',
-      body: '능력치 필터에서 이름 뒤에 <b>T1 T2 T3</b> 칩이 붙어요. 누르면 그 티어의 최소 수치가 <b>최소</b> 칸에 바로 들어갑니다 — DB에서 숫자를 찾아 옮겨 적지 않아도 돼요. 값은 <b>아이템 유형</b>과 <b>아이템 레벨</b>에 따라 달라집니다(반지 생명력 T1은 100, 갑옷은 200). 유형을 아직 안 고르셨으면 칩 대신 <b>부위?</b>가 떠요. 지금은 PoE2 거래소에서만 동작합니다.' },
+      body: '능력치 필터에서 이름 뒤에 <b>T1 T2 T3</b> 칩이 붙어요. 누르면 그 티어의 수치가 입력칸에 바로 들어갑니다 — DB에서 숫자를 찾아 옮겨 적지 않아도 돼요. 보통 <b>최소</b> 칸이고, <b>능력치 요구사항 감소</b>처럼 값이 음수인 능력치는 <b>최대</b> 칸에 들어가요(작을수록 좋으니까요). 값은 <b>아이템 유형</b>과 <b>아이템 레벨</b>에 따라 달라집니다(반지 생명력 T1은 100, 갑옷은 200). 유형을 아직 안 고르셨으면 칩 대신 <b>부위?</b>가 떠요. 지금은 PoE2 거래소에서만 동작합니다.' },
     { sel: '.ba-pob-btn', global: true, demo: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요.' },
     { sel: '.ba-exr-chip', global: true, demo: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준.' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },

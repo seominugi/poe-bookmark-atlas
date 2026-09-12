@@ -47,6 +47,45 @@ describe('tiersFor', () => {
     expect(CHIP_COUNT).toBe(3)
   })
 
+  // 값이 음수인 능력치는 거래소에서 **작을수록 좋다**. 최소칸에 -25 를 넣으면 "-25 이상"이라
+  // 더 나쁜 아이템까지 다 걸리므로, 넣어야 하는 칸은 최대칸이다.
+  // 부호는 값 안에 있으므로 표 스키마를 바꿀 필요가 없다.
+  describe('fill — 어느 입력칸에 넣어야 하는가', () => {
+    const negTable = {
+      Belt: {
+        'stat.charges_used': [
+          { t: 1, l: 68, v: [[-25, -23]] },
+          { t: 2, l: 55, v: [[-22, -20]] },
+        ],
+        'stat.mixed': [
+          { t: 1, l: 68, v: [[-5, 3]] }, // 범위가 0 을 걸친다 — 작을수록 좋다고 단정할 수 없다
+        ],
+        'stat.zero': [{ t: 1, l: 68, v: [[0, 0]] }],
+      },
+    }
+    it('값이 전부 음수면 최대칸', () => {
+      const r = tiersFor({ table: negTable, itemClass: 'Belt', statId: 'stat.charges_used' })
+      expect(r.status).toBe('ok')
+      expect(r.fill).toBe('max')
+      expect(r.tiers[0].max).toBe(-23)
+    })
+    it('평범한 양수 능력치는 최소칸', () => {
+      expect(tiersFor({ table, itemClass: 'Ring', statId: 'stat.fire_res' }).fill).toBe('min')
+    })
+    it('부호가 섞이면 최소칸 — 기존 동작을 유지한다', () => {
+      expect(tiersFor({ table: negTable, itemClass: 'Belt', statId: 'stat.mixed' }).fill).toBe('min')
+    })
+    it('0 은 음수가 아니다', () => {
+      expect(tiersFor({ table: negTable, itemClass: 'Belt', statId: 'stat.zero' }).fill).toBe('min')
+    })
+    it('아이템 레벨 상한과 무관하게 같은 칸을 가리킨다 — 상한을 바꿔도 칸이 흔들리면 안 된다', () => {
+      const wide = tiersFor({ table: negTable, itemClass: 'Belt', statId: 'stat.charges_used' })
+      const narrow = tiersFor({ table: negTable, itemClass: 'Belt', statId: 'stat.charges_used', ilvlMax: 60 })
+      expect(narrow.tiers.map((x) => x.t)).toEqual([2])
+      expect(narrow.fill).toBe(wide.fill)
+    })
+  })
+
   // 표는 JSON 에서 온 평범한 객체다 — 프로토타입 속성 이름이 들어와도 자기 속성만 봐야 한다.
   // (itemClass.js 가 같은 이유로 own() 을 쓴다)
   describe('프로토타입 속성 이름이 들어와도 안전하다', () => {
