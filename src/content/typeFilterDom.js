@@ -37,6 +37,28 @@ function readCategory(root, filterMap) {
   if (!label || !byText.size) return { status: 'none' }
 
   return resolveFromLabel(root, label, (node) => {
+    // ① 입력칸이 선택값을 들고 있으면 **그것이 답이다** (실측: poe2 카카오 거래소 2026-09-13).
+    //    `<input class="multiselect__input" placeholder="갑옷">` — placeholder 가 현재 선택값이다.
+    //    목록이 열려 있어도, 검색어를 치는 중이어도 선택을 바꾸기 전까지 유지되고 고르는 즉시 바뀐다.
+    //    그래서 보이는 목록 글자보다 우선한다. 종전엔 같이 세서, 고른 직후 목록이 '닫히는 애니메이션'
+    //    (opacity 0 · display block) 중이면 옵션 64개가 보여 ambiguous → 칩이 멈췄다. 애니메이션이 끝나
+    //    목록이 숨는 건 스타일 변화뿐이라 다시 그리라는 신호도 오지 않았다.
+    //    placeholder 를 value 보다 먼저 본다 — value 는 치는 중인 검색어일 수 있다.
+    const inputHits = new Set()
+    for (const input of node.querySelectorAll('input')) {
+      if (!visibleWithin(input, node) || inOwnUi(input, node)) continue
+      const ph = (input.getAttribute('placeholder') || '').trim()
+      const val = (input.value || '').trim()
+      if (byText.has(ph)) inputHits.add(ph)
+      else if (byText.has(val)) inputHits.add(val)
+    }
+    if (inputHits.size > 1) return { status: 'ambiguous' } // 옆 행 드롭다운까지 삼킨 높이
+    if (inputHits.size === 1) {
+      const [text] = inputHits
+      return { status: 'ok', id: byText.get(text) }
+    }
+
+    // ② 입력칸에 선택값이 없는 마크업 — 선택된 select 옵션과 보이는 글자로 판정한다.
     const hits = new Set()
     // 네이티브 select 는 옵션 텍스트가 전부 DOM 에 있으므로 **선택된 옵션만** 센다.
     for (const sel of node.querySelectorAll('select')) {
@@ -44,17 +66,6 @@ function readCategory(root, filterMap) {
       const opt = sel.options[sel.selectedIndex]
       const t = opt?.textContent.trim()
       if (t && byText.has(t)) hits.add(t)
-    }
-    // 실측(poe2 카카오 거래소 2026-09-13): 드롭다운이 닫혀 있으면 선택값이 **글자가 아니라 입력칸**에 있다 —
-    // `<input class="multiselect__input" placeholder="갑옷">` (value 프로퍼티도 "갑옷").
-    // placeholder 를 먼저 본다: 목록을 열고 검색어를 치는 동안 value 는 검색어로 바뀌지만
-    // placeholder 는 선택값을 유지한다. 입력칸 하나는 답 하나만 낸다.
-    for (const input of node.querySelectorAll('input')) {
-      if (!visibleWithin(input, node) || inOwnUi(input, node)) continue
-      const ph = (input.getAttribute('placeholder') || '').trim()
-      const val = (input.value || '').trim()
-      if (byText.has(ph)) hits.add(ph)
-      else if (byText.has(val)) hits.add(val)
     }
     for (const t of visibleTexts(node)) {
       if (t !== label && byText.has(t)) hits.add(t)
