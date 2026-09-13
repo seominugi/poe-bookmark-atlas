@@ -1,12 +1,44 @@
 import { describe, it, expect } from 'vitest'
-import { optionIdByText, applyLiveTypeFilters } from '../src/lib/liveTypeFilters.js'
+import { optionIdByText, applyLiveTypeFilters, holdWhileAmbiguous } from '../src/lib/liveTypeFilters.js'
 import { classFromQuery } from '../src/lib/itemClass.js'
+import { buildFilterMap } from '../src/lib/filterMap.js'
 
-// buildFilterMap 결과 모양 — 옵션 id 는 문자열로 저장되고 '모두' 는 'null' 이다.
-const filterMap = {
-  label: { category: '아이템 유형', ilvl: '아이템 레벨' },
-  options: { category: { null: '모두', 'armour.chest': '갑옷', 'armour.helmet': '투구', weapon: '모든 무기' } },
-}
+// 필터 맵은 **실제 빌더를 통과시켜** 만든다 — 손으로 만든 맵은 빌더와 갈라져 거짓 안심을 준다
+// (typeFilterDom.dom.test.js 머리 주석의 사고).
+const filterMap = buildFilterMap({
+  result: [{
+    id: 'type_filters',
+    filters: [
+      { id: 'category', text: '아이템 유형', option: { options: [
+        { id: null, text: '모두' }, { id: 'armour.chest', text: '갑옷' }, { id: 'armour.helmet', text: '투구' }, { id: 'weapon', text: '모든 무기' },
+      ] } },
+      { id: 'ilvl', text: '아이템 레벨' },
+    ],
+  }],
+})
+
+describe('holdWhileAmbiguous — 드롭다운이 열린 동안 칩이 깜빡이지 않게', () => {
+  // 실측(2026-09-13): 유형 드롭다운을 열면 목록이 보여 ambiguous 가 되고, 그때 마지막 검색 조건으로
+  // 돌아가 칩이 '부위?' 로 바뀌었다가 닫으면 되돌아왔다. 열려 있는 동안은 직전에 읽은 값을 쥔다.
+  const armour = { status: 'ok', id: 'armour.chest' }
+  it('여럿이 보이면 직전에 확정한 값을 쓴다', () => {
+    expect(holdWhileAmbiguous({ status: 'ambiguous' }, armour)).toBe(armour)
+  })
+  it('확정했으면 새 값을 쓴다', () => {
+    const helmet = { status: 'ok', id: 'armour.helmet' }
+    expect(holdWhileAmbiguous(helmet, armour)).toBe(helmet)
+  })
+  it("'모두' 로 확정한 것도 확정이다 — 직전 값으로 덮지 않는다", () => {
+    const any = { status: 'ok', id: null }
+    expect(holdWhileAmbiguous(any, armour)).toBe(any)
+  })
+  it('라벨을 못 찾았으면(none) 쥐지 않는다 — 유형 필터를 접은 경우 등은 검색 조건으로 돌아가야 한다', () => {
+    expect(holdWhileAmbiguous({ status: 'none' }, armour)).toEqual({ status: 'none' })
+  })
+  it('직전 값이 없으면 ambiguous 그대로 — 늘 여럿이 보이는 마크업이면 종전처럼 검색 조건을 쓴다', () => {
+    expect(holdWhileAmbiguous({ status: 'ambiguous' }, null)).toEqual({ status: 'ambiguous' })
+  })
+})
 
 describe('optionIdByText — 화면 텍스트 → 거래소 옵션 id', () => {
   it('표시 텍스트로 id 를 찾는다', () => {

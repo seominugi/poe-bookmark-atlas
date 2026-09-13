@@ -7,14 +7,34 @@
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { readLiveTypeFilters } from '../src/content/typeFilterDom.js'
+import { buildFilterMap } from '../src/lib/filterMap.js'
 
-const filterMap = {
-  label: { category: '아이템 유형', ilvl: '아이템 레벨', rarity: '아이템 희귀도' },
-  options: {
-    category: { null: '모두', 'armour.chest': '갑옷', 'armour.helmet': '투구', weapon: '모든 무기' },
-    rarity: { null: '모두', unique: '고유' },
-  },
-}
+// ⚠ 필터 맵을 손으로 만들지 않는다 — **거래소 `data/filters` 응답 모양 그대로** buildFilterMap 에 통과시킨다.
+// 손으로 만든 맵에 `모두` 를 넣어 두었던 탓에, 실제 빌더가 id null 옵션(`모두`)을 빼는 것을 테스트가
+// 못 잡았다. 라이브에서 유형을 `모두` 로 되돌리면 'none' 이 났다(2026-09-13 Claude 직접 실측).
+const filterMap = buildFilterMap({
+  result: [
+    {
+      id: 'type_filters',
+      filters: [
+        {
+          id: 'category', text: '아이템 유형', fullSpan: true,
+          option: { options: [
+            { id: null, text: '모두' },
+            { id: 'weapon', text: '모든 무기' },
+            { id: 'armour.chest', text: '갑옷' },
+            { id: 'armour.helmet', text: '투구' },
+          ] },
+        },
+        {
+          id: 'rarity', text: '아이템 희귀도',
+          option: { options: [{ id: null, text: '모두' }, { id: 'unique', text: '고유' }] },
+        },
+        { id: 'ilvl', text: '아이템 레벨', minMax: true },
+      ],
+    },
+  ],
+})
 
 const OPTION_TEXTS = ['모두', '모든 무기', '갑옷', '투구']
 
