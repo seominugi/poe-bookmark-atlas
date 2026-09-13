@@ -171,15 +171,27 @@ describe('실제 거래소 마크업 (2026-09-13 실측)', () => {
     expect(readLiveTypeFilters(document, filterMap).category).toEqual({ status: 'ok', id: null })
   })
 
-  it('드롭다운이 열려 목록이 보이면 ambiguous — 로그에서 실제로 본 그대로', () => {
+  // 입력칸의 placeholder 가 **현재 선택값**이다 — 목록이 열려 있어도, 검색어를 치는 중이어도 선택을 바꾸기
+  // 전까지 유지되고, 고르는 즉시 바뀐다. 그래서 입력칸에 선택값이 있으면 보이는 목록 글자보다 우선한다.
+  // (종전(#49~#51)엔 목록이 보이면 ambiguous 로 봤다 — 아래 '닫히는 애니메이션' 사고의 원인)
+  it('드롭다운이 열려 목록이 보여도 입력칸의 선택값을 읽는다', () => {
     mountRealType({ open: true })
-    expect(readLiveTypeFilters(document, filterMap).category.status).toBe('ambiguous')
+    expect(readLiveTypeFilters(document, filterMap).category).toEqual({ status: 'ok', id: 'armour.chest' })
   })
 
-  it('검색하려고 입력칸에 친 글자는 목록이 닫혀 있을 때만 믿는다 — 열려 있으면 ambiguous', () => {
+  it('검색어를 치는 중이면 value 가 아니라 placeholder(아직 바꾸지 않은 선택값)를 믿는다', () => {
     const { typeInput } = mountRealType({ open: true })
-    typeInput.value = '투' // 치는 중 — placeholder 는 아직 '갑옷'
-    expect(readLiveTypeFilters(document, filterMap).category.status).toBe('ambiguous')
+    typeInput.value = '투구' // 옵션과 글자가 같은 검색어 — 그래도 아직 고른 게 아니다
+    expect(readLiveTypeFilters(document, filterMap).category).toEqual({ status: 'ok', id: 'armour.chest' })
+  })
+
+  // 실측(2026-09-13, Claude 직접): 갑옷을 고른 직후 목록이 '닫히는 애니메이션'(multiselect-leave-active,
+  // opacity 0, display block) 상태로 남아 64개 옵션 글자가 여전히 보였고, 그래서 ambiguous → 칩이 '부위?' 에
+  // 멈췄다. 애니메이션이 끝나 목록이 숨겨지는 건 스타일 변화뿐이라 다시 그리라는 신호도 오지 않는다.
+  // (백그라운드 탭에선 애니메이션이 아예 안 끝나 영구히 재현됐다)
+  it('고른 직후 목록이 아직 사라지는 중이어도 새 선택값을 읽는다', () => {
+    mountRealType({ typeValue: '투구', open: true })
+    expect(readLiveTypeFilters(document, filterMap).category).toEqual({ status: 'ok', id: 'armour.helmet' })
   })
 
   it('아이템 레벨 최대칸을 읽는다 (아이템 퀄리티는 별도 행이라 섞이지 않는다)', () => {
