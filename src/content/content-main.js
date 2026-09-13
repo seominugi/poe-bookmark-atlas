@@ -19,7 +19,7 @@ import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText } from '../lib/pobExport.js'
 import { attachTierChips, rowStatText } from './tier-chip.js'
 import { readLiveTypeFilters } from './typeFilterDom.js'
-import { applyLiveTypeFilters } from '../lib/liveTypeFilters.js'
+import { applyLiveTypeFilters, holdWhileAmbiguous } from '../lib/liveTypeFilters.js'
 import { classFromQuery } from '../lib/itemClass.js'
 import { normalizeTradeText } from '../lib/statTextNorm.js'
 
@@ -793,6 +793,8 @@ function currentQuery() {
 }
 
 let lastTierLog = ''
+// 화면에서 마지막으로 확정한 유형 — 드롭다운이 열린 동안(ambiguous) 칩이 깜빡이지 않게 쥔다.
+let lastLiveCategory = null
 function renderTierChips() {
   if (game !== 'poe2') return
   if (!Object.keys(statMap).length) return // statMap 도착 전 — 다음 kick 에서 다시 시도한다
@@ -803,7 +805,9 @@ function renderTierChips() {
     // 화면에서 **지금** 고른 유형·아이템 레벨이 마지막으로 보낸 검색 조건을 이긴다.
     // 화면에서 확정 못 하면(드롭다운이 열림·마크업 불일치) 검색 조건을 그대로 쓴다 —
     // 읽기가 실패해도 종전 동작과 같다(lib/liveTypeFilters.js · content/typeFilterDom.js 주석).
-    const live = readLiveTypeFilters(document, filterMap)
+    const read = readLiveTypeFilters(document, filterMap)
+    const live = { ...read, category: holdWhileAmbiguous(read.category, lastLiveCategory) }
+    if (read.category.status === 'ok') lastLiveCategory = read.category
     const query = applyLiveTypeFilters(currentQuery(), live)
     const ilvl = query?.filters?.type_filters?.filters?.ilvl
     const itemClass = tierItemClass(query)
@@ -825,7 +829,7 @@ function renderTierChips() {
     // 화면 읽기 결과도 함께 찍는다 — 거래소 유형 드롭다운 마크업을 아무도 본 적이 없어서,
     // 칩이 안 따라올 때 "화면에서 못 읽었나(none·ambiguous)" 를 사용자 콘솔만으로 가를 수 있어야 한다.
     const line = Object.entries(seen).filter(([, v]) => v).map(([k, v]) => `${k}=${v}`).join(' ') +
-      ` | 부위: ${itemClass ?? '미상'} | 화면 유형: ${live.category.status} · 화면 레벨: ${live.ilvlMax.status}`
+      ` | 부위: ${itemClass ?? '미상'} | 화면 유형: ${read.category.status}${live.category !== read.category ? '(직전 값 유지)' : ''} · 화면 레벨: ${read.ilvlMax.status}`
     if (seen.minInputs && line !== lastTierLog) {
       lastTierLog = line
       LOG('티어 칩 —', line)

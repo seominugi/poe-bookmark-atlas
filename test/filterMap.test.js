@@ -25,6 +25,22 @@ describe('buildFilterMap', () => {
     expect(META.label.ilvl).toBe('아이템 레벨')
     expect(META.options.category['accessory.ring']).toBe('반지')
   })
+
+  // 거래소는 '모두' 를 { id: null, text: '모두' } 로 준다. 이걸 빼면 화면에서 '모두' 를 읽어도
+  // 무엇인지 모른다 — 티어 칩이 유형을 '모두' 로 되돌린 걸 알아채지 못하고 옛 부위 칩을 남겼다.
+  it("id 가 null 인 옵션('모두')도 'null' 키로 담는다", () => {
+    const m = buildFilterMap({
+      result: [{ id: 'type_filters', filters: [{ id: 'category', text: '아이템 유형', option: { options: [{ id: null, text: '모두' }, { id: 'armour.chest', text: '갑옷' }] } }] }],
+    })
+    expect(m.options.category).toEqual({ null: '모두', 'armour.chest': '갑옷' })
+  })
+
+  it("'null' 키가 있어도 검색 조건 요약은 '모두'(무필터)를 여전히 뺀다", () => {
+    const m = buildFilterMap({
+      result: [{ id: 'type_filters', filters: [{ id: 'category', text: '아이템 유형', option: { options: [{ id: null, text: '모두' }] } }] }],
+    })
+    expect(parseQueryFilters({ filters: { type_filters: { filters: { category: { option: null } } } } }, m)).toEqual([])
+  })
 })
 
 describe('parseQueryFilters', () => {

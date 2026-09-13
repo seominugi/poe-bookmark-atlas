@@ -11,7 +11,10 @@ export function buildFilterMap(payload) {
       const opts = f.option?.options
       if (Array.isArray(opts)) {
         const m = {}
-        for (const o of opts) if (o && o.id != null && typeof o.text === 'string') m[String(o.id)] = o.text
+        // id 가 null 인 옵션('모두')도 'null' 키로 담는다. 빼면 화면에서 '모두' 를 읽어도 무엇인지
+        // 몰라, 티어 칩이 유형을 '모두' 로 되돌린 걸 못 알아채고 옛 부위 칩을 남겼다(2026-09-13 실측).
+        // 기존 소비처(parseQueryFilters·searchParser)는 option 이 null 이면 조회 전에 건너뛰므로 영향 없다.
+        for (const o of opts) if (o && o.id !== undefined && typeof o.text === 'string') m[String(o.id)] = o.text
         options[f.id] = m
       }
     }
