@@ -7,6 +7,18 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
+## 호신부 칩 — 부위 대응표에 한 줄씩 빠져 있었다 (2026-09-14)
+
+#47 을 라이브로 확인하다(화살통·생명력 플라스크 칩 ✅) 발견했다. 유형 `호신부`(`flask.charm`)가 `itemClass.js`
+대응표에 없어서 **골라도 `부위?` 만 떴고**, 칩 표의 `UtilityFlask` 항목 **8개가 한 번도 안 떴다**
+(사용 시 생명력/마나 회복 · 가호도 부여 · 충전량 · 사용 1회당 충전 소모량 · 충전 · 처치 시 충전 획득 확률 · 1초마다 충전 획득).
+
+- **호신부 파일 이름이 `Charm` 이 아니라 `UtilityFlask`** 다 — 게임 데이터의 옛 내부 이름. `UtilityFlask.json` 의
+  `className` 이 `{ en: 'Charms', kr: '호신부' }` 로 확인된다. #42 때 이 이름 차이 때문에 빠진 것으로 보인다.
+- `MOD_FILE_BY_CATEGORY['flask.charm']` · `MOD_FILE_BY_POB_CLASS['Charms']` 두 줄 추가. `Charms` 는 `pobBaseMap` 에
+  실재해 빌드의 `verifyClassBridge` 를 통과한다.
+- **칩 데이터(`statTiers.poe2.json`)는 바뀌지 않는다** — 표에는 처음부터 있었고 연결만 없었다(재생성해 동일 확인).
+
 ## 티어 칩이 화면의 유형을 따라간다 — 검색을 안 눌러도 (2026-09-13)
 
 **제보**: 능력치 필터에 조건을 넣고 **아이템 유형을 고르면** 칩이 `부위?` 에서 그 유형의 티어로 바뀌어야 하는데

@@ -37,6 +37,8 @@ export const MOD_FILE_BY_CATEGORY = {
   'accessory.ring': 'Ring',
   'flask.life': 'LifeFlask',
   'flask.mana': 'ManaFlask',
+  // 호신부 파일 이름은 'UtilityFlask' 다(게임 데이터의 옛 내부 이름). className 이 { en: 'Charms', kr: '호신부' }.
+  'flask.charm': 'UtilityFlask',
 }
 
 /** 점이 없지만 부위가 하나로 정해지는 category. */
@@ -75,6 +77,7 @@ export const MOD_FILE_BY_POB_CLASS = {
   'Jewels': 'Jewel',
   'Life Flasks': 'LifeFlask',
   'Mana Flasks': 'ManaFlask',
+  'Charms': 'UtilityFlask',
 }
 
 /**

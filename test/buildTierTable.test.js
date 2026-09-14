@@ -18,8 +18,8 @@ describe('verifyClassBridge — 부위 대응표 양방향 검증', () => {
     const bad = { ...bridge, Charms: 'Ring' }
     expect(verifyClassBridge(bad, modFiles, pobClasses).join(' ')).toMatch(/Charms/)
   })
-  it('실제 대응표는 31행이다', () => {
-    expect(Object.keys(MOD_FILE_BY_POB_CLASS)).toHaveLength(31)
+  it('실제 대응표는 32행이다', () => {
+    expect(Object.keys(MOD_FILE_BY_POB_CLASS)).toHaveLength(32)
   })
 })
 
