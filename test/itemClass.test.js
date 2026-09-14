@@ -69,4 +69,13 @@ describe('대응표 자체', () => {
     expect(MOD_FILE_BY_POB_CLASS['Foci']).toBe('Focus')
     expect(MOD_FILE_BY_POB_CLASS['Life Flasks']).toBe('LifeFlask')
   })
+
+  // 호신부의 modifiers 파일은 이름이 'Charm' 이 아니라 'UtilityFlask' 다 — 게임 데이터의 옛 내부 이름이
+  // 남은 것이다(UtilityFlask.json 의 className 이 { en: 'Charms', kr: '호신부' } — 2026-09-14 확인).
+  // 대응표에 없어서 유형을 '호신부' 로 골라도 '부위?' 만 떴고, 표에 있던 호신부 항목 8개가 한 번도 안 떴다.
+  it('호신부는 유형 선택으로도, 베이스 이름으로도 UtilityFlask 다', () => {
+    expect(MOD_FILE_BY_CATEGORY['flask.charm']).toBe('UtilityFlask')
+    expect(MOD_FILE_BY_POB_CLASS['Charms']).toBe('UtilityFlask')
+    expect(classFromQuery({ filters: { type_filters: { filters: { category: { option: 'flask.charm' } } } } }, null)).toBe('UtilityFlask')
+  })
 })
