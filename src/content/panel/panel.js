@@ -970,14 +970,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
    * 새 버튼을 늘리지 않는다 — 액션 행은 이미 꽉 차 있다.
    * @param {string|null} currentFolderId 현재 폴더(칩 기본 선택)
    * @param {string} title
-   * @param {{id:string}|null} multi 여러 개 모드 — { preselectId } 를 주면 그 북마크를 미리 체크
+   * @param {{preselectId?:string, preselectIds?:string[]}|null} multi 여러 개 모드 — 준 북마크를 미리 체크
+   *   (폴더 「전부 이동」·선택 모드의 「이동」이 여러 개를 한꺼번에 넘긴다)
    * @returns {Promise<false | string|null | {ids:string[], folderId:string|null}>}
    */
   async function showFolderPick(currentFolderId = null, title = '다른 폴더로 이동', multi = null) {
     const folders = await listFolders(game)
     const bookmarks = multi ? await listByKind('bookmark', game) : []
     const folderName = (fid) => (fid ? (folders.find((f) => f.id === fid) || {}).name || '?' : '미분류')
-    const picked = new Set(multi && multi.preselectId ? [multi.preselectId] : [])
+    const picked = new Set(multi ? [...(multi.preselectIds || []), ...(multi.preselectId ? [multi.preselectId] : [])] : [])
     const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
     return new Promise((resolve) => {
       const bar = $('ba-namebar'); const input = $('ba-name-input')
@@ -1069,12 +1070,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 여기서 직접 참조하면 TDZ로 터지고, 반대로 mountPanel 뒷부분에서 ui에 붙이면
     // 그 지점까지 실행이 도달하지 못했을 때 조용히 falsy가 되어 버튼이 무반응이 된다(실측 사례 있음).
     registerConditionSet: (id) => registerConditionSet(id),
-    bulkMove: async (preselectId) => {
-      const res = await showFolderPick(null, '폴더로 이동', { preselectId })
-      if (!res || !res.ids || !res.ids.length) return
+    // 하나(카드 ⋯) 또는 여러 개(폴더 「전부 이동」·선택 모드)를 미리 체크한 채 연다. 옮긴 개수를 돌려준다(취소면 0).
+    bulkMove: async (preselect) => {
+      const preselectIds = Array.isArray(preselect) ? preselect : (preselect ? [preselect] : [])
+      const res = await showFolderPick(null, '폴더로 이동', { preselectIds })
+      if (!res || !res.ids || !res.ids.length) return 0
       const n = await moveBookmarks(res.ids, res.folderId ?? null)
       document.dispatchEvent(new CustomEvent('ba:records-changed'))
       toast(`${n}개를 옮겼습니다.`)
+      return n
     },
     addStatsToSearch: (id) => addStatsToSearch(id),
     saveCurrentSearch: (folderId) => doSave(folderId),

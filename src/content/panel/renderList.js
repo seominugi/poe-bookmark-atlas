@@ -3,7 +3,7 @@ import {
   addFolder, renameFolder, deleteFolder, restoreFolder, promoteToBookmark, remove, removeStaleBookmarks, clearHistory, rename, findBookmark,
   exportBookmarksJSON, importBookmarksJSON, moveFolder, reorderFolder, setFolderColor, FOLDER_PALETTE, isAllowedTradeUrl, isAllowedIconUrl,
   migrateBookmarkLeague, moveBookmarks,
-  clearFolderBookmarks, restoreRecords, restoreScope, backupBookmarksJSON,
+  clearFolderBookmarks, removeBookmarks, restoreRecords, restoreScope, backupBookmarksJSON,
   listWatched, removeWatch, applyWatchStatus,
 } from '../../store/store.js'
 import { formatPrice } from '../../lib/formatPrice.js'
@@ -33,6 +33,10 @@ let historyLimit = 60 // 히스토리 점진 렌더 — 처음 60개, "더 보�
 let bmSearch = '' // 통합 빠른 검색어 (북마크·히스토리 동시 필터, 모듈 레벨 — 재렌더 후에도 유지)
 let bmSort = 'recent' // 북마크 정렬 기본: recent(최근·저장 순 → 저장하면 상단). order(수동)·name도 선택 가능
 const collapsedFolders = new Set() // 접힌 폴더 키(g.id ?? '') — 재렌더 후에도 유지
+// 폴더 선택 모드 — 한 번에 한 폴더만. 골라서 옮기거나 지운다(사용자 요청 2026-09-15: 미분류 일괄 삭제·이동).
+// 저장하지 않는다 — 패널을 다시 열었는데 선택 모드가 남아 있으면 카드를 눌러도 안 열려 고장으로 읽힌다.
+let selectFolder = null // 폴더 키(g.id ?? '') | null
+const selectedIds = new Set()
 // 섹션(북마크·찜한 매물·히스토리)의 순서와 접힘. 시즌 끝물엔 북마크보다 찜을 더 자주 본다는
 // 제보(2026-09-04)로 만들었다 — "찜 리스트가 한 창에 안 보인다"가 실제 증상이다.
 let secOrder = [...DEFAULT_SEC_ORDER]
@@ -91,7 +95,7 @@ let focusGripId = null // 키보드 재정렬 후 포커스 복원 대상
 let focusBookmarkId = null // 저장·승격 후 스크롤·강조 대상
 
 // 접근성: 아이콘 액션(span)을 키보드 포커스·활성화·라벨 가능하게 (role=button + tabindex + aria-label + Enter/Space)
-const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export, .ba-sec-title[data-sec], .ba-wnudge-x'
+const A11Y_SEL = '.ba-copy, .ba-over, .ba-rename, .ba-move, .ba-del, .ba-star, .ba-hist-del, .ba-open, .ba-attn[data-act], .ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-select, .ba-folder-moveall, .ba-bsel, .ba-folder-ic[data-id], .ba-sort-seg, .ba-import, .ba-export, .ba-sec-title[data-sec], .ba-wnudge-x'
 function applyA11y(listEl) {
   listEl.querySelectorAll(A11Y_SEL).forEach((el) => {
     if (el.matches('button, a, input')) return
@@ -408,7 +412,10 @@ function actBar(r) {
     + `</span>`
 }
 
-function rowHtml(r, kind, lg, currentLeague) {
+/**
+ * @param {boolean} [selected] 폴더 선택 모드일 때만 true/false — undefined 면 선택 모드가 아니다(체크칸을 안 그린다).
+ */
+function rowHtml(r, kind, lg, currentLeague, selected) {
   const price = priceHtml(r.snapshot)
   // optionText: 변형(discriminator) 아이템의 {option,...} 객체를 이름으로 쓰던 옛 레코드 보정 — "[object Object]" 방지
   const nameText = optionText(r.name) || ''
@@ -511,9 +518,13 @@ function rowHtml(r, kind, lg, currentLeague) {
   const migrateAct = migratable(r)
     ? `<span class="ba-act relg ba-migrate" data-id="${r.id}">${icon('trophy', 13)}내 리그로 다시 검색</span>`
     : ''
-  return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
+  const selecting = selected !== undefined
+  const selBox = selecting
+    ? `<span class="ba-bsel" role="checkbox" aria-checked="${selected}" aria-label="${title} 선택">${selected ? icon('check', 11) : ''}</span>`
+    : ''
+  return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}${selecting ? ' ba-row--sel' : ''}${selected ? ' is-selected' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
-      <span class="ba-l1l"><span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-l1l">${selBox}<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
     <div class="ba-meta-row">${attn}${leagueChip}${condSummaryChip}${actBar(r)}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
@@ -531,6 +542,19 @@ function rowHtml(r, kind, lg, currentLeague) {
   </div>`
 }
 
+/** 폴더 선택 모드의 바 — 폴더 본문 맨 위에 붙어 목록을 내려도 따라온다(sticky). */
+function bulkBarHtml(fkey, total) {
+  const n = selectedIds.size
+  const allOn = total > 0 && n >= total
+  return `<div class="ba-bulkbar" data-folder="${fkey}" role="toolbar" aria-label="선택한 북마크 정리">
+    <span class="ba-bulkcount"><b>${n}</b>개 선택</span>
+    <button class="ba-bulk-all" data-tip="${allOn ? '모두 풀기' : '이 폴더의 보이는 북마크를 모두 고르기'}">${allOn ? '모두 해제' : '전체'}</button>
+    <button class="ba-bulk-move"${n ? '' : ' disabled'} data-tip="고른 북마크를 다른 폴더로 옮기기">${icon('folderMove', 12)}이동</button>
+    <button class="ba-bulk-del"${n ? '' : ' disabled'} data-tip="고른 북마크 지우기 (한 번 더 눌러 확인 · 실행취소 가능)">${icon('trash', 12)}삭제</button>
+    <button class="ba-bulk-done" data-tip="선택 끝내기">완료</button>
+  </div>`
+}
+
 // 폴더 하나의 헤더+본문 HTML (리그 섹션 안에서 재사용)
 function folderHtml(g, items, lg, currentLeague) {
   // held = 이 폴더가 담은 북마크 수. 삭제 확인이 이 수를 기준으로 묻는다(bindAll의 .ba-folder-del 참조) —
@@ -543,15 +567,24 @@ function folderHtml(g, items, lg, currentLeague) {
   const clearBtn = held > 0
     ? `<span class="ba-folder-clear" data-id="${g.id ?? ''}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="이 폴더의 북마크 ${held}개를 모두 삭제\n(폴더는 남습니다 · 실행취소 가능)">${icon('broom', 13)}</span>`
     : ''
+  const fkey = g.id ?? ''
+  // ☑ 선택 · ➜ 전부 이동 — 비우기와 같은 규칙으로 **담긴 게 있을 때만** 그린다. 미분류에도 붙는다(제보 2026-09-15).
+  const selecting = held > 0 && selectFolder === fkey
+  const bulkBtns = held > 0
+    ? `<span class="ba-folder-select${selecting ? ' on' : ''}" data-id="${fkey}" data-tip="${selecting ? '선택 끝내기' : '골라서 옮기거나 지우기'}" aria-pressed="${selecting}">${icon('checkSquare', 13)}</span>`
+      + `<span class="ba-folder-moveall" data-id="${fkey}" data-count="${held}" data-tip="이 폴더의 북마크 ${held}개를 다른 폴더로 옮기기\n(옮길 창에서 빼고 싶은 것은 체크를 풀면 돼요)">${icon('folderMove', 13)}</span>`
+    : ''
   const fActions =
     g.id !== null
-      ? `<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기">${icon('download', 13)}</span>${clearBtn}<span class="ba-folder-del" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
-      : clearBtn
+      ? `${bulkBtns}<span class="ba-folder-rename" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이름변경">${icon('pencil', 13)}</span><span class="ba-folder-export" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-tip="이 폴더만 JSON으로 내보내기">${icon('download', 13)}</span>${clearBtn}<span class="ba-folder-del" data-id="${g.id}" data-name="${escapeHtml(g.name)}" data-count="${held}" data-tip="폴더 삭제(북마크는 미분류로)">${icon('trash', 13)}</span>`
+      : bulkBtns + clearBtn
   // 현재 거래소 검색을 이 폴더에 바로 저장 — 본문 하단 전체폭 칩(시인성↑). 저장 다이얼로그가 이 폴더를 미리 선택한 채 열림
-  const saveChip = `<button class="ba-folder-savechip" data-id="${g.id ?? ''}" data-tip="현재 거래소 검색을 이 폴더에 저장">${icon('plus', 13)}이 폴더에 현재 검색 저장</button>`
+  // 선택 모드에서는 그 자리를 선택 바가 쓴다 — 고르는 중에 '저장'이 옆에 있으면 누를 대상을 헷갈린다.
+  const saveChip = selecting
+    ? bulkBarHtml(fkey, items.length)
+    : `<button class="ba-folder-savechip" data-id="${g.id ?? ''}" data-tip="현재 거래소 검색을 이 폴더에 저장">${icon('plus', 13)}이 폴더에 현재 검색 저장</button>`
   const folderColor = g.color || (g.id === null ? '#a78bfa' : '#8b85a8')
-  const fkey = g.id ?? ''
-  const collapsed = collapsedFolders.has(fkey)
+  const collapsed = collapsedFolders.has(fkey) && !selecting // 고르는 중인 폴더는 접혀 있으면 안 보인다
   const fgrip = g.id !== null
     ? `<span class="ba-folder-grip" draggable="true" data-id="${g.id}" data-tip="드래그해 폴더 순서 이동" style="color:${folderColor}">${icon('grip', 14)}</span>`
     : ''
@@ -561,9 +594,9 @@ function folderHtml(g, items, lg, currentLeague) {
     : `<span class="ba-folder-ic" style="color:${folderColor}">${icon('folder', 15)}</span>`
   const headStyle = `background:${hexToRgba(folderColor, g.id === null ? 0.1 : 0.15)};border-left-color:${folderColor}`
   const countStyle = `color:${folderColor};background:${hexToRgba(folderColor, 0.16)}`
-  return `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}" data-folder="${fkey}">
+  return `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}${selecting ? ' ba-folder--selecting' : ''}" data-folder="${fkey}">
       <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name" data-tip="${escapeHtml(g.name)}&#10;────────&#10;클릭하면 접거나 펼쳐요">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
-      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${saveChip}${items.map((r) => rowHtml(r, 'bookmark', lg, currentLeague)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
+      <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${saveChip}${items.map((r) => rowHtml(r, 'bookmark', lg, currentLeague, selecting ? selectedIds.has(r.id) : undefined)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
 }
 
@@ -804,6 +837,11 @@ export async function renderList(listEl, root, ui = {}) {
     // 지금 리그가 아닌 것만 행 단위 칩으로 알리면 충분하다(rowHtml 참조).
     // 빈 폴더도 보여준다 — 새로 만든 폴더는 항상 비어 있어서, 숨기면 '폴더 추가'가 아무 일도
     // 안 한 것처럼 보이고 드래그해 넣을 대상조차 없어진다(사용자 제보 2026-07-27).
+    // 선택 모드 정리 — 그새 폴더가 비었거나 사라졌으면 끄고, 다른 곳으로 옮겨진 id 는 선택에서 뺀다.
+    if (selectFolder !== null) {
+      const inFolder = new Set(bookmarks.filter((b) => (b.folderId ?? '') === selectFolder).map((b) => b.id))
+      if (!inFolder.size) { selectFolder = null; selectedIds.clear() } else [...selectedIds].forEach((id) => { if (!inFolder.has(id)) selectedIds.delete(id) })
+    }
     for (const g of groups) {
       const items = sortItems(bookmarks.filter((b) => (b.folderId ?? null) === g.id))
       bmBody += folderHtml(g, items, lg, currentLeague)
@@ -868,6 +906,93 @@ export async function renderList(listEl, root, ui = {}) {
     focusBookmarkId = null
     highlightBookmark(listEl, id)
   }
+}
+
+/**
+ * 선택 바와 선택 중인 폴더의 카드 클릭.
+ * 카드를 누르면 **열지 않고 고른다** — 캡처 단계에서 가로채 이름 칩(.ba-open)·⋯ 핸들러까지 가지 않게 한다.
+ * 체크는 목록을 다시 그리지 않고 그 자리에서 칠한다(다시 그리면 스크롤이 튄다).
+ */
+function bindBulkBar(listEl, bar, ui, toast) {
+  const key = bar.dataset.folder
+  const folder = listEl.querySelector(`.ba-folder[data-folder="${CSS.escape(key)}"]`)
+  if (!folder) return
+  const body = folder.querySelector('.ba-folder-body')
+  const rows = () => [...body.querySelectorAll('.ba-row')]
+  const paint = () => {
+    const n = selectedIds.size
+    for (const row of rows()) {
+      const on = selectedIds.has(row.dataset.id)
+      row.classList.toggle('is-selected', on)
+      const box = row.querySelector('.ba-bsel')
+      if (box) { box.setAttribute('aria-checked', String(on)); box.innerHTML = on ? icon('check', 11) : '' }
+    }
+    bar.querySelector('.ba-bulkcount b').textContent = String(n)
+    const visible = rows().filter((r) => !r.hidden && r.style.display !== 'none')
+    const allOn = visible.length > 0 && visible.every((r) => selectedIds.has(r.dataset.id))
+    const all = bar.querySelector('.ba-bulk-all')
+    all.textContent = allOn ? '모두 해제' : '전체'
+    bar.querySelector('.ba-bulk-move').disabled = n === 0
+    const del = bar.querySelector('.ba-bulk-del')
+    del.disabled = n === 0
+    if (!n) disarm()
+  }
+  body.addEventListener('click', (e) => {
+    const row = e.target.closest('.ba-row')
+    if (!row || !body.contains(row)) return
+    e.preventDefault()
+    e.stopPropagation()
+    const id = row.dataset.id
+    if (selectedIds.has(id)) selectedIds.delete(id); else selectedIds.add(id)
+    paint()
+  }, true)
+  // 선택 중에는 끌어서 옮기기를 막는다 — 고르려고 누른 카드가 드래그로 딸려 가면 엉뚱한 폴더에 떨어진다.
+  body.addEventListener('dragstart', (e) => { e.preventDefault(); e.stopPropagation() }, true)
+
+  bar.querySelector('.ba-bulk-all').addEventListener('click', (e) => {
+    e.stopPropagation()
+    const visible = rows().filter((r) => !r.hidden && r.style.display !== 'none') // 검색으로 가려진 카드는 고르지 않는다
+    const allOn = visible.length > 0 && visible.every((r) => selectedIds.has(r.dataset.id))
+    for (const r of visible) { if (allOn) selectedIds.delete(r.dataset.id); else selectedIds.add(r.dataset.id) }
+    paint()
+  })
+  bar.querySelector('.ba-bulk-done').addEventListener('click', (e) => {
+    e.stopPropagation()
+    selectFolder = null
+    selectedIds.clear()
+    changed()
+  })
+  bar.querySelector('.ba-bulk-move').addEventListener('click', async (e) => {
+    e.stopPropagation()
+    if (!selectedIds.size || !ui.bulkMove) return
+    const moved = await ui.bulkMove([...selectedIds])
+    if (moved) { selectFolder = null; selectedIds.clear(); changed() } // 취소하면 고른 것을 그대로 둔다
+  })
+  // 삭제 — 폴더 비우기와 같은 armed 2클릭 + 실행취소. 파괴적 동작마다 확인 방식이 다르면 매번 새로 배워야 한다.
+  const del = bar.querySelector('.ba-bulk-del')
+  let armTimer = null
+  function disarm() { clearTimeout(armTimer); armTimer = null; del.classList.remove('armed') }
+  del.addEventListener('click', async (e) => {
+    e.stopPropagation()
+    const n = selectedIds.size
+    if (!n) return
+    if (!armTimer) {
+      del.classList.add('armed')
+      armTimer = setTimeout(disarm, 3000)
+      toast(`고른 북마크 ${n}개를 지웁니다. 한 번 더 누르면 삭제해요.`)
+      return
+    }
+    disarm()
+    const removed = await removeBookmarks([...selectedIds])
+    selectFolder = null
+    selectedIds.clear()
+    changed()
+    if (!removed.length) return
+    toast(`북마크 ${removed.length}개를 지웠어요.`, {
+      label: '실행취소',
+      onClick: async () => { await restoreRecords(removed); changed(); toast(`북마크 ${removed.length}개를 되살렸어요.`) },
+    })
+  })
 }
 
 function bindAll(listEl, ui, ctx) {
@@ -1348,6 +1473,24 @@ function bindAll(listEl, ui, ctx) {
       })
     })
   })
+
+  // ☑ 폴더 선택 모드 — 골라서 옮기거나 지운다. 한 번에 한 폴더만.
+  listEl.querySelectorAll('.ba-folder-select').forEach((s) => s.addEventListener('click', (e) => {
+    e.stopPropagation()
+    const key = s.dataset.id || ''
+    selectFolder = selectFolder === key ? null : key
+    selectedIds.clear()
+    changed()
+  }))
+  // ➜ 전부 이동 — 여러 개 이동 창을 이 폴더 북마크를 **모두 체크한 채** 연다. 빼고 싶은 것은 거기서 푼다.
+  listEl.querySelectorAll('.ba-folder-moveall').forEach((s) => s.addEventListener('click', async (e) => {
+    e.stopPropagation()
+    const key = s.dataset.id || ''
+    const ids = (await listByKind('bookmark', ui.game)).filter((b) => (b.folderId ?? '') === key).map((b) => b.id)
+    if (ids.length && ui.bulkMove) await ui.bulkMove(ids)
+  }))
+  const bar = listEl.querySelector('.ba-bulkbar')
+  if (bar) bindBulkBar(listEl, bar, ui, toast)
 
   listEl.querySelectorAll('.ba-folder-del').forEach((s) => {
     let armTimer = null
