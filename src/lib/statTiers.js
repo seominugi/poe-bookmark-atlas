@@ -60,7 +60,7 @@ export function tiersFor({ table, itemClass, statId, ilvlMax = null }) {
  * @param {number[][]} v
  * @returns {{min:number,max:number,range:string}}
  */
-function filterBounds(v) {
+export function filterBounds(v) {
   if (v.length === 1) return { min: v[0][0], max: v[0][1], range: `${v[0][0]}~${v[0][1]}` }
   const [[loA, hiA], [loB, hiB]] = v
   return {

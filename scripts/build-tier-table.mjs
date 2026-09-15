@@ -12,9 +12,11 @@ import { gzipSync } from 'node:zlib'
 import { resolveLockedGameDataRoot } from './poe-game-data-lock.mjs'
 import { normalizeTradeText, modTextKeys, polarityFlipped } from '../src/lib/statTextNorm.js'
 import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
+import { affixCategoryOf } from '../src/lib/affixCategory.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const EXPLICIT_GROUP = '비고정' // 거래소 능력치 목록에서 일반 옵션 그룹
+const ENCHANT_GROUP = '인챈트' // 타락 속성이 거래소에서 걸리는 그룹 — 실측 380개 중 356개가 이 그룹 문구와 이어진다(2026-09-15)
 const SKIP_FILES = new Set(['Map.json'])
 
 // 게임 데이터가 표시 배율을 적용하지 않은 스탯 — 값이 100배(흡수·치명타)·60배(재생)로 들어 있다.
@@ -44,11 +46,11 @@ export function verifyClassBridge(bridge, modFiles, pobClasses) {
  *   **티어 사다리가 의미 없다**(`즉시 회복`·`반경이 대형으로 업그레이드` 류). 매칭 판정에는
  *   그대로 쓰되 표에는 싣지 않는다. 실측(2026-09-13) 5건.
  */
-function buildTradeIndex(stats) {
+function buildTradeIndex(stats, label = EXPLICIT_GROUP) {
   const index = new Map()
   const valueless = new Set()
   for (const group of stats.result ?? []) {
-    if (group.label !== EXPLICIT_GROUP) continue
+    if (group.label !== label) continue
     for (const entry of group.entries ?? []) {
       const key = normalizeTradeText(entry.text)
       if (!index.has(key)) index.set(key, [])
@@ -215,9 +217,13 @@ async function main() {
     process.exit(1)
   }
 
-  const { index: tradeIndex, valueless } = buildTradeIndex(await loadStats(game, arg('--stats', null)))
+  const statsPayload = await loadStats(game, arg('--stats', null))
+  const { index: tradeIndex, valueless } = buildTradeIndex(statsPayload)
+  // 타락으로 붙는 속성은 거래소에서 「인챈트」 로 거른다(PoE2). 문구 매칭 규칙은 일반 모드와 같다.
+  const { index: enchantIndex, valueless: enchantValueless } = buildTradeIndex(statsPayload, ENCHANT_GROUP)
   const table = {}
   const affixes = {}
+  let corruptedTotal = 0, corruptedMatched = 0
   let total = 0, matched = 0, unscaled = 0, conflicts = 0, skippedValueless = 0
   const ambiguous = []
 
@@ -238,14 +244,19 @@ async function main() {
         // 한 사다리로 합쳐진다 — 요구 레벨이 다르면 hasValueConflict 도 못 잡고 +45 와 -50 이
         // 같은 사다리에 섞인다.
         const key = found.keys.join('\n') + '|' + affix + (found.inferred ? '|flip' : '')
-        if (!families.has(key)) families.set(key, { cands: found.cands, rows: [], inferred: found.inferred, affix })
+        if (!families.has(key)) {
+          // 문장마다 첫 내부 능력치 이름 — 속성 목록의 종류 묶음(affixCategory) 판정에 쓴다
+          const statNames = found.lines.map((line) => line.stats?.[0]?.stat ?? '')
+          families.set(key, { cands: found.cands, rows: [], inferred: found.inferred, affix, statNames })
+        }
         families.get(key).rows.push({ ilvl: mod.tier, byLine: rangesByLine(mod, found.lines) })
       }
     }
     const byStat = {}
     const inferredById = {}
     const affixById = {}
-    for (const { cands, rows, inferred, affix } of families.values()) {
+    const categoryById = {}
+    for (const { cands, rows, inferred, affix, statNames } of families.values()) {
       if (hasValueConflict(rows)) { conflicts++; continue }
       rows.sort((a, b) => b.ilvl - a.ilvl) // 필요 아이템 레벨이 높은 쪽이 T1
       // **문장마다 따로** 사다리를 만든다 — 한 모드가 두 문장을 가지면 값 슬롯도 문장별로 갈린다.
@@ -259,13 +270,17 @@ async function main() {
             byStat[id] = tiers
             inferredById[id] = inferred
             affixById[id] = affix // 표에 실린 사다리의 접두·접미를 따른다
+            categoryById[id] = affixCategoryOf(statNames[lineIndex])
           }
         }
       })
     }
+    const corrupted = corruptedAffixesOf(data, enchantIndex, enchantValueless, ambiguous)
+    corruptedTotal += corrupted.total
+    corruptedMatched += Object.keys(corrupted.x).length
     if (Object.keys(byStat).length) {
       table[cls] = byStat
-      affixes[cls] = affixListsOf(Object.keys(byStat), affixById)
+      affixes[cls] = { ...affixListsOf(Object.keys(byStat), affixById), c: categoryById, x: corrupted.x }
     }
   }
 
@@ -280,6 +295,7 @@ async function main() {
   console.log(`  값 충돌로 버린 계열       : ${conflicts}`)
   console.log(`  후보 모호로 버린 모드     : ${ambiguous.length}`)
   console.log(`  값 칸이 없어 표에서 뺀 것 : ${skippedValueless}`)
+  console.log(`  타락(인챈트) 속성          : 모드 ${corruptedTotal} → 능력치 ${corruptedMatched}`)
   // 버린 것을 조용히 넘기지 않는다 — 이 목록이 곧 '정규화 규칙을 손봐야 하는 자리'다.
   for (const line of [...new Set(ambiguous)]) console.log(`      ${line}`)
   console.log(`${Object.keys(table).length} 부위 · ${statCount} 능력치 · gzip ${(gzipSync(json).length / 1024).toFixed(1)}KB`)
@@ -296,6 +312,36 @@ async function main() {
   const affixOut = join(here, '..', 'src', 'lib', `statAffixes.${game}.json`)
   writeFileSync(affixOut, JSON.stringify(affixes), 'utf8')
   console.log(`→ ${affixOut}`)
+}
+
+/**
+ * 부위 하나의 타락 속성 — 거래소 인챈트 id → 값 범위·종류.
+ * 타락 모드는 티어가 없다(모드마다 요구 레벨 1 · 값 범위 하나). 같은 id 에 범위가 둘 이상 붙으면 판단할 근거가 없어 뺀다.
+ * @returns {{total:number, x:Record<string,{v:number[][], c:string}>}}
+ */
+export function corruptedAffixesOf(data, enchantIndex, enchantValueless, ambiguous) {
+  const mods = [...(data.buckets?.corrupted?.prefix ?? []), ...(data.buckets?.corrupted?.suffix ?? [])]
+  const x = {}
+  const conflicted = new Set()
+  let total = 0
+  for (const mod of mods) {
+    if (!(mod.stats ?? []).some((s) => s?.text?.kr)) continue
+    total++
+    if (isUnscaled(mod)) continue
+    const found = candidatesForMod(mod, enchantIndex, ambiguous)
+    if (!found) continue
+    const byLine = rangesByLine(mod, found.lines)
+    found.cands.forEach((ids, lineIndex) => {
+      const v = byLine[lineIndex]
+      const c = affixCategoryOf(found.lines[lineIndex].stats?.[0]?.stat ?? '')
+      for (const id of ids) {
+        if (enchantValueless.has(id) || conflicted.has(id)) continue
+        if (x[id] && JSON.stringify(x[id].v) !== JSON.stringify(v)) { delete x[id]; conflicted.add(id); continue }
+        x[id] = { v, c }
+      }
+    })
+  }
+  return { total, x }
 }
 
 /**
