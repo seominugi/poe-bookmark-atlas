@@ -12,7 +12,9 @@ const table = {
     ],
     'stat.added_fire': [
       { t: 1, l: 75, v: [[25, 29], [37, 45]] }, // 슬롯이 둘
+      { t: 2, l: 65, v: [[20, 24], [33, 36]] }, // 평균이 .5 로 떨어진다 — 26.5 ~ 30
     ],
+    'stat.three_slots': [{ t: 1, l: 75, v: [[1, 2], [3, 4], [5, 6]] }],
   },
 }
 
@@ -26,8 +28,24 @@ describe('tiersFor', () => {
   it('그 부위에 없는 능력치는 no-stat', () => {
     expect(tiersFor({ table, itemClass: 'Ring', statId: 'stat.nope' }).status).toBe('no-stat')
   })
-  it('슬롯이 둘인 능력치는 아직 다루지 않는다', () => {
-    expect(tiersFor({ table, itemClass: 'Ring', statId: 'stat.added_fire' }).status).toBe('multi-slot')
+  // 거래소는 `#~# 추가` 를 두 값의 평균으로 거른다 (2026-09-15 API 실측 — statTiers.js filterBounds 주석).
+  describe('슬롯이 둘인 능력치 — 평균으로 넣는다', () => {
+    it('가장 낮게 굴린 평균 ~ 가장 높게 굴린 평균', () => {
+      const r = tiersFor({ table, itemClass: 'Ring', statId: 'stat.added_fire' })
+      expect(r.status).toBe('ok')
+      expect(r.fill).toBe('min')
+      expect(r.tiers[0]).toMatchObject({ t: 1, min: 31, max: 37, range: '(25~29)~(37~45) 평균' })
+    })
+    it('평균이 .5 면 최소는 내린다 — 그 티어의 가장 낮은 굴림도 걸려야 한다', () => {
+      const r = tiersFor({ table, itemClass: 'Ring', statId: 'stat.added_fire' })
+      expect(r.tiers[1]).toMatchObject({ t: 2, min: 26, max: 30 })
+    })
+    it('슬롯이 한 칸이면 range 는 원래 범위 그대로', () => {
+      expect(tiersFor({ table, itemClass: 'Ring', statId: 'stat.fire_res' }).tiers[0].range).toBe('41~45')
+    })
+    it('슬롯이 셋 이상이면 여전히 다루지 않는다', () => {
+      expect(tiersFor({ table, itemClass: 'Ring', statId: 'stat.three_slots' }).status).toBe('multi-slot')
+    })
   })
   it('상한이 없으면 상위 세 티어', () => {
     const r = tiersFor({ table, itemClass: 'Ring', statId: 'stat.fire_res' })
