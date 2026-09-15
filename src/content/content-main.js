@@ -509,11 +509,18 @@ function pobEnsureStyle() {
   .ba-affix-check { margin: 0; accent-color: #a78bfa; flex: none; }
   .ba-affix-name { flex: 1; min-width: 0; }
   .ba-affix-meta { display: inline-flex; gap: 4px; align-items: center; flex: none; }
-  .ba-affix-tier, .ba-affix-lv { font: 600 11px/16px ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums;
-    min-width: 20px; padding: 0 5px; text-align: center; border-radius: 999px; }
-  .ba-affix-tier { background: #1d6b45; color: #e3f7ea; }
-  .ba-affix-lv { background: #45404f; color: #ebe7f3; }
-  .ba-affix-row.is-out .ba-affix-tier { background: #4a3a3a; color: #e8d6d6; }
+  /* 넣을 값 고르기 — T1~T3 또는 범위. 누르면 그 행이 체크되고 그 값이 들어간다. 다시 누르면 빈칸. */
+  .ba-affix-pill {
+    height: 20px; min-width: 28px; padding: 0 7px !important; margin: 0 !important;
+    border: 1px solid rgba(167, 139, 250, 0.4) !important; border-radius: 999px !important;
+    background: rgba(43, 35, 64, 0.85) !important; color: #cfc6ee !important; cursor: pointer;
+    font: 600 11px/1 ui-monospace, Consolas, monospace !important; font-variant-numeric: tabular-nums; white-space: nowrap;
+    transition: background .15s ease, border-color .15s ease, color .15s ease; }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-affix-pill:hover { border-color: rgba(167, 139, 250, 0.9) !important; color: #fff !important; }
+  }
+  .ba-affix-pill.is-on { background: #a78bfa !important; border-color: #a78bfa !important; color: #150f2b !important; }
+  .ba-affix-pill:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 1px; }
   .ba-affix-have { font-size: 11px; color: #9b94bd; margin-right: 2px; }
   .ba-affix-none, .ba-affix-empty { padding: 8px 12px; color: #9b94bd; margin: 0; }
   .ba-affix-empty { padding: 20px 12px; }
@@ -959,9 +966,9 @@ async function openAffixesFor(group, btn) {
     title: label,
     subtitle: [typeText, ilvlMax != null ? `아이템 레벨 ${ilvlMax} 이하 기준` : '아이템 레벨 상한 없음'].filter(Boolean).join(' · '),
     list,
-    onAdd: async (ids) => {
-      const res = await requestAddStatFilters(groupToken(group), ids)
-      LOG('속성 목록 — 넣기', JSON.stringify({ added: res.added?.length ?? 0, skipped: res.skipped ?? [], error: res.error ?? null }))
+    onAdd: async (picks) => {
+      const res = await requestAddStatFilters(groupToken(group), picks)
+      LOG('속성 목록 — 넣기', JSON.stringify({ added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], error: res.error ?? null }))
       panel.toast(addResultMessage(res, label))
     },
   })
@@ -975,19 +982,20 @@ function addResultMessage(res, label) {
   const have = skipped.filter((s) => s?.reason === 'have').length
   const refused = skipped.length - have
   const parts = []
-  if (added) parts.push(`속성 ${added}개를 ${label}에 넣었어요. 값은 티어 칩으로 고르세요.`)
+  const valued = Array.isArray(res?.valued) ? res.valued.length : 0
+  if (added) parts.push(`속성 ${added}개를 ${label}에 넣었어요.${valued ? ` ${valued}개는 고른 값까지 채웠어요.` : ' 값은 티어 칩으로 고르세요.'}`)
   if (have) parts.push(`${have}개는 이미 그 그룹에 있어서 뺐어요.`)
   if (refused) parts.push(`${refused}개는 거래소가 받지 않았어요.`)
   return parts.join(' ') || '넣은 속성이 없어요.'
 }
 
 const pendingAdds = new Map()
-function requestAddStatFilters(token, ids) {
+function requestAddStatFilters(token, items) {
   return new Promise((resolve) => {
     const reqId = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
     const timer = setTimeout(() => { pendingAdds.delete(reqId); resolve({ error: 'timeout', added: [], skipped: [] }) }, 3000)
     pendingAdds.set(reqId, (r) => { clearTimeout(timer); resolve(r) })
-    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, ids }, location.origin)
+    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items }, location.origin)
   })
 }
 

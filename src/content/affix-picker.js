@@ -4,7 +4,7 @@
 // 넣을 곳은 **누른 버튼의 그룹**이다 — 따로 고르게 하면 엉뚱한 그룹에 넣는 실수가 생긴다(시안 A 결정, 2026-09-15).
 // 실제로 넣는 일은 MAIN world 의 stat-adder.js 가 한다. 이 파일은 DOM 과 사용자 선택만 다룬다.
 
-import { filterAffixes } from '../lib/affixList.js'
+import { filterAffixes, affixFilterValue } from '../lib/affixList.js'
 
 export const AFFIX_BTN_CLASS = 'ba-affix-btn'
 export const AFFIX_POP_CLASS = 'ba-affix-pop'
@@ -89,7 +89,7 @@ export function closeAffixPopover() {
  * @param {string} args.title 헤더 제목 (그룹 이름)
  * @param {string} args.subtitle 헤더 설명 (유형·레벨)
  * @param {{status:string, prefix:object[], suffix:object[]}} args.list affixListFor 결과
- * @param {(ids:string[])=>Promise<void>|void} args.onAdd
+ * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null}>)=>Promise<void>|void} args.onAdd
  */
 export function openAffixPopover({ anchor, title, subtitle, list, onAdd }) {
   closeAffixPopover()
@@ -112,8 +112,9 @@ export function openAffixPopover({ anchor, title, subtitle, list, onAdd }) {
   head.append(titles, search, closeBtn)
   pop.appendChild(head)
 
-  const selected = new Set()
-  const rows = [] // {item, row, box}
+  // id → 고른 값의 인덱스(item.choices). 체크했지만 값을 안 골랐으면 -1 = 빈칸으로 넣는다.
+  const selected = new Map()
+  const rows = [] // {item, row, box, pills}
   const foot = el(doc, 'div', 'ba-affix-foot')
   const countEl = el(doc, 'span', 'ba-affix-count')
   const clearBtn = el(doc, 'button', 'ba-affix-clear', '선택 해제')
@@ -123,10 +124,23 @@ export function openAffixPopover({ anchor, title, subtitle, list, onAdd }) {
 
   const refresh = () => {
     const n = selected.size
-    countEl.textContent = n ? `${n}개 선택` : '넣을 속성을 체크하세요'
+    const valued = [...selected.values()].filter((i) => i >= 0).length
+    countEl.textContent = n ? `${n}개 선택${valued ? ` · 값 ${valued}개` : ''}` : '넣을 속성을 체크하세요'
     addBtn.textContent = n ? `선택한 ${n}개 넣기` : '넣기'
     addBtn.disabled = n === 0
     clearBtn.hidden = n === 0
+  }
+  /** 한 행의 선택 상태를 화면에 반영한다. index: undefined = 선택 안 함, -1 = 빈칸, 0.. = 값 */
+  const setRow = (r, index) => {
+    if (index === undefined) selected.delete(r.item.id)
+    else selected.set(r.item.id, index)
+    r.box.checked = index !== undefined
+    r.row.classList.toggle('is-on', index !== undefined)
+    r.pills.forEach((p, i) => {
+      p.classList.toggle('is-on', i === index)
+      p.setAttribute('aria-pressed', String(i === index))
+    })
+    refresh()
   }
 
   if (list.status !== 'ok') {
@@ -145,32 +159,45 @@ export function openAffixPopover({ anchor, title, subtitle, list, onAdd }) {
         const box = el(doc, 'input', 'ba-affix-check')
         box.type = 'checkbox'
         box.disabled = item.have
-        box.addEventListener('change', () => {
-          if (box.checked) selected.add(item.id)
-          else selected.delete(item.id)
-          row.classList.toggle('is-on', box.checked)
-          refresh()
-        })
         const name = el(doc, 'span', 'ba-affix-name', item.text)
+        name.title = item.single
+          ? '티어가 하나뿐인 속성'
+          : `티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
         const meta = el(doc, 'span', 'ba-affix-meta')
+        const r = { item, row, box, pills: [] }
         if (item.have) meta.appendChild(el(doc, 'span', 'ba-affix-have', '추가됨'))
-        const tier = el(doc, 'span', 'ba-affix-tier', String(item.tiers))
-        tier.title = item.tiers ? `닿는 티어 ${item.tiers}개` : '아이템 레벨 상한으로는 붙지 않아요'
-        const lv = el(doc, 'span', 'ba-affix-lv', String(item.topLevel))
-        lv.title = `최고 티어 필요 아이템 레벨 ${item.topLevel}`
-        meta.append(tier, lv)
+        else if (!item.choices.length) meta.appendChild(el(doc, 'span', 'ba-affix-have', '레벨 부족'))
+        else {
+          item.choices.forEach((c, i) => {
+            // 티어가 하나뿐이면 고를 게 없으니 범위를 그대로 보여 준다 — 누르면 최소·최대가 함께 들어간다.
+            const pill = el(doc, 'button', 'ba-affix-pill', item.single ? c.range.replace(/ 평균$/, '') : `T${c.t}`)
+            pill.type = 'button'
+            pill.setAttribute('aria-pressed', 'false')
+            pill.title = item.single
+              ? `최소 ${c.min} · 최대 ${c.max} 를 함께 넣어요`
+              : `${c.range} → ${item.fill === 'max' ? '최대' : '최소'} ${c[item.fill]} · 아이템 레벨 ${c.l} 이상`
+            pill.addEventListener('click', (e) => {
+              e.preventDefault() // label 안 버튼 — 체크박스 토글과 섞이지 않게 직접 정한다
+              setRow(r, selected.get(item.id) === i ? -1 : i)
+            })
+            r.pills.push(pill)
+            meta.appendChild(pill)
+          })
+        }
+        box.addEventListener('change', () => {
+          // 티어가 하나뿐인 속성은 체크만 해도 그 범위를 넣는다 — 고를 것이 없다.
+          setRow(r, box.checked ? (item.single && item.choices.length ? 0 : -1) : undefined)
+        })
         row.append(box, name, meta)
         ul.appendChild(row)
-        rows.push({ item, row, box })
+        rows.push(r)
       }
       if (!items.length) ul.appendChild(el(doc, 'div', 'ba-affix-none', '없음'))
       col.appendChild(ul)
       cols.appendChild(col)
     }
     pop.appendChild(cols)
-    const legend = el(doc, 'span', 'ba-affix-legend')
-    legend.append(el(doc, 'span', 'ba-affix-tier', 'T'), ' 닿는 티어 수 ', el(doc, 'span', 'ba-affix-lv', 'Lv'), ' 최고 티어 필요 레벨')
-    foot.append(legend)
+    foot.append(el(doc, 'span', 'ba-affix-legend', 'T1~T3 를 누르면 그 티어 값을, 범위를 누르면 최소·최대를 함께 넣어요'))
   }
 
   foot.append(countEl, clearBtn, addBtn)
@@ -182,17 +209,17 @@ export function openAffixPopover({ anchor, title, subtitle, list, onAdd }) {
     for (const r of rows) r.row.hidden = !shown.has(r.item)
   })
   clearBtn.addEventListener('click', () => {
-    for (const r of rows) { r.box.checked = false; r.row.classList.remove('is-on') }
-    selected.clear()
-    refresh()
+    for (const r of rows) if (selected.has(r.item.id)) setRow(r, undefined)
   })
   addBtn.addEventListener('click', async () => {
     if (!selected.size) return
     // 목록 순서(접두어 → 접미어)로 넣는다 — 체크한 순서는 사용자도 기억하지 못한다.
-    const ids = rows.map((r) => r.item.id).filter((id) => selected.has(id))
+    const picks = rows
+      .filter((r) => selected.has(r.item.id))
+      .map((r) => ({ id: r.item.id, value: affixFilterValue(r.item, selected.get(r.item.id)) }))
     addBtn.disabled = true
     addBtn.textContent = '넣는 중…'
-    try { await onAdd(ids) } finally { close() }
+    try { await onAdd(picks) } finally { close() }
   })
   closeBtn.addEventListener('click', () => close())
 
@@ -230,7 +257,7 @@ function place(pop, anchor) {
   const a = anchor.getBoundingClientRect()
   const g = group.getBoundingClientRect()
   const vw = win.innerWidth || 1024
-  const width = Math.min(760, vw - 32)
+  const width = Math.min(880, vw - 32) // 행마다 티어 버튼이 붙어 두 열이 760px 에서는 이름이 과하게 접힌다
   pop.style.width = width + 'px'
   const left = Math.max(16, Math.min(g.left, vw - width - 16))
   pop.style.left = Math.round(left + win.scrollX) + 'px'
