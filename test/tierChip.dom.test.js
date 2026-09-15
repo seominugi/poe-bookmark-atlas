@@ -15,7 +15,8 @@ const table = {
       { t: 2, l: 71, v: [[36, 40]] },
       { t: 3, l: 60, v: [[31, 35]] },
     ],
-    'stat.added_fire': [{ t: 1, l: 75, v: [[25, 29], [37, 45]] }], // 슬롯 둘 — multi-slot
+    'stat.added_fire': [{ t: 1, l: 75, v: [[25, 29], [37, 45]] }], // 슬롯 둘 — 평균으로 넣는다
+    'stat.three_slots': [{ t: 1, l: 75, v: [[1, 2], [3, 4], [5, 6]] }], // 슬롯 셋 — multi-slot
   },
 }
 
@@ -122,7 +123,7 @@ describe('평평한 구조 — 화염 저항 (T1~T3)', () => {
     attachTierChips(document, c())
     expect([...row.querySelectorAll('.' + CHIP_CLASS)].map((b) => b.title)[0]).toBe('41~45 → 최소 41 · 아이템 레벨 82 이상')
 
-    statId = 'stat.added_fire' // 슬롯 둘 → 칩이 사라져야 한다
+    statId = 'stat.three_slots' // 다룰 수 없는 능력치 → 칩이 사라져야 한다
     attachTierChips(document, c())
     expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
   })
@@ -276,10 +277,10 @@ describe('no-stat · multi-slot — 아무것도 붙이지 않는다', () => {
     expect(row.querySelectorAll('.' + ASK_CLASS)).toHaveLength(0)
   })
 
-  it('슬롯이 둘인 stat 이면 아무것도 안 붙는다', () => {
-    const { row } = flatRow('화염 피해 추가')
+  it('슬롯이 셋인 stat 이면 아무것도 안 붙는다', () => {
+    const { row } = flatRow('알 수 없는 세 칸 옵션')
     document.body.appendChild(row)
-    attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.added_fire' })
+    attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.three_slots' })
     expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
   })
 
@@ -289,6 +290,20 @@ describe('no-stat · multi-slot — 아무것도 붙이지 않는다', () => {
     attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => null })
     expect(row.querySelectorAll('.' + CHIP_CLASS)).toHaveLength(0)
     expect(row.querySelectorAll('.' + ASK_CLASS)).toHaveLength(0)
+  })
+})
+
+// 거래소는 `#~# 추가` 를 두 값의 평균으로 거른다 (2026-09-15 API 실측).
+describe('슬롯이 둘인 능력치 — 공격 시 화염 피해 #~# 추가', () => {
+  it('칩을 누르면 최소칸에 평균 하한이 들어가고, title 이 평균임을 말한다', () => {
+    const { row, min, max } = flatRow('공격 시 화염 피해 #~# 추가')
+    document.body.appendChild(row)
+    attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.added_fire' })
+    const chip = row.querySelector('.' + CHIP_CLASS)
+    expect(chip.title).toBe('(25~29)~(37~45) 평균 → 최소 31 · 아이템 레벨 75 이상')
+    chip.click()
+    expect(min.value).toBe('31')
+    expect(max.value).toBe('')
   })
 })
 
@@ -339,13 +354,13 @@ describe('한 행이 터져도 다른 행은 계속 처리한다', () => {
 describe('진단 요약을 돌려준다', () => {
   it('붙은 것과 안 붙은 이유를 센다', () => {
     const ok = flatRow('화염 저항 #%')
-    const multi = flatRow('공격 시 화염 피해 #~# 추가')
+    const multi = flatRow('세 칸 옵션')
     const unknown = flatRow('우리가 모르는 능력치')
     for (const r of [ok, multi, unknown]) document.body.appendChild(r.row)
 
     const byName = {
       '화염 저항 #%': 'stat.fire_res',
-      '공격 시 화염 피해 #~# 추가': 'stat.added_fire',
+      '세 칸 옵션': 'stat.three_slots',
     }
     const seen = attachTierChips(document, {
       table,
@@ -355,7 +370,7 @@ describe('진단 요약을 돌려준다', () => {
 
     expect(seen.minInputs).toBe(3)
     expect(seen.chips).toBe(3) // ok 행의 T1·T2·T3
-    expect(seen.multiSlot).toBe(1) // 슬롯 둘이라 못 붙임
+    expect(seen.multiSlot).toBe(1) // 슬롯 셋이라 못 붙임
     expect(seen.noStatId).toBe(1) // 능력치를 알아보지 못함
     expect(seen.noRow).toBe(0)
   })

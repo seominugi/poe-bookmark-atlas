@@ -95,7 +95,7 @@ function findRow(minInput, allMinInputs, root) {
 }
 
 /**
- * @param {{t:number,l:number,min:number,max:number}} tier
+ * @param {{t:number,l:number,min:number,max:number,range:string}} tier
  * @param {'min'|'max'} fill 어느 칸에 넣는지 — title 이 그걸 말해야 한다.
  *   음수 능력치는 최대칸에 들어가는데, 사용자가 그걸 모르면 칩을 눌러 놓고
  *   "최소칸이 왜 안 채워졌나" 를 본다.
@@ -106,7 +106,7 @@ function makeChipButton(tier, fill) {
   btn.className = CHIP_CLASS
   btn.textContent = `T${tier.t}`
   const side = fill === 'max' ? '최대' : '최소'
-  btn.title = `${tier.min}~${tier.max} → ${side} ${tier[fill]} · 아이템 레벨 ${tier.l} 이상`
+  btn.title = `${tier.range} → ${side} ${tier[fill]} · 아이템 레벨 ${tier.l} 이상`
   return btn
 }
 
