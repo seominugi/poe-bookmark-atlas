@@ -504,7 +504,7 @@
 
 /* ---- 액션 버튼: 의미색 ---- */
 .ba-star, .ba-del, .ba-over, .ba-rename, .ba-hist-del,
-.ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del {
+.ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-select, .ba-folder-moveall {
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center;
   flex-shrink: 0; line-height: 1; color: var(--ba-text-muted);
   background: rgba(255, 255, 255, 0.05); border: 1px solid var(--ba-border);
@@ -512,7 +512,13 @@
   transition: background .15s, border-color .15s, color .15s;
 }
 .ba-star, .ba-del, .ba-over, .ba-rename { width: 29px; height: 29px; font-size: 15px; }
-.ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del { width: 24px; height: 24px; font-size: 13px; }
+.ba-folder-rename, .ba-folder-export, .ba-folder-clear, .ba-folder-del, .ba-folder-select, .ba-folder-moveall { width: 24px; height: 24px; font-size: 13px; }
+/* 선택(☑)·전부 이동(➜) — 정리 계열이지만 지우지는 않으므로 편집 바이올렛·이동 하늘색. 켜진 선택은 채운다. */
+.ba-folder-select { color: #b0a4e8; }
+.ba-folder-moveall { color: #8fc3f0; }
+.ba-folder-select:hover { color: #ddd6fe; background: var(--ba-violet-soft); border-color: var(--ba-violet-line); }
+.ba-folder-select.on { color: #150f2b; background: var(--ba-violet); border-color: var(--ba-violet); }
+.ba-folder-moveall:hover { color: #d6ebff; background: var(--ba-blue-soft); border-color: var(--ba-blue-line); }
 /* 폴더 액션 기본 의미색 (시인성 — rowfoot 팔레트와 통일: 편집=바이올렛, 내보내기=청록, 삭제=로즈) */
 .ba-folder-rename { color: #b0a4e8; }
 .ba-folder-export { color: #6cc5d4; }
@@ -911,6 +917,36 @@
 .ba-folder-savechip .ba-ic { flex: none; }
 /* 상단 칩 — 항상 폴더 본문 맨 위에 위치하므로 마진 반전(위 0, 아래 여백) */
 .ba-folder-body > .ba-folder-savechip:first-child { margin-top: 0; margin-bottom: 8px; }
+
+/* ── 폴더 선택 모드 ─────────────────────────────────────────────────────
+   저장 칩 자리에 선택 바가 붙는다. 목록을 내려도 따라오게 sticky — 고른 뒤 바를 찾으러 올라가지 않게.
+   카드는 누르면 열리지 않고 골라진다(renderList bindBulkBar). 떠오르는 호버 효과는 끈다 — 고르는 동작에 들썩임은 방해다. */
+.ba-bulkbar { position: sticky; top: 0; z-index: 3; display: flex; align-items: center; gap: 6px; margin: 0 0 8px; padding: 6px 6px 6px 10px;
+  background: rgba(30, 26, 52, 0.96); border: 1px solid var(--ba-violet-line); border-radius: 10px;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08); }
+.ba-bulkcount { margin-right: auto; font-size: 12px; color: var(--ba-text); white-space: nowrap; }
+.ba-bulkcount b { color: var(--ba-violet-2); font-variant-numeric: tabular-nums; }
+.ba-bulkbar button { display: inline-flex; align-items: center; gap: 4px; height: 26px; padding: 0 9px; border-radius: 7px; cursor: pointer;
+  font: 700 11.5px/1 inherit; font-family: inherit; white-space: nowrap; color: var(--ba-text);
+  background: rgba(255,255,255,0.05); border: 1px solid var(--ba-border); transition: background .15s, border-color .15s, color .15s, transform .16s var(--ba-ease-out); }
+.ba-bulkbar button:active:not([disabled]) { transform: scale(0.97); }
+.ba-bulkbar button[disabled] { opacity: .4; cursor: default; }
+@media (hover: hover) and (pointer: fine) {
+  .ba-bulkbar button:not([disabled]):hover { color: #fff; border-color: rgba(255,255,255,0.3); }
+  .ba-bulk-move:not([disabled]):hover { background: var(--ba-blue-soft); border-color: var(--ba-blue-line); }
+  .ba-bulk-del:not([disabled]):hover { background: var(--ba-danger-soft); border-color: var(--ba-danger-line); color: #fecdd3; }
+}
+.ba-bulk-del.armed { color: #fecdd3; background: rgba(244, 63, 94, 0.32); border-color: #f43f5e; }
+.ba-bulk-done { color: #150f2b !important; background: var(--ba-violet) !important; border-color: var(--ba-violet) !important; }
+.ba-bulkbar button:focus-visible { outline: 2px solid var(--ba-violet); outline-offset: 1px; }
+@media (prefers-reduced-motion: reduce) { .ba-bulkbar button { transition: background .15s, border-color .15s, color .15s; } .ba-bulkbar button:active:not([disabled]) { transform: none; } }
+.ba-bsel { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 18px; height: 18px; border-radius: 5px;
+  border: 1.5px solid rgba(255,255,255,0.35); color: #150f2b; cursor: pointer; }
+.ba-bsel:focus-visible { outline: 2px solid var(--ba-violet); outline-offset: 2px; }
+.ba-row--sel .ba-grip { display: none; } /* 고르는 동안은 끌어서 옮기기 손잡이를 감춘다 — 체크칸이 그 자리를 쓴다 */
+.ba-row--sel:hover { transform: none; }
+.ba-row.is-selected { border-color: var(--ba-violet-line); border-top-color: var(--ba-violet); background: linear-gradient(90deg, rgba(167,139,250,0.18), rgba(167,139,250,0.04)), var(--ba-surface); }
+.ba-row.is-selected .ba-bsel { background: var(--ba-violet); border-color: var(--ba-violet); }
 
 /* ── 간략 보기 (설정 → 보기: 간략) ───────────────────────────────────────
    카드를 **접는다 — 숨기지 않는다.** 두 줄(이름 줄 + 메타 줄)을 한 줄로 나란히 놓아

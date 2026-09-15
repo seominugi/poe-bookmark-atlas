@@ -396,6 +396,23 @@ export async function clearFolderBookmarks(game, folderId) {
 }
 
 /**
+ * 고른 북마크만 지운다(폴더 선택 모드의 삭제). 지운 레코드를 그대로 돌려줘 `restoreRecords` 로 되살릴 수 있다.
+ * 북마크가 아닌 id(히스토리 등)는 건드리지 않는다 — 선택 모드는 북마크 행에만 붙는다.
+ * @param {string[]} ids
+ * @returns {Promise<object[]>} 지운 레코드
+ */
+export async function removeBookmarks(ids) {
+  const wanted = new Set(Array.isArray(ids) ? ids : [])
+  if (!wanted.size) return []
+  const all = await readAll()
+  const hit = (r) => r.kind === 'bookmark' && wanted.has(r.id)
+  const removed = all.filter(hit)
+  if (!removed.length) return []
+  await writeAll(all.filter((r) => !hit(r)))
+  return removed
+}
+
+/**
  * 삭제한 레코드를 그대로 되돌린다(실행취소). id·order·시간을 보존하므로 원래 자리에 되살아난다.
  * 이미 같은 id가 있으면 건너뛴다 — 되돌리기가 두 번 실행돼도 복제되지 않는다.
  * 되살릴 곳의 폴더가 그새 사라졌으면 미분류로 내린다: 없는 폴더를 가리키는 북마크는 **어느 그룹에도
