@@ -405,10 +405,18 @@ Jewel `저주 활성화 속도`(1단). **T1 이 -25 를 최소칸에 넣어 사�
 「왼쪽부터」가 **엉뚱한 거래소 항목에 붙인** 사례를 찾아봤다. slots=1 이고 숫자가 둘 이상인 문장은
 9건뿐이고, 모호한 3건은 **전부 「못 붙는」 쪽으로만** 실패했다. 틀린 매칭 0건.
 
-### ⚠ poe-game-data 가 lock 보다 앞서 있다
+### poe-game-data lock — `v2026.09.15` 로 승격 (2026-09-15)
 
-디스크 `poe-game-data` 는 **`v2026.09.05.1`**, 저장소 lock 은 **`v2026.08.30.1`** 이라
-`build-tier-table.mjs` 가 **snapshot 불일치로 죽는다.** 고정본으로 재려면 이렇게 뽑는다:
+lock 을 **`v2026.08.30.1` → `v2026.09.15`** 로 올렸다(poe2 4.5.4.8 → 4.5.5.1 + 모드 풀
+`essence`·`alloy`·`desecrated` 버킷 신설 + `group` 이 `ModFamily.Id` 문자열). 같이 확인한 것:
+
+- `statTiers.poe2.json`·`statAffixes.poe2.json` — 새 스냅샷으로 재생성해도 **바이트 동일**(normal·corrupted 버킷이 그대로라서). 매칭률 94.5%.
+- `pobBaseMap.json`(poe2) — **재생성해 커밋**했다. 옛 스냅샷으로 돌리면 커밋본과 같아서 차이는 전부 lock 몫이다: 추가 24(0.5.5 영혼 핵 18 등) · 삭제 6 · 이름 수정 2.
+- ⚠ `pobBaseMap.poe1.json` 은 **손대지 않았다.** `v2026.08.30.1`·`v2026.09.15` 어느 쪽으로 돌려도 결과가 서로 같고 **커밋본만 다르다**(추가 1,427 · 삭제 45 · 변경 17) — lock 과 무관하게 이미 어긋나 있던 것이다. 원인 미확인.
+- 새 버킷(`essence`·`alloy`·`desecrated`)을 속성 목록에 보여 주는 작업은 **아직 안 했다.** 레코드 구조는 normal 과 같고 essence/alloy 에만 `sources[{id, name{5lang}}]` 가 붙는다.
+
+디스크 `poe-game-data` 체크아웃이 lock 과 다른 태그에 있으면 `build-tier-table.mjs` 가
+**snapshot 불일치로 죽는다**(의도된 안전장치). 고정본으로 재려면 이렇게 뽑는다:
 
 ```
 git -C <poe-game-data> archive --format=tar <lock의 commit> _index.json poe2/modifiers/json > pinned.tar
@@ -1775,10 +1783,8 @@ jsdom import 가 불가능하고, 핸드오프 1430줄에도 "이 파일은 하�
   표를 다시 만들려면 `node scripts/build-tier-table.mjs --game poe2` — 거래소 응답은
   `scripts/.cache/poe2-stats.json`(gitignore)에서 읽고 없으면 받아온다. 매칭률이 90% 아래면
   빌드가 실패한다(현재 91.8%라 여유가 크지 않다 — 문구가 조금만 바뀌어도 걸린다)
-  - ⚠ **게임 데이터 잠금이 이미 어긋나 있다** (2026-09-05 확인): 표는 `poe-game-data v2026.08.30.1`
-    로 만들었는데 원본이 `v2026.09.05.1` 로 올라갔다. 지금 다시 만들려 하면
-    `scripts/poe-game-data-lock.mjs` 가 막는다 — 의도된 안전장치다. 갱신하려면 잠금을 올리고
-    매칭률을 다시 본다
+  - ~~⚠ 게임 데이터 잠금이 이미 어긋나 있다~~ → **해소 (2026-09-15).** lock 을 `v2026.09.15` 로
+    올렸고 표는 재생성해도 바이트 동일이었다(위 「poe-game-data lock」 절)
 - **티어 칩 가이드 (2026-09-05)**: 투어에 스텝 하나를 넣었다(`.ba-tier-chip`, `since: 0.13.0`).
   스텝에 `game: 'poe2'` 를 달고 `forGame` 이 걸러 **PoE1 사용자에게는 안 뜬다**. 투어 예시 카드
   (`showTourDemo`)에 능력치 필터 행을 더해, 검색 전이라 진짜 칩이 없어도 가리킬 대상이 있다.
