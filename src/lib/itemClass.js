@@ -44,6 +44,9 @@ export const MOD_FILE_BY_CATEGORY = {
 /** 점이 없지만 부위가 하나로 정해지는 category. */
 const FLAT_CATEGORY = { jewel: 'Jewel' }
 
+/** 부위가 하나로 정해지는 모든 category → modifiers 파일명 (속성 목록의 유형 칩이 쓴다). */
+export const CLASS_BY_CATEGORY = { ...MOD_FILE_BY_CATEGORY, ...FLAT_CATEGORY }
+
 /** pobBaseMap 의 PoB 클래스명 → modifiers 파일명. */
 export const MOD_FILE_BY_POB_CLASS = {
   'Amulets': 'Amulet',

@@ -4,22 +4,22 @@
 // 목록은 **티어 표에 실린 능력치만** 담는다. 표에 없는 것(거래소 문구와 못 이은 것 · 표시 배율이 없는 것)은
 // 넣어도 칩이 안 뜨고, 일부는 거래소에 필터 자체가 없다. 없는 걸 흐리게 늘어놓기보다 뺀다.
 
-import { tiersFor } from './statTiers.js'
+import { tiersFor, filterBounds } from './statTiers.js'
 
 const own = (obj, key) => (obj && Object.hasOwn(obj, key) ? obj[key] : null)
 
 /**
  * @param {object} args
  * @param {Record<string, Record<string, Array<{t:number,l:number,v:number[][]}>>>} args.table statTiers.<game>.json
- * @param {Record<string, {p:string[], s:string[]}>} args.affixes statAffixes.<game>.json
+ * @param {Record<string, {p:string[], s:string[], c?:Record<string,string>}>} args.affixes statAffixes.<game>.json (c = id → 종류 키)
  * @param {string|null} args.itemClass modifiers 파일명
  * @param {Record<string,string>} args.statMap 거래소 stat id → 문구 (화면에 보이는 이름)
  * @param {number|null} [args.ilvlMax] 아이템 레벨 상한
  * @param {Iterable<string>} [args.existingIds] 넣을 그룹에 이미 있는 stat id
- * @returns {{status:'ok'|'no-class', prefix:AffixItem[], suffix:AffixItem[]}}
+ * @returns {{status:'ok'|'no-class', prefix:AffixItem[], suffix:AffixItem[], corrupted:AffixItem[]}}
  *
  * @typedef {{t:number,l:number,min:number,max:number,range:string}} AffixChoice
- * @typedef {{id:string, text:string, tiers:number, topLevel:number, have:boolean,
+ * @typedef {{id:string, text:string, source:'prefix'|'suffix'|'corrupted', category:string, tiers:number, topLevel:number, have:boolean,
  *            single:boolean, fill:'min'|'max', choices:AffixChoice[]}} AffixItem
  *   `tiers` — 아이템 레벨 상한 안에서 닿는 티어 수(상한이 없으면 전체). 0 이면 이 상한으로는 안 붙는다.
  *   `topLevel` — 닿는 티어 중 가장 높은 것의 필요 아이템 레벨(닿는 게 없으면 T1 의 필요 레벨).
@@ -29,9 +29,9 @@ const own = (obj, key) => (obj && Object.hasOwn(obj, key) ? obj[key] : null)
 export function affixListFor({ table, affixes, itemClass, statMap, ilvlMax = null, existingIds = [] }) {
   const byStat = itemClass ? own(table, itemClass) : null
   const lists = itemClass ? own(affixes, itemClass) : null
-  if (!byStat || !lists) return { status: 'no-class', prefix: [], suffix: [] }
+  if (!byStat || !lists) return { status: 'no-class', prefix: [], suffix: [], corrupted: [] }
   const have = new Set(existingIds)
-  const build = (ids) => {
+  const build = (ids, source) => {
     const out = []
     for (const id of ids ?? []) {
       const rows = own(byStat, id)
@@ -40,7 +40,8 @@ export function affixListFor({ table, affixes, itemClass, statMap, ilvlMax = nul
       const reach = ilvlMax == null ? rows : rows.filter((r) => r.l <= ilvlMax)
       const tiers = tiersFor({ table, itemClass, statId: id, ilvlMax })
       out.push({
-        id, text,
+        id, text, source,
+        category: own(lists.c, id) ?? 'other',
         tiers: reach.length,
         topLevel: (reach[0] ?? rows[0]).l,
         have: have.has(id),
@@ -51,7 +52,21 @@ export function affixListFor({ table, affixes, itemClass, statMap, ilvlMax = nul
     }
     return out
   }
-  return { status: 'ok', prefix: build(lists.p), suffix: build(lists.s) }
+  // 타락 속성 — 거래소 인챈트 id. 티어가 없고 값 범위 하나라 늘 single 이다(최소·최대를 함께 넣는다).
+  const corrupted = []
+  for (const [id, entry] of Object.entries(lists.x ?? {})) {
+    const text = own(statMap, id)
+    if (typeof text !== 'string' || !Array.isArray(entry?.v) || !entry.v.length) continue
+    const bounds = filterBounds(entry.v)
+    const negative = entry.v.every((slot) => slot.every((n) => n < 0))
+    corrupted.push({
+      id, text, source: 'corrupted', category: entry.c ?? 'other',
+      tiers: 1, topLevel: 1, have: have.has(id), single: true,
+      fill: negative ? 'max' : 'min',
+      choices: [{ t: 1, l: 1, ...bounds }],
+    })
+  }
+  return { status: 'ok', prefix: build(lists.p, 'prefix'), suffix: build(lists.s, 'suffix'), corrupted }
 }
 
 /**

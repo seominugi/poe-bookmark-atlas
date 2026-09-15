@@ -20,7 +20,7 @@ import { buildPobText } from '../lib/pobExport.js'
 import { attachTierChips, rowStatText } from './tier-chip.js'
 import { readLiveTypeFilters } from './typeFilterDom.js'
 import { applyLiveTypeFilters, holdWhileAmbiguous } from '../lib/liveTypeFilters.js'
-import { classFromQuery } from '../lib/itemClass.js'
+import { classFromQuery, CLASS_BY_CATEGORY } from '../lib/itemClass.js'
 import { normalizeTradeText } from '../lib/statTextNorm.js'
 import { attachAffixButtons, openAffixPopover, groupToken, groupLabel, groupRowTitles } from './affix-picker.js'
 import { affixListFor } from '../lib/affixList.js'
@@ -457,83 +457,160 @@ function pobEnsureStyle() {
     .ba-tier-chip, .ba-tier-ask { transition-property: background, border-color, color; }
     .ba-tier-chip:active, .ba-tier-ask:active { transform: none; }
   }
-  /* 속성 목록 버튼 — 「+ 능력치 필터 추가」 줄 오른쪽 끝. 거래소 CSS 가 이 줄 자식에 float·width 를,
-     버튼에는 배경·테두리·글자색을 먹이므로(2026-09-15 라이브: 회색 배경·테두리 없음) 전부 재지정한다. */
-  .ba-affix-btn {
-    box-sizing: border-box !important; float: none !important; width: auto !important;
-    position: absolute !important; right: 34px; top: 50%; transform: translateY(-50%);
-    height: 20px !important; margin: 0 !important; padding: 0 9px !important; z-index: 2;
-    border: 1px solid rgba(167, 139, 250, 0.55) !important; border-radius: 6px !important;
-    background: rgba(43, 35, 64, 0.92) !important; color: #ddd4f7 !important; cursor: pointer;
-    font: 600 11px/1 system-ui, -apple-system, sans-serif !important; white-space: nowrap;
-    transition: background .15s ease, border-color .15s ease, color .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  /* ── 속성 목록 (글래스 시안 1 · 2026-09-15) ────────────────────────────────
+     트리거: 「+ 능력치 필터 추가」 글자 오른쪽의 티어 칩 모양. 거래소 CSS 가 이 줄 자식·버튼에 float·width·
+     배경·테두리를 먹이므로(2026-09-15 실측) 모양을 정하는 속성은 전부 재지정한다. */
   .filter:has(> .ba-affix-btn) { position: relative; }
+  .ba-affix-btn {
+    position: absolute !important; top: 50%; transform: translateY(-50%); z-index: 2;
+    box-sizing: border-box !important; float: none !important; width: auto !important;
+    display: inline-flex !important; align-items: center; gap: 5px;
+    height: 20px !important; margin: 0 !important; padding: 0 9px 0 7px !important;
+    border: 1px solid rgba(167, 139, 250, 0.5) !important; border-radius: 999px !important;
+    background: rgba(43, 35, 64, 0.88) !important; color: #ddd4f7 !important; cursor: pointer;
+    font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; white-space: nowrap;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+    transition: background .15s ease, border-color .15s ease, color .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  .ba-affix-btn svg { width: 12px; height: 12px; flex: none; }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-affix-btn:hover { background: rgba(60, 48, 88, 0.96) !important; border-color: rgba(167, 139, 250, 0.95) !important; color: #fff !important; }
+  }
   .ba-affix-btn:active { transform: translateY(-50%) scale(0.97); }
+  .ba-affix-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+  .filter:has(.multiselect--active) > .ba-affix-btn { visibility: hidden; } /* 드롭다운을 연 동안은 글자를 가리지 않게 */
   @media (prefers-reduced-motion: reduce) { .ba-affix-btn:active { transform: translateY(-50%); } }
-  @media (hover: hover) and (pointer: fine) {
-    .ba-affix-btn:hover { background: rgba(60, 48, 88, 0.98) !important; border-color: rgba(167, 139, 250, 0.95) !important; color: #fff !important; }
-  }
-  .ba-affix-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
-  /* 팝오버 — 가끔 여는 창이라 짧게 나타나기만 한다. 닫힐 때는 즉시 사라진다. */
+
+  /* 시트 — 확장 패널과 같은 보라 글래스. 뒤 흐림은 이 창이 열린 동안만 켜진다(패널은 상시라 뺐다). */
+  .ba-affix-scrim { position: fixed; inset: 0; z-index: 2147482999; background: rgba(6, 5, 12, 0.46);
+    animation: ba-affix-fade .18s ease-out; }
   .ba-affix-pop {
-    position: absolute; z-index: 2147483000; box-sizing: border-box; max-width: calc(100vw - 32px);
-    display: flex; flex-direction: column; max-height: min(70vh, 640px);
-    background: #13111d; color: #e6e3f5; border: 1px solid rgba(167, 139, 250, 0.5); border-radius: 10px;
-    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.6);
-    font: 13px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; text-align: left;
-    animation: ba-affix-in .16s cubic-bezier(0.23, 1, 0.32, 1); }
-  @keyframes ba-affix-in { from { opacity: 0; transform: translateY(-4px); } }
-  @media (prefers-reduced-motion: reduce) { .ba-affix-pop { animation-name: ba-affix-fade; } }
+    position: fixed; z-index: 2147483000; box-sizing: border-box; max-width: calc(100vw - 32px); max-height: calc(100vh - 64px);
+    display: flex; flex-direction: column; border-radius: 18px; overflow: hidden;
+    background: linear-gradient(180deg, rgba(40, 33, 66, 0.72), rgba(18, 15, 30, 0.82));
+    -webkit-backdrop-filter: blur(22px) saturate(140%); backdrop-filter: blur(22px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), inset 0 0 0 1px rgba(167,139,250,0.06), 0 30px 80px -20px rgba(0,0,0,0.8);
+    color: #ece8f7; font: 13.5px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; text-align: left;
+    animation: ba-affix-in .18s cubic-bezier(0.23, 1, 0.32, 1); }
+  @keyframes ba-affix-in { from { opacity: 0; transform: translateY(6px); } }
   @keyframes ba-affix-fade { from { opacity: 0; } }
-  .ba-affix-pop * { box-sizing: border-box; }
-  .ba-affix-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-  .ba-affix-titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin-right: auto; }
-  .ba-affix-title { font-weight: 700; color: #f5f3ff; }
-  .ba-affix-sub { font-size: 12px; color: #9b94bd; }
-  .ba-affix-search { width: 190px; height: 28px; padding: 0 9px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14);
-    background: #221f30; color: #f5f3ff; font: inherit; }
-  .ba-affix-search:focus-visible { outline: 2px solid #a78bfa; outline-offset: 0; }
-  .ba-affix-close { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: #9b94bd; cursor: pointer; font-size: 14px; }
-  .ba-affix-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-pop { animation-name: ba-affix-fade; } }
+  .ba-affix-pop *, .ba-affix-pop *::before { box-sizing: border-box; }
+  .ba-affix-pop [hidden] { display: none !important; }
+  .ba-affix-pop button { font-family: inherit; }
+
+  .ba-affix-head { display: flex; align-items: center; gap: 14px; padding: 14px 18px 10px; }
+  .ba-affix-titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .ba-affix-title { font-weight: 700; font-size: 16px; color: #fff; letter-spacing: -.01em; }
+  .ba-affix-sub { font-size: 12.5px; color: #a39fbb; }
+  .ba-affix-tabs { display: inline-flex; gap: 2px; padding: 3px; margin-left: 10px; border-radius: 10px;
+    background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.07); }
+  .ba-affix-tab { border: 0 !important; background: transparent !important; color: #a39fbb !important; cursor: pointer;
+    font: 600 12px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; padding: 7px 10px !important; margin: 0 !important; border-radius: 7px !important;
+    transition: background .15s ease, color .15s ease; }
+  .ba-affix-tab em { font-style: normal; margin-left: 5px; color: #77728f; font-variant-numeric: tabular-nums; }
+  .ba-affix-tab:hover { color: #fff !important; }
+  .ba-affix-tab.is-on { background: rgba(167,139,250,0.22) !important; color: #fff !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12); }
+  .ba-affix-tab.is-on em { color: #c4b5fd; }
+  .ba-affix-tab:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  .ba-affix-search { margin-left: auto; display: flex; align-items: center; gap: 8px; width: 260px; height: 36px; padding: 0 12px;
+    border-radius: 10px; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.09); color: #77728f; cursor: text; }
+  .ba-affix-search:focus-within { border-color: rgba(167,139,250,0.6); box-shadow: 0 0 0 3px rgba(167,139,250,0.15); }
+  .ba-affix-search svg { width: 14px; height: 14px; flex: none; }
+  .ba-affix-search-input { flex: 1; min-width: 0; height: 100%; border: 0 !important; outline: 0; background: transparent !important;
+    color: #fff !important; font: inherit !important; padding: 0 !important; box-shadow: none !important; }
+  .ba-affix-search-input::placeholder { color: #77728f; }
+  .ba-affix-close { width: 32px; height: 32px; border: 0 !important; border-radius: 9px !important; background: transparent !important; color: #a39fbb !important;
+    cursor: pointer; font-size: 14px !important; padding: 0 !important; transition: background .15s ease, color .15s ease; }
+  .ba-affix-close:hover { background: rgba(255,255,255,0.08) !important; color: #fff !important; }
   .ba-affix-close:focus-visible { outline: 2px solid #a78bfa; }
-  .ba-affix-cols { display: grid; grid-template-columns: 1fr 1fr; overflow-y: auto; min-height: 0; }
-  .ba-affix-col { padding: 6px 0 8px; min-width: 0; }
-  .ba-affix-col + .ba-affix-col { border-left: 1px solid rgba(255,255,255,0.08); }
-  .ba-affix-col-title { padding: 2px 12px 6px; font-size: 12px; font-weight: 600; color: #c4b5fd; letter-spacing: .02em; }
-  .ba-affix-row { display: flex; align-items: center; gap: 8px; padding: 4px 12px; cursor: pointer; }
+
+  .ba-affix-types { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 10px; }
+  .ba-affix-type { height: 26px; padding: 0 11px !important; margin: 0 !important; border-radius: 999px !important; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.1) !important; background: rgba(255,255,255,0.04) !important; color: #c9c4dc !important;
+    font: 500 12px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+  .ba-affix-type:hover { border-color: rgba(167,139,250,0.5) !important; color: #fff !important; }
+  .ba-affix-type.is-on { background: rgba(167,139,250,0.24) !important; border-color: rgba(167,139,250,0.7) !important; color: #fff !important; }
+  .ba-affix-type:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+
+  .ba-affix-body { overflow-y: auto; min-height: 0; padding: 4px 18px 8px; border-top: 1px solid rgba(255,255,255,0.07); }
+  .ba-affix-flow { column-width: 340px; column-gap: 22px; padding-top: 10px; }
+  /* 전체 탭 — 접두어 | 접미어 | 타락 을 상위 열로 가른다. 열 사이 세로 경계는 옅은 선 한 줄. */
+  .ba-affix-srccols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; padding-top: 6px; }
+  .ba-affix-srccol { min-width: 0; padding: 6px 14px 0; }
+  .ba-affix-srccol:first-child { padding-left: 0; }
+  .ba-affix-srccol:last-child { padding-right: 0; }
+  .ba-affix-srccol + .ba-affix-srccol { border-left: 1px solid rgba(255,255,255,0.07); }
+  .ba-affix-srccol-title { display: flex; align-items: baseline; gap: 6px; margin: 0 0 6px; padding: 0 2px;
+    font: 700 13px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #fff; letter-spacing: -.01em; }
+  .ba-affix-srccol-title em { font: 600 12px/1 ui-monospace, Consolas, monospace; font-style: normal; color: #77728f; }
+  .ba-affix-srccol.is-corrupted .ba-affix-srccol-title { color: #f5a3b5; }
+  .ba-affix-sec { break-inside: avoid; margin: 0 0 8px; }
+  .ba-affix-sec-head { display: flex; align-items: center; gap: 8px; width: 100%; height: 22px; padding: 0 2px !important; margin: 0 0 2px !important;
+    border: 0 !important; background: transparent !important; cursor: pointer; text-align: left; }
+  .ba-affix-sec-name { font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .06em; color: #c4b5fd; white-space: nowrap; }
+  .ba-affix-sec-count { font: 600 11px/1 ui-monospace, Consolas, monospace; color: #77728f; }
+  .ba-affix-sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(196,181,253,0.28), transparent); }
+  .ba-affix-sec-chev { width: 7px; height: 7px; border-right: 1.5px solid #77728f; border-bottom: 1.5px solid #77728f; transform: rotate(-45deg);
+    transition: transform .16s cubic-bezier(0.23, 1, 0.32, 1); margin-right: 3px; }
+  .ba-affix-sec.is-open .ba-affix-sec-chev { transform: rotate(45deg); }
+  .ba-affix-sec-head:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; border-radius: 6px; }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-sec-chev { transition: none; } }
+
+  /* 행 28px — 34px 에서는 지팡이·완드·셉터(접미어 24개)가 높이 1319px 화면에서도 넘쳐 스크롤이 생겼다(2026-09-15 실측). */
+  .ba-affix-row { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 8px; border-radius: 9px; cursor: pointer; color: #e4e0f2; }
   .ba-affix-row[hidden] { display: none; }
-  .ba-affix-row:hover { background: rgba(167, 139, 250, 0.08); }
-  .ba-affix-row.is-on { background: rgba(167, 139, 250, 0.16); }
-  .ba-affix-row.is-have { cursor: default; color: #7d7797; }
+  @media (hover: hover) and (pointer: fine) { .ba-affix-row:hover { background: rgba(255,255,255,0.05); } }
+  .ba-affix-row.is-on { background: linear-gradient(90deg, rgba(167,139,250,0.2), rgba(167,139,250,0.06)); box-shadow: inset 0 0 0 1px rgba(167,139,250,0.28); }
+  .ba-affix-row.is-have { cursor: default; color: #77728f; }
   .ba-affix-row.is-out .ba-affix-name { color: #8f89a8; }
-  .ba-affix-check { margin: 0; accent-color: #a78bfa; flex: none; }
+  .ba-affix-check { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; margin: 0; flex: none; border-radius: 5px;
+    border: 1.5px solid rgba(255,255,255,0.28); background: transparent; display: grid; place-items: center; cursor: pointer; }
+  .ba-affix-check:checked { background: #a78bfa; border-color: #a78bfa; }
+  .ba-affix-check:checked::before { content: ""; width: 8px; height: 4px; border: 2px solid #150f2b; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+  .ba-affix-check:disabled { opacity: .35; cursor: default; }
+  .ba-affix-check:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
   .ba-affix-name { flex: 1; min-width: 0; }
-  .ba-affix-meta { display: inline-flex; gap: 4px; align-items: center; flex: none; }
-  /* 넣을 값 고르기 — T1~T3 또는 범위. 누르면 그 행이 체크되고 그 값이 들어간다. 다시 누르면 빈칸. */
-  .ba-affix-pill {
-    height: 20px; min-width: 28px; padding: 0 7px !important; margin: 0 !important;
-    border: 1px solid rgba(167, 139, 250, 0.4) !important; border-radius: 999px !important;
-    background: rgba(43, 35, 64, 0.85) !important; color: #cfc6ee !important; cursor: pointer;
-    font: 600 11px/1 ui-monospace, Consolas, monospace !important; font-variant-numeric: tabular-nums; white-space: nowrap;
-    transition: background .15s ease, border-color .15s ease, color .15s ease; }
-  @media (hover: hover) and (pointer: fine) {
-    .ba-affix-pill:hover { border-color: rgba(167, 139, 250, 0.9) !important; color: #fff !important; }
-  }
-  .ba-affix-pill.is-on { background: #a78bfa !important; border-color: #a78bfa !important; color: #150f2b !important; }
-  .ba-affix-pill:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 1px; }
-  .ba-affix-have { font-size: 11px; color: #9b94bd; margin-right: 2px; }
-  .ba-affix-none, .ba-affix-empty { padding: 8px 12px; color: #9b94bd; margin: 0; }
-  .ba-affix-empty { padding: 20px 12px; }
-  .ba-affix-foot { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; }
-  .ba-affix-legend { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #9b94bd; margin-right: auto; }
-  .ba-affix-count { font-size: 12px; color: #c9c3e0; }
-  .ba-affix-clear { border: 0; background: none; color: #9b94bd; cursor: pointer; font: inherit; font-size: 12px; text-decoration: underline; }
-  .ba-affix-clear[hidden] { display: none; }
-  .ba-affix-add { height: 30px; padding: 0 14px; border-radius: 7px; border: 1px solid #a78bfa; background: #a78bfa; color: #150f2b;
-    font: 700 13px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; cursor: pointer; transition: transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  .ba-affix-tail { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .ba-affix-src { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
+  .ba-affix-src.is-corrupted { color: #f28aa0; }
+  .ba-affix-have { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
+  /* 필수·OR·티어는 조용히 숨었다가 호버·포커스·선택 때만 나타난다 — 목록이 표처럼 빽빽해 보이지 않게. */
+  .ba-affix-controls { display: none; align-items: center; gap: 4px; }
+  .ba-affix-row.is-on .ba-affix-controls, .ba-affix-row:focus-within .ba-affix-controls { display: inline-flex; }
+  @media (hover: hover) and (pointer: fine) { .ba-affix-row:hover .ba-affix-controls { display: inline-flex; } }
+  .ba-affix-role { height: 22px; padding: 0 7px !important; margin: 0 !important; border-radius: 6px !important; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12) !important; background: transparent !important; color: #8f89a8 !important;
+    font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+  .ba-affix-role:hover { color: #fff !important; border-color: rgba(255,255,255,0.35) !important; }
+  .ba-affix-role[data-role="and"].is-on { color: #c7f5df !important; border-color: rgba(79,211,154,0.5) !important; background: rgba(79,211,154,0.16) !important; }
+  .ba-affix-role[data-role="or"].is-on { color: #d3f0ff !important; border-color: rgba(92,195,242,0.5) !important; background: rgba(92,195,242,0.16) !important; }
+  .ba-affix-role:focus-visible, .ba-affix-pill:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 1px; }
+  .ba-affix-tiers { display: inline-flex; gap: 1px; padding: 2px; border-radius: 8px; background: rgba(0,0,0,0.32); }
+  .ba-affix-pill { height: 20px; min-width: 26px; padding: 0 6px !important; margin: 0 !important; border: 0 !important; border-radius: 6px !important; cursor: pointer;
+    background: transparent !important; color: #a39fbb !important; font: 600 10.5px/1 ui-monospace, Consolas, monospace !important;
+    font-variant-numeric: tabular-nums; white-space: nowrap; transition: background .15s ease, color .15s ease; }
+  .ba-affix-pill:hover { color: #fff !important; }
+  .ba-affix-pill.is-on { background: #a78bfa !important; color: #150f2b !important; }
+
+  .ba-affix-none, .ba-affix-empty { color: #a39fbb; margin: 0; padding: 14px 2px; }
+  .ba-affix-empty { padding: 28px 2px; text-align: center; }
+  .ba-affix-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; }
+  .ba-affix-legend { font-size: 12px; color: #77728f; margin-right: auto; }
+  .ba-affix-count { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #d6d2e6; }
+  .ba-affix-count b { font: 600 12px/1 ui-monospace, Consolas, monospace; background: rgba(167,139,250,0.22); color: #fff; border-radius: 999px; padding: 4px 8px; }
+  .ba-affix-clear { height: 36px; padding: 0 12px !important; margin: 0 !important; border-radius: 10px !important; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12) !important; background: rgba(255,255,255,0.04) !important; color: #a39fbb !important;
+    font: 600 13px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; }
+  .ba-affix-clear:hover { color: #fff !important; }
+  .ba-affix-add { height: 36px; padding: 0 18px !important; margin: 0 !important; border: 0 !important; border-radius: 10px !important; cursor: pointer;
+    background: linear-gradient(180deg, #c4b5fd, #a78bfa) !important; color: #150f2b !important;
+    font: 700 13px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.5), 0 8px 24px -8px rgba(167,139,250,0.7);
+    transition: transform .16s cubic-bezier(0.23, 1, 0.32, 1), opacity .15s ease; }
   .ba-affix-add:active { transform: scale(0.97); }
-  .ba-affix-add[disabled] { opacity: .45; cursor: default; transform: none; }
-  .ba-affix-add:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 2px; }
+  .ba-affix-add[disabled] { opacity: .4; cursor: default; transform: none; box-shadow: none; }
+  .ba-affix-add:focus-visible, .ba-affix-clear:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .ba-affix-add { transition: none; } .ba-affix-add:active { transform: none; } }`
   document.head.appendChild(st)
 }
@@ -953,25 +1030,42 @@ async function openAffixesFor(group, btn) {
     return
   }
   const index = ensureStatIdIndex()
-  const { query, itemClass, ilvlMax } = tierContext()
+  const { itemClass, ilvlMax } = tierContext()
   const existingIds = groupRowTitles(group)
     .map((title) => index.get(normalizeTradeText(rowStatText(title))))
     .filter(Boolean)
-  const list = affixListFor({ table: tierTable, affixes: affixTable, itemClass, statMap, ilvlMax, existingIds })
-  const categoryId = query?.filters?.type_filters?.filters?.category?.option
-  const typeText = (categoryId && filterMap.options?.category?.[categoryId]) || ''
+  const listForClass = (cls) => affixListFor({ table: tierTable, affixes: affixTable, itemClass: cls, statMap, ilvlMax, existingIds })
   const label = groupLabel(document, group)
   openAffixPopover({
     anchor: btn,
     title: label,
-    subtitle: [typeText, ilvlMax != null ? `아이템 레벨 ${ilvlMax} 이하 기준` : '아이템 레벨 상한 없음'].filter(Boolean).join(' · '),
-    list,
+    subtitle: ilvlMax != null ? `아이템 레벨 ${ilvlMax} 이하 기준` : '아이템 레벨 상한 없음',
+    list: listForClass(itemClass),
+    classes: affixClassChoices(),
+    currentClass: itemClass,
+    listForClass,
     onAdd: async (picks) => {
       const res = await requestAddStatFilters(groupToken(group), picks)
       LOG('속성 목록 — 넣기', JSON.stringify({ added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], error: res.error ?? null }))
-      panel.toast(addResultMessage(res, label))
+      panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role) }, label))
     },
   })
+}
+
+/**
+ * 속성 목록 위쪽 유형 칩 — 표에 목록이 있는 유형만, 거래소 유형 드롭다운 순서·이름 그대로.
+ * 이름은 거래소가 준 표시 텍스트라 번역하지 않는다(전역 §30). 필터 목록이 아직 없으면 칩을 띄우지 않는다.
+ */
+function affixClassChoices() {
+  const out = []
+  const seen = new Set()
+  for (const [categoryId, text] of Object.entries(filterMap.options?.category ?? {})) {
+    const cls = CLASS_BY_CATEGORY[categoryId]
+    if (!cls || seen.has(cls) || !affixTable?.[cls]) continue
+    seen.add(cls)
+    out.push({ cls, label: text })
+  }
+  return out
 }
 
 /** 거래소에 넣은 결과를 사용자 말로. 응답은 페이지 쪽에서 오므로 개수만 쓰고 내용은 싣지 않는다. */
@@ -983,7 +1077,11 @@ function addResultMessage(res, label) {
   const refused = skipped.length - have
   const parts = []
   const valued = Array.isArray(res?.valued) ? res.valued.length : 0
-  if (added) parts.push(`속성 ${added}개를 ${label}에 넣었어요.${valued ? ` ${valued}개는 고른 값까지 채웠어요.` : ' 값은 티어 칩으로 고르세요.'}`)
+  const created = Array.isArray(res?.created) ? res.created : []
+  const spread = created.length || (Array.isArray(res?.roles) && res.roles.some((r) => r !== 'here'))
+  if (added) parts.push(`속성 ${added}개를 ${spread ? '넣었어요' : `${label}에 넣었어요`}.${valued ? ` ${valued}개는 고른 값까지 채웠어요.` : ' 값은 티어 칩으로 고르세요.'}`)
+  if (created.includes('and')) parts.push('필수 조건은 새 「모두 만족」 그룹에 넣었어요.')
+  if (created.includes('or')) parts.push('OR 조건은 새 「개수(최소 1)」 그룹에 넣었어요.')
   if (have) parts.push(`${have}개는 이미 그 그룹에 있어서 뺐어요.`)
   if (refused) parts.push(`${refused}개는 거래소가 받지 않았어요.`)
   return parts.join(' ') || '넣은 속성이 없어요.'
