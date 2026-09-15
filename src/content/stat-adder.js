@@ -6,43 +6,56 @@
 //   그룹 컴포넌트가 `selectFilter({id})` 를 부르고, 그 안에서 스토어에 행을 넣고 주소를 저장한다
 //   (2026-09-15 거래소 번들에서 확인: commit("setStatFilter",{group,value:{id}}) → root.save).
 //   **같은 메서드를 부르므로 거래소가 직접 고른 것과 결과가 같다** — 행이 생기고 주소가 바뀌고 검색은 안 돈다.
+//   값은 입력칸에 숫자를 칠 때 거래소가 부르는 `updateFilter(index, {min,max})` 로 넣는다(같은 번들에서 확인).
 //
 // ⚠ 이 파일은 import 를 쓰면 안 된다. MAIN world 에는 chrome.runtime 이 없어 번들러의 import 로더가 깨진다.
 //
-// 요청: { __baSource:'ba-content', kind:'add-stat-filters', reqId, token, ids }
-// 응답: { __baSource:'ba-bridge', kind:'stat-filters-added', reqId, added, skipped, error? }
+// 요청: { __baSource:'ba-content', kind:'add-stat-filters', reqId, token, items:[{id, value:{min?,max?}|null}] }
+// 응답: { __baSource:'ba-bridge', kind:'stat-filters-added', reqId, added, valued, skipped, error? }
 //   token — 콘텐츠 스크립트가 그룹 요소에 달아 둔 data-ba-group-token. 두 world 가 공유하는 건 DOM 뿐이다.
 (() => {
   const ORIGIN = location.origin
   const TOKEN_RE = /^[a-z0-9]{6,40}$/
   const ID_RE = /^[a-z]+\.[a-z0-9_]+$/ // explicit.stat_1573130764 · pseudo.pseudo_total_life
-  const MAX_IDS = 40
+  const MAX_ITEMS = 40
+
+  /** {min,max} 중 유한한 숫자만 남긴다. 남는 게 없으면 null. */
+  const cleanValue = (v) => {
+    if (!v || typeof v !== 'object') return null
+    const out = {}
+    for (const k of ['min', 'max']) if (typeof v[k] === 'number' && Number.isFinite(v[k])) out[k] = v[k]
+    return Object.keys(out).length ? out : null
+  }
 
   window.addEventListener('message', (e) => {
     if (e.source !== window || e.origin !== ORIGIN) return
     const d = e.data
     if (!d || d.__baSource !== 'ba-content' || d.kind !== 'add-stat-filters') return
     const added = []
+    const valued = []
     const skipped = []
     const reply = (error) => {
       try {
-        window.postMessage({ __baSource: 'ba-bridge', kind: 'stat-filters-added', reqId: d.reqId, added, skipped, ...(error ? { error } : {}) }, ORIGIN)
+        window.postMessage({ __baSource: 'ba-bridge', kind: 'stat-filters-added', reqId: d.reqId, added, valued, skipped, ...(error ? { error } : {}) }, ORIGIN)
       } catch (_) {}
     }
     try {
-      if (typeof d.token !== 'string' || !TOKEN_RE.test(d.token) || !Array.isArray(d.ids)) return reply('bad-request')
+      if (typeof d.token !== 'string' || !TOKEN_RE.test(d.token) || !Array.isArray(d.items)) return reply('bad-request')
       const el = document.querySelector('.filter-group[data-ba-group-token="' + d.token + '"]')
       const vm = el && el.__vue__
       if (!vm || typeof vm.selectFilter !== 'function') return reply('no-group')
 
       const groupIndex = vm.group && vm.group.id
-      const filters = vm.$store && vm.$store.state && vm.$store.state.persistent &&
-        vm.$store.state.persistent.stats && vm.$store.state.persistent.stats[groupIndex] &&
-        vm.$store.state.persistent.stats[groupIndex].filters
-      const present = new Set((Array.isArray(filters) ? filters : []).map((f) => f && f.id))
+      const stats = vm.$store && vm.$store.state && vm.$store.state.persistent && vm.$store.state.persistent.stats
+      const filtersNow = () => {
+        const f = stats && stats[groupIndex] && stats[groupIndex].filters
+        return Array.isArray(f) ? f : []
+      }
+      const present = new Set(filtersNow().map((f) => f && f.id))
       const options = vm.availableOptionsFlat || {}
 
-      for (const id of d.ids.slice(0, MAX_IDS)) {
+      for (const item of d.items.slice(0, MAX_ITEMS)) {
+        const id = item && item.id
         if (typeof id !== 'string' || !ID_RE.test(id)) { skipped.push({ id: String(id), reason: 'bad-id' }); continue }
         if (present.has(id)) { skipped.push({ id, reason: 'have' }); continue }
         // 거래소가 모르는 id 를 넣으면 selectFilter 가 조용히 무시한다 — 무시당한 걸 알리려고 먼저 본다.
@@ -50,6 +63,13 @@
         vm.selectFilter({ id })
         present.add(id)
         added.push(id)
+        const value = cleanValue(item.value)
+        if (!value || typeof vm.updateFilter !== 'function') continue
+        // 방금 넣은 행의 위치 — 뒤에서부터 찾는다(같은 id 는 위에서 막았다).
+        const index = filtersNow().map((f) => f && f.id).lastIndexOf(id)
+        if (index < 0) continue
+        vm.updateFilter(index, value)
+        valued.push(id)
       }
       reply()
     } catch (_) {

@@ -93,7 +93,9 @@ function candidatesForMod(mod, tradeIndex, ambiguous) {
   let inferred = false
   for (const line of lines) {
     const slots = (line.stats ?? []).length
-    let hits = modTextKeys(line.text.kr, slots).filter((k) => tradeIndex.has(k))
+    let hits = lineTextVariants(mod, line.text.kr)
+      .flatMap((text) => modTextKeys(text, slots))
+      .filter((k, i, all) => tradeIndex.has(k) && all.indexOf(k) === i)
     // 둘 이상 붙으면 어느 숫자가 값인지 판정할 수 없다. 임의로 고르면 '못 붙음'이 아니라
     // **틀린 티어 값이 조용히 실린다** — 그래서 고르지 않고 버린다.
     if (hits.length > 1) { ambiguous.push(`${line.text.kr} → ${hits.join(' | ')}`); return null }
@@ -109,6 +111,27 @@ function candidatesForMod(mod, tradeIndex, ambiguous) {
     keys.push(hits[0])
   }
   return { keys, cands: keys.map((k) => tradeIndex.get(k)), lines, inferred }
+}
+
+/**
+ * 문장을 거래소 문구로 이을 때 시도할 글자들.
+ *
+ * 반경 주얼 모드(`JewelRadius*`)는 게임 데이터의 문구에 **「반경 내 … 패시브 스킬이 …도 부여」 틀이 빠져 있다**
+ * (`JewelRadiusAccuracy` = `일반 정확도 (1-2)% 증가`). 그대로 이으면 일반판(`JewelAccuracy` 5~10)과 같은 거래소 id 에
+ * 붙어 같은 요구 레벨에 값이 둘이 되고, 값 충돌로 **주얼 161계열 중 152계열이 표에서 통째로 빠졌다**(2026-09-15 실측).
+ * 거래소에는 반경판이 따로 있다: `반경 내 소형 패시브 스킬이 일반 정확도 #% 증가도 부여`.
+ *
+ * 소형·주요 중 어느 틀인지는 데이터에 없다. 둘 다 시도해 **거래소에 실재하는 쪽 하나**를 쓴다 — 실측 161개 중
+ * 소형 75 · 주요 79 · 둘 다 0 · 못 붙음 7. 둘 다 붙으면 호출부의 모호 판정이 버린다.
+ * 문구가 이미 `반경 내` 로 시작하면(`반경 내 주요 패시브 스킬 효과`) 틀을 씌우지 않고 원문도 함께 시도한다.
+ * @param {{id?:string}} mod
+ * @param {string} text
+ * @returns {string[]}
+ */
+export function lineTextVariants(mod, text) {
+  if (!/^JewelRadius/.test(mod?.id ?? '')) return [text]
+  if (text.startsWith('반경 내')) return [text]
+  return ['소형', '주요'].map((size) => `반경 내 ${size} 패시브 스킬이 ${text}도 부여`)
 }
 
 /** 이 문장의 값이 전부 음수인가 — 극성 치환을 허용할 근거. */

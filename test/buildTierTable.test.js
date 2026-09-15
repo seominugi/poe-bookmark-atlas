@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder } from '../scripts/build-tier-table.mjs'
+import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder, lineTextVariants } from '../scripts/build-tier-table.mjs'
 import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
 
 describe('verifyClassBridge — 부위 대응표 양방향 검증', () => {
@@ -85,6 +85,23 @@ describe('hasValueConflict — 같은 요구 레벨에 값이 갈리면 티어�
       { ilvl: 30, byLine: [[[15, 15]], [[21, 40]]] },
     ]
     expect(hasValueConflict(rows)).toBe(true)
+  })
+})
+
+describe('lineTextVariants — 반경 주얼 모드는 거래소 틀을 씌워 잇는다', () => {
+  // 게임 데이터의 반경판 문구에는 틀이 빠져 있어 일반판과 같은 id 로 붙고 값 충돌로 버려졌다(2026-09-15).
+  it('일반 모드는 원문 그대로', () => {
+    expect(lineTextVariants({ id: 'JewelAccuracy' }, '일반 정확도 (5-10)% 증가')).toEqual(['일반 정확도 (5-10)% 증가'])
+    expect(lineTextVariants({ id: 'JewelPresenceRadius' }, '접근 효과 범위 (15-25)% 증가')).toEqual(['접근 효과 범위 (15-25)% 증가'])
+  })
+  it('반경 모드는 소형·주요 두 틀을 모두 시도한다', () => {
+    expect(lineTextVariants({ id: 'JewelRadiusAccuracy' }, '일반 정확도 (1-2)% 증가')).toEqual([
+      '반경 내 소형 패시브 스킬이 일반 정확도 (1-2)% 증가도 부여',
+      '반경 내 주요 패시브 스킬이 일반 정확도 (1-2)% 증가도 부여',
+    ])
+  })
+  it('이미 반경 문구로 시작하면 틀을 겹쳐 씌우지 않는다', () => {
+    expect(lineTextVariants({ id: 'JewelRadiusSmallNodeEffect' }, '반경 내 소형 패시브 스킬 효과 (15-25)% 증가')).toEqual(['반경 내 소형 패시브 스킬 효과 (15-25)% 증가'])
   })
 })
 

@@ -27,16 +27,20 @@ function typeGroup() {
   return g
 }
 
+const res = (t, l, min, max) => ({ t, l, min, max, range: `${min}~${max}` })
+const threeTiers = (a, b, c) => [res(1, 82, a, a + 4), res(2, 71, b, b + 4), res(3, 60, c, c + 4)]
+const multi = (over) => ({ tiers: 8, topLevel: 82, have: false, single: false, fill: 'min', ...over })
 const list = {
   status: 'ok',
   prefix: [
-    { id: 'stat.life', text: '생명력 최대치 #', tiers: 9, topLevel: 60, have: true },
-    { id: 'stat.mana', text: '마나 최대치 #', tiers: 9, topLevel: 60, have: false },
-    { id: 'stat.fire_add', text: '공격 시 화염 피해 #~# 추가', tiers: 0, topLevel: 75, have: false },
+    multi({ id: 'stat.life', text: '생명력 최대치 #', have: true, choices: threeTiers(120, 100, 85) }),
+    multi({ id: 'stat.mana', text: '마나 최대치 #', choices: threeTiers(160, 140, 120) }),
+    multi({ id: 'stat.fire_add', text: '공격 시 화염 피해 #~# 추가', tiers: 0, topLevel: 75, choices: [] }),
   ],
   suffix: [
-    { id: 'stat.fire_res', text: '화염 저항 #%', tiers: 8, topLevel: 82, have: false },
-    { id: 'stat.cold_res', text: '냉기 저항 #%', tiers: 8, topLevel: 82, have: false },
+    multi({ id: 'stat.fire_res', text: '화염 저항 #%', choices: threeTiers(41, 36, 31) }),
+    multi({ id: 'stat.cold_res', text: '냉기 저항 #%', choices: threeTiers(41, 36, 31) }),
+    { id: 'stat.jewel_acc', text: '일반 정확도 #% 증가', tiers: 1, topLevel: 1, have: false, single: true, fill: 'min', choices: [res(1, 1, 5, 10)] },
   ],
 }
 
@@ -113,8 +117,8 @@ describe('openAffixPopover', () => {
   it('접두어·접미어 두 열에 개수와 함께 그린다', () => {
     const { el } = open()
     const titles = [...el.querySelectorAll('.ba-affix-col-title')].map((x) => x.textContent)
-    expect(titles).toEqual(['접두어 3', '접미어 2'])
-    expect(el.querySelectorAll('.ba-affix-row')).toHaveLength(5)
+    expect(titles).toEqual(['접두어 3', '접미어 3'])
+    expect(el.querySelectorAll('.ba-affix-row')).toHaveLength(6)
   })
 
   it('이미 있는 속성은 체크할 수 없고 「추가됨」 이 보인다', () => {
@@ -136,8 +140,52 @@ describe('openAffixPopover', () => {
     expect(add.textContent).toBe('선택한 3개 넣기')
     add.click()
     await Promise.resolve(); await Promise.resolve()
-    expect(onAdd).toHaveBeenCalledWith(['stat.mana', 'stat.fire_res', 'stat.cold_res'])
+    expect(onAdd).toHaveBeenCalledWith([
+      { id: 'stat.mana', value: null },
+      { id: 'stat.fire_res', value: null },
+      { id: 'stat.cold_res', value: null },
+    ])
     expect(document.querySelector('.' + AFFIX_POP_CLASS)).toBeNull()
+  })
+
+  it('티어 버튼을 누르면 그 행이 체크되고 그 티어 값이 넘어간다 — 다시 누르면 빈칸', async () => {
+    const onAdd = vi.fn(async () => {})
+    const { el } = open({ onAdd })
+    const rows = el.querySelectorAll('.ba-affix-row')
+    const manaPills = rows[1].querySelectorAll('.ba-affix-pill')
+    expect([...manaPills].map((p) => p.textContent)).toEqual(['T1', 'T2', 'T3'])
+    manaPills[1].click()
+    expect(rows[1].querySelector('.ba-affix-check').checked).toBe(true)
+    expect(manaPills[1].getAttribute('aria-pressed')).toBe('true')
+    expect(el.querySelector('.ba-affix-count').textContent).toBe('1개 선택 · 값 1개')
+    const resPills = rows[3].querySelectorAll('.ba-affix-pill')
+    resPills[0].click(); resPills[0].click() // 다시 누르면 빈칸 — 체크는 남는다
+    expect(rows[3].querySelector('.ba-affix-check').checked).toBe(true)
+    expect(resPills[0].getAttribute('aria-pressed')).toBe('false')
+    el.querySelector('.ba-affix-add').click()
+    await Promise.resolve(); await Promise.resolve()
+    expect(onAdd).toHaveBeenCalledWith([{ id: 'stat.mana', value: { min: 140 } }, { id: 'stat.fire_res', value: null }])
+  })
+
+  it('티어가 하나뿐인 속성은 범위를 보여 주고, 체크만 해도 최소·최대가 함께 넘어간다', async () => {
+    const onAdd = vi.fn(async () => {})
+    const { el } = open({ onAdd })
+    const row = [...el.querySelectorAll('.ba-affix-row')].find((r) => r.textContent.includes('일반 정확도'))
+    expect(row.querySelector('.ba-affix-pill').textContent).toBe('5~10')
+    const box = row.querySelector('.ba-affix-check')
+    box.checked = true; box.dispatchEvent(new Event('change'))
+    expect(row.querySelector('.ba-affix-pill').classList.contains('is-on')).toBe(true)
+    el.querySelector('.ba-affix-add').click()
+    await Promise.resolve(); await Promise.resolve()
+    expect(onAdd).toHaveBeenCalledWith([{ id: 'stat.jewel_acc', value: { min: 5, max: 10 } }])
+  })
+
+  it('이미 있는 속성과 레벨이 안 닿는 속성에는 티어 버튼이 없다', () => {
+    const { el } = open()
+    const rows = el.querySelectorAll('.ba-affix-row')
+    expect(rows[0].querySelectorAll('.ba-affix-pill')).toHaveLength(0)
+    expect(rows[2].querySelectorAll('.ba-affix-pill')).toHaveLength(0)
+    expect(rows[2].textContent).toContain('레벨 부족')
   })
 
   it('검색은 행을 숨길 뿐 체크 상태를 지운다거나 하지 않는다', () => {
