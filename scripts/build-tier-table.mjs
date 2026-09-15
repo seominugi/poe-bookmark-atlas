@@ -194,6 +194,7 @@ async function main() {
 
   const { index: tradeIndex, valueless } = buildTradeIndex(await loadStats(game, arg('--stats', null)))
   const table = {}
+  const affixes = {}
   let total = 0, matched = 0, unscaled = 0, conflicts = 0, skippedValueless = 0
   const ambiguous = []
 
@@ -214,13 +215,14 @@ async function main() {
         // 한 사다리로 합쳐진다 — 요구 레벨이 다르면 hasValueConflict 도 못 잡고 +45 와 -50 이
         // 같은 사다리에 섞인다.
         const key = found.keys.join('\n') + '|' + affix + (found.inferred ? '|flip' : '')
-        if (!families.has(key)) families.set(key, { cands: found.cands, rows: [], inferred: found.inferred })
+        if (!families.has(key)) families.set(key, { cands: found.cands, rows: [], inferred: found.inferred, affix })
         families.get(key).rows.push({ ilvl: mod.tier, byLine: rangesByLine(mod, found.lines) })
       }
     }
     const byStat = {}
     const inferredById = {}
-    for (const { cands, rows, inferred } of families.values()) {
+    const affixById = {}
+    for (const { cands, rows, inferred, affix } of families.values()) {
       if (hasValueConflict(rows)) { conflicts++; continue }
       rows.sort((a, b) => b.ilvl - a.ilvl) // 필요 아이템 레벨이 높은 쪽이 T1
       // **문장마다 따로** 사다리를 만든다 — 한 모드가 두 문장을 가지면 값 슬롯도 문장별로 갈린다.
@@ -233,11 +235,15 @@ async function main() {
           if (preferLadder(byStat[id], inferredById[id], tiers, inferred)) {
             byStat[id] = tiers
             inferredById[id] = inferred
+            affixById[id] = affix // 표에 실린 사다리의 접두·접미를 따른다
           }
         }
       })
     }
-    if (Object.keys(byStat).length) table[cls] = byStat
+    if (Object.keys(byStat).length) {
+      table[cls] = byStat
+      affixes[cls] = affixListsOf(Object.keys(byStat), affixById)
+    }
   }
 
   const rate = (100 * matched) / total
@@ -263,6 +269,22 @@ async function main() {
   }
   writeFileSync(out, json, 'utf8')
   console.log(`→ ${out}`)
+  // 속성 목록(패널 '속성 목록')용 접두·접미 구분 — 티어 표와 같은 회차에서만 쓴다(둘이 어긋나면 안 된다).
+  const affixOut = join(here, '..', 'src', 'lib', `statAffixes.${game}.json`)
+  writeFileSync(affixOut, JSON.stringify(affixes), 'utf8')
+  console.log(`→ ${affixOut}`)
+}
+
+/**
+ * 부위 하나의 능력치 id 를 접두어·접미어로 가른다. 순서는 표에 실린 순서(게임 데이터 순서)를 지킨다.
+ * @param {string[]} ids 표에 실린 stat id (삽입 순서)
+ * @param {Record<string,'prefix'|'suffix'>} affixById
+ * @returns {{p:string[], s:string[]}}
+ */
+export function affixListsOf(ids, affixById) {
+  const out = { p: [], s: [] }
+  for (const id of ids) (affixById[id] === 'suffix' ? out.s : out.p).push(id)
+  return out
 }
 
 // 테스트가 verifyClassBridge 만 가져올 수 있도록, 직접 실행할 때만 main 을 돈다.

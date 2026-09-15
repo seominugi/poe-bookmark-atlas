@@ -22,6 +22,8 @@ import { readLiveTypeFilters } from './typeFilterDom.js'
 import { applyLiveTypeFilters, holdWhileAmbiguous } from '../lib/liveTypeFilters.js'
 import { classFromQuery } from '../lib/itemClass.js'
 import { normalizeTradeText } from '../lib/statTextNorm.js'
+import { attachAffixButtons, openAffixPopover, groupToken, groupLabel, groupRowTitles } from './affix-picker.js'
+import { affixListFor } from '../lib/affixList.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -454,7 +456,78 @@ function pobEnsureStyle() {
   @media (prefers-reduced-motion: reduce) {
     .ba-tier-chip, .ba-tier-ask { transition-property: background, border-color, color; }
     .ba-tier-chip:active, .ba-tier-ask:active { transform: none; }
-  }`
+  }
+  /* 속성 목록 버튼 — 「+ 능력치 필터 추가」 줄 오른쪽 끝. 거래소 CSS 가 이 줄 자식에 float·width 를,
+     버튼에는 배경·테두리·글자색을 먹이므로(2026-09-15 라이브: 회색 배경·테두리 없음) 전부 재지정한다. */
+  .ba-affix-btn {
+    box-sizing: border-box !important; float: none !important; width: auto !important;
+    position: absolute !important; right: 34px; top: 50%; transform: translateY(-50%);
+    height: 20px !important; margin: 0 !important; padding: 0 9px !important; z-index: 2;
+    border: 1px solid rgba(167, 139, 250, 0.55) !important; border-radius: 6px !important;
+    background: rgba(43, 35, 64, 0.92) !important; color: #ddd4f7 !important; cursor: pointer;
+    font: 600 11px/1 system-ui, -apple-system, sans-serif !important; white-space: nowrap;
+    transition: background .15s ease, border-color .15s ease, color .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  .filter:has(> .ba-affix-btn) { position: relative; }
+  .ba-affix-btn:active { transform: translateY(-50%) scale(0.97); }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-btn:active { transform: translateY(-50%); } }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-affix-btn:hover { background: rgba(60, 48, 88, 0.98) !important; border-color: rgba(167, 139, 250, 0.95) !important; color: #fff !important; }
+  }
+  .ba-affix-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  /* 팝오버 — 가끔 여는 창이라 짧게 나타나기만 한다. 닫힐 때는 즉시 사라진다. */
+  .ba-affix-pop {
+    position: absolute; z-index: 2147483000; box-sizing: border-box; max-width: calc(100vw - 32px);
+    display: flex; flex-direction: column; max-height: min(70vh, 640px);
+    background: #13111d; color: #e6e3f5; border: 1px solid rgba(167, 139, 250, 0.5); border-radius: 10px;
+    box-shadow: 0 16px 44px rgba(0, 0, 0, 0.6);
+    font: 13px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; text-align: left;
+    animation: ba-affix-in .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  @keyframes ba-affix-in { from { opacity: 0; transform: translateY(-4px); } }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-pop { animation-name: ba-affix-fade; } }
+  @keyframes ba-affix-fade { from { opacity: 0; } }
+  .ba-affix-pop * { box-sizing: border-box; }
+  .ba-affix-head { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+  .ba-affix-titles { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin-right: auto; }
+  .ba-affix-title { font-weight: 700; color: #f5f3ff; }
+  .ba-affix-sub { font-size: 12px; color: #9b94bd; }
+  .ba-affix-search { width: 190px; height: 28px; padding: 0 9px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.14);
+    background: #221f30; color: #f5f3ff; font: inherit; }
+  .ba-affix-search:focus-visible { outline: 2px solid #a78bfa; outline-offset: 0; }
+  .ba-affix-close { width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: #9b94bd; cursor: pointer; font-size: 14px; }
+  .ba-affix-close:hover { background: rgba(255,255,255,0.08); color: #fff; }
+  .ba-affix-close:focus-visible { outline: 2px solid #a78bfa; }
+  .ba-affix-cols { display: grid; grid-template-columns: 1fr 1fr; overflow-y: auto; min-height: 0; }
+  .ba-affix-col { padding: 6px 0 8px; min-width: 0; }
+  .ba-affix-col + .ba-affix-col { border-left: 1px solid rgba(255,255,255,0.08); }
+  .ba-affix-col-title { padding: 2px 12px 6px; font-size: 12px; font-weight: 600; color: #c4b5fd; letter-spacing: .02em; }
+  .ba-affix-row { display: flex; align-items: center; gap: 8px; padding: 4px 12px; cursor: pointer; }
+  .ba-affix-row[hidden] { display: none; }
+  .ba-affix-row:hover { background: rgba(167, 139, 250, 0.08); }
+  .ba-affix-row.is-on { background: rgba(167, 139, 250, 0.16); }
+  .ba-affix-row.is-have { cursor: default; color: #7d7797; }
+  .ba-affix-row.is-out .ba-affix-name { color: #8f89a8; }
+  .ba-affix-check { margin: 0; accent-color: #a78bfa; flex: none; }
+  .ba-affix-name { flex: 1; min-width: 0; }
+  .ba-affix-meta { display: inline-flex; gap: 4px; align-items: center; flex: none; }
+  .ba-affix-tier, .ba-affix-lv { font: 600 11px/16px ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums;
+    min-width: 20px; padding: 0 5px; text-align: center; border-radius: 999px; }
+  .ba-affix-tier { background: #1d6b45; color: #e3f7ea; }
+  .ba-affix-lv { background: #45404f; color: #ebe7f3; }
+  .ba-affix-row.is-out .ba-affix-tier { background: #4a3a3a; color: #e8d6d6; }
+  .ba-affix-have { font-size: 11px; color: #9b94bd; margin-right: 2px; }
+  .ba-affix-none, .ba-affix-empty { padding: 8px 12px; color: #9b94bd; margin: 0; }
+  .ba-affix-empty { padding: 20px 12px; }
+  .ba-affix-foot { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-top: 1px solid rgba(255,255,255,0.1); flex-wrap: wrap; }
+  .ba-affix-legend { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: #9b94bd; margin-right: auto; }
+  .ba-affix-count { font-size: 12px; color: #c9c3e0; }
+  .ba-affix-clear { border: 0; background: none; color: #9b94bd; cursor: pointer; font: inherit; font-size: 12px; text-decoration: underline; }
+  .ba-affix-clear[hidden] { display: none; }
+  .ba-affix-add { height: 30px; padding: 0 14px; border-radius: 7px; border: 1px solid #a78bfa; background: #a78bfa; color: #150f2b;
+    font: 700 13px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; cursor: pointer; transition: transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  .ba-affix-add:active { transform: scale(0.97); }
+  .ba-affix-add[disabled] { opacity: .45; cursor: default; transform: none; }
+  .ba-affix-add:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-add { transition: none; } .ba-affix-add:active { transform: none; } }`
   document.head.appendChild(st)
 }
 // 페이지 표면 커스텀 툴팁 — data-tip의 《...》를 강조색(시안) span으로 치환(패널 .ba-tip과 동일 관례).
@@ -707,7 +780,7 @@ let pobKickPending = false
 function pobKick() {
   if (pobKickPending) return
   pobKickPending = true
-  setTimeout(() => { pobKickPending = false; injectPobButtons(); renderPageSets(); renderTierChips() }, 100)
+  setTimeout(() => { pobKickPending = false; injectPobButtons(); renderPageSets(); renderTierChips(); renderAffixButtons() }, 100)
 }
 let pobBodyObserver = null
 function pobEnsureObserver() {
@@ -726,7 +799,7 @@ function schedulePobInject() {
   ensureCurrencyStatic() // 화폐 아이콘·한글명 맵을 첫 fetch 시점에 미리 로드(환율 도착 전에 준비)
   try { pobEnsureObserver() } catch (err) { LOG('PoB 옵저버 실패', String(err)) }
   pobTimers.forEach(clearTimeout)
-  pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(() => { injectPobButtons(); renderPageSets(); renderTierChips() }, ms))
+  pobTimers = [100, 400, 1000, 2500, 6000].map((ms) => setTimeout(() => { injectPobButtons(); renderPageSets(); renderTierChips(); renderAffixButtons() }, ms))
 }
 
 // ── 능력치 필터 티어 칩 ──
@@ -795,6 +868,21 @@ function currentQuery() {
 let lastTierLog = ''
 // 화면에서 마지막으로 확정한 유형 — 드롭다운이 열린 동안(ambiguous) 칩이 깜빡이지 않게 쥔다.
 let lastLiveCategory = null
+/**
+ * 칩과 속성 목록이 함께 쓰는 판단 재료 — 부위·아이템 레벨 상한.
+ * 화면에서 **지금** 고른 유형·아이템 레벨이 마지막으로 보낸 검색 조건을 이긴다.
+ * 화면에서 확정 못 하면(드롭다운이 열림·마크업 불일치) 검색 조건을 그대로 쓴다 —
+ * 읽기가 실패해도 종전 동작과 같다(lib/liveTypeFilters.js · content/typeFilterDom.js 주석).
+ */
+function tierContext() {
+  const read = readLiveTypeFilters(document, filterMap)
+  const live = { ...read, category: holdWhileAmbiguous(read.category, lastLiveCategory) }
+  if (read.category.status === 'ok') lastLiveCategory = read.category
+  const query = applyLiveTypeFilters(currentQuery(), live)
+  const ilvl = query?.filters?.type_filters?.filters?.ilvl
+  return { read, live, query, itemClass: tierItemClass(query), ilvlMax: ilvl?.max ?? null }
+}
+
 function renderTierChips() {
   if (game !== 'poe2') return
   if (!Object.keys(statMap).length) return // statMap 도착 전 — 다음 kick 에서 다시 시도한다
@@ -802,19 +890,11 @@ function renderTierChips() {
   if (!table) return // 표 도착 전 — 다음 kick 에서 다시 시도한다
   try {
     const index = ensureStatIdIndex()
-    // 화면에서 **지금** 고른 유형·아이템 레벨이 마지막으로 보낸 검색 조건을 이긴다.
-    // 화면에서 확정 못 하면(드롭다운이 열림·마크업 불일치) 검색 조건을 그대로 쓴다 —
-    // 읽기가 실패해도 종전 동작과 같다(lib/liveTypeFilters.js · content/typeFilterDom.js 주석).
-    const read = readLiveTypeFilters(document, filterMap)
-    const live = { ...read, category: holdWhileAmbiguous(read.category, lastLiveCategory) }
-    if (read.category.status === 'ok') lastLiveCategory = read.category
-    const query = applyLiveTypeFilters(currentQuery(), live)
-    const ilvl = query?.filters?.type_filters?.filters?.ilvl
-    const itemClass = tierItemClass(query)
+    const { read, live, itemClass, ilvlMax } = tierContext()
     const seen = attachTierChips(document, {
       table,
       itemClass,
-      ilvlMax: ilvl?.max ?? null,
+      ilvlMax,
       statIdOf: (row) => {
         const text = rowStatText(row)
         return text ? index.get(normalizeTradeText(text)) || null : null
@@ -835,6 +915,80 @@ function renderTierChips() {
       LOG('티어 칩 —', line)
     }
   } catch (err) { LOG('티어 칩 실패', String(err)) }
+}
+
+// ── 속성 목록 — 그룹마다 「속성 목록」 버튼, 누르면 접두어·접미어를 골라 그 그룹에 넣는다 ──
+// 목록 데이터(statAffixes)는 티어 표와 같은 빌드에서 나오고, 같은 이유로 지연 로딩한다.
+// 실제로 넣는 일은 MAIN world 의 stat-adder.js 가 거래소 컴포넌트의 selectFilter 로 한다(그 파일 주석).
+let affixTable = null
+let affixTableLoading = null
+function ensureAffixTable() {
+  if (affixTable) return affixTable
+  if (!affixTableLoading) {
+    affixTableLoading = import('../lib/statAffixes.poe2.json')
+      .then((m) => { affixTable = m.default })
+      .catch((err) => { LOG('속성 목록 로드 실패', String(err)) })
+  }
+  return null
+}
+
+function renderAffixButtons() {
+  if (game !== 'poe2') return
+  pobEnsureStyle()
+  try { attachAffixButtons(document, { onOpen: (group, btn) => guard(openAffixesFor(group, btn)) }) } catch (err) { LOG('속성 목록 버튼 실패', String(err)) }
+}
+
+async function openAffixesFor(group, btn) {
+  ensureTierTable(); ensureAffixTable()
+  await Promise.all([tierTableLoading, affixTableLoading])
+  if (!tierTable || !affixTable || !Object.keys(statMap).length) {
+    panel.toast('속성 목록을 아직 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요.')
+    return
+  }
+  const index = ensureStatIdIndex()
+  const { query, itemClass, ilvlMax } = tierContext()
+  const existingIds = groupRowTitles(group)
+    .map((title) => index.get(normalizeTradeText(rowStatText(title))))
+    .filter(Boolean)
+  const list = affixListFor({ table: tierTable, affixes: affixTable, itemClass, statMap, ilvlMax, existingIds })
+  const categoryId = query?.filters?.type_filters?.filters?.category?.option
+  const typeText = (categoryId && filterMap.options?.category?.[categoryId]) || ''
+  const label = groupLabel(document, group)
+  openAffixPopover({
+    anchor: btn,
+    title: label,
+    subtitle: [typeText, ilvlMax != null ? `아이템 레벨 ${ilvlMax} 이하 기준` : '아이템 레벨 상한 없음'].filter(Boolean).join(' · '),
+    list,
+    onAdd: async (ids) => {
+      const res = await requestAddStatFilters(groupToken(group), ids)
+      LOG('속성 목록 — 넣기', JSON.stringify({ added: res.added?.length ?? 0, skipped: res.skipped ?? [], error: res.error ?? null }))
+      panel.toast(addResultMessage(res, label))
+    },
+  })
+}
+
+/** 거래소에 넣은 결과를 사용자 말로. 응답은 페이지 쪽에서 오므로 개수만 쓰고 내용은 싣지 않는다. */
+function addResultMessage(res, label) {
+  const added = Array.isArray(res?.added) ? res.added.length : 0
+  const skipped = Array.isArray(res?.skipped) ? res.skipped : []
+  if (res?.error && !added) return '거래소 그룹을 찾지 못해 넣지 못했어요. 페이지를 새로고침한 뒤 다시 시도해 주세요.'
+  const have = skipped.filter((s) => s?.reason === 'have').length
+  const refused = skipped.length - have
+  const parts = []
+  if (added) parts.push(`속성 ${added}개를 ${label}에 넣었어요. 값은 티어 칩으로 고르세요.`)
+  if (have) parts.push(`${have}개는 이미 그 그룹에 있어서 뺐어요.`)
+  if (refused) parts.push(`${refused}개는 거래소가 받지 않았어요.`)
+  return parts.join(' ') || '넣은 속성이 없어요.'
+}
+
+const pendingAdds = new Map()
+function requestAddStatFilters(token, ids) {
+  return new Promise((resolve) => {
+    const reqId = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+    const timer = setTimeout(() => { pendingAdds.delete(reqId); resolve({ error: 'timeout', added: [], skipped: [] }) }, 3000)
+    pendingAdds.set(reqId, (r) => { clearTimeout(timer); resolve(r) })
+    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, ids }, location.origin)
+  })
 }
 
 // ── 거래소 화면의 '조건 묶음' 칩 줄 ──
@@ -912,6 +1066,11 @@ async function handleBridgeMessage(e) {
   if (e.origin !== location.origin) return
   const d = e.data
   if (!d || d.__baSource !== 'ba-bridge') return
+  if (d.kind === 'stat-filters-added') { // stat-adder.js 응답 — 요청한 쪽만 받는다
+    const done = pendingAdds.get(d.reqId)
+    if (done) { pendingAdds.delete(d.reqId); done(d) }
+    return
+  }
   LOG('bridge msg:', d.kind)
 
   if (d.kind === 'fetch') { // 히스토리 저장(아래 pending 가드)과 별개로, 모든 fetch(스크롤 포함)에서 아이템·가격 보관

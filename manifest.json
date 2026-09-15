@@ -90,7 +90,8 @@
         "https://www.pathofexile.com/trade2/*"
       ],
       "js": [
-        "src/content/stat-shortcut.js"
+        "src/content/stat-shortcut.js",
+        "src/content/stat-adder.js"
       ],
       "run_at": "document_idle",
       "world": "MAIN"
