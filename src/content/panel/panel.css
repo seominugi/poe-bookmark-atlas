@@ -721,6 +721,14 @@
 /* 이름 = 클릭 칩(다시 열기) — 북마크는 이 칩만 재검색 트리거 */
 .ba-open { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 3px 9px 3px 7px; margin: -3px 0; border-radius: 8px; cursor: pointer; background: rgba(167,139,250,0.09); border: 1px solid rgba(167,139,250,0.3); transition: background .16s, border-color .16s, box-shadow .16s; }
 .ba-open:hover { background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.6); box-shadow: 0 0 14px rgba(167,139,250,0.3); }
+/* 고유·비고유 검색 — 이름 칩 테두리 색(게임의 고유 주황 · 희귀 노랑 계열, 사용자 요청 2026-09-16) */
+.ba-open[data-rarity="unique"] { border-color: rgba(232,142,72,0.75); background: rgba(232,142,72,0.1); }
+.ba-open[data-rarity="unique"]:hover { border-color: rgba(232,142,72,1); background: rgba(232,142,72,0.2); box-shadow: 0 0 14px rgba(232,142,72,0.3); }
+.ba-open[data-rarity="nonunique"] { border-color: rgba(230,205,96,0.7); background: rgba(230,205,96,0.08); }
+.ba-open[data-rarity="nonunique"]:hover { border-color: rgba(230,205,96,1); background: rgba(230,205,96,0.18); box-shadow: 0 0 14px rgba(230,205,96,0.26); }
+.ba-htitle[data-rarity], .ba-wname[data-rarity] { padding: 1px 7px; border-radius: 7px; border: 1px solid transparent; }
+.ba-htitle[data-rarity="unique"], .ba-wname[data-rarity="unique"] { border-color: rgba(232,142,72,0.7); background: rgba(232,142,72,0.08); }
+.ba-htitle[data-rarity="nonunique"], .ba-wname[data-rarity="nonunique"] { border-color: rgba(230,205,96,0.65); background: rgba(230,205,96,0.07); }
 .ba-open b { color: var(--ba-text-strong); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* 가격 = 앰버 알약 (카드 우상단) */

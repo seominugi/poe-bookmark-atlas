@@ -36,6 +36,7 @@ export function bindPageTip(el, { placement = 'right' } = {}) {
     const raw = el.getAttribute('data-tip'); if (!raw) return
     const tip = ensurePageTip(doc)
     tip.innerHTML = esc(raw).replace(/《([^》]*)》/g, '<span class="ba-tip-accent">$1</span>')
+    tip.classList.toggle('is-wide', raw.split('\n').length > 5) // 줄이 많은 설명은 넓게 — 예시 줄이 꺾이지 않게
     tip.classList.add('show')
     const r = el.getBoundingClientRect()
     const vw = win.innerWidth, vh = win.innerHeight

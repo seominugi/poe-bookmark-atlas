@@ -19,6 +19,7 @@ import analystIcon from '../../icons/mascot-analyst.webp'
 import researcherIcon from '../../icons/mascot-researcher.webp'
 import { nextDelay, retryAfterMs, waitSeconds } from '../../lib/tradeRate.js'
 import { runBulkWatchCheck, watchNudge, NUDGE_SNOOZE_MS } from '../../lib/watchRefresh.js'
+import { rarityOfQuery } from '../../lib/searchRarity.js'
 import { SECTIONS, SECTION_LABEL, DEFAULT_SEC_ORDER, normalizeSecOrder } from '../../lib/secOrder.js'
 
 // content script(ISOLATED)에선 번들 에셋을 확장 URL로 해석해야 함.
@@ -469,6 +470,10 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
   const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
   // 대표 아이템 이미지 — 북마크·히스토리 공통(검색 결과 최빈 아이콘)
   const thumb = r.icon && isAllowedIconUrl(r.icon) ? `<img class="ba-thumb" src="${escapeHtml(r.icon)}" alt="" loading="lazy" />` : ''
+  // 고유·비고유 검색이면 이름 칩 테두리 색으로 구분한다(고유 주황 · 비고유 노랑, 사용자 요청 2026-09-16). 모르면 칠하지 않는다.
+  const rarity = rarityOfQuery(r.query)
+  const rarityAttr = rarity ? ` data-rarity="${rarity}"` : ''
+  const rarityLine = rarity ? `${RARITY_LABEL[rarity]}&#10;` : ''
 
   // ── 히스토리: 카드 전체 클릭으로 재검색 (디자인: 북마크 카드와 동일한 조건칩+⋯팝오버 언어) ──
   if (kind === 'history') {
@@ -481,7 +486,7 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
       : ''
     const whenChip = `<span class="ba-hist-when"${condTipWithLeague && !condCount ? ` data-tip="${condTipWithLeague}"` : ''}>${icon('clock', 11)}${fmtTime(when)}${condCount ? '' : briefPrice}</span>`
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b>${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
+      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b class="ba-htitle"${rarityAttr}>${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
       <div class="ba-meta">${histCondChip}${whenChip}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>
       <div class="ba-actions-pop" hidden>
         <span class="ba-act ba-star" data-id="${r.id}" data-name="${title}">${icon('star', 13)}북마크로 저장</span>
@@ -524,7 +529,7 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
     : ''
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}${selecting ? ' ba-row--sel' : ''}${selected ? ' is-selected' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
-      <span class="ba-l1l">${selBox}<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open" data-tip="${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-l1l">${selBox}<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open"${rarityAttr} data-tip="${rarityLine}${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
       ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
     <div class="ba-meta-row">${attn}${leagueChip}${condSummaryChip}${actBar(r)}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
@@ -600,6 +605,8 @@ function folderHtml(g, items, lg, currentLeague) {
     </div>`
 }
 
+const RARITY_LABEL = { unique: '《고유 아이템》', nonunique: '《비고유 아이템》' }
+
 // 북마크 + 히스토리를 한 스크롤에 통합 렌더 (탭 없음 → 패널 전체 높이 활용)
 // 찜한 매물 카드. 죽은 매물도 지우지 않고 '판매됨'으로 남긴다 — 뭘 찜했는지가 남아야 재검색으로 이어진다.
 function watchRowHtml(w) {
@@ -616,7 +623,7 @@ function watchRowHtml(w) {
   // 언제 찜했는지 — 매물은 시간이 지날수록 죽을 확률이 커져서, 이 값이 곧 신선도 힌트다
   const saved = w.savedAt ? `<span class="ba-wwhen" data-tip="찜한 시점">${icon('clock', 10)}${ago(w.savedAt)}</span>` : ''
   return `<div class="ba-wrow" data-id="${escapeHtml(w.id)}" data-url="${encodeURIComponent(w.sourceUrl || '')}">
-    <span class="ba-wtop">${thumb}<span class="ba-wname">${escapeHtml(w.name || w.baseType || '(이름 없음)')}</span><span class="ba-wbadge ba-wbadge--${st.cls}">${st.text}</span>${other}</span>
+    <span class="ba-wtop">${thumb}<span class="ba-wname"${w.rarity === 'unique' || w.rarity === 'nonunique' ? ` data-rarity="${w.rarity}"` : ''}>${escapeHtml(w.name || w.baseType || '(이름 없음)')}</span><span class="ba-wbadge ba-wbadge--${st.cls}">${st.text}</span>${other}</span>
     <span class="ba-wmeta">${escapeHtml(meta)}</span>
     <span class="ba-wacts">${saved}${here ? `<button class="ba-wcheck" data-tip="이 매물이 아직 있는지, 가격이 바뀌었는지 확인해요">${icon('refresh', 11)}확인</button>` : ''}<button class="ba-wopen" data-tip="이 매물을 찾았던 검색을 다시 열어요">${icon('search', 11)}다시 검색</button><button class="ba-wdel" data-tip="찜 해제">${icon('x', 11)}</button></span>
   </div>`

@@ -230,6 +230,18 @@ describe('stat-adder — 필수·OR', () => {
     expect(r.created).toEqual(['or'])
   })
 
+  it('orMin 을 받으면 개수 칸을 그 값으로 — 누른 개수 그룹도 맞추고, 범위 밖 값은 1', async () => {
+    const { log } = fakePage([{ type: 'count', token: 'gtoken18' }])
+    const reply = nextReply('r18')
+    send({ ...req('r18', 'gtoken18', [
+      { id: 'explicit.stat_1', role: 'or:prefix' },
+      { id: 'explicit.stat_2', role: 'or:suffix' },
+      { id: 'explicit.stat_3', role: 'or' },
+    ]), orMin: { 'or:prefix': 2, 'or:suffix': 3, or: 99 } })
+    await reply
+    expect(log.float).toEqual([[0, 'min', '2'], [1, 'min', '3'], [2, 'min', '1']])
+  })
+
   it('모르는 역할은 누른 그룹으로 본다', async () => {
     const { store } = fakePage([{ type: 'count', token: 'gtoken14' }])
     await run('r14', 'gtoken14', [{ id: 'explicit.stat_1', role: 'weird' }])

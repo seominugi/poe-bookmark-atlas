@@ -2,7 +2,7 @@
 // 「+ 능력치 필터 추가」 글자 옆 「속성 목록」 칩과, 누르면 뜨는 글래스 시트.
 //
 // 넣을 곳은 기본으로 **누른 칩의 그룹**이다 — 따로 고르게 하면 엉뚱한 그룹에 넣는 실수가 생긴다(시안 A, 2026-09-15).
-// 행에 「필수」·「OR」 을 표시하면 그 속성만 조건에 맞는 그룹으로 간다(stat-adder.js 가 그룹을 찾거나 만든다).
+// 행에 「필수」·「후보」 를 표시하면 그 속성만 조건에 맞는 그룹으로 간다(stat-adder.js 가 그룹을 찾거나 만든다).
 // 디자인: 글래스 시안 1번(가운데 시트) + 트리거는 티어 칩 모양(사용자 결정 2026-09-15).
 // 실제로 넣는 일은 MAIN world 의 stat-adder.js 가 한다. 이 파일은 DOM 과 사용자 선택만 다룬다.
 
@@ -108,10 +108,34 @@ export function closeAffixPopover() {
   if (openPop) openPop.close()
 }
 
+// 「후보」 예시 — 처음 보는 사람도 한 번에 알도록 결과를 찾음·빠짐으로 보여 준다(사용자 요청 2026-09-16)
+const OR_EXAMPLE = '예) 화염·냉기·번개 저항 3개를 후보로 두고 「2개 이상」으로 정하면\n' +
+  '3개 중에 2개만 붙어 있어도 찾아요. 어떤 2개인지는 상관없어요.\n' +
+  '  ○ 화염 + 냉기 → 찾아요\n' +
+  '  ○ 냉기 + 번개 → 찾아요\n' +
+  '  ○ 화염 + 번개 → 찾아요\n' +
+  '  ○ 화염 + 냉기 + 번개 (3개 모두) → 찾아요\n' +
+  '  × 화염 하나만 → 1개뿐이라 빠져요'
+
 const ROLES = [
-  { key: 'and', label: '필수', tip: '모두 만족해야 하는 그룹(AND)에 넣어요. 없으면 새로 만들어요.' },
-  { key: 'or', label: 'OR', tip: '하나 이상 만족하면 되는 그룹(개수, 최소 1)에 넣어요. 누른 그룹이 그 방식이 아니면 새로 만들어요.' },
+  { key: 'and', label: '필수', tip: '필수 — 선택한 속성이 모두 붙은 아이템을 찾아요\n거래소 「모두 만족」 그룹에 넣어요(없으면 새로 만들어요)' },
+  { key: 'or', label: '후보', tip: '후보 — 선택한 속성 후보 중 정한 개수 이상인 아이템을 찾아요\n몇 개 이상인지는 접두어·접미어 제목 줄에서 정해요\n(접두어·접미어마다 거래소 「개수」 그룹에 넣어요)\n\n' + OR_EXAMPLE },
 ]
+// 화면에서는 AND·OR 대신 「필수·후보」라고 부른다(사용자 결정 2026-09-16) — AND·OR 를 모르는 사람도 읽히게.
+// 내부 역할 키(and·or)와 거래소 그룹 방식(모두 만족·개수)은 그대로다.
+const OR_WORD = '후보'
+// 고른 속성은 언제나 필수·OR 중 하나다 — 「표시 없음 = 누른 그룹」은 그룹 방식에 따라 결과가 달라져 없앴다(사용자 결정 2026-09-16).
+const DEFAULT_ROLE = 'or'
+
+/**
+ * 한 아이템에 붙는 접두어·접미어 최대 개수 — OR 「최소 몇 개」를 고를 수 있는 위쪽 끝(사용자 제공 2026-09-16).
+ * 장비 3 · 주얼 2 · 플라스크·호신부 1.
+ */
+export function affixLimitOf(cls) {
+  if (cls === 'Jewel') return 2
+  if (cls === 'LifeFlask' || cls === 'ManaFlask' || cls === 'UtilityFlask') return 1
+  return 3
+}
 const SOURCE_LABEL = { prefix: '접두', suffix: '접미', corrupted: '타락' }
 // 접히는 공급원 띠 — 에센스·훼손된·합금. 일반 속성보다 드물게 찾으므로 접은 채 시작한다.
 const BAND_POOLS = SPECIAL_POOLS.filter((p) => p.sided)
@@ -137,15 +161,17 @@ const TABS = [
  * @param {string|null} [args.currentClass]
  * @param {(cls:string, base:string|null)=>object} [args.listForClass] 유형·베이스 칩을 눌렀을 때 그 목록
  * @param {(cls:string)=>Array<{id:string,label:string}>} [args.basesForClass] 유형의 베이스 칩(없으면 빈 배열)
- * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'here'|'and'|'or'}>, meta:{classes:Array<string|null>})=>Promise<void>|void} args.onAdd
+ * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'and'|'or'|'or:prefix'|'or:suffix'}>, meta:{classes:Array<string|null>, orMin:Record<string,number>})=>Promise<void>|void} args.onAdd
  *   meta.classes — 고른 속성이 온 유형(중복 없음, 넣는 순서). 유형 없이 본 목록이면 null 이 들어간다.
+ *   meta.orMin — OR 역할별 「최소 몇 개」(그룹을 만들 때 개수 칸에 넣는다)
+ * @param {{baseByClass?:Record<string,string>, emphasis?:boolean}} [args.prefs]
+ *   emphasis — 하단 안내·선택 요약을 강조하고 바뀔 때 짧게 움직인다(기본 켬, 패널 ⚙ 설정에서 끈다)
  */
 export function openAffixPopover({ anchor, title, subtitle, list, classes = [], currentClass = null, listForClass, basesForClass, onAdd, prefs = {}, onPrefs }) {
   // 사용자 설정 — 창을 닫았다 열어도 남는다(부르는 쪽이 저장한다)
-  //   orSplit      OR 을 접두어·접미어 그룹으로 나눠 넣는다(사용자 요청 2026-09-16)
   //   baseByClass  유형마다 마지막에 고른 베이스(주얼 → 루비 …)
-  const settings = { orSplit: prefs.orSplit !== false, baseByClass: { ...(prefs.baseByClass ?? {}) } }
-  const savePrefs = () => { try { onPrefs?.({ orSplit: settings.orSplit, baseByClass: { ...settings.baseByClass } }) } catch (_) { /* 저장 실패는 화면에 영향 없음 */ } }
+  const settings = { baseByClass: { ...(prefs.baseByClass ?? {}) }, emphasis: prefs.emphasis !== false }
+  const savePrefs = () => { try { onPrefs?.({ baseByClass: { ...settings.baseByClass } }) } catch (_) { /* 저장 실패는 화면에 영향 없음 */ } }
   /** 유형의 기억한 베이스 — 지금 그 유형에 없는 베이스면 잊는다. */
   const rememberedBase = (cls) => {
     const id = cls ? settings.baseByClass[cls] : null
@@ -159,6 +185,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   pop.setAttribute('role', 'dialog')
   pop.setAttribute('aria-modal', 'true')
   pop.setAttribute('aria-label', `${title}에 속성 넣기`)
+  pop.classList.toggle('is-emphasis', settings.emphasis)
 
   // ── 머리: 제목 · 탭 · 검색 · 닫기 ──
   const head = el(doc, 'div', 'ba-affix-head')
@@ -179,7 +206,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   searchWrap.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>'
   const search = el(doc, 'input', 'ba-affix-search-input')
   search.type = 'search'
-  search.placeholder = '속성 검색'
+  search.placeholder = '속성 검색 (예: 저항 화염)'
   search.setAttribute('aria-label', '속성 검색')
   searchWrap.appendChild(search)
   const closeBtn = el(doc, 'button', 'ba-affix-close', '✕')
@@ -214,22 +241,18 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
 
   // ── 발: 안내 · 개수 · 해제 · 넣기 ──
   const foot = el(doc, 'div', 'ba-affix-foot')
-  const hint = el(doc, 'span', 'ba-affix-legend', '행에 마우스를 올리면 필수·OR·티어를 고를 수 있어요 · 표시가 없으면 이 그룹에 넣어요')
+  // 안내 — 지금 할 일을 말한다(고르기 전 / 고른 뒤). 강조가 켜져 있으면 칩 모양으로 띄우고, 문구가 바뀔 때만 한 번 반짝인다.
+  const hint = el(doc, 'div', 'ba-affix-legend')
+  hint.setAttribute('aria-live', 'polite')
+  hint.innerHTML = '<svg class="ba-affix-legend-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.5l1.6 4.1 4.4.3-3.4 2.8 1.1 4.3L8 10.6 4.3 13l1.1-4.3L2 5.9l4.4-.3z" fill="currentColor"/></svg>'
+  const hintText = el(doc, 'span', 'ba-affix-legend-text')
+  hint.appendChild(hintText)
   const countEl = el(doc, 'span', 'ba-affix-count')
   const clearBtn = el(doc, 'button', 'ba-affix-clear', '선택 해제')
   clearBtn.type = 'button'
   const addBtn = el(doc, 'button', 'ba-affix-add')
   addBtn.type = 'button'
-  // OR 을 접두어·접미어로 나눠 넣을지 — 켜면 OR 표시가 접두어 개수 그룹과 접미어 개수 그룹으로 갈려 들어간다
-  const splitLabel = el(doc, 'label', 'ba-affix-split')
-  const splitBox = el(doc, 'input', 'ba-affix-split-check')
-  splitBox.type = 'checkbox'
-  splitBox.checked = settings.orSplit
-  splitLabel.append(splitBox, el(doc, 'span', null, 'OR 을 접두어·접미어로 나눠 넣기'))
-  splitLabel.dataset.tip = '켜면 OR 로 표시한 속성을\n접두어는 접두어끼리, 접미어는 접미어끼리\n각각 「개수(최소 1)」 그룹에 넣어요'
-  bindPageTip(splitLabel, { placement: 'below' })
-  splitBox.addEventListener('change', () => { settings.orSplit = splitBox.checked; savePrefs() })
-  foot.append(hint, splitLabel, countEl, clearBtn, addBtn)
+  foot.append(hint, countEl, clearBtn, addBtn)
   pop.appendChild(foot)
 
   // item.key → { index: 고른 값(-1 = 빈칸), role, item } — 유형을 바꿔도 고른 것은 남는다.
@@ -271,25 +294,173 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     }
   }
 
+  // ── OR 최소 개수 ──
+  /**
+   * 고른 것이 들어갈 OR 그룹 — 접두어·접미어는 각자 개수 그룹이다(타락처럼 접두·접미가 없는 것은 따로 한 그룹).
+   * 「모두 한 그룹」 방식은 두지 않는다 — 요청이 오면 그때 설정으로 연다(사용자 결정 2026-09-16).
+   */
+  const orGroupOf = (p) => (p.role === 'or' && (p.item.source === 'prefix' || p.item.source === 'suffix') ? `or:${p.item.source}` : p.role)
+  const orMinPicked = new Map() // 그룹 키 → 사용자가 고른 최소 개수(없으면 1)
+  // 접두·접미가 없는 OR(타락)은 따로 한 그룹이다 — 이름은 그 그룹이 전부 타락일 때만 붙인다
+  const OR_GROUP_LABEL = { 'or:prefix': '접두어', 'or:suffix': '접미어' }
+  const orLabel = (g) => OR_GROUP_LABEL[g]
+    ?? ([...selected.values()].filter((p) => orGroupOf(p) === 'or').every((p) => p.item.source === 'corrupted') ? '타락' : '')
+  /**
+   * 그룹마다 고를 수 있는 최대 — 고른 개수와 한 아이템에 붙을 수 있는 개수 중 작은 쪽.
+   * 접두·접미 그룹은 유형 한도(장비 3 · 주얼 2 · 플라스크·호신부 1), 타락처럼 접두·접미가 없는 속성은 한 아이템에 하나다.
+   */
+  const orGroups = () => {
+    const out = new Map()
+    for (const p of selected.values()) {
+      const g = orGroupOf(p)
+      if (!g.startsWith('or')) continue
+      const e = out.get(g) ?? { count: 0, limit: 1 }
+      e.count++
+      if (g !== 'or') e.limit = Math.max(e.limit, affixLimitOf(p.cls))
+      out.set(g, e)
+    }
+    for (const e of out.values()) e.max = Math.max(1, Math.min(e.count, e.limit))
+    return out
+  }
+  const orMinOf = (g, max) => Math.min(Math.max(1, orMinPicked.get(g) ?? 1), max)
+  // 스테퍼는 그 그룹이 보이는 자리마다 둔다 — 접두어·접미어 열 머리(띠마다), 한쪽 탭의 맨 위, 타락 띠 맨 위(사용자 요청 2026-09-16).
+  // 그룹은 띠를 가리지 않고 하나라 모든 자리가 같은 값을 보인다. 값만 바꾸고 요소는 다시 만들지 않는다 —
+  // 누를 때마다 다시 만들면 포커스가 빠지고 떠 있던 툴팁이 남는다. 목록을 다시 그릴 때(render) 자리를 새로 모은다.
+  let orMinViews = []
+  const orMinView = (g) => {
+    const box = el(doc, 'span', 'ba-affix-ormin-item')
+    box.dataset.group = g
+    box.hidden = true
+    // 툴팁은 이름에만 — 상자 전체에 걸면 옆 단추를 덮는다. 이름 글자는 그릴 때마다 정한다(타락만 고른 그룹인지가 바뀐다).
+    const name = el(doc, 'span', 'ba-affix-ormin-name')
+    bindPageTip(name, { placement: 'below' })
+    const step = (d, text) => {
+      const btn = el(doc, 'button', 'ba-affix-ormin-step', text)
+      btn.type = 'button'
+      btn.dataset.step = String(d)
+      btn.dataset.dir = d > 0 ? '늘리기' : '줄이기'
+      btn.addEventListener('click', (ev) => {
+        ev.preventDefault()
+        ev.stopPropagation()
+        const e = orGroups().get(g)
+        if (!e) return
+        orMinPicked.set(g, Math.min(Math.max(1, orMinOf(g, e.max) + d), e.max))
+        paintOrMin()
+      })
+      return btn
+    }
+    const view = { g, box, name, val: el(doc, 'b', 'ba-affix-ormin-val'), of: el(doc, 'span', 'ba-affix-ormin-of'), dec: step(-1, '−'), inc: step(1, '+') }
+    view.val.setAttribute('aria-live', 'polite')
+    box.append(name, view.dec, view.val, view.inc, view.of)
+    orMinViews.push(view)
+    return box
+  }
+  const paintOrMin = () => {
+    const groups = orGroups()
+    for (const v of orMinViews) {
+      const e = groups.get(v.g)
+      v.box.hidden = !e
+      if (!e) continue
+      const n = orMinOf(v.g, e.max)
+      const label = orLabel(v.g) ? `${orLabel(v.g)} ${OR_WORD}` : OR_WORD
+      v.name.textContent = `${label} 중 최소`
+      for (const b of [v.dec, v.inc]) b.setAttribute('aria-label', `${label} 최소 개수 ${b.dataset.dir}`)
+      v.val.textContent = String(n)
+      v.of.textContent = `/ ${e.count}`
+      v.dec.disabled = n <= 1
+      v.inc.disabled = n >= e.max
+      v.name.dataset.tip = `${label} ${e.count}개 중 ${n}개 이상인 아이템을 찾아요\n한 아이템에 붙을 수 있는 수(${e.limit})보다 크게 할 수 없어요\n띠(기본·에센스 …)를 가리지 않고 한 그룹으로 들어가요\n\n${OR_EXAMPLE}`
+    }
+  }
+
   const refresh = () => {
     const picks = [...selected.values()]
     const n = picks.length
-    const parts = []
+    const parts = [] // { kind, text } — 칩 하나씩
     const valued = picks.filter((p) => p.index >= 0).length
     const must = picks.filter((p) => p.role === 'and').length
-    const or = picks.filter((p) => p.role === 'or').length
-    if (valued) parts.push(`값 ${valued}`)
-    if (must) parts.push(`필수 ${must}`)
-    if (or) parts.push(`OR ${or}`)
+    if (valued) parts.push({ kind: 'value', text: `값 ${valued}`, tip: `${valued}개는 고른 티어 값까지 채워 넣어요\n나머지는 값 칸을 비워 둬요` })
+    if (must) parts.push({ kind: 'and', text: `필수 ${must}`, tip: `필수 ${must}개가 모두 붙은 아이템을 찾아요` })
+    // OR 은 들어갈 그룹(접두·접미·타락)대로 센다
+    const by = { 'or:prefix': 0, 'or:suffix': 0, or: 0 }
+    for (const p of picks) { const g = orGroupOf(p); if (g in by) by[g]++ }
+    for (const g of ['or:prefix', 'or:suffix', 'or']) {
+      if (!by[g]) continue
+      const e = orGroups().get(g)
+      const name = `${orLabel(g) ? orLabel(g) + ' ' : ''}${OR_WORD}`
+      parts.push({ kind: orLabel(g) === '타락' ? 'or-corrupted' : 'or', text: `${name} ${by[g]}`,
+        tip: `${name} ${by[g]}개 중 ${e ? orMinOf(g, e.max) : 1}개 이상인 아이템을 찾아요` })
+    }
     paintBulks()
-    countEl.innerHTML = ''
-    if (n) {
-      countEl.append(el(doc, 'b', null, String(n)), `개 선택${parts.length ? ' · ' + parts.join(' · ') : ''}`)
-    } else countEl.textContent = '넣을 속성을 체크하세요'
+    paintOrMin()
+    paintSummary(n, parts)
+    paintHint(n)
     addBtn.textContent = n ? `${n}개 넣기` : '넣기'
     addBtn.disabled = n === 0
     clearBtn.hidden = n === 0
   }
+  // ── 하단: 선택 요약 칩 · 안내 ──
+  const reduceMotion = () => { try { return doc.defaultView.matchMedia('(prefers-reduced-motion: reduce)').matches } catch (_) { return false } }
+  const moving = () => settings.emphasis && !reduceMotion()
+  const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
+  const chipOf = new Map() // 칩 종류+글머리 → 요소 (새로 생긴 칩만 등장 효과를 준다)
+  let lastCount = 0
+  /** 선택 요약 — 숫자 배지 + 역할 색 칩. 문장은 화면 읽기용으로 따로 둔다. */
+  const paintSummary = (n, parts) => {
+    const sentence = n ? `${n}개 선택${parts.length ? ' · ' + parts.map((x) => x.text).join(' · ') : ''}` : '넣을 속성을 체크하세요'
+    countEl.dataset.summary = sentence
+    countEl.innerHTML = ''
+    const sr = el(doc, 'span', 'ba-affix-sr', sentence)
+    if (!n) {
+      countEl.append(sr)
+      countEl.appendChild(el(doc, 'span', 'ba-affix-count-empty', '아직 고른 속성이 없어요')).setAttribute('aria-hidden', 'true')
+      chipOf.clear()
+      lastCount = 0
+      return
+    }
+    const total = el(doc, 'span', 'ba-affix-count-total')
+    total.setAttribute('aria-hidden', 'true')
+    const num = el(doc, 'b', 'ba-affix-count-n', String(n))
+    total.append(num, '개 선택')
+    countEl.append(sr, total)
+    const seen = new Map()
+    for (const x of parts) {
+      const key = `${x.kind}|${x.text.replace(/\s*\d+$/, '')}`
+      const chip = el(doc, 'span', 'ba-affix-sum-chip', x.text)
+      chip.dataset.kind = x.kind
+      chip.setAttribute('aria-hidden', 'true')
+      if (x.tip) { chip.dataset.tip = x.tip; bindPageTip(chip, { placement: 'below' }) }
+      countEl.appendChild(chip)
+      if (moving() && !chipOf.has(key) && typeof chip.animate === 'function') {
+        chip.animate([{ opacity: 0, transform: 'scale(0.92)' }, { opacity: 1, transform: 'scale(1)' }], { duration: 180, easing: EASE_OUT })
+      }
+      seen.set(key, chip)
+    }
+    chipOf.clear()
+    for (const [k, v] of seen) chipOf.set(k, v)
+    // 개수가 바뀌면 배지가 한 번 톡 — 체크가 받아들여졌다는 대답이다
+    if (n !== lastCount && moving() && typeof num.animate === 'function') {
+      num.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.1)' }, { transform: 'scale(1)' }], { duration: 160, easing: EASE_OUT })
+    }
+    lastCount = n
+  }
+  let hintState = null
+  /** 안내 — 고르기 전에는 고르는 법, 고른 뒤에는 넣는 법. 상태가 바뀔 때만 반짝인다. */
+  const paintHint = (n) => {
+    const state = n ? 'picked' : 'empty'
+    if (state === hintState) return
+    hintState = state
+    hintText.textContent = n
+      ? '「넣기」를 누르면 거래소 그룹에 들어가요 · 후보 중 최소 몇 개인지는 접두어·접미어 제목 줄에서 정해요'
+      : '속성을 체크하면 후보로 들어가요 · 반드시 있어야 하면 행에서 「필수」를 누르세요'
+    hint.dataset.state = state
+    if (!moving()) return
+    hint.classList.remove('is-shine')
+    void hint.offsetWidth // 같은 효과를 다시 틀기 위해 한 번 흘린다
+    hint.classList.add('is-shine')
+  }
+  hint.addEventListener('animationend', () => hint.classList.remove('is-shine'))
+
   /** 목록 안 위치 — 넣는 순서를 체크한 순서가 아니라 목록 순서(일반 접두 → 접미 → 타락 → 에센스 …)로 맞추는 데 쓴다. */
   const posOf = (item) => {
     const i = allAffixItems(current.list).indexOf(item)
@@ -313,7 +484,12 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     r.box.checked = !!pick
     r.row.classList.toggle('is-on', !!pick)
     r.row.classList.toggle('is-linked', !!pick && !mine)
-    if (r.linked) r.linked.textContent = pick && !mine ? `${poolLabel(pick.item)} 줄 값으로 넣어요` : ''
+    if (r.linked) {
+      // 칩 글자는 짧게 고정한다(칸 폭을 넘으면 정렬이 깨진다) — 어느 띠의 값인지는 툴팁에 적는다
+      const linked = pick && !mine
+      r.linked.textContent = linked ? '다른 줄 값' : r.linked.dataset.base
+      r.linked.dataset.tip = linked ? `《${poolLabel(pick.item)}》 줄에서 고른 값으로 넣어요\n이 줄에서 값을 고르면 이 줄 값으로 바뀌어요` : r.linked.dataset.baseTip
+    }
     r.pills.forEach((p, i) => {
       const on = mine && pick.index === i
       p.classList.toggle('is-on', on)
@@ -325,7 +501,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       b.setAttribute('aria-pressed', String(on))
     })
   }
-  const defaultPick = (item) => ({ index: item.single && item.choices.length ? 0 : -1, role: 'here' })
+  const defaultPick = (item) => ({ index: item.single && item.choices.length ? 0 : -1, role: DEFAULT_ROLE })
   /** 줄이 속한 띠 이름 — 「같은 조건」 안내에 쓴다. */
   const poolLabel = (item) => {
     if (!item.pool || item.pool === 'normal') return '기본'
@@ -362,7 +538,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   const makeBulk = (className, label, rowsOf) => {
     const btn = el(doc, 'button', className, label)
     btn.type = 'button'
-    btn.dataset.tip = '보이는 속성을 모두 OR 로 표시해요\n다시 누르면 OR 표시를 모두 풀어요'
+    btn.dataset.tip = '보이는 속성을 모두 후보로 표시해요\n다시 누르면 후보 표시를 모두 풀어요'
     bindPageTip(btn, { placement: 'below' })
     btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleBulk(rowsOf()) })
     bulks.push({ btn, rowsOf })
@@ -389,6 +565,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     sections = []
     bands = []
     bulks = []
+    orMinViews = []
     twinPools = new Map()
     for (const it of allAffixItems(l)) {
       const names = twinPools.get(it.id) ?? []
@@ -438,6 +615,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       for (const m of l.mechanics ?? []) renderBand({ pool: m.pool, label: m.label, desc: m.desc, mechanic: true }, m, tab, true)
     }
     applySearch()
+    paintOrMin()
   }
 
   /** 타락 — 맨 위 붉은 띠. 게임에서 타락은 붉게 보이고, 일반 속성과 섞여 읽히면 안 된다(사용자 요청 2026-09-16).
@@ -445,10 +623,18 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
    *  타락 탭은 타락만 보려고 고른 것이라 펼친 채 연다. */
   const renderCorrupted = (list, open) => {
     makeBand({ pool: 'corrupted', label: '타락', meta: `${list.length}개`, defaultOpen: open }, (inner) => {
+      inner.appendChild(flowHead('or'))
       const flow = el(doc, 'div', 'ba-affix-flow')
       renderSections(flow, list, true, false)
       inner.appendChild(flow)
     })
+  }
+
+  /** 한쪽만 보이는 자리(접두어·접미어 탭, 타락 띠)의 맨 위 줄 — 그 그룹의 OR 최소 개수를 둔다. */
+  const flowHead = (g) => {
+    const row = el(doc, 'div', 'ba-affix-flowhead')
+    row.appendChild(orMinView(g))
+    return row
   }
 
   const sideColumn = (label, list, startOpen) => {
@@ -462,7 +648,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       const before = rows.length
       renderSections(col, list, startOpen, false)
       const colRows = rows.slice(before)
-      h.appendChild(makeBulk('ba-affix-bulk ba-affix-bulk--col', `${label} 전체 OR`, () => colRows))
+      h.append(makeBulk('ba-affix-bulk ba-affix-bulk--col', `${label} 전체 ${OR_WORD}`, () => colRows), orMinView(`or:${h.dataset.side}`))
     } else {
       col.classList.add('is-empty')
       col.appendChild(el(doc, 'p', 'ba-affix-side-none', `${label}는 붙지 않아요`))
@@ -485,6 +671,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
         grid.append(sideColumn('접두어', pre, sectionsOpen), sideColumn('접미어', suf, sectionsOpen))
         inner.appendChild(grid)
       } else {
+        inner.appendChild(flowHead(`or:${side}`))
         const flow = el(doc, 'div', 'ba-affix-flow')
         renderSections(flow, side === 'prefix' ? pre : suf, sectionsOpen, false)
         inner.appendChild(flow)
@@ -525,23 +712,32 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
 
   /** 종류별 묶음을 host 에 그린다. */
   const renderSections = (host, items, startOpen, showSource) => {
+    host.style.setProperty('--ba-tier-w', `${tierWidthOf(items)}px`)
+    host.classList.toggle('has-twins', items.some((it) => (twinPools.get(it.id) ?? []).length > 1))
     for (const group of groupByCategory(items, (it) => it.category)) {
       const sec = el(doc, 'section', 'ba-affix-sec')
       sec.dataset.category = group.key // 종류마다 다른 색을 입힌다(CSS)
       const toggle = el(doc, 'button', 'ba-affix-sec-head')
       toggle.type = 'button'
-      toggle.append(el(doc, 'span', 'ba-affix-sec-name', group.label), el(doc, 'span', 'ba-affix-sec-count', String(group.items.length)), el(doc, 'span', 'ba-affix-sec-line'), el(doc, 'span', 'ba-affix-sec-chev'))
+      toggle.append(el(doc, 'span', 'ba-affix-sec-name', group.label), el(doc, 'span', 'ba-affix-sec-count', String(group.items.length)), el(doc, 'span', 'ba-affix-sec-line'))
       const secBody = el(doc, 'div', 'ba-affix-sec-body')
       const s = { el: sec, rows: [], startOpen }
-      // 머리 줄 — 펼침 단추 옆에 이 묶음만 OR 로 표시하는 단추(단추 안에 단추를 둘 수 없어 줄로 감싼다)
+      // 머리 줄 — 이름 | 이 묶음만 OR 로 표시하는 단추 | 접기 화살표. 단추 안에 단추를 둘 수 없어 화살표를 따로 둔다
+      // (화살표는 같은 펼침 단추의 일부라 보조기기에는 숨기고 탭 순서에서도 뺀다).
       const headRow = el(doc, 'div', 'ba-affix-sec-headrow')
-      headRow.append(toggle, makeBulk('ba-affix-bulk', 'OR', () => s.rows))
+      const chev = el(doc, 'button', 'ba-affix-sec-chevbtn')
+      chev.type = 'button'
+      chev.tabIndex = -1
+      chev.setAttribute('aria-hidden', 'true')
+      chev.appendChild(el(doc, 'span', 'ba-affix-sec-chev'))
+      headRow.append(toggle, makeBulk('ba-affix-bulk', OR_WORD, () => s.rows), chev)
       s.setOpen = (open) => {
         sec.classList.toggle('is-open', open)
         toggle.setAttribute('aria-expanded', String(open))
         secBody.hidden = !open
       }
       toggle.addEventListener('click', () => s.setOpen(secBody.hidden))
+      chev.addEventListener('click', () => s.setOpen(secBody.hidden))
       for (const item of group.items) {
         const r = buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins: (twinPools.get(item.id) ?? []).filter((n) => n !== poolLabel(item)) })
         paintRow(r)
@@ -586,14 +782,14 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     // 고른 순서가 아니라 목록 순서(접두 → 접미 → 타락)로 넣는다 — 체크한 순서는 사용자도 기억하지 못한다.
     // 다른 유형에서 고른 것이 섞이면 유형을 처음 고른 차례대로, 그 안에서는 목록 순서다.
     const chosen = [...selected.values()].sort((a, b) => a.batch - b.batch || a.pos - b.pos)
-    // OR 을 나눠 넣으면 접두어·접미어가 각자 개수 그룹으로 간다(타락처럼 접두·접미가 없는 것은 나누지 않는다)
-    const roleOf = (p) => (p.role === 'or' && settings.orSplit && (p.item.source === 'prefix' || p.item.source === 'suffix') ? `or:${p.item.source}` : p.role)
-    const picks = chosen.map((p) => ({ id: p.item.id, value: affixFilterValue(p.item, p.index), role: roleOf(p) }))
+    const picks = chosen.map((p) => ({ id: p.item.id, value: affixFilterValue(p.item, p.index), role: orGroupOf(p) }))
+    const orMin = {}
+    for (const [g, e] of orGroups()) orMin[g] = orMinOf(g, e.max)
     // 고른 속성이 온 유형들 — 하나뿐이면 부르는 쪽이 거래소 아이템 유형을 그 유형으로 맞출 수 있다
     const classesPicked = [...new Set(chosen.map((p) => p.cls))]
     addBtn.disabled = true
     addBtn.textContent = '넣는 중…'
-    try { await onAdd(picks, { classes: classesPicked }) } finally { close() }
+    try { await onAdd(picks, { classes: classesPicked, orMin }) } finally { close() }
   })
   closeBtn.addEventListener('click', () => close())
   scrim.addEventListener('mousedown', () => close())
@@ -627,6 +823,26 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   return handle
 }
 
+/**
+ * 티어 칩 줄의 폭(px) 어림 — 같은 열의 줄들이 필수·OR 을 같은 세로선에 두도록 열마다 가장 긴 줄에 맞춘다.
+ * 글자 폭은 칩 글꼴(11px 굵게) 기준 어림이다. 조금 모자라도 칩이 칸을 넘칠 뿐 줄이 꺾이지는 않는다.
+ */
+export function tierWidthOf(items) {
+  let max = 0
+  for (const item of items) {
+    if (item.have) continue
+    const byRange = item.single || (item.pool && item.pool !== 'normal')
+    let w = 4
+    for (const c of item.choices ?? []) {
+      const label = byRange ? String(c.range).replace(/ 평균$/, '') : `T${c.t}`
+      w += Math.max(26, label.length * 6.6 + 12) + 1
+    }
+    if (!(item.choices ?? []).length) w = 56 // 「레벨 부족」
+    max = Math.max(max, w)
+  }
+  return Math.ceil(max)
+}
+
 /** 한 행 — 체크 · 이름 · (호버 시) 필수/OR · 넣을 값. */
 function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins = [] }) {
   const row = el(doc, 'label', 'ba-affix-row')
@@ -648,14 +864,18 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
   }
   const tail = el(doc, 'span', 'ba-affix-tail')
 
+  // 뒤쪽 칸은 줄마다 같은 폭이다 — 칩이 있고 없음에 따라 필수·OR·티어가 들쭉날쭉하지 않게(사용자 피드백 2026-09-16)
+  const twinSlot = el(doc, 'span', 'ba-affix-twinslot')
+  tail.appendChild(twinSlot)
   if (twins.length) {
-    // 같은 거래소 조건이 다른 띠에도 있다 — 한 곳만 고르면 된다
+    // 같은 거래소 조건이 다른 띠에도 있다 — 한 곳만 고르면 된다. 다른 줄에서 값을 골랐으면 칩이 그 줄 이름으로 바뀐다.
     const twin = el(doc, 'span', 'ba-affix-twin', `같은 조건 ${twins.length + 1}곳`)
-    twin.dataset.tip = `${twins.join(' · ')} 띠에도 있는 같은 거래소 조건이에요\n한 줄을 고르면 모두 함께 체크되고, 거래소에는 한 번만 들어가요`
+    twin.dataset.base = twin.textContent
+    twin.dataset.tip = `${twins.join(' · ')} 띠에도 있는 같은 거래소 조건이에요\n한 줄을 고르면 모두 함께 체크되고, 거래소에는 한 번만 들어가요\n값(티어)은 마지막에 값을 고른 줄의 것이 들어가요`
+    twin.dataset.baseTip = twin.dataset.tip
     bindPageTip(twin, { placement: 'below' })
-    tail.appendChild(twin)
-    r.linked = el(doc, 'span', 'ba-affix-linked')
-    tail.appendChild(r.linked)
+    twinSlot.appendChild(twin)
+    r.linked = twin
   }
   if (showSource && SOURCE_LABEL[item.source]) {
     const src = el(doc, 'span', 'ba-affix-src', SOURCE_LABEL[item.source])
@@ -676,13 +896,14 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
       b.setAttribute('aria-pressed', 'false')
       b.addEventListener('click', (e) => {
         e.preventDefault() // label 안 버튼 — 체크박스 토글과 섞이지 않게 직접 정한다
-        const now = current()
-        setRow(r, { index: now.index, role: selected.has(keyOf(item)) && now.role === role.key ? 'here' : role.key })
+        setRow(r, { index: current().index, role: role.key })
       })
       r.roles.push(b)
       controls.appendChild(b)
     }
-    if (!item.choices.length) controls.appendChild(el(doc, 'span', 'ba-affix-have', '레벨 부족'))
+    const tierBox = el(doc, 'span', 'ba-affix-tierbox')
+    controls.appendChild(tierBox)
+    if (!item.choices.length) tierBox.appendChild(el(doc, 'span', 'ba-affix-have', '레벨 부족'))
     else {
       const seg = el(doc, 'span', 'ba-affix-tiers')
       item.choices.forEach((c, i) => {
@@ -704,7 +925,7 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
         r.pills.push(pill)
         seg.appendChild(pill)
       })
-      controls.appendChild(seg)
+      tierBox.appendChild(seg)
     }
     tail.appendChild(controls)
   }

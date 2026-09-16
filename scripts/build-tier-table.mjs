@@ -11,7 +11,7 @@ import { dirname, join } from 'node:path'
 import { gzipSync } from 'node:zlib'
 import { resolveLockedGameDataRoot } from './poe-game-data-lock.mjs'
 import { normalizeTradeText, modTextKeys, polarityFlipped } from '../src/lib/statTextNorm.js'
-import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
+import { MOD_FILE_BY_POB_CLASS, CLASS_BY_CATEGORY } from '../src/lib/itemClass.js'
 import { affixCategoryOf } from '../src/lib/affixCategory.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -245,6 +245,14 @@ async function main() {
   const unnamedBuckets = new Set()
   let total = 0, matched = 0, unscaled = 0, conflicts = 0, skippedValueless = 0
   const ambiguous = []
+  const twinRulesPath = join(here, `trade-twins.${game}.json`)
+  const twinRules = existsSync(twinRulesPath) ? JSON.parse(readFileSync(twinRulesPath, 'utf8')).rules ?? [] : []
+  const textOf = new Map()
+  for (const group of statsPayload.result ?? []) for (const e of group.entries ?? []) textOf.set(e.id, e.text)
+  const categoryOfClass = {}
+  for (const [category, c] of Object.entries(CLASS_BY_CATEGORY)) categoryOfClass[c] ??= category
+  const twinDropped = []
+  const twinUnresolved = []
 
   for (const file of files) {
     const cls = file.replace('.json', '')
@@ -332,11 +340,16 @@ async function main() {
     if (Object.keys(byStat).length) {
       table[cls] = byStat
       const bases = basesOf(data, poolMods)
-      affixes[cls] = {
+      const entry = {
         ...affixListsOf(Object.keys(byStat), affixById), c: categoryById, ...special,
         ...(mechanics.length ? { m: mechanics } : {}),
         ...(bases.length ? { b: bases } : {}),
       }
+      // 문구가 같은 거래소 id 쌍 — 실측으로 매물이 없는 쪽을 목록에서 뺀다(scripts/trade-twins.<game>.json)
+      const twins = pruneTradeTwins(entry, { category: categoryOfClass[cls] ?? null, rules: twinRules, textOf })
+      for (const d of twins.dropped) { twinDropped.push(`${cls} ${d}`); delete byStat[d] } // 티어 표도 같은 id 집합을 지킨다
+      for (const u of twins.unresolved) twinUnresolved.push(`${cls} ${u}`)
+      affixes[cls] = entry
     }
   }
 
@@ -357,6 +370,12 @@ async function main() {
   if (unnamedBuckets.size) console.log(`  ⚠ 이름(bucketNames)이 없어 싣지 않은 버킷: ${[...unnamedBuckets].join(', ')}`)
   // 버린 것을 조용히 넘기지 않는다 — 이 목록이 곧 '정규화 규칙을 손봐야 하는 자리'다.
   for (const line of [...new Set(ambiguous)]) console.log(`      ${line}`)
+  console.log(`  문구가 같은 id 쌍에서 목록에서 뺀 것 : ${twinDropped.length}`)
+  // 새 쌍이 생기면 두 줄이 그대로 보인다 — 조용히 넘기지 않고 알린다(갱신 방법은 trade-twins 파일의 how_to_refresh)
+  if (twinUnresolved.length) {
+    console.log(`  ⚠ 문구가 같은데 실측이 없는 id 쌍 ${twinUnresolved.length}건 — 속성 목록에 두 줄로 보인다:`)
+    for (const line of twinUnresolved) console.log(`      ${line}`)
+  }
   console.log(`${Object.keys(table).length} 부위 · ${statCount} 능력치 · gzip ${(gzipSync(json).length / 1024).toFixed(1)}KB`)
 
   // 임계치를 넘은 뒤에만 쓴다 — 실패해 놓고 파일을 남기면, 종료 코드를 놓친 사람이
@@ -455,6 +474,52 @@ export function basesOf(data, poolMods) {
     out.push({ id: base.id, n: name, k })
   }
   return out
+}
+
+/**
+ * 문구가 같은 거래소 id 쌍을 속성 목록에서 정리한다(자리에서 고친다).
+ *
+ * 거래소에는 문구가 글자까지 같은 능력치 id 가 둘인 경우가 있고(카카오·GGG 영문 모두), 빌드는 후보 id 전부에 같은
+ * 사다리를 단다 — 그래서 속성 목록에 같은 줄이 두 번 보였다(2026-09-16 제보: 갑옷 「정신력 #」).
+ * **어느 쪽이 맞는지는 부위마다 다르다**(모든 능력치 #: 장신구는 1379411836, 무기는 2897413282). 그래서 규칙이 아니라
+ * 실측표를 받는다. scope 는 거래소 아이템 유형 id 의 앞부분이고, 가장 긴 것이 이긴다.
+ *
+ * @param {object} entry statAffixes 의 한 부위 {p,s,c,x,e,d,a,m,b}
+ * @param {{category:string|null, rules:Array<{scope:string,keep:string,drop:string}>, textOf:Map<string,string>}} ctx
+ * @returns {{dropped:string[], unresolved:string[]}}
+ */
+export function pruneTradeTwins(entry, { category, rules, textOf }) {
+  const pools = [[...(entry.p ?? []), ...(entry.s ?? [])]]
+  for (const key of ['x', 'e', 'd', 'a']) if (entry[key]) pools.push(Object.keys(entry[key]))
+  for (const m of entry.m ?? []) pools.push(Object.keys(m.x ?? {}))
+  const applies = (rule) => category != null && (category === rule.scope || category.startsWith(rule.scope + '.'))
+  const drop = new Set()
+  const unresolved = new Set()
+  for (const ids of pools) {
+    const byText = new Map()
+    for (const id of new Set(ids)) {
+      const text = textOf.get(id)
+      if (text == null) continue
+      byText.set(text, [...(byText.get(text) ?? []), id])
+    }
+    for (const [text, group] of byText) {
+      if (group.length < 2) continue
+      const matched = rules.filter((r) => applies(r) && group.includes(r.keep) && group.includes(r.drop))
+        .sort((a, b) => b.scope.length - a.scope.length)
+      const best = matched[0]
+      if (best) for (const r of matched) if (r.scope === best.scope) drop.add(r.drop)
+      if (group.filter((id) => !drop.has(id)).length > 1) unresolved.add(`${text} → ${group.join(' | ')}`)
+    }
+  }
+  if (drop.size) {
+    const keep = (id) => !drop.has(id)
+    if (entry.p) entry.p = entry.p.filter(keep)
+    if (entry.s) entry.s = entry.s.filter(keep)
+    for (const key of ['c', 'x', 'e', 'd', 'a']) if (entry[key]) for (const id of drop) delete entry[key][id]
+    for (const m of entry.m ?? []) for (const id of drop) delete m.x?.[id]
+    for (const b of entry.b ?? []) for (const k of Object.keys(b.k ?? {})) b.k[k] = b.k[k].filter(keep)
+  }
+  return { dropped: [...drop], unresolved: [...unresolved] }
 }
 
 /** 버킷의 접두 + 접미 모드. */

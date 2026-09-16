@@ -45,7 +45,8 @@ export const MOD_FILE_BY_CATEGORY = {
  * 장비 표(MOD_FILE_BY_CATEGORY) 밖이지만 부위가 하나로 정해지는 category.
  * 유물(`sanctum.relic`)은 PoB 에 없는 부위라 MOD_FILE_BY_POB_CLASS 짝이 없다 — 장비 표에 넣지 않고 여기에 둔다.
  */
-const FLAT_CATEGORY = { jewel: 'Jewel', 'sanctum.relic': 'Relic' }
+// 서판(map.tablet)은 게임 데이터 itemClass TowerAugmentation — 속성 목록 「기타」에 둔다(사용자 요청 2026-09-16, poe-game-data v2026.09.16.10 부터)
+const FLAT_CATEGORY = { jewel: 'Jewel', 'sanctum.relic': 'Relic', 'map.tablet': 'TowerAugmentation' }
 
 /** 부위가 하나로 정해지는 모든 category → modifiers 파일명 (속성 목록의 유형 칩이 쓴다). */
 export const CLASS_BY_CATEGORY = { ...MOD_FILE_BY_CATEGORY, ...FLAT_CATEGORY }

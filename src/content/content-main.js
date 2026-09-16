@@ -25,6 +25,7 @@ import { classFromQuery, CLASS_BY_CATEGORY, UNRELEASED_CLASSES } from '../lib/it
 import { normalizeTradeText } from '../lib/statTextNorm.js'
 import { attachAffixButtons, openAffixPopover, groupToken, groupLabel, groupRowTitles, AFFIX_CHIP_ICON } from './affix-picker.js'
 import { affixListFor, basesFor } from '../lib/affixList.js'
+import { rarityOfItem } from '../lib/searchRarity.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -355,6 +356,8 @@ function pobEnsureStyle() {
     white-space: pre-line; text-align: left;
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55); pointer-events: none;
     opacity: 0; transition: opacity .15s; }
+  /* 설명이 긴 툴팁(예시가 붙은 「후보」 등) — 좁은 폭에서는 예시 줄이 어색하게 꺾여 넓힌다. 줄 앞 들여쓰기도 살린다 */
+  #ba-page-tip.is-wide { max-width: 400px; white-space: pre-wrap; }
   #ba-page-tip.show { opacity: 1; }
   #ba-page-tip .ba-tip-accent { color: #3ed8e6; font-weight: 700; }
   @keyframes ba-pob-pop { 0% { box-shadow: 0 4px 16px rgba(0,0,0,.35), 0 0 14px rgba(167,139,250,.22), inset 0 1px 0 rgba(255,255,255,.12); filter: brightness(1); }
@@ -547,22 +550,57 @@ function pobEnsureStyle() {
   .ba-affix-doll-area { padding: 8px; border-radius: 10px; background: rgba(0,0,0,0.2); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); }
   .ba-affix-doll-area.is-weapon { grid-area: weapon; justify-self: center; align-self: stretch; }
   .ba-affix-doll-area.is-offhand { grid-area: offhand; justify-self: center; align-self: stretch; }
-  .ba-affix-doll-title { margin: 0 2px 7px; font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .04em; color: #a39fbb; }
+  /* 영역 제목 칩 — 영역마다 색(무기 붉은 주황 · 방어구 파랑 · 장신구 금 · 보조 하늘 · 플라스크 초록 · 주얼 보라 · 기타 회색) */
+  .ba-affix-doll-title { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 0 0 8px; }
+  .ba-affix-doll-chip, .ba-affix-doll-subchip { display: inline-flex; align-items: center; border-radius: 999px; white-space: nowrap;
+    font: 700 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .02em;
+    color: var(--tone); background: color-mix(in srgb, var(--tone) 12%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--tone) 50%, transparent); }
+  .ba-affix-doll-chip { height: 20px; padding: 0 9px; }
+  .ba-affix-doll-subchip { height: 17px; padding: 0 7px; font-size: 10.5px; margin: 0 0 5px; }
+  [data-tone="weapon"] { --tone: #f0a58c; }
+  [data-tone="martial"] { --tone: #f0c08c; }
+  [data-tone="caster"] { --tone: #b7a6ff; }
+  [data-tone="armour"] { --tone: #9fc2e8; }
+  [data-tone="jewellery"] { --tone: #e8c872; }
+  [data-tone="offhand"] { --tone: #7dd3fc; }
+  [data-tone="flask"] { --tone: #8fe0bd; }
+  [data-tone="jewel"] { --tone: #c4b5fd; }
+  [data-tone="other"] { --tone: #b3aec8; }
+  .ba-affix-doll-sub { display: flex; flex-direction: column; gap: 5px; }
+  .ba-affix-doll-sub > .ba-affix-doll-subchip { height: 20px; padding: 0 9px; font-size: 11px; }
+  .ba-affix-doll-sub + .ba-affix-doll-sub { margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.07); }
+  .ba-affix-doll-sub > .ba-affix-doll-subchip { align-self: flex-start; }
   .ba-affix-doll-slots { display: flex; flex-wrap: wrap; gap: 5px; }
-  .is-weapon > .ba-affix-doll-slots { display: grid; grid-template-columns: repeat(3, 72px); grid-auto-rows: 50px; }
-  .is-offhand > .ba-affix-doll-slots { display: grid; grid-template-columns: repeat(2, 76px); grid-auto-rows: 60px; }
-  /* 인형 — 투구·장갑·장화는 큰 정사각형(66), 목걸이·반지는 작은 정사각형(46), 갑옷은 두 줄 높이(사용자 요청 2026-09-16) */
-  .ba-affix-doll-center { grid-area: center; display: grid; grid-template-columns: 66px 96px 66px; grid-template-rows: 66px 66px 66px 46px; gap: 6px;
-    grid-template-areas: ". helm amulet" ". body ring" "gloves body boots" ". belt ."; }
-  .ba-affix-doll-center .ba-affix-slot[data-area="helm"] { width: 66px; justify-self: center; }
-  .ba-affix-doll-center .ba-affix-slot[data-area="amulet"],
-  .ba-affix-doll-center .ba-affix-slot[data-area="ring"] { width: 46px; height: 46px; align-self: center; justify-self: start; }
+  .is-weapon .ba-affix-doll-slots { display: grid; grid-template-columns: repeat(3, 80px); grid-auto-rows: 52px; }
+  .is-offhand > .ba-affix-doll-slots { display: grid; grid-template-columns: repeat(2, 80px); grid-auto-rows: 60px; }
+  /* 가운데 「방어구」 — 게임 장비창 모양. 투구·갑옷·허리띠 같은 너비, 장갑·허리띠·장화 한 줄 같은 높이,
+     목걸이는 갑옷 윗선 · 반지는 갑옷 아랫선(사용자 요청 2026-09-16) */
+  /* 방어구 영역은 무기·보조 영역과 같은 높이로 늘어나고, 칸은 그 높이를 비율로 나눠 가진다(사용자 요청 2026-09-17) */
+  .ba-affix-doll-center { grid-area: center; display: flex; align-self: stretch; }
+  .is-armour { display: flex; flex-direction: column; }
+  .is-armour > .ba-affix-doll-slots { flex: 1; display: grid; grid-template-columns: 70px 104px 70px;
+    grid-template-rows: minmax(46px, 1fr) minmax(104px, 2.3fr) minmax(52px, 1.1fr); gap: 6px;
+    grid-template-areas: ". helm ." ". body jewel" "gloves belt boots"; }
+  .is-armour .ba-affix-slot[data-area="helm"] { grid-area: helm; }
+  .is-armour .ba-affix-slot[data-area="body"] { grid-area: body; }
+  .is-armour .ba-affix-slot[data-area="gloves"] { grid-area: gloves; }
+  .is-armour .ba-affix-slot[data-area="belt"] { grid-area: belt; }
+  .is-armour .ba-affix-slot[data-area="boots"] { grid-area: boots; }
+  .is-armour .ba-affix-slot[data-area="amulet"], .is-armour .ba-affix-slot[data-area="ring"] { grid-area: jewel; width: 54px; height: 54px; justify-self: start; }
+  .is-armour .ba-affix-slot[data-area="amulet"] { align-self: start; }
+  .is-armour .ba-affix-slot[data-area="ring"] { align-self: end; }
+  /* 장신구 — 같은 상자 안에서 금빛 테두리로만 구분한다 */
+  .ba-affix-slot[data-kind="jewellery"] { box-shadow: inset 0 0 0 1px rgba(232,200,114,0.55); background: rgba(232,200,114,0.07) !important; color: #f1dca6 !important; }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-affix-slot[data-kind="jewellery"]:hover { box-shadow: inset 0 0 0 1px rgba(232,200,114,0.9); background: rgba(232,200,114,0.14) !important; color: #fff !important; }
+  }
+  .ba-affix-slot[data-kind="jewellery"].is-on { box-shadow: inset 0 0 0 1.5px #e8c872; background: rgba(232,200,114,0.22) !important; color: #fff !important; }
   .ba-affix-doll-bottom { grid-area: bottom; justify-self: center; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10px; }
-  .ba-affix-doll-bottom .ba-affix-slot { min-width: 76px; height: 50px; padding: 0 10px !important; }
+  .ba-affix-doll-bottom .ba-affix-slot { min-width: 80px; height: 52px; padding: 0 10px !important; }
   .ba-affix-slot { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0;
     margin: 0 !important; padding: 0 4px !important; border: 0 !important; border-radius: 9px !important; cursor: pointer;
     background: rgba(255,255,255,0.045) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); color: #c9c4dc !important;
-    font: 500 11px/1.1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important;
+    font: 600 12.5px/1.15 system-ui, -apple-system, "Malgun Gothic", sans-serif !important;
     transition: background .15s ease, box-shadow .15s ease, color .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
   .ba-affix-slot span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .ba-affix-slot svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
@@ -667,6 +705,8 @@ function pobEnsureStyle() {
   .ba-affix-sec-head { display: flex; align-items: center; gap: 8px; width: 100%; height: 22px; padding: 0 2px !important; margin: 0 0 2px !important;
     border: 0 !important; background: transparent !important; cursor: pointer; text-align: left; }
   .ba-affix-sec-headrow { display: flex; align-items: center; gap: 6px; }
+  .ba-affix-sec-chevbtn { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px;
+    padding: 0 !important; margin: 0 !important; border: 0 !important; background: transparent !important; cursor: pointer; }
   .ba-affix-sec-headrow > .ba-affix-sec-head { flex: 1; min-width: 0; }
   /* OR 일괄 단추 — 작은 칩. 켜지면 OR 역할 버튼과 같은 하늘색 */
   .ba-affix-bulk { flex: none; height: 18px; padding: 0 7px !important; margin: 0 !important; border-radius: 999px !important; cursor: pointer;
@@ -678,15 +718,23 @@ function pobEnsureStyle() {
   .ba-affix-bulk[disabled] { opacity: .35; cursor: default; }
   .ba-affix-bulk:focus-visible { outline: 2px solid #5cc3f2; outline-offset: 1px; }
   .ba-affix-bulk--col { height: 22px; margin-left: 6px !important; padding: 0 10px !important; font-size: 11px !important; }
-  .ba-affix-split { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #c9c4dc; cursor: pointer; user-select: none; }
-  .ba-affix-split-check { appearance: none; -webkit-appearance: none; width: 28px; height: 16px; margin: 0; border-radius: 999px; cursor: pointer; position: relative;
-    background: rgba(255,255,255,0.14); transition: background .15s ease; }
-  .ba-affix-split-check::before { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff;
-    transition: transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
-  .ba-affix-split-check:checked { background: #5cc3f2; }
-  .ba-affix-split-check:checked::before { transform: translateX(12px); }
-  .ba-affix-split-check:focus-visible { outline: 2px solid #5cc3f2; outline-offset: 2px; }
-  @media (prefers-reduced-motion: reduce) { .ba-affix-split-check, .ba-affix-split-check::before { transition: none; } }
+  /* OR 최소 개수 — 푸터의 작은 스테퍼. 값이 바뀌어도 움직이지 않는다(자주 누르는 조작이라 모션 없음) */
+  /* 접두어·접미어 열 머리 오른쪽 끝(한쪽 탭·타락 띠는 맨 위 줄 오른쪽) */
+  .ba-affix-srccol-title > .ba-affix-ormin-item, .ba-affix-flowhead > .ba-affix-ormin-item { margin-left: auto; }
+  .ba-affix-ormin-item[hidden] { display: none !important; }
+  .ba-affix-flowhead { display: flex; margin: 0 0 6px; }
+  .ba-affix-flowhead:has(> [hidden]) { display: none; }
+  .ba-affix-ormin-of { margin: 0 4px 0 1px; color: #7fa9c2; font: 600 11px/1 ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .ba-affix-ormin-item { display: inline-flex; align-items: center; gap: 4px; padding: 2px 4px 2px 9px; border-radius: 999px;
+    background: rgba(92,195,242,0.1); box-shadow: inset 0 0 0 1px rgba(92,195,242,0.3); color: #c9efff;
+    font: 600 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; }
+  .ba-affix-ormin-name { margin-right: 2px; white-space: nowrap; }
+  .ba-affix-ormin-val { min-width: 14px; text-align: center; font: 700 12px/1 ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; color: #fff; }
+  .ba-affix-ormin-step { width: 20px; height: 20px; padding: 0 !important; margin: 0 !important; border-radius: 50% !important; cursor: pointer;
+    border: 0 !important; background: rgba(255,255,255,0.08) !important; color: #e3f6ff !important; font: 700 13px/1 system-ui, sans-serif !important; }
+  @media (hover: hover) and (pointer: fine) { .ba-affix-ormin-step:not([disabled]):hover { background: rgba(92,195,242,0.35) !important; } }
+  .ba-affix-ormin-step[disabled] { opacity: .3; cursor: default; }
+  .ba-affix-ormin-step:focus-visible { outline: 2px solid #5cc3f2; outline-offset: 1px; }
   .ba-affix-sec-name { font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .06em; color: currentColor; white-space: nowrap; }
   .ba-affix-sec-count { font: 600 11px/1 ui-monospace, Consolas, monospace; color: #77728f; }
   .ba-affix-sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, currentColor, transparent); opacity: .3; }
@@ -726,21 +774,24 @@ function pobEnsureStyle() {
   .ba-affix-check:checked::before { content: ""; width: 8px; height: 4px; border: 2px solid #150f2b; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
   .ba-affix-check:disabled { opacity: .35; cursor: default; }
   .ba-affix-check:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
-  .ba-affix-name { flex: 1; min-width: 0; }
+  /* 이름은 다 보인다(말줄임 금지 — 사용자 결정 2026-09-16). 뒤쪽 칸이 늘 자리를 차지하므로 호버해도 줄이 바뀌지 않는다 */
+  .ba-affix-name { flex: 1; min-width: 0; line-height: 1.35; padding: 3px 0; }
   .ba-affix-tail { display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .ba-affix-src { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
   /* 같은 거래소 조건이 다른 띠에도 있다는 표시 — 조용한 점선 칩, 다른 줄에서 골랐으면 그 줄 이름을 알린다 */
-  .ba-affix-twin { flex: none; padding: 2px 6px; border-radius: 999px; border: 1px dashed rgba(201,196,220,0.32); color: #9d98b3; cursor: help;
+  .ba-affix-twinslot { flex: none; display: none; justify-content: flex-end; }
+  .has-twins .ba-affix-twinslot { display: inline-flex; width: 92px; }
+  .ba-affix-twin { flex: none; white-space: nowrap; padding: 2px 7px; border-radius: 999px; border: 1px dashed rgba(201,196,220,0.32); color: #9d98b3; cursor: help;
     font: 600 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; white-space: nowrap; }
-  .ba-affix-linked { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8fc9e6; white-space: nowrap; }
-  .ba-affix-linked:empty { display: none; }
   .ba-affix-row.is-linked .ba-affix-twin { border-style: solid; border-color: rgba(92,195,242,0.5); color: #c9efff; }
   .ba-affix-src.is-corrupted { color: #f28aa0; }
   .ba-affix-have { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
   /* 필수·OR·티어는 조용히 숨었다가 호버·포커스·선택 때만 나타난다 — 목록이 표처럼 빽빽해 보이지 않게. */
-  .ba-affix-controls { display: none; align-items: center; gap: 4px; }
-  .ba-affix-row.is-on .ba-affix-controls, .ba-affix-row:focus-within .ba-affix-controls { display: inline-flex; }
-  @media (hover: hover) and (pointer: fine) { .ba-affix-row:hover .ba-affix-controls { display: inline-flex; } }
+  /* 필수·OR·티어는 자리를 늘 차지하고 보이기만 바꾼다 — display 로 끄고 켜면 이름 칸이 줄었다 늘며 글자가 흔들렸다 */
+  .ba-affix-controls { display: inline-flex; align-items: center; gap: 4px; visibility: hidden; }
+  .ba-affix-row.is-on .ba-affix-controls, .ba-affix-row:focus-within .ba-affix-controls { visibility: visible; }
+  @media (hover: hover) and (pointer: fine) { .ba-affix-row:hover .ba-affix-controls { visibility: visible; } }
+  .ba-affix-tierbox { display: inline-flex; justify-content: flex-end; min-width: var(--ba-tier-w, 90px); }
   .ba-affix-role { height: 22px; padding: 0 7px !important; margin: 0 !important; border-radius: 6px !important; cursor: pointer;
     border: 1px solid rgba(255,255,255,0.12) !important; background: transparent !important; color: #8f89a8 !important;
     font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; transition: background .15s ease, border-color .15s ease, color .15s ease; }
@@ -758,9 +809,32 @@ function pobEnsureStyle() {
   .ba-affix-none, .ba-affix-empty { color: #a39fbb; margin: 0; padding: 14px 2px; }
   .ba-affix-empty { padding: 28px 2px; text-align: center; }
   .ba-affix-foot { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-top: 1px solid rgba(255,255,255,0.08); flex-wrap: wrap; }
-  .ba-affix-legend { font-size: 12px; color: #77728f; margin-right: auto; }
-  .ba-affix-count { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #d6d2e6; }
-  .ba-affix-count b { font: 600 12px/1 ui-monospace, Consolas, monospace; background: rgba(167,139,250,0.22); color: #fff; border-radius: 999px; padding: 4px 8px; }
+  /* 안내 — 기본은 조용한 글자, 강조(is-emphasis)면 보라 칩 + 상태가 바뀔 때 한 번 빛이 지나간다 */
+  .ba-affix-legend { position: relative; display: inline-flex; align-items: center; gap: 7px; margin-right: auto; font-size: 12px; color: #77728f; overflow: hidden; }
+  .ba-affix-legend-icon { width: 13px; height: 13px; flex: none; opacity: .7; }
+  .is-emphasis .ba-affix-legend { padding: 7px 12px 7px 10px; border-radius: 10px; color: #e9e4ff; font-weight: 600;
+    background: linear-gradient(90deg, rgba(167,139,250,0.26), rgba(92,195,242,0.12)); box-shadow: inset 0 0 0 1px rgba(167,139,250,0.4), 0 0 18px rgba(167,139,250,0.18); }
+  .is-emphasis .ba-affix-legend-icon { color: #c4b5fd; opacity: 1; }
+  .is-emphasis .ba-affix-legend[data-state="picked"] { background: linear-gradient(90deg, rgba(92,195,242,0.24), rgba(167,139,250,0.12)); box-shadow: inset 0 0 0 1px rgba(92,195,242,0.45), 0 0 18px rgba(92,195,242,0.16); }
+  .is-emphasis .ba-affix-legend[data-state="picked"] .ba-affix-legend-icon { color: #7dd3fc; }
+  .ba-affix-legend::after { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: 0;
+    background: linear-gradient(100deg, transparent 20%, rgba(255,255,255,0.28) 50%, transparent 80%); transform: translateX(-100%); }
+  .ba-affix-legend.is-shine::after { animation: ba-affix-shine 700ms cubic-bezier(0.23, 1, 0.32, 1) 1; }
+  @keyframes ba-affix-shine { 0% { opacity: 1; transform: translateX(-100%); } 100% { opacity: 1; transform: translateX(100%); } }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-legend.is-shine::after { animation: none; } }
+  /* 선택 요약 — 숫자 배지 + 역할 색 칩(목록의 필수·OR·티어 칩과 같은 색) */
+  .ba-affix-count { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; font-size: 12.5px; color: #d6d2e6; }
+  .ba-affix-count-total { display: inline-flex; align-items: center; gap: 5px; margin-right: 2px; }
+  .ba-affix-count-n { display: inline-block; min-width: 24px; text-align: center; font: 700 12.5px/1 ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums;
+    background: #a78bfa; color: #150f2b; border-radius: 999px; padding: 5px 8px; }
+  .ba-affix-count-empty { color: #77728f; }
+  .ba-affix-sum-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: 999px; white-space: nowrap;
+    font: 700 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; font-variant-numeric: tabular-nums; }
+  .ba-affix-sum-chip[data-kind="and"] { color: #c7f5df; background: rgba(79,211,154,0.16); box-shadow: inset 0 0 0 1px rgba(79,211,154,0.5); }
+  .ba-affix-sum-chip[data-kind="or"] { color: #d3f0ff; background: rgba(92,195,242,0.16); box-shadow: inset 0 0 0 1px rgba(92,195,242,0.5); }
+  .ba-affix-sum-chip[data-kind="or-corrupted"] { color: #ffd0d8; background: rgba(242,96,120,0.18); box-shadow: inset 0 0 0 1px rgba(242,96,120,0.5); }
+  .ba-affix-sum-chip[data-kind="value"] { color: #e9e4ff; background: rgba(167,139,250,0.18); box-shadow: inset 0 0 0 1px rgba(167,139,250,0.45); }
+  .ba-affix-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .ba-affix-clear { height: 36px; padding: 0 12px !important; margin: 0 !important; border-radius: 10px !important; cursor: pointer;
     border: 1px solid rgba(255,255,255,0.12) !important; background: rgba(255,255,255,0.04) !important; color: #a39fbb !important;
     font: 600 13px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; }
@@ -905,6 +979,7 @@ function makeWatchButton(id, item) {
           listingId: id, origin: location.host, game, league: leagueFromUrl(),
           name: item.name || item.typeLine || '', baseType: item.baseType || item.typeLine || '',
           icon: item.icon || null, seller: pobSellers.get(id) || '', price: pobPrices.get(id) || null,
+          rarity: rarityOfItem(item), // 카드 이름 테두리 색(고유·비고유)
           sourceUrl: location.href, // 죽으면 이 검색을 다시 연다 — 아이템→조건 역추출을 만들지 않기 위함
         })
         if (r.ok) setState(true)
@@ -1175,7 +1250,7 @@ async function openAffixesFor(group, btn) {
     .filter(Boolean)
   const listForClass = (cls, base = null) => affixListFor({ table: tierTable, affixes: affixTable, itemClass: cls, statMap, ilvlMax, existingIds, base })
   const label = groupLabel(document, group)
-  const prefs = await loadAffixPrefs()
+  const prefs = { ...(await loadAffixPrefs()), emphasis: await loadAffixEmphasis() }
   openAffixPopover({
     anchor: btn,
     title: label,
@@ -1189,9 +1264,9 @@ async function openAffixesFor(group, btn) {
     onPrefs: saveAffixPrefs,
     onAdd: async (picks, meta) => {
       const typeFilters = typeFiltersFor(meta?.classes, itemClass)
-      const res = await requestAddStatFilters(groupToken(group), picks, typeFilters)
+      const res = await requestAddStatFilters(groupToken(group), picks, typeFilters, meta?.orMin)
       LOG('속성 목록 — 넣기', JSON.stringify({ added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], typed: res.typed ?? [], error: res.error ?? null }))
-      panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role), typeFilters }, label))
+      panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role), typeFilters, orMin: meta?.orMin }, label))
     },
   })
 }
@@ -1229,16 +1304,20 @@ function typeFiltersFor(classes, pageClass) {
   return out
 }
 
-// 속성 목록 설정 — OR 나눠 넣기 · 유형마다 마지막에 고른 베이스(주얼 → 루비). 창을 닫았다 열어도, 페이지를 옮겨도 남긴다.
+// 속성 목록 설정 — 유형마다 마지막에 고른 베이스(주얼 → 루비). 창을 닫았다 열어도, 페이지를 옮겨도 남긴다.
 const AFFIX_PREFS_KEY = 'affixPickerPrefs'
 async function loadAffixPrefs() {
   try {
-    const got = (await chrome.storage.local.get(AFFIX_PREFS_KEY))[AFFIX_PREFS_KEY]
-    return got && typeof got === 'object' ? got : {}
+    const saved = (await chrome.storage.local.get(AFFIX_PREFS_KEY))[AFFIX_PREFS_KEY]
+    return { baseByClass: (saved && typeof saved === 'object' && saved.baseByClass) || {} }
   } catch (_) { return {} } // 확장이 새로고침돼 연결이 끊겼어도 창은 기본값으로 연다
 }
+// 속성 목록 강조(하단 안내·선택 요약의 강조와 움직임) — 패널 ⚙ 설정 uiAffixEmphasis, 기본 켬
+async function loadAffixEmphasis() {
+  try { return (await chrome.storage.local.get('uiAffixEmphasis')).uiAffixEmphasis !== false } catch (_) { return true }
+}
 function saveAffixPrefs(prefs) {
-  try { chrome.storage.local.set({ [AFFIX_PREFS_KEY]: prefs }).catch(() => {}) } catch (_) { /* 저장 실패는 다음에 기본값으로 연다 */ }
+  try { chrome.storage.local.set({ [AFFIX_PREFS_KEY]: { baseByClass: prefs?.baseByClass ?? {} } }).catch(() => {}) } catch (_) { /* 저장 실패는 다음에 기본값으로 연다 */ }
 }
 
 /** 거래소에 넣은 결과를 사용자 말로. 응답은 페이지 쪽에서 오므로 개수만 쓰고 내용은 싣지 않는다. */
@@ -1255,8 +1334,10 @@ function addResultMessage(res, label) {
   if (added) parts.push(`속성 ${added}개를 ${spread ? '넣었어요' : `${label}에 넣었어요`}.${valued ? ` ${valued}개는 고른 값까지 채웠어요.` : ' 값은 티어 칩으로 고르세요.'}`)
   if (created.includes('and')) parts.push('필수 조건은 새 「모두 만족」 그룹에 넣었어요.')
   const orGroups = created.filter((c) => c === 'or').length
-  if (orGroups > 1) parts.push(`OR 조건은 접두어·접미어로 나눠 새 「개수(최소 1)」 그룹 ${orGroups}개에 넣었어요.`)
-  else if (orGroups) parts.push('OR 조건은 새 「개수(최소 1)」 그룹에 넣었어요.')
+  const mins = Object.values(res?.orMin ?? {})
+  const minText = mins.length && mins.every((n) => n === mins[0]) ? `(최소 ${mins[0]})` : ''
+  if (orGroups > 1) parts.push(`후보 조건은 접두어·접미어로 나눠 새 「개수${minText}」 그룹 ${orGroups}개에 넣었어요.`)
+  else if (orGroups) parts.push(`후보 조건은 새 「개수${minText}」 그룹에 넣었어요.`)
   if (have) parts.push(`${have}개는 이미 그 그룹에 있어서 뺐어요.`)
   if (refused) parts.push(`${refused}개는 거래소가 받지 않았어요.`)
   const typed = Array.isArray(res?.typed) ? res.typed : []
@@ -1271,12 +1352,12 @@ function addResultMessage(res, label) {
 }
 
 const pendingAdds = new Map()
-function requestAddStatFilters(token, items, typeFilters = null) {
+function requestAddStatFilters(token, items, typeFilters = null, orMin = null) {
   return new Promise((resolve) => {
     const reqId = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
     const timer = setTimeout(() => { pendingAdds.delete(reqId); resolve({ error: 'timeout', added: [], skipped: [] }) }, 3000)
     pendingAdds.set(reqId, (r) => { clearTimeout(timer); resolve(r) })
-    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items, ...(typeFilters ? { typeFilters } : {}) }, location.origin)
+    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items, ...(typeFilters ? { typeFilters } : {}), ...(orMin ? { orMin } : {}) }, location.origin)
   })
 }
 

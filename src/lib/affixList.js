@@ -173,12 +173,17 @@ export function affixFilterValue(item, choiceIndex) {
 }
 
 /**
- * 검색어로 거른다. 공백을 무시하고 부분 일치 — 거래소 드롭다운 검색과 같은 감각이다.
+ * 검색어로 거른다 — 거래소의 「~」 퍼지 검색과 같은 감각을 `~` 없이 쓴다(사용자 요청 2026-09-16).
+ * 띄어 쓴 조각마다 문구 어딘가에 들어 있으면 맞는다(순서 무관: `저항 화염` → `화염 저항 #%`).
+ * 조각 안의 비교는 공백을 무시한다(`화염저항` → `화염 저항`). 습관처럼 붙인 앞 `~` 는 떼어 낸다.
  * @param {AffixItem[]} items
  * @param {string} term
  */
 export function filterAffixes(items, term) {
-  const key = String(term ?? '').replace(/\s+/g, '').toLowerCase()
-  if (!key) return items
-  return items.filter((it) => it.text.replace(/\s+/g, '').toLowerCase().includes(key))
+  const parts = String(term ?? '').toLowerCase().split(/\s+/).map((p) => p.replace(/^~+/, '')).filter(Boolean)
+  if (!parts.length) return items
+  return items.filter((it) => {
+    const text = it.text.replace(/\s+/g, '').toLowerCase()
+    return parts.every((p) => text.includes(p))
+  })
 }

@@ -44,6 +44,8 @@ export const SETTINGS_TOUR = [
     body: '<b>북마크 · 찜한 매물 · 히스토리</b>의 순서를 ▲▼로 바꿉니다. 시즌 끝물처럼 찜을 더 자주 보는 때엔 찜을 맨 위로 올려 두세요. 목록에서 <b>섹션 제목을 클릭하면 그 섹션이 통째로 접힙니다</b> — 접어도 개수는 남아요.' },
   { sel: '.ba-setting[data-setting="fuzzy"]', open: 'settings', try: true, title: '퍼지 검색 — 단어가 들어간 것 전부',
     body: '거래소 능력치 칸 맨 앞에 <b>~</b> 를 자동으로 넣어, 입력한 단어가 <b>들어간</b> 항목을 모두 찾습니다. 정확히 그 스탯만 보고 싶을 땐 끄세요 — 거래소 기본 동작 그대로가 됩니다.' },
+  { sel: '.ba-setting[data-setting="affixemph"]', open: 'settings', try: true, title: '속성 목록 강조 — 익숙해지면 끄기',
+    body: '능력치 그룹의 <b>속성 목록</b> 아래 안내를 눈에 띄게 하고, 고른 개수가 바뀔 때 짧게 움직여 알려줍니다. 쓰는 법이 손에 익으면 <b>끔</b>으로 두세요 — 안내와 선택 요약은 차분한 모양으로 그대로 남아요.' },
 ]
 
 export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migrateSearch, applyConditionSet, getStatMap, tourDemo }) {
@@ -178,6 +180,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     applyPagePush(isCollapsed())
     if (activeTourLayout) activeTourLayout() // 투어 중 폭을 바꾸면 카드·스포트라이트도 따라온다
   }
+  let affixEmphasisOn = true // 속성 목록 하단 안내·선택 요약 강조 (uiAffixEmphasis, 기본 켬 — content-main 이 창을 열 때 읽는다)
   let fuzzyOn = true // 거래소 필터칸 "~" 퍼지 접두사 강제 (uiFuzzyPrefix, 기본 켬 — fuzzyPrefix.js가 실제 동작 담당)
   // 펼쳤을 때 페이지 콘텐츠를 패널 반대쪽으로 밀어 자리를 확보(도킹) → 검색 영역과 겹침 방지. 좌/우 배치에 따라 방향 반전.
   // 폭 드래그 중인가 — 이 동안에는 폭에 물린 전환을 전부 끈다.
@@ -300,10 +303,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   setTimeout(settled, 400) // 정본이 영영 안 와도(컨텍스트 무효화 등) 반드시 푼다 — 실패해도 '애니메이션 없음'뿐
   applyWidth(cached ? cached.width : panelW)
   try {
-    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth', 'uiBriefView', 'uiHeadCompact']).then((r) => {
+    chrome.storage.local.get(['uiCollapsed', 'uiPanelSide', 'uiFuzzyPrefix', 'uiPanelWidth', 'uiBriefView', 'uiHeadCompact', 'uiAffixEmphasis']).then((r) => {
       applyWidth((r && r.uiPanelWidth) || panelW)
       if (r && r.uiPanelSide) applySide(r.uiPanelSide)
       if (r && typeof r.uiFuzzyPrefix === 'boolean') fuzzyOn = r.uiFuzzyPrefix
+      if (r && typeof r.uiAffixEmphasis === 'boolean') affixEmphasisOn = r.uiAffixEmphasis
       if (r && typeof r.uiBriefView === 'boolean') applyBrief(r.uiBriefView)
       if (r && typeof r.uiHeadCompact === 'boolean') applyHeadCompact(r.uiHeadCompact)
       if (r && typeof r.uiCollapsed === 'boolean') { elRoot.classList.toggle('collapsed', r.uiCollapsed); applyPagePush(r.uiCollapsed) }
@@ -828,8 +832,16 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
             <span class="ba-set-opt${fuzzyOn ? '' : ' active'}" data-fz="0">끔</span>
           </span>`,
         ) +
+        // 속성 목록 강조 — 처음 쓰는 사람에게 안내가 눈에 띄게 켠 채로 두고, 익숙해지면 끈다(사용자 요청 2026-09-16)
+        row('affixemph',
+          lbl('속성 목록 강조', '속성 목록 아래의 안내를 강조하고, 선택이 바뀔 때 짧게 움직여 알려줍니다.&#10;익숙해지면 끄세요 — 안내는 차분한 글자로 남아요.'),
+          `<span class="ba-seg ba-set-seg">
+            <span class="ba-set-opt${affixEmphasisOn ? ' active' : ''}" data-ae="1">켬</span>
+            <span class="ba-set-opt${affixEmphasisOn ? '' : ' active'}" data-ae="0">끔</span>
+          </span>`,
+        ) +
         // 다시 보기 경로. 자동 시작은 1회뿐이라 되돌아갈 길이 없으면 두 번째부터는 볼 방법이 사라진다.
-        `<button class="ba-setting-guide" id="ba-setting-guide" type="button">${icon('sparkle', 12)}설정 둘러보기 — 7가지를 하나씩 알려드려요</button>`
+        `<button class="ba-setting-guide" id="ba-setting-guide" type="button">${icon('sparkle', 12)}설정 둘러보기 — 8가지를 하나씩 알려드려요</button>`
       // 두 세그먼트가 .ba-set-opt를 공유하므로 각자의 data 속성으로 갈라 잡는다(안 그러면 서로의 클릭까지 받는다)
       pick.querySelectorAll('.ba-set-opt[data-side]').forEach((o) => o.addEventListener('click', async () => {
         applySide(o.dataset.side)
@@ -871,6 +883,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       pick.querySelectorAll('.ba-set-opt[data-fz]').forEach((o) => o.addEventListener('click', async () => {
         fuzzyOn = o.dataset.fz === '1'
         try { await chrome.storage.local.set({ uiFuzzyPrefix: fuzzyOn }) } catch (_) {}
+        render()
+      }))
+      pick.querySelectorAll('.ba-set-opt[data-ae]').forEach((o) => o.addEventListener('click', async () => {
+        affixEmphasisOn = o.dataset.ae === '1'
+        try { await chrome.storage.local.set({ uiAffixEmphasis: affixEmphasisOn }) } catch (_) {}
         render()
       }))
       // render() 는 클릭마다 innerHTML 을 다시 만든다 — 진입점 핸들러도 매번 다시 건다.
@@ -1368,7 +1385,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 속성 목록도 PoE2 전용이다(content-main renderAffixButtons 가 poe2 가 아니면 나간다). 대상 칩이 화면에 없으면
     // 예시 카드(demoTierHtml)의 같은 클래스 칩을 가리킨다. since 는 다음 릴리즈 — WHATS_NEW_VERSION 을 올릴 때 함께 뽑힌다.
     { sel: '.ba-affix-btn', global: true, demo: true, game: 'poe2', since: '0.14.0', title: '속성 목록 — 붙는 속성을 골라 바로 넣기',
-      body: '능력치 그룹의 <b>+ 능력치 필터 추가</b> 아래 <b>속성 목록</b> 칩을 누르면, 지금 아이템 유형에 붙을 수 있는 속성이 <b>기본 · 타락 · 에센스 · 훼손된 · 합금</b>, 그리고 기원의 나무·증강물로 붙는 특수 속성 줄로 나뉘어 떠요. 줄마다 <b>왼쪽이 접두어, 오른쪽이 접미어</b>예요. 여러 개를 체크해 한 번에 넣고, 행에 마우스를 올려 <b>티어(또는 범위)</b>를 고르면 값까지 채웁니다. <b>필수</b>·<b>OR</b>을 표시하면 알맞은 그룹을 찾거나 새로 만들어요. 유형을 아직 안 고르셨으면 창 위쪽 <b>장비창</b>에서 칸을 누르세요(주얼은 루비·에메랄드 같은 종류까지 고를 수 있어요) — 넣을 때 거래소의 <b>아이템 유형</b>과 <b>희귀도(모든 비고유)</b>도 맞춰 드려요. 검색은 직접 눌러야 돌아요.' },
+      body: '능력치 그룹의 <b>+ 능력치 필터 추가</b> 아래 <b>속성 목록</b> 칩을 누르면, 지금 아이템 유형에 붙을 수 있는 속성이 <b>기본 · 타락 · 에센스 · 훼손된 · 합금</b>, 그리고 기원의 나무·증강물로 붙는 특수 속성 줄로 나뉘어 떠요. 줄마다 <b>왼쪽이 접두어, 오른쪽이 접미어</b>예요. 여러 개를 체크해 한 번에 넣고, 행에 마우스를 올려 <b>티어(또는 범위)</b>를 고르면 값까지 채웁니다. 체크하면 <b>후보</b>(선택한 후보 중 정한 개수 이상인 아이템을 찾아요), 모두 붙어 있어야 하면 <b>필수</b>로 바꿔요 — 알맞은 그룹을 찾거나 새로 만들어요. 유형을 아직 안 고르셨으면 창 위쪽 <b>장비창</b>에서 칸을 누르세요(주얼은 루비·에메랄드 같은 종류까지 고를 수 있어요) — 넣을 때 거래소의 <b>아이템 유형</b>과 <b>희귀도(모든 비고유)</b>도 맞춰 드려요. 검색은 직접 눌러야 돌아요.' },
     { sel: '.ba-pob-btn', global: true, demo: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요.' },
     { sel: '.ba-exr-chip', global: true, demo: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준.' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },
@@ -1399,7 +1416,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // "패널 위치를 바꿀 수 있는 줄 몰랐다"는 문의가 계속 오는 이유가 그것이다.
     // 갈래 버튼을 누른 사람만 +7스텝으로 이어간다(투어 전체를 통째로 늘리지 않는다).
     { sel: '#ba-folder-pick', open: 'settings', since: '0.13.0', title: '설정 — 내 방식대로',
-      body: '⚙ 안에 일곱 가지가 있어요 — <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>패널 폭</b>(기본~최대), <b>보기</b>(기본 / 간략), <b>상단 영역</b>(표시 / 간결), <b>섹션 순서</b>, <b>필터 퍼지 검색</b>. 아래 <b>하나씩 볼게요</b>를 누르면 일곱 가지를 차례로 짚어드려요 (Alt+O).',
+      body: '⚙ 안에 여덟 가지가 있어요 — <b>패널 위치</b>(좌/우), <b>검색 열기</b>(현재 탭 / 새 탭), <b>패널 폭</b>(기본~최대), <b>보기</b>(기본 / 간략), <b>상단 영역</b>(표시 / 간결), <b>섹션 순서</b>, <b>필터 퍼지 검색</b>, <b>속성 목록 강조</b>(켬 / 끔). 아래 <b>하나씩 볼게요</b>를 누르면 여덟 가지를 차례로 짚어드려요 (Alt+O).',
       branch: { label: '하나씩 볼게요', steps: SETTINGS_TOUR } },
     { sel: '#ba-handle', title: '언제든 접기', body: '우측 핸들을 클릭하면 패널을 접고 펼칠 수 있어요 (Alt+B).' },
     { sel: '.ba-kbd-chip', title: '단축키 모음 & 변경', body: '⌨ 칩에 마우스를 올리면 모든 단축키가 정리돼 떠요 — Alt+A 능력치 필터 추가(반복 시 그룹 전환)가 특히 편해요. 패널 단축키(Alt+B·S)는 chrome://extensions/shortcuts 에서 직접 바꿀 수 있어요. 준비 끝!' },
@@ -1696,6 +1713,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       if (area !== 'local') return
       if (changes.uiPanelSide) applySide(changes.uiPanelSide.newValue || 'right')
       if (changes.uiPanelWidth) applyWidth(changes.uiPanelWidth.newValue)
+      if (changes.uiAffixEmphasis) affixEmphasisOn = changes.uiAffixEmphasis.newValue !== false
       if (changes.uiFuzzyPrefix) fuzzyOn = changes.uiFuzzyPrefix.newValue !== false // 다른 탭에서 바꾸면 설정 모달 표시도 따라간다
       if (changes.settingsTourSeen) updateGearDot() // 다른 탭에서 둘러보기를 봤으면 이 탭의 점도 사라진다
       if (changes.conditionSets) renderSets() // 다른 탭에서 묶음을 추가·삭제하면 칩 줄도 따라간다
