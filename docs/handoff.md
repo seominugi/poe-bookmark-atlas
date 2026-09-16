@@ -1119,10 +1119,13 @@ AdSense 대안으로 후원을 검토했다. **방향은 정해졌고 시점은 
 
 ## 현재 목표
 
-**0.13.0 릴리즈 게시 완료 · 스토어 심사 제출 완료 — 결과 대기 (2026-09-14)**
+**0.13.0 스토어 배포 완료 (사용자 확인 2026-09-17) · 다음은 0.14.0 — 속성 목록**
 
-**사용자가 `deploy/poe-bookmark-atlas-0.13.0.zip` 으로 스토어 심사 제출까지 완료(2026-09-14). 남은 것: 심사 결과 회신.**
-⚠ **심사 중에는 새 버전을 올리지 말 것** — 올리는 순간 이 제출분이 대체되고 심사가 처음부터 다시 시작된다.
+- 0.14.0 업데이트 노트(`src/lib/updateNotes.js` 맨 앞, 목업 `affix-list`·`rarity-chip`)와 가이드 투어 스텝(since 0.14.0: 속성 목록 · 고유/비고유 칩)을 미리 써 두었다. 버전은 아직 0.13.0 — 릴리즈 때 manifest·package 버전과 `WHATS_NEW_VERSION` 을 **0.14.0 으로 함께** 올리고, 노트 date 를 실제 날짜로 고친다.
+
+(아래는 0.13.0 릴리즈 당시 기록)
+
+**사용자가 `deploy/poe-bookmark-atlas-0.13.0.zip` 으로 스토어 심사 제출까지 완료(2026-09-14).**
 
 `develop` → `main` **fast-forward(`af75507..56cbdb3`, 21커밋)** — refspec push(`git push origin origin/develop:refs/heads/main`) →
 **`v0.13.0` 태그·릴리즈 publish(現 `Latest`, 대상 `main` = `56cbdb3`)** · 초안/사전 릴리즈 아님 · 본문 `[[mock:` 0개 ·

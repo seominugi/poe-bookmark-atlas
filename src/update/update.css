@@ -133,6 +133,10 @@ body {
 .mk-ic { color: #6f6893; }
 .mk-open { display: inline-flex; align-items: center; gap: 5px; flex: 1; min-width: 0; color: #e6e3f5; }
 .mk-open b { font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* 0.14.0 희귀도 테두리 — 패널의 .ba-open[data-rarity] 와 같은 색 */
+.mk-rarity-unique, .mk-rarity-nonunique { flex: 0 1 auto; padding: 3px 9px 3px 7px; border-radius: 8px; border: 1px solid; }
+.mk-rarity-unique { border-color: rgba(232,142,72,0.75); background: rgba(232,142,72,0.1); }
+.mk-rarity-nonunique { border-color: rgba(230,205,96,0.7); background: rgba(230,205,96,0.08); }
 .mk-price { flex: none; font-size: 11px; font-weight: 700; color: #fde68a; }
 .mk-more { flex: none; color: #9b94bd; }
 .mk-chip {
