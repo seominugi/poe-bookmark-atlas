@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder, lineTextVariants, specialAffixesOf, pruneTradeTwins } from '../scripts/build-tier-table.mjs'
+import { readFileSync } from 'node:fs'
+import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder, lineTextVariants, specialAffixesOf, pruneTradeTwins, LOCAL_MARK } from '../scripts/build-tier-table.mjs'
 import { normalizeTradeText } from '../src/lib/statTextNorm.js'
 import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
 
@@ -168,6 +169,37 @@ describe('specialAffixesOf — 에센스·타락 같은 버킷 속성의 값 사
     const { x } = specialAffixesOf(mods, index, new Set(['explicit.life']), [])
     expect(Object.keys(x)).toEqual(['explicit.fire'])
     expect(x['explicit.fire'].k).toBeUndefined()
+  })
+})
+
+describe('로컬 능력치 — 거래소 「(특정)」 조건에 잇는다', () => {
+  const index = new Map([
+    [normalizeTradeText('막기 확률 #% 증가'), ['explicit.global']],
+    [normalizeTradeText('막기 확률 #% 증가' + LOCAL_MARK), ['explicit.local']],
+    [normalizeTradeText('화염 저항 #%'), ['explicit.fire']],
+  ])
+  const mod = (id, stat, text, range) => ({
+    id, tier: 1, affixType: 'prefix', valueRanges: [range],
+    stats: [{ stats: [{ stat, valueRange: range }], text: { kr: text } }],
+  })
+
+  it('local_ 스탯은 (특정) 쪽, 전역 스탯은 표시 없는 쪽 — 짝이 없는 로컬 문구는 그대로', () => {
+    const { x } = specialAffixesOf([
+      mod('LocalBlockChance1', 'local_block_chance_+%', '막기 확률 (15-19)% 증가', [15, 19]),
+    ], index, new Set(), [])
+    expect(Object.keys(x)).toEqual(['explicit.local'])
+    const global = specialAffixesOf([mod('BlockChance1', 'block_chance_+%', '막기 확률 (15-19)% 증가', [15, 19])], index, new Set(), [])
+    expect(Object.keys(global.x)).toEqual(['explicit.global'])
+    const noTwin = specialAffixesOf([mod('LocalFire', 'local_fire_resistance', '화염 저항 (10-15)%', [10, 15])], index, new Set(), [])
+    expect(Object.keys(noTwin.x)).toEqual(['explicit.fire'])
+  })
+
+  it('실제 표 — 방어구·무기의 로컬 속성은 (특정) 조건이다', () => {
+    const affixes = JSON.parse(readFileSync(new URL('../src/lib/statAffixes.poe2.json', import.meta.url), 'utf8'))
+    const ids = (c) => [...affixes[c].p, ...affixes[c].s]
+    expect(ids('Buckler')).toContain('explicit.stat_2481353198') // 막기 확률 #% 증가(특정)
+    expect(ids('Buckler')).not.toContain('explicit.stat_4147897060') // 전역
+    expect(ids('Body_Armour')).not.toContain('explicit.stat_2866361420') // 방어도 #% 증가(전역)
   })
 })
 
