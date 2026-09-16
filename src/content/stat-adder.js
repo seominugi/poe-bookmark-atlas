@@ -13,9 +13,10 @@
 //
 // ⚠ 이 파일은 import 를 쓰면 안 된다. MAIN world 에는 chrome.runtime 이 없어 번들러의 import 로더가 깨진다.
 //
-// 요청: { __baSource:'ba-content', kind:'add-stat-filters', reqId, token, items:[{id, value, role}], typeFilters? }
+// 요청: { __baSource:'ba-content', kind:'add-stat-filters', reqId, token, items:[{id, value, role}], typeFilters?, orMin? }
 //   role — 'here'(누른 그룹) · 'and'(필수: 모두 만족 그룹) · 'or'(하나 이상: 개수 그룹, 최소 1)
 //          'or:prefix' · 'or:suffix' — OR 을 접두어·접미어로 나눠 넣을 때. 각자 따로 개수 그룹을 쓴다(사용자 요청 2026-09-16)
+//   orMin — { [OR 역할]: 최소 개수 } 개수 그룹의 「최소」 칸. 없으면 1. 1~12 정수만 받는다(사용자 요청 2026-09-16).
 //   typeFilters — { category?, rarity? } 거래소 옵션 id. category 는 다르면 바꾸고, rarity 는 「모두」일 때만 채운다
 //                 (사용자가 직접 고른 희귀도를 덮지 않는다).
 // 응답: { __baSource:'ba-bridge', kind:'stat-filters-added', reqId, added, valued, skipped, created, typed, error? }
@@ -111,6 +112,12 @@
       // 역할별 대상 그룹 — 필요할 때 한 번만 정한다(같은 요청에서 「필수」 여럿이 새 그룹 하나로 모이게).
       const targets = new Map()
       let homeClaimedByOr = false
+      const orMinFor = (role) => {
+        const n = d.orMin && typeof d.orMin === 'object' ? d.orMin[role] : null
+        return Number.isInteger(n) && n >= 1 && n <= 12 ? n : 1
+      }
+      // 개수 칸 — 사용자가 창에서 고른 값이다. 누른 개수 그룹을 쓸 때도 그 값으로 맞춘다(창에서 본 숫자와 결과가 같아야 한다).
+      const setCount = (vm, role) => { if (typeof vm.updateFloat === 'function') vm.updateFloat('min', String(orMinFor(role))) }
       const targetFor = async (role) => {
         if (targets.has(role)) return targets.get(role)
         const homeType = statsOf(home)[home.group.id] && statsOf(home)[home.group.id].type
@@ -127,12 +134,12 @@
         } else if (role === 'or' || role.startsWith('or:')) {
           // OR 은 다른 개수 그룹에 섞으면 그 그룹의 N 이 달라진다 — 누른 그룹이 개수 그룹이 아니면 새로 만든다.
           // 나눠 넣을 때는 누른 개수 그룹을 먼저 온 쪽 하나만 쓰고, 다른 쪽은 새 그룹을 만든다(한 그룹에 섞이면 나눈 뜻이 없다).
-          if (homeType === 'count' && !homeClaimedByOr) { vm = home; homeClaimedByOr = true }
+          if (homeType === 'count' && !homeClaimedByOr) { vm = home; homeClaimedByOr = true; setCount(vm, role) }
           else {
             vm = await createGroup(home, 'count')
             if (vm) {
               created.push('or')
-              if (typeof vm.updateFloat === 'function') vm.updateFloat('min', '1')
+              setCount(vm, role)
             }
           }
         }

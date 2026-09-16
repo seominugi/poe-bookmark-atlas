@@ -233,8 +233,15 @@ describe('filterAffixes', () => {
     expect(filterAffixes(items, '화염저항').map((x) => x.text)).toEqual(['화염 저항 #%'])
     expect(filterAffixes(items, '화염').length).toBe(2)
   })
+  it('퍼지 — 띄어 쓴 조각은 순서와 관계없이 모두 들어 있으면 맞는다, 앞의 ~ 는 떼어 낸다', () => {
+    expect(filterAffixes(items, '저항 화염').map((x) => x.text)).toEqual(['화염 저항 #%'])
+    expect(filterAffixes(items, '추가 화염').map((x) => x.text)).toEqual(['공격 시 화염 피해 #~# 추가'])
+    expect(filterAffixes(items, '~화염').length).toBe(2)
+    expect(filterAffixes(items, '화염 냉기')).toEqual([])
+  })
   it('빈 검색어면 그대로', () => {
     expect(filterAffixes(items, '  ')).toBe(items)
+    expect(filterAffixes(items, '~')).toBe(items)
   })
 })
 

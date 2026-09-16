@@ -55,7 +55,7 @@ describe('설정 둘러보기가 기대는 마크업', () => {
   it('스텝마다 가리킬 항목이 정확히 하나 있다', async () => {
     await mount()
     await openSettings()
-    expect(SETTINGS_TOUR.length).toBe(7)
+    expect(SETTINGS_TOUR.length).toBe(8)
     for (const step of SETTINGS_TOUR) {
       // 0개면 스포트라이트가 아무것도 못 잡고, 2개 이상이면 엉뚱한 쪽을 잡을 수 있다.
       expect(root.querySelectorAll(step.sel), `스텝 대상 없음/중복: ${step.sel}`).toHaveLength(1)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder, lineTextVariants, specialAffixesOf } from '../scripts/build-tier-table.mjs'
+import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder, lineTextVariants, specialAffixesOf, pruneTradeTwins } from '../scripts/build-tier-table.mjs'
 import { normalizeTradeText } from '../src/lib/statTextNorm.js'
 import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
 
@@ -168,5 +168,46 @@ describe('specialAffixesOf — 에센스·타락 같은 버킷 속성의 값 사
     const { x } = specialAffixesOf(mods, index, new Set(['explicit.life']), [])
     expect(Object.keys(x)).toEqual(['explicit.fire'])
     expect(x['explicit.fire'].k).toBeUndefined()
+  })
+})
+
+describe('pruneTradeTwins — 문구가 같은 거래소 id 쌍', () => {
+  const textOf = new Map([['explicit.a1', '모든 능력치 #'], ['explicit.a2', '모든 능력치 #'], ['explicit.s1', '정신력 #'], ['explicit.s2', '정신력 #'], ['explicit.life', '생명력 #']])
+  const rules = [
+    { scope: 'accessory', keep: 'explicit.a1', drop: 'explicit.a2' },
+    { scope: 'weapon', keep: 'explicit.a2', drop: 'explicit.a1' },
+    { scope: 'weapon.sceptre', keep: 'explicit.a1', drop: 'explicit.a2' },
+  ]
+  const entry = () => ({
+    p: ['explicit.a1', 'explicit.a2', 'explicit.life'], s: [],
+    c: { 'explicit.a1': 'attribute', 'explicit.a2': 'attribute', 'explicit.life': 'resource' },
+    a: { 'explicit.a1': { r: [] }, 'explicit.a2': { r: [] } },
+    m: [{ key: 'x', x: { 'explicit.s1': {}, 'explicit.s2': {} } }],
+    b: [{ id: 'B', n: 'b', k: { n: ['explicit.a1', 'explicit.a2'] } }],
+  })
+
+  it('부위 카테고리에 맞는 실측으로 매물 없는 쪽을 모든 풀에서 뺀다 — 부위마다 반대일 수 있다', () => {
+    const ring = entry()
+    const r1 = pruneTradeTwins(ring, { category: 'accessory.ring', rules, textOf })
+    expect(r1.dropped).toEqual(['explicit.a2'])
+    expect(ring.p).toEqual(['explicit.a1', 'explicit.life'])
+    expect(Object.keys(ring.a)).toEqual(['explicit.a1'])
+    expect(ring.c['explicit.a2']).toBeUndefined()
+    expect(ring.b[0].k.n).toEqual(['explicit.a1'])
+
+    const bow = entry()
+    pruneTradeTwins(bow, { category: 'weapon.bow', rules, textOf })
+    expect(bow.p).toEqual(['explicit.a2', 'explicit.life'])
+  })
+
+  it('더 좁은 scope 가 이기고, 실측이 없는 쌍은 그대로 두고 보고한다', () => {
+    const sceptre = entry()
+    const r = pruneTradeTwins(sceptre, { category: 'weapon.sceptre', rules, textOf })
+    expect(sceptre.p).toEqual(['explicit.a1', 'explicit.life'])
+    expect(Object.keys(sceptre.m[0].x)).toEqual(['explicit.s1', 'explicit.s2'])
+    expect(r.unresolved).toEqual(['정신력 # → explicit.s1 | explicit.s2'])
+    const none = entry()
+    expect(pruneTradeTwins(none, { category: null, rules, textOf }).dropped).toEqual([])
+    expect(none.p).toHaveLength(3)
   })
 })

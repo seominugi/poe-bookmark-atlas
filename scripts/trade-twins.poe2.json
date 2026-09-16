@@ -1,0 +1,29 @@
+{
+  "about": "거래소에 문구가 완전히 같은 능력치 id 가 둘 있는 경우(카카오·GGG 영문 모두 같다) 부위마다 매물이 실제로 걸리는 쪽. 문구로는 가릴 수 없어 거래소 검색으로 쟀다. 속성 목록(statAffixes)과 티어 표(statTiers)에서 drop 을 뺀다 — 두 표는 같은 id 집합을 지킨다(statTiersArtifact 테스트).",
+  "measured": {
+    "date": "2026-09-16",
+    "host": "poe.kakaogames.com",
+    "league": "Forbidden Rites",
+    "query": "status any · 능력치 id 하나(and) · 아이템 유형 = scope · 희귀도 모든 비고유(nonunique 표기 행) 또는 제한 없음(any 표기 행)",
+    "how_to_refresh": "build-tier-table 이 「문구가 같은데 실측이 없는 id 쌍」을 보고하면 그 부위 카테고리로 두 id 를 각각 검색해 0건인 쪽을 drop 에 적는다. 요청 한도(약 10초에 몇 건)가 있어 15초 간격으로 잰다."
+  },
+  "rules": [
+    { "text": "정신력 #", "scope": "armour", "keep": "explicit.stat_3981240776", "drop": "explicit.stat_2704225257", "totals": { "armour.chest any": [10000, 0], "armour.boots any": [5175, 0] } },
+    { "text": "정신력 #", "scope": "accessory", "keep": "explicit.stat_3981240776", "drop": "explicit.stat_2704225257", "totals": { "accessory.amulet any": [10000, 0] } },
+    { "text": "정신력 #", "scope": "weapon", "keep": "explicit.stat_3981240776", "drop": "explicit.stat_2704225257", "totals": { "weapon nonunique": [1233, 0] } },
+    { "text": "정신력 # (훼손된)", "scope": "weapon", "keep": "desecrated.stat_3981240776", "drop": "desecrated.stat_2704225257", "totals": { "weapon.staff any": [8816, 0] } },
+    { "text": "모든 능력치 #", "scope": "accessory", "keep": "explicit.stat_1379411836", "drop": "explicit.stat_2897413282", "totals": { "accessory.amulet nonunique": [10000, 0], "accessory.ring any": [10000, 0] } },
+    { "text": "모든 능력치 #", "scope": "weapon", "keep": "explicit.stat_2897413282", "drop": "explicit.stat_1379411836", "totals": { "weapon nonunique": [354, 0] } },
+    { "text": "정신력 #% 증가", "scope": "weapon.sceptre", "keep": "explicit.stat_3984865854", "drop": "explicit.stat_1416406066", "totals": { "weapon.sceptre any": [10000, 0] } },
+    { "text": "정신력 #% 증가", "scope": "armour", "keep": "explicit.stat_1416406066", "drop": "explicit.stat_3984865854", "totals": { "armour.chest nonunique": [402, 0] } },
+    { "text": "최대 룬 수호 #", "scope": "weapon", "keep": "explicit.stat_3336230913", "drop": "explicit.stat_774059442", "totals": { "weapon nonunique": [27, 0] } },
+    { "text": "최대 룬 수호 #", "scope": "accessory", "keep": "explicit.stat_3336230913", "drop": "explicit.stat_774059442", "totals": { "accessory.ring any": [619, 0] } },
+    { "text": "명중 시 #%의 확률로 출혈 유발", "scope": "jewel", "keep": "explicit.stat_2174054121", "drop": "explicit.stat_1519615863", "totals": { "jewel any": [10000, 0] } },
+    { "text": "지도 내 환영 안개가 #초 추가로 지속되고 사라짐", "scope": "map.tablet", "keep": "explicit.stat_3226351972", "drop": "explicit.stat_1174954559", "totals": { "map.tablet any": [10000, 0] } },
+    { "text": "지도에 아즈메리 혼백 1개 추가 등장", "scope": "map.tablet", "keep": "explicit.stat_358129101", "drop": "explicit.stat_775597083", "totals": { "map.tablet any": [10000, 1756] }, "note": "둘 다 매물이 있다 — drop 쪽 매물은 전부 감독관 서판(접미 (1-2)개 모드), 우리 줄은 모든 서판 접두 1개 모드" },
+    { "text": "지도에 에센스 1개 추가 등장", "scope": "map.tablet", "keep": "explicit.stat_395808938", "drop": "explicit.stat_2162684861", "totals": { "map.tablet any": [10000, 1306] }, "note": "drop 쪽 매물은 감독관 서판 — 위와 같다" },
+    { "text": "지도에 성소 1개 추가 등장", "scope": "map.tablet", "keep": "explicit.stat_1468737867", "drop": "explicit.stat_3042527515", "totals": { "map.tablet any": [10000, 1307] }, "note": "drop 쪽 매물은 감독관 서판" },
+    { "text": "지도에 금고 1개 추가 등장", "scope": "map.tablet", "keep": "explicit.stat_3240183538", "drop": "explicit.stat_3040603554", "totals": { "map.tablet any": [10000, 2448] }, "note": "drop 쪽 매물은 감독관 서판" },
+    { "text": "지도에 심연 1개 추가 등장", "scope": "map.tablet", "keep": "explicit.stat_1070816711", "drop": "explicit.stat_3490187949", "totals": { "map.tablet any": [4230, 4518] }, "note": "둘 다 심연 서판 — 매물 해시 대조: keep 은 「심연 1개 추가 등장」, drop 은 「심연 18개 추가 등장」(득시글거림과 함께 붙는 다른 모드)" }
+  ]
+}

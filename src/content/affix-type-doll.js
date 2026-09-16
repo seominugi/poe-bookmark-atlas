@@ -4,7 +4,10 @@
 //
 // 배치(사용자 지시 2026-09-16):
 //   왼쪽 「무기」 영역 — 무기 유형을 한데 모아 칸으로
-//   가운데 인형 — 투구 · 목걸이 · 갑옷 · 반지(오른쪽 한 칸) · 장갑 · 장화 · 허리띠. 인형은 창 가운데에 맞춘다
+//   가운데 「방어구」 영역 — 게임 장비창 모양 그대로 한 상자에 둔다. 창 가운데에 맞춘다
+//     투구·갑옷·허리띠는 같은 너비, 장갑·허리띠·장화는 한 줄에 같은 높이(아래 선이 맞는다),
+//     목걸이는 갑옷 윗선에, 반지는 갑옷 아랫선에 맞춘다(사용자 지시 2026-09-16)
+//     장신구(목걸이·반지·허리띠 — 거래소 분류 accessory)는 같은 상자 안에서 테두리 색으로만 구분한다
 //   오른쪽 「보조」 영역 — 보조 장비(방패·버클러·집중구·화살통)를 칸으로 구분
 //   허리띠 아래 — 「플라스크 · 호신부」와 「주얼 · 기타」
 // 아이콘은 직접 그린 단색 선 그림이다 — 게임 데이터의 아이템 이미지는 배포할 수 없다(poe-game-data lock: 로컬 빌드 전용).
@@ -37,23 +40,35 @@ const ICON = {
   LifeFlask: 'M10 3h4v5l4 5v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6l4-5zM7 15h10',
   ManaFlask: 'M9 3h6v4l3 3v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9l3-3zM6 14h12',
   UtilityFlask: 'M12 3v4M12 19a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM9 13h6',
+  TowerAugmentation: 'M7 3h10l2 4v14H5V7zM5 7h14M9 11h6M9 15h4',
 }
 const FALLBACK_ICON = 'M6 18 18 6M8 6h10v10'
 
 /** 영역별 유형 — 순서가 곧 칸 순서다. */
 export const DOLL_LAYOUT = {
-  weapon: ['Bow', 'Crossbow', 'Spear', 'Warstaff', 'One_Hand_Mace', 'Two_Hand_Mace', 'Wand', 'Sceptre', 'Staff', 'Talisman',
-    'Claw', 'Dagger', 'One_Hand_Sword', 'Two_Hand_Sword', 'One_Hand_Axe', 'Two_Hand_Axe', 'Flail'],
+  // 무기는 두 묶음(사용자 결정 2026-09-16). 「무도 무기」「마법 무기」는 게임·거래소 표기가 아니라 이 화면의 묶음 이름이다
+  // (거래소 공식 묶음은 근접·원거리·시전자 — 사용자가 짧은 이름을 골랐다, §30 확인 완료). 마법 무기 = 거래소 「시전자 무기」.
+  // 묶음 안에서는 같은 계열끼리 한 줄: 원거리 → 한손 → 양손. 출시 전 유형(클로·검·도끼 등)도 제 계열 줄에 둔다.
+  weapon: [
+    { key: 'martial', title: '무도 무기', rows: [
+      ['Bow', 'Crossbow'],
+      ['Spear', 'One_Hand_Mace', 'Claw', 'Dagger', 'One_Hand_Sword', 'One_Hand_Axe', 'Flail'],
+      ['Two_Hand_Mace', 'Warstaff', 'Talisman', 'Two_Hand_Sword', 'Two_Hand_Axe'],
+    ] },
+    { key: 'caster', title: '마법 무기', rows: [['Wand', 'Sceptre', 'Staff']] },
+  ],
   offhand: ['Shield', 'Buckler', 'Focus', 'Quiver'],
-  // 인형 칸 — 반지는 오른쪽 한 칸만 둔다(두 칸이 같은 유형이라 헷갈린다, 사용자 결정 2026-09-16).
-  // 크기: 투구·장갑·장화는 큰 정사각형, 목걸이·반지는 작은 정사각형(CSS data-area 로 정한다).
-  body: [
-    { cls: 'Helmet', area: 'helm' }, { cls: 'Amulet', area: 'amulet' },
-    { cls: 'Body_Armour', area: 'body' }, { cls: 'Ring', area: 'ring' },
-    { cls: 'Gloves', area: 'gloves' }, { cls: 'Boots', area: 'boots' }, { cls: 'Belt', area: 'belt' },
+  // 방어구 영역 칸 — 자리는 CSS grid-area(data-area)로 정한다. kind 'jewellery' 는 장신구 테두리로 구분한다.
+  // 반지는 한 칸만 둔다(두 칸이 같은 유형이라 헷갈린다, 사용자 결정 2026-09-16).
+  armour: [
+    { cls: 'Helmet', area: 'helm' }, { cls: 'Amulet', area: 'amulet', kind: 'jewellery' },
+    { cls: 'Body_Armour', area: 'body' }, { cls: 'Ring', area: 'ring', kind: 'jewellery' },
+    { cls: 'Gloves', area: 'gloves' }, { cls: 'Belt', area: 'belt', kind: 'jewellery' }, { cls: 'Boots', area: 'boots' },
   ],
   flask: ['LifeFlask', 'ManaFlask', 'UtilityFlask'],
-  other: ['Jewel', 'Relic'],
+  jewel: ['Jewel'],
+  // 기타 — 유물 뒤에 이 배치에 없는 새 유형이 붙는다
+  other: ['Relic', 'TowerAugmentation'],
 }
 
 const NS = 'http://www.w3.org/2000/svg'
@@ -78,7 +93,7 @@ export function buildTypeDoll(doc, classes, { onPick }) {
   const byCls = new Map(classes.map((c) => [c.cls, c]))
   const placed = new Set()
   const buttons = []
-  const make = (cls, area) => {
+  const make = (cls, area, kind) => {
     const c = byCls.get(cls)
     if (!c) return null
     placed.add(cls)
@@ -86,7 +101,8 @@ export function buildTypeDoll(doc, classes, { onPick }) {
     b.type = 'button'
     b.className = 'ba-affix-type ba-affix-slot'
     b.dataset.cls = cls
-    if (area) { b.dataset.area = area; b.style.gridArea = area }
+    if (area) b.dataset.area = area
+    if (kind) b.dataset.kind = kind
     const label = doc.createElement('span')
     label.textContent = c.label
     b.append(icon(doc, cls), label)
@@ -94,17 +110,55 @@ export function buildTypeDoll(doc, classes, { onPick }) {
     buttons.push(b)
     return b
   }
-  const group = (name, title, list) => {
+  // 영역 제목은 칩이다 — 영역마다 색이 달라 무기·방어구·보조 … 가 한눈에 갈린다(사용자 요청 2026-09-16)
+  const chip = (className, text, tone) => {
+    const c = doc.createElement('span')
+    c.className = className
+    c.dataset.tone = tone
+    c.textContent = text
+    return c
+  }
+  const slotsOf = (list) => {
+    const grid = doc.createElement('div')
+    grid.className = 'ba-affix-doll-slots'
+    for (const entry of list) {
+      const b = typeof entry === 'string' ? make(entry) : make(entry.cls, entry.area, entry.kind)
+      if (b) grid.appendChild(b)
+    }
+    return grid
+  }
+  const area = (name, titleChips) => {
     const box = doc.createElement('div')
     box.className = `ba-affix-doll-area is-${name}`
     const h = doc.createElement('div')
     h.className = 'ba-affix-doll-title'
-    h.textContent = title
-    const grid = doc.createElement('div')
-    grid.className = 'ba-affix-doll-slots'
-    for (const cls of list) { const b = make(cls); if (b) grid.appendChild(b) }
-    box.append(h, grid)
+    h.append(...titleChips)
+    box.appendChild(h)
+    return box
+  }
+  const group = (name, title, list) => {
+    const box = area(name, [chip('ba-affix-doll-chip', title, name)])
+    const grid = slotsOf(list)
+    box.appendChild(grid)
     return grid.childElementCount ? box : null
+  }
+  /** 무기 — 묶음마다 작은 칩 제목, 계열마다 한 줄. */
+  const weaponArea = () => {
+    // 영역 제목 칩은 두지 않는다 — 「무도 무기」「마법 무기」 칩이 곧 제목이다(사용자 요청 2026-09-17)
+    const box = doc.createElement('div')
+    box.className = 'ba-affix-doll-area is-weapon'
+    for (const sub of DOLL_LAYOUT.weapon) {
+      const wrap = doc.createElement('div')
+      wrap.className = 'ba-affix-doll-sub'
+      wrap.dataset.sub = sub.key
+      wrap.appendChild(chip('ba-affix-doll-subchip', sub.title, sub.key))
+      for (const row of sub.rows) {
+        const grid = slotsOf(row)
+        if (grid.childElementCount) wrap.appendChild(grid)
+      }
+      if (wrap.childElementCount > 1) box.appendChild(wrap)
+    }
+    return box.querySelector('.ba-affix-slot') ? box : null
   }
 
   const root = doc.createElement('div')
@@ -125,18 +179,24 @@ export function buildTypeDoll(doc, classes, { onPick }) {
 
   const body = doc.createElement('div')
   body.className = 'ba-affix-doll-body'
-  const weapon = group('weapon', '무기', DOLL_LAYOUT.weapon)
+  const weapon = weaponArea()
   const center = doc.createElement('div')
   center.className = 'ba-affix-doll-center'
-  for (const { cls, area } of DOLL_LAYOUT.body) { const b = make(cls, area); if (b) center.appendChild(b) }
+  const armour = group('armour', '방어구', DOLL_LAYOUT.armour)
+  if (armour) {
+    // 제목 줄에 장신구 칩을 나란히 — 금빛 테두리 칸이 장신구라는 범례
+    if (armour.querySelector('[data-kind="jewellery"]')) armour.querySelector('.ba-affix-doll-title').appendChild(chip('ba-affix-doll-chip', '장신구', 'jewellery'))
+    center.appendChild(armour)
+  }
   const offhand = group('offhand', '보조', DOLL_LAYOUT.offhand)
   const flask = group('flask', '플라스크 · 호신부', DOLL_LAYOUT.flask)
+  const jewel = group('jewel', '주얼', DOLL_LAYOUT.jewel)
   const leftovers = classes.map((c) => c.cls).filter((cls) => !placed.has(cls) && !DOLL_LAYOUT.other.includes(cls))
-  const other = group('other', '주얼 · 기타', [...DOLL_LAYOUT.other, ...leftovers])
+  const other = group('other', '기타', [...DOLL_LAYOUT.other, ...leftovers])
   const bottom = doc.createElement('div')
   bottom.className = 'ba-affix-doll-bottom'
-  for (const g of [flask, other]) if (g) bottom.appendChild(g)
-  for (const part of [weapon, center, offhand]) if (part) body.appendChild(part)
+  for (const g of [flask, jewel, other]) if (g) bottom.appendChild(g)
+  for (const part of [weapon, center.childElementCount ? center : null, offhand]) if (part) body.appendChild(part)
   if (bottom.childElementCount) body.appendChild(bottom)
   root.append(bar, body)
 
