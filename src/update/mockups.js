@@ -214,6 +214,40 @@ export const MOCKUPS = {
       <div class="mk-note">도는 동안 <b>몇 개째인지</b> 보이고, <b>다시 누르면 멈춥니다</b>.</div>`,
   },
 
+  // 0.14.0 — 속성 목록. 칩이 **어디에** 있고 창이 **어떻게 생겼는지**가 글로는 안 온다.
+  'affix-list': {
+    caption: '능력치 그룹의 <b>속성 목록</b> 칩 → 접두어 · 접미어 목록',
+    html: `
+      ${card(`
+        <div class="mk-line"><span class="mk-chip">+ 능력치 필터 추가</span></div>
+        <div class="mk-line"><span class="mk-chip mk-point">${icon('layers', 11)}속성 목록</span></div>`)}
+      <div class="mk-pair">
+        <div class="mk-side">
+          <div class="mk-side-lbl">접두어</div>
+          ${card(`
+            <div class="mk-line"><span class="mk-open"><b>생명력 최대치 #</b></span><span class="mk-chip mk-chip--tight">필수</span><span class="mk-chip mk-chip--tight">T1</span></div>
+            <div class="mk-line"><span class="mk-open"><b>방어도 #% 증가(특정)</b></span><span class="mk-chip mk-chip--tight mk-point">후보</span></div>`)}
+        </div>
+        <div class="mk-side">
+          <div class="mk-side-lbl">접미어 · 후보 중 최소 2</div>
+          ${card(`
+            <div class="mk-line"><span class="mk-open"><b>화염 저항 #%</b></span><span class="mk-chip mk-chip--tight mk-point">후보</span></div>
+            <div class="mk-line"><span class="mk-open"><b>냉기 저항 #%</b></span><span class="mk-chip mk-chip--tight mk-point">후보</span></div>
+            <div class="mk-line"><span class="mk-open"><b>번개 저항 #%</b></span><span class="mk-chip mk-chip--tight mk-point">후보</span></div>`)}
+        </div>
+      </div>
+      <div class="mk-note">체크하면 <b>후보</b>, 꼭 붙어야 하면 <b>필수</b>. 몇 개 이상인지는 제목 줄에서 정해요.</div>`,
+  },
+
+  // 0.14.0 — 희귀도 테두리. 색 설명은 그림 없이는 전달되지 않는다.
+  'rarity-chip': {
+    caption: '북마크 이름 칩의 <b>테두리 색</b>',
+    html: `
+      ${card(`<div class="mk-line"><span class="mk-open mk-rarity-unique">${icon('search', 12)}<b>베렉의 손아귀</b></span><span class="mk-price">≈ 92</span></div>`)}
+      ${card(`<div class="mk-line"><span class="mk-open mk-rarity-nonunique">${icon('search', 12)}<b>화염 저항 반지</b></span><span class="mk-price">≈ 24</span></div>`)}
+      <div class="mk-note"><b>주황</b> 고유 · <b>노랑</b> 비고유 · 희귀도 「모두」는 칠하지 않아요</div>`,
+  },
+
   'row-btn-fix': {
     caption: '거래소 검색 결과에서 <b>★ · PoB</b> 버튼의 자리',
     html: `<div class="mk-pair">
