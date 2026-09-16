@@ -8,6 +8,7 @@
 
 import { tiersFor } from '../lib/statTiers.js'
 import { setInputValue } from './setInputValue.js'
+import { bindPageTip } from './page-tip.js'
 
 export const CHIP_CLASS = 'ba-tier-chip'
 export const ASK_CLASS = 'ba-tier-ask'
@@ -106,7 +107,9 @@ function makeChipButton(tier, fill) {
   btn.className = CHIP_CLASS
   btn.textContent = `T${tier.t}`
   const side = fill === 'max' ? '최대' : '최소'
-  btn.title = `${tier.range} → ${side} ${tier[fill]} · 아이템 레벨 ${tier.l} 이상`
+  // 네이티브 title 대신 우리 툴팁(page-tip.js) — 운영체제 회색 상자를 쓰지 않는다(사용자 결정 2026-09-16)
+  btn.dataset.tip = `${tier.range} → ${side} ${tier[fill]} · 아이템 레벨 ${tier.l} 이상`
+  bindPageTip(btn, { placement: 'below' })
   return btn
 }
 

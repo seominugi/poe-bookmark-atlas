@@ -1365,6 +1365,10 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     // 없는 기능을 가르치면 "내 화면엔 왜 없냐"는 문의가 그대로 돌아온다.
     { sel: '.ba-tier-chip', global: true, demo: true, game: 'poe2', since: '0.13.0', title: 'T1 수치를 클릭 한 번에',
       body: '능력치 필터에서 이름 뒤에 <b>T1 T2 T3</b> 칩이 붙어요. 누르면 그 티어의 수치가 입력칸에 바로 들어갑니다 — DB에서 숫자를 찾아 옮겨 적지 않아도 돼요. 보통 <b>최소</b> 칸이고, <b>능력치 요구사항 감소</b>처럼 값이 음수인 능력치는 <b>최대</b> 칸에 들어가요(작을수록 좋으니까요). 값은 <b>아이템 유형</b>과 <b>아이템 레벨</b>에 따라 달라집니다(반지 생명력 T1은 100, 갑옷은 200). 유형을 아직 안 고르셨으면 칩 대신 <b>부위?</b>가 떠요. 지금은 PoE2 거래소에서만 동작합니다.' },
+    // 속성 목록도 PoE2 전용이다(content-main renderAffixButtons 가 poe2 가 아니면 나간다). 대상 칩이 화면에 없으면
+    // 예시 카드(demoTierHtml)의 같은 클래스 칩을 가리킨다. since 는 다음 릴리즈 — WHATS_NEW_VERSION 을 올릴 때 함께 뽑힌다.
+    { sel: '.ba-affix-btn', global: true, demo: true, game: 'poe2', since: '0.14.0', title: '속성 목록 — 붙는 속성을 골라 바로 넣기',
+      body: '능력치 그룹의 <b>+ 능력치 필터 추가</b> 아래 <b>속성 목록</b> 칩을 누르면, 지금 아이템 유형에 붙을 수 있는 속성이 <b>기본 · 타락 · 에센스 · 훼손된 · 합금</b>, 그리고 기원의 나무·증강물로 붙는 특수 속성 줄로 나뉘어 떠요. 줄마다 <b>왼쪽이 접두어, 오른쪽이 접미어</b>예요. 여러 개를 체크해 한 번에 넣고, 행에 마우스를 올려 <b>티어(또는 범위)</b>를 고르면 값까지 채웁니다. <b>필수</b>·<b>OR</b>을 표시하면 알맞은 그룹을 찾거나 새로 만들어요. 유형을 아직 안 고르셨으면 창 위쪽 <b>장비창</b>에서 칸을 누르세요(주얼은 루비·에메랄드 같은 종류까지 고를 수 있어요) — 넣을 때 거래소의 <b>아이템 유형</b>과 <b>희귀도(모든 비고유)</b>도 맞춰 드려요. 검색은 직접 눌러야 돌아요.' },
     { sel: '.ba-pob-btn', global: true, demo: true, title: '아이템을 PoB로', body: '검색 결과 카드의 "PoB" 버튼을 누르면 그 아이템을 영문 Path of Building import 텍스트로 복사해요.' },
     { sel: '.ba-exr-chip', global: true, demo: true, title: '가격을 한눈에', body: '제시 가격(POE1 카오스, POE2 엑잘) 옆에 환산값이 자동으로 붙어요 — 서미누기 환율 기준.' },
     { sel: '.ba-folder-savechip', title: '폴더에 바로 저장', body: '각 폴더 맨 위의 "+ 이 폴더에 현재 검색 저장"을 누르면, 지금 거래소 검색을 그 폴더로 곧장 넣을 수 있어요.' },

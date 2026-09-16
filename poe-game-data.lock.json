@@ -1,9 +1,9 @@
 {
   "schemaVersion": 2,
   "repository": "seominugi/poe-game-data",
-  "tag": "v2026.09.15",
-  "commit": "1613e0d9e564877510caf84513af997761d1d251",
-  "snapshot": "v2026.09.15",
+  "tag": "v2026.09.16.7",
+  "commit": "31c0504340758506d2b70960650d27140ea51322",
+  "snapshot": "v2026.09.16.7",
   "icons": {
     "manifestSha256": "a6df72495390605b21a9347cf2a8e80e919e099714ce347d633aff7270f88e82",
     "source": "local-ggpk-build",

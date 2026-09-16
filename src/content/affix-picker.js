@@ -6,11 +6,16 @@
 // 디자인: 글래스 시안 1번(가운데 시트) + 트리거는 티어 칩 모양(사용자 결정 2026-09-15).
 // 실제로 넣는 일은 MAIN world 의 stat-adder.js 가 한다. 이 파일은 DOM 과 사용자 선택만 다룬다.
 
-import { filterAffixes, affixFilterValue } from '../lib/affixList.js'
+import { filterAffixes, affixFilterValue, allAffixItems, SPECIAL_POOLS } from '../lib/affixList.js'
 import { groupByCategory } from '../lib/affixCategory.js'
+import { bindPageTip, hidePageTip } from './page-tip.js'
+import { buildTypeDoll } from './affix-type-doll.js'
 
 export const AFFIX_BTN_CLASS = 'ba-affix-btn'
 export const AFFIX_POP_CLASS = 'ba-affix-pop'
+const CHIP_ROW_CLASS = 'ba-affix-chiprow'
+/** 「속성 목록」 칩 아이콘 — 투어 예시 카드도 같은 것을 쓴다. */
+export const AFFIX_CHIP_ICON = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>'
 const ADD_PLACEHOLDERS = ['능력치 필터 추가', 'Add Stat Filter']
 // 이보다 길면 종류 묶음을 접은 채 시작한다 — 주얼(313개)은 펼치면 한 화면에 안 들어간다(사용자 결정 2026-09-15).
 const COLLAPSE_OVER = 80
@@ -34,9 +39,10 @@ export function groupToken(group) {
 /**
  * 그룹마다 칩을 한 번만 붙인다. 화면이 다시 그려져 사라지면 다음 호출에서 되살아난다.
  *
- * 자리는 **추가 줄의 「+ 능력치 필터 추가」 글자 바로 오른쪽**이다 — 티어 칩처럼 글자에 붙은 작은 칩으로 보이게.
- * 헤더 제목 뒤에 두었더니 밑줄에 붙어 간격이 없었고(2026-09-15 피드백), 줄 오른쪽 끝에 두면 드롭다운 화살표와 겹쳤다.
- * 글자는 입력칸의 placeholder 라 요소가 없으므로 글자 폭을 재서 그 오른쪽에 둔다(`placeChip`).
+ * 자리는 **추가 줄(「+ 능력치 필터 추가」) 바로 아래의 별도 줄**이다(사용자 요청 2026-09-16).
+ * 거쳐 온 자리: 헤더 제목 뒤(밑줄에 붙어 간격이 없었다) → 줄 오른쪽 끝(드롭다운 화살표와 겹쳤다) →
+ * 글자 오른쪽(글자 폭을 재서 두었는데 창 폭이 바뀌면 글자를 덮었다).
+ * 추가 줄은 그룹 본문의 마지막 자식이고 거래소는 새 행을 그 앞에 끼우므로, 그 뒤에 둔 줄은 행 순서를 흩뜨리지 않는다.
  * @param {ParentNode} root
  * @param {{onOpen:(group:HTMLElement, button:HTMLButtonElement)=>void}} ctx
  * @returns {number} 붙어 있는 칩 수
@@ -48,13 +54,22 @@ export function attachAffixButtons(root, { onOpen }) {
     const bar = input.closest('.filter')
     if (!group || !bar) continue
     count++
-    let btn = bar.querySelector(':scope > .' + AFFIX_BTN_CLASS)
+    let row = bar.nextElementSibling?.classList.contains(CHIP_ROW_CLASS) ? bar.nextElementSibling : null
+    if (!row) {
+      // 화면이 다시 그려져 줄이 떨어져 나갔으면 옛 줄을 치우고 새로 붙인다
+      group.querySelectorAll('.' + CHIP_ROW_CLASS).forEach((old) => old.remove())
+      row = document.createElement('div')
+      row.className = CHIP_ROW_CLASS
+      bar.after(row)
+    }
+    let btn = row.querySelector(':scope > .' + AFFIX_BTN_CLASS)
     if (!btn) {
       btn = document.createElement('button')
       btn.type = 'button'
       btn.className = AFFIX_BTN_CLASS
-      btn.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3 4h10M3 8h10M3 12h6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg><span>속성 목록</span>'
-      btn.title = '이 아이템 유형에 붙는 속성을 보고 이 그룹에 넣기'
+      btn.innerHTML = `${AFFIX_CHIP_ICON}<span>속성 목록</span>`
+      btn.dataset.tip = '이 아이템 유형에 붙는 속성을 보고 골라서\n이 그룹에 바로 넣어요'
+      bindPageTip(btn, { placement: 'below' })
       btn.setAttribute('aria-haspopup', 'dialog')
       // 거래소 드롭다운이 mousedown 으로 열리므로 여기서 끊는다 — 안 끊으면 칩을 누를 때 목록이 같이 열린다.
       btn.addEventListener('mousedown', (e) => e.stopPropagation())
@@ -63,28 +78,10 @@ export function attachAffixButtons(root, { onOpen }) {
         e.stopPropagation()
         onOpen(group, btn)
       })
-      bar.appendChild(btn)
+      row.appendChild(btn)
     }
-    placeChip(btn, input, bar)
   }
   return count
-}
-
-/** placeholder 글자의 오른쪽 끝 + 10px 에 칩을 둔다. 폭을 못 재면(테스트 환경 등) 줄 가운데 오른쪽으로 둔다. */
-function placeChip(btn, input, bar) {
-  const doc = input.ownerDocument
-  const barRect = bar.getBoundingClientRect()
-  const inRect = input.getBoundingClientRect()
-  let textWidth = 0
-  try {
-    const ctx = (placeChip.canvas ||= doc.createElement('canvas')).getContext('2d')
-    const cs = doc.defaultView.getComputedStyle(input)
-    ctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`
-    textWidth = ctx.measureText(input.getAttribute('placeholder') || '').width
-  } catch (_) { /* 폭을 못 재면 0 — 아래 폴백 */ }
-  const center = inRect.left + inRect.width / 2 - barRect.left
-  const left = Math.round(center + (textWidth ? textWidth / 2 + 10 : 60))
-  if (btn.style.left !== left + 'px') btn.style.left = left + 'px'
 }
 
 /** 사용자에게 보여 줄 그룹 이름 — 「그룹 2 · 숫자」. 번호는 능력치 그룹끼리의 위→아래 순서다. */
@@ -116,6 +113,10 @@ const ROLES = [
   { key: 'or', label: 'OR', tip: '하나 이상 만족하면 되는 그룹(개수, 최소 1)에 넣어요. 누른 그룹이 그 방식이 아니면 새로 만들어요.' },
 ]
 const SOURCE_LABEL = { prefix: '접두', suffix: '접미', corrupted: '타락' }
+// 접히는 공급원 띠 — 에센스·훼손된·합금. 일반 속성보다 드물게 찾으므로 접은 채 시작한다.
+const BAND_POOLS = SPECIAL_POOLS.filter((p) => p.sided)
+/** 목록 안에서 유일한 표식 — affixListFor 가 붙인 key, 없으면 출처와 id 로 만든다. */
+const keyOf = (item) => item.key ?? `${item.pool ?? item.source}:${item.id}`
 const TABS = [
   { key: 'all', label: '전체' },
   { key: 'prefix', label: '접두어' },
@@ -132,10 +133,12 @@ const TABS = [
  * @param {{status:string, prefix:object[], suffix:object[], corrupted?:object[]}} args.list 지금 유형의 affixListFor 결과
  * @param {Array<{cls:string, label:string}>} [args.classes] 유형 칩 — 누르면 그 유형의 목록을 본다
  * @param {string|null} [args.currentClass]
- * @param {(cls:string)=>object} [args.listForClass] 유형 칩을 눌렀을 때 그 유형의 목록
- * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'here'|'and'|'or'}>)=>Promise<void>|void} args.onAdd
+ * @param {(cls:string, base:string|null)=>object} [args.listForClass] 유형·베이스 칩을 눌렀을 때 그 목록
+ * @param {(cls:string)=>Array<{id:string,label:string}>} [args.basesForClass] 유형의 베이스 칩(없으면 빈 배열)
+ * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'here'|'and'|'or'}>, meta:{classes:Array<string|null>})=>Promise<void>|void} args.onAdd
+ *   meta.classes — 고른 속성이 온 유형(중복 없음, 넣는 순서). 유형 없이 본 목록이면 null 이 들어간다.
  */
-export function openAffixPopover({ anchor, title, subtitle, list, classes = [], currentClass = null, listForClass, onAdd }) {
+export function openAffixPopover({ anchor, title, subtitle, list, classes = [], currentClass = null, listForClass, basesForClass, onAdd }) {
   closeAffixPopover()
   const doc = anchor.ownerDocument
   const scrim = el(doc, 'div', 'ba-affix-scrim')
@@ -172,16 +175,25 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   head.append(titles, tabs, searchWrap, closeBtn)
   pop.appendChild(head)
 
-  // ── 유형 칩 줄 ──
-  const typeRow = el(doc, 'div', 'ba-affix-types')
-  const typeBtns = classes.map((c) => {
-    const b = el(doc, 'button', 'ba-affix-type', c.label)
-    b.type = 'button'
-    b.dataset.cls = c.cls
-    typeRow.appendChild(b)
-    return b
-  })
-  if (classes.length) pop.appendChild(typeRow)
+  // ── 유형 선택 — 장비창 모양(시안 A, 사용자 결정 2026-09-16). 유형을 고르면 접혀 목록에 자리를 내준다. ──
+  const pickClass = (cls) => {
+    if (!listForClass) return
+    doll.setOpen(false)
+    if (cls === current.cls) return
+    current = { cls, base: null, list: listForClass(cls, null) }
+    render()
+  }
+  const doll = buildTypeDoll(doc, classes, { onPick: pickClass })
+  // 이미 유형이 정해진 채 열면 접어서 시작한다 — 먼저 보여야 할 것은 속성 목록이다
+  doll.setOpen(!currentClass)
+  if (classes.length) pop.appendChild(doll.el)
+
+  // ── 베이스 칩 줄 — 한 유형 안에서 베이스마다 붙는 속성이 갈리는 곳(주얼: 루비·에메랄드·사파이어·다이아몬드·오래된 …) ──
+  // 유형이 바뀔 때마다 다시 그린다. 베이스가 없는 유형이면 줄을 숨긴다.
+  const baseRow = el(doc, 'div', 'ba-affix-bases')
+  baseRow.setAttribute('role', 'group')
+  baseRow.setAttribute('aria-label', '베이스')
+  pop.appendChild(baseRow)
 
   const body = el(doc, 'div', 'ba-affix-body')
   pop.appendChild(body)
@@ -197,12 +209,35 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   foot.append(hint, countEl, clearBtn, addBtn)
   pop.appendChild(foot)
 
-  // id → { index: 고른 값(-1 = 빈칸), role, item } — 유형을 바꿔도 고른 것은 남는다.
+  // item.key → { index: 고른 값(-1 = 빈칸), role, item } — 유형을 바꿔도 고른 것은 남는다.
+  // id 가 아니라 key(풀:id)로 쥔다 — 같은 능력치가 일반과 에센스에 함께 있다.
   const selected = new Map()
   let rows = [] // {item, row, box, pills, roles}
   let sections = [] // {el, rows, setOpen, startOpen}
+  let bands = [] // 공급원 띠 {el, rows, setOpen, startOpen}
   let tab = 'all'
-  let current = { cls: currentClass, list }
+  let current = { cls: currentClass, base: null, list }
+
+  const renderBases = () => {
+    baseRow.innerHTML = ''
+    const bases = basesForClass && current.cls ? basesForClass(current.cls) : []
+    baseRow.hidden = !bases.length
+    if (!bases.length) return
+    const choices = [{ id: null, label: '모든 베이스' }, ...bases]
+    for (const c of choices) {
+      const b = el(doc, 'button', 'ba-affix-base', c.label)
+      b.type = 'button'
+      const on = c.id === current.base
+      b.classList.toggle('is-on', on)
+      b.setAttribute('aria-pressed', String(on))
+      b.addEventListener('click', () => {
+        if (c.id === current.base || !listForClass) return
+        current = { cls: current.cls, base: c.id, list: listForClass(current.cls, c.id) }
+        render()
+      })
+      baseRow.appendChild(b)
+    }
+  }
 
   const refresh = () => {
     const picks = [...selected.values()]
@@ -222,26 +257,25 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     addBtn.disabled = n === 0
     clearBtn.hidden = n === 0
   }
-  /** 목록 안 위치 — 넣는 순서를 체크한 순서가 아니라 목록 순서(접두 → 접미 → 타락)로 맞추는 데 쓴다. */
+  /** 목록 안 위치 — 넣는 순서를 체크한 순서가 아니라 목록 순서(일반 접두 → 접미 → 타락 → 에센스 …)로 맞추는 데 쓴다. */
   const posOf = (item) => {
-    const l = current.list
-    const i = [...(l.prefix ?? []), ...(l.suffix ?? []), ...(l.corrupted ?? [])].indexOf(item)
+    const i = allAffixItems(current.list).indexOf(item)
     return i < 0 ? Number.MAX_SAFE_INTEGER : i
   }
   const classOrder = new Map() // 유형 → 처음 고른 차례
   const setRow = (r, pick) => {
-    if (pick === undefined) selected.delete(r.item.id)
+    if (pick === undefined) selected.delete(keyOf(r.item))
     else {
-      const prev = selected.get(r.item.id)
+      const prev = selected.get(keyOf(r.item))
       const clsKey = current.cls ?? ''
       if (!classOrder.has(clsKey)) classOrder.set(clsKey, classOrder.size)
-      selected.set(r.item.id, { ...pick, item: r.item, pos: prev?.pos ?? posOf(r.item), batch: prev?.batch ?? classOrder.get(clsKey) })
+      selected.set(keyOf(r.item), { ...pick, item: r.item, pos: prev?.pos ?? posOf(r.item), batch: prev?.batch ?? classOrder.get(clsKey), cls: prev?.cls ?? current.cls })
     }
     paintRow(r)
     refresh()
   }
   const paintRow = (r) => {
-    const pick = selected.get(r.item.id)
+    const pick = selected.get(keyOf(r.item))
     r.box.checked = !!pick
     r.row.classList.toggle('is-on', !!pick)
     r.pills.forEach((p, i) => {
@@ -260,17 +294,19 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   /** 지금 유형·탭으로 본문을 다시 그린다. 고른 것(selected)은 그대로 둔다. */
   const render = () => {
     const l = current.list
-    typeBtns.forEach((b) => {
-      const on = b.dataset.cls === current.cls
-      b.classList.toggle('is-on', on)
-      b.setAttribute('aria-pressed', String(on))
-    })
+    doll.setCurrent(current.cls)
+    renderBases()
+    hidePageTip() // 다시 그리면 툴팁을 띄운 행이 사라진다
     body.innerHTML = ''
     rows = []
     sections = []
+    bands = []
+    const sideCount = (side) => (l[side]?.length ?? 0)
+      + BAND_POOLS.reduce((n, p) => n + (l[p.pool]?.[side]?.length ?? 0), 0)
+      + (l.mechanics ?? []).reduce((n, m) => n + (m[side]?.length ?? 0), 0)
     const counts = {
-      all: (l.prefix?.length ?? 0) + (l.suffix?.length ?? 0) + (l.corrupted?.length ?? 0),
-      prefix: l.prefix?.length ?? 0, suffix: l.suffix?.length ?? 0, corrupted: l.corrupted?.length ?? 0,
+      all: allAffixItems(l).length,
+      prefix: sideCount('prefix'), suffix: sideCount('suffix'), corrupted: l.corrupted?.length ?? 0,
     }
     tabBtns.forEach((t) => {
       t.el.textContent = ''
@@ -287,41 +323,112 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
         : '아이템 유형을 먼저 고르면, 그 유형에 붙는 속성을 보여 드려요.'))
       return
     }
-    const all = [...l.prefix, ...l.suffix, ...(l.corrupted ?? [])]
-    const items = tab === 'all' ? all : (l[tab] ?? [])
-    const startOpen = items.length <= COLLAPSE_OVER
-    if (!items.length) {
+    if (!counts[tab]) {
       body.appendChild(el(doc, 'div', 'ba-affix-none', '이 유형에는 없어요'))
       return
     }
-    // 전체 탭: 접두어 | 접미어 | 타락 을 상위 열로 먼저 가르고, 그 안에서 종류별로 묶는다(사용자 요청 2026-09-15).
-    // 한 출처만 보는 탭: 종류 묶음을 폭이 되는 만큼 여러 열로 흘린다.
-    if (tab === 'all') {
-      const cols = el(doc, 'div', 'ba-affix-srccols')
-      for (const t of TABS.slice(1)) {
-        const list = l[t.key] ?? []
-        if (!list.length) continue
-        const col = el(doc, 'div', 'ba-affix-srccol')
-        const h = el(doc, 'div', 'ba-affix-srccol-title')
-        h.append(t.label, el(doc, 'em', null, String(list.length)))
-        if (t.key === 'corrupted') col.classList.add('is-corrupted')
-        col.appendChild(h)
-        renderSections(col, list, startOpen, false)
-        cols.appendChild(col)
-      }
-      body.appendChild(cols)
-    } else {
-      const flow = el(doc, 'div', 'ba-affix-flow')
-      renderSections(flow, items, startOpen, false)
-      body.appendChild(flow)
+    // 짜임(사용자 요청 2026-09-16):
+    //   ① 타락 — 맨 위에 붉은 한 줄로 고정한다. 접지 않는다.
+    //   ② 기본 · 에센스 · 훼손된 · 합금 — 같은 모양의 접이식 띠. 기본만 펼친 채 시작한다.
+    //   ③ 띠 안은 **왼쪽 접두어 | 오른쪽 접미어** 로 자리를 못 박는다. 한쪽이 비어도 자리는 남긴다 —
+    //      훼손된처럼 접미어만 있는 풀이 왼쪽에 그려져 접두어로 읽혔다.
+    // 접두어·접미어 탭은 한쪽만 보므로 두 열로 가르지 않고 폭이 되는 만큼 흘린다.
+    if (tab !== 'prefix' && tab !== 'suffix' && l.corrupted?.length) renderCorrupted(l.corrupted, tab === 'corrupted')
+    if (tab !== 'corrupted') {
+      const normalCount = tab === 'all' ? (l.prefix?.length ?? 0) + (l.suffix?.length ?? 0) : (l[tab]?.length ?? 0)
+      // 기본 속성이 길면(주얼 313개) 종류 묶음을 접은 채 시작한다.
+      renderBand({ pool: 'normal', label: '기본' }, l, tab, normalCount <= COLLAPSE_OVER)
+      for (const p of BAND_POOLS) renderBand(p, l[p.pool], tab, true)
+      // 기원의 나무처럼 메커니즘이 열어 주는 풀 — 이름은 게임 데이터가 준다
+      for (const m of l.mechanics ?? []) renderBand({ pool: m.pool, label: m.label, desc: m.desc, mechanic: true }, m, tab, true)
     }
     applySearch()
+  }
+
+  /** 타락 — 맨 위 붉은 띠. 게임에서 타락은 붉게 보이고, 일반 속성과 섞여 읽히면 안 된다(사용자 요청 2026-09-16).
+   *  전체 탭에서는 접은 채 시작한다 — 처음 보이는 것은 기본 속성이어야 한다(사용자 요청 2026-09-16).
+   *  타락 탭은 타락만 보려고 고른 것이라 펼친 채 연다. */
+  const renderCorrupted = (list, open) => {
+    makeBand({ pool: 'corrupted', label: '타락', meta: `${list.length}개`, defaultOpen: open }, (inner) => {
+      const flow = el(doc, 'div', 'ba-affix-flow')
+      renderSections(flow, list, true, false)
+      inner.appendChild(flow)
+    })
+  }
+
+  const sideColumn = (label, list, startOpen) => {
+    const col = el(doc, 'div', 'ba-affix-srccol')
+    // 접두어·접미어는 띠 이름보다 한 단 아래 — 들여 쓴 칩으로 띠 이름과 구분한다(사용자 요청 2026-09-16).
+    const h = el(doc, 'div', 'ba-affix-srccol-title')
+    h.dataset.side = label === '접두어' ? 'prefix' : 'suffix'
+    h.append(el(doc, 'span', 'ba-affix-side-chip', label), el(doc, 'em', null, String(list.length)))
+    col.appendChild(h)
+    if (list.length) renderSections(col, list, startOpen, false)
+    else {
+      col.classList.add('is-empty')
+      col.appendChild(el(doc, 'p', 'ba-affix-side-none', `${label}는 붙지 않아요`))
+    }
+    return col
+  }
+
+  // 띠를 펼치고 접은 상태 — 탭·유형을 바꿔도 사용자가 둔 대로 남긴다.
+  const bandOpen = new Map()
+
+  /** 공급원 띠 — 기본·에센스·훼손된·합금. 머리를 누르면 펼친다. */
+  const renderBand = (p, v, side, sectionsOpen) => {
+    const pre = side === 'suffix' ? [] : (v?.prefix ?? [])
+    const suf = side === 'prefix' ? [] : (v?.suffix ?? [])
+    if (!pre.length && !suf.length) return
+    const meta = side === 'all' ? `접두어 ${pre.length} · 접미어 ${suf.length}` : `${side === 'prefix' ? '접두어' : '접미어'} ${pre.length + suf.length}`
+    makeBand({ pool: p.pool, label: p.label, desc: p.desc, mechanic: p.mechanic, meta, defaultOpen: p.pool === 'normal' }, (inner) => {
+      if (side === 'all') {
+        const grid = el(doc, 'div', 'ba-affix-sidegrid')
+        grid.append(sideColumn('접두어', pre, sectionsOpen), sideColumn('접미어', suf, sectionsOpen))
+        inner.appendChild(grid)
+      } else {
+        const flow = el(doc, 'div', 'ba-affix-flow')
+        renderSections(flow, side === 'prefix' ? pre : suf, sectionsOpen, false)
+        inner.appendChild(flow)
+      }
+    })
+  }
+
+  /** 접이식 띠 하나 — 머리(이름 · 개수 · 펼침 표시)와 본문. fill 이 본문에 행을 그린다. */
+  const makeBand = ({ pool, label, desc, mechanic, meta, defaultOpen }, fill) => {
+    const band = el(doc, 'section', 'ba-affix-band')
+    band.dataset.pool = pool
+    if (mechanic) band.classList.add('is-mechanic')
+    const head = el(doc, 'button', 'ba-affix-band-head')
+    head.type = 'button'
+    head.append(el(doc, 'span', 'ba-affix-band-name', label))
+    if (desc) head.append(el(doc, 'span', 'ba-affix-band-desc', desc))
+    // 머리 전체가 누를 수 있는 칩이다 — 오른쪽 둥근 단추에 펼침 표시를 넣어 「누르면 열린다」가 보이게 한다(사용자 요청 2026-09-16)
+    const toggle = el(doc, 'span', 'ba-affix-band-toggle')
+    toggle.append(el(doc, 'span', 'ba-affix-band-toggle-label'), el(doc, 'span', 'ba-affix-sec-chev'))
+    head.append(el(doc, 'span', 'ba-affix-band-meta', meta), toggle)
+    const inner = el(doc, 'div', 'ba-affix-band-body')
+    const before = rows.length
+    fill(inner)
+    const b = { el: band, rows: rows.slice(before), startOpen: bandOpen.get(`${pool}|${tab}`) ?? bandOpen.get(pool) ?? defaultOpen }
+    b.setOpen = (open) => {
+      band.classList.toggle('is-open', open)
+      head.setAttribute('aria-expanded', String(open))
+      toggle.firstChild.textContent = open ? '접기' : '펼치기'
+      inner.hidden = !open
+    }
+    // 직접 펼치거나 접은 띠는 검색을 지워도, 탭을 바꿔도 그대로 둔다
+    head.addEventListener('click', () => { b.startOpen = inner.hidden; bandOpen.set(pool, b.startOpen); b.setOpen(b.startOpen) })
+    band.append(head, inner)
+    body.appendChild(band)
+    b.setOpen(b.startOpen)
+    bands.push(b)
   }
 
   /** 종류별 묶음을 host 에 그린다. */
   const renderSections = (host, items, startOpen, showSource) => {
     for (const group of groupByCategory(items, (it) => it.category)) {
       const sec = el(doc, 'section', 'ba-affix-sec')
+      sec.dataset.category = group.key // 종류마다 다른 색을 입힌다(CSS)
       const toggle = el(doc, 'button', 'ba-affix-sec-head')
       toggle.type = 'button'
       toggle.append(el(doc, 'span', 'ba-affix-sec-name', group.label), el(doc, 'span', 'ba-affix-sec-count', String(group.items.length)), el(doc, 'span', 'ba-affix-sec-line'), el(doc, 'span', 'ba-affix-sec-chev'))
@@ -357,14 +464,14 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       s.el.hidden = !!term && hits === 0
       s.setOpen(term ? hits > 0 : s.startOpen)
     }
+    for (const b of bands) {
+      const hits = b.rows.filter((r) => !r.row.hidden).length
+      b.el.hidden = !!term && hits === 0
+      b.setOpen(term ? hits > 0 : b.startOpen)
+    }
   }
 
   tabBtns.forEach((t) => t.el.addEventListener('click', () => { tab = t.key; render() }))
-  typeBtns.forEach((b) => b.addEventListener('click', () => {
-    if (!listForClass || b.dataset.cls === current.cls) return
-    current = { cls: b.dataset.cls, list: listForClass(b.dataset.cls) }
-    render()
-  }))
   search.addEventListener('input', applySearch)
   clearBtn.addEventListener('click', () => {
     selected.clear()
@@ -375,12 +482,13 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     if (!selected.size) return
     // 고른 순서가 아니라 목록 순서(접두 → 접미 → 타락)로 넣는다 — 체크한 순서는 사용자도 기억하지 못한다.
     // 다른 유형에서 고른 것이 섞이면 유형을 처음 고른 차례대로, 그 안에서는 목록 순서다.
-    const picks = [...selected.values()]
-      .sort((a, b) => a.batch - b.batch || a.pos - b.pos)
-      .map((p) => ({ id: p.item.id, value: affixFilterValue(p.item, p.index), role: p.role }))
+    const chosen = [...selected.values()].sort((a, b) => a.batch - b.batch || a.pos - b.pos)
+    const picks = chosen.map((p) => ({ id: p.item.id, value: affixFilterValue(p.item, p.index), role: p.role }))
+    // 고른 속성이 온 유형들 — 하나뿐이면 부르는 쪽이 거래소 아이템 유형을 그 유형으로 맞출 수 있다
+    const classesPicked = [...new Set(chosen.map((p) => p.cls))]
     addBtn.disabled = true
     addBtn.textContent = '넣는 중…'
-    try { await onAdd(picks) } finally { close() }
+    try { await onAdd(picks, { classes: classesPicked }) } finally { close() }
   })
   closeBtn.addEventListener('click', () => close())
   scrim.addEventListener('mousedown', () => close())
@@ -396,6 +504,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     if (closed) return
     closed = true
     doc.removeEventListener('keydown', onKey, true)
+    hidePageTip() // 행 위에 떠 있던 툴팁 — 행이 사라지면 mouseleave 가 오지 않는다
     pop.remove()
     scrim.remove()
     if (openPop === handle) openPop = null
@@ -422,9 +531,11 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource }) {
   box.type = 'checkbox'
   box.disabled = item.have
   const name = el(doc, 'span', 'ba-affix-name', item.text)
-  name.title = item.single ? `${item.text}\n값 범위 하나` : `${item.text}\n티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
+  // 툴팁은 전부 우리 것(page-tip.js) — 네이티브 title 을 쓰지 않는다(사용자 결정 2026-09-16)
+  name.dataset.tip = item.single ? `${item.text}\n값 범위 하나` : `${item.text}\n티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
+  bindPageTip(name, { placement: 'below' })
   const r = { item, row, box, pills: [], roles: [] }
-  const current = () => selected.get(item.id) ?? defaultPick(item)
+  const current = () => selected.get(keyOf(item)) ?? defaultPick(item)
   const tail = el(doc, 'span', 'ba-affix-tail')
 
   if (showSource && SOURCE_LABEL[item.source]) {
@@ -441,12 +552,13 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource }) {
       const b = el(doc, 'button', 'ba-affix-role', role.label)
       b.type = 'button'
       b.dataset.role = role.key
-      b.title = role.tip
+      b.dataset.tip = role.tip
+      bindPageTip(b, { placement: 'below' })
       b.setAttribute('aria-pressed', 'false')
       b.addEventListener('click', (e) => {
         e.preventDefault() // label 안 버튼 — 체크박스 토글과 섞이지 않게 직접 정한다
         const now = current()
-        setRow(r, { index: now.index, role: selected.has(item.id) && now.role === role.key ? 'here' : role.key })
+        setRow(r, { index: now.index, role: selected.has(keyOf(item)) && now.role === role.key ? 'here' : role.key })
       })
       r.roles.push(b)
       controls.appendChild(b)
@@ -456,16 +568,19 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource }) {
       const seg = el(doc, 'span', 'ba-affix-tiers')
       item.choices.forEach((c, i) => {
         // 티어가 하나뿐이면 고를 게 없으니 범위를 그대로 보여 준다 — 최소·최대가 함께 들어간다.
-        const pill = el(doc, 'button', 'ba-affix-pill', item.single ? c.range.replace(/ 평균$/, '') : `T${c.t}`)
+        // 에센스·훼손된·합금은 티어 이름이 없고 공급원마다 범위가 달라 범위로 고른다.
+        const byRange = item.single || (item.pool && item.pool !== 'normal')
+        const pill = el(doc, 'button', 'ba-affix-pill', byRange ? c.range.replace(/ 평균$/, '') : `T${c.t}`)
         pill.type = 'button'
         pill.setAttribute('aria-pressed', 'false')
-        pill.title = item.single
+        pill.dataset.tip = item.single
           ? `최소 ${c.min} · 최대 ${c.max} 를 함께 넣어요`
           : `${c.range} → ${item.fill === 'max' ? '최대' : '최소'} ${c[item.fill]} · 아이템 레벨 ${c.l} 이상`
+        bindPageTip(pill, { placement: 'below' })
         pill.addEventListener('click', (e) => {
           e.preventDefault()
           const now = current()
-          setRow(r, { role: now.role, index: selected.has(item.id) && now.index === i ? -1 : i })
+          setRow(r, { role: now.role, index: selected.has(keyOf(item)) && now.index === i ? -1 : i })
         })
         r.pills.push(pill)
         seg.appendChild(pill)
@@ -482,7 +597,8 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource }) {
 /** 화면 가운데 시트 — 목록을 스크롤 없이 펼치려면 그룹 옆 좁은 자리로는 모자라다(사용자 결정 2026-09-15). */
 function place(pop, win) {
   const vw = win.innerWidth || 1280
-  const width = Math.min(1180, vw - 48)
+  // 1180 에서는 반경 주얼 문구(「반경 내 주요 패시브 스킬이 … 부여」)가 두 줄로 꺾였다(2026-09-16 피드백) — 넓은 화면에서는 더 편다
+  const width = Math.min(1480, vw - 48)
   pop.style.width = width + 'px'
   pop.style.left = Math.round((vw - width) / 2) + 'px'
   pop.style.top = '40px'

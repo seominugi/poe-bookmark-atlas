@@ -33,9 +33,10 @@ describe('statTiers.poe2.json — 산출물 계약', () => {
     for (const cls of Object.keys(table)) expect(cls).toMatch(/^[A-Za-z_]+$/)
   })
 
-  it('능력치 키는 거래소 stat id 다', () => {
-    for (const byStat of Object.values(table)) {
-      for (const statId of Object.keys(byStat)) expect(statId).toMatch(/^explicit\./)
+  it('능력치 키는 거래소 stat id 다 — 유물만 성역 그룹, 나머지는 비고정', () => {
+    for (const [cls, byStat] of Object.entries(table)) {
+      const pattern = cls === 'Relic' ? /^sanctum\./ : /^explicit\./
+      for (const statId of Object.keys(byStat)) expect(statId, `${cls} ${statId}`).toMatch(pattern)
     }
   })
 

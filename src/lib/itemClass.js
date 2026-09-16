@@ -41,11 +41,21 @@ export const MOD_FILE_BY_CATEGORY = {
   'flask.charm': 'UtilityFlask',
 }
 
-/** 점이 없지만 부위가 하나로 정해지는 category. */
-const FLAT_CATEGORY = { jewel: 'Jewel' }
+/**
+ * 장비 표(MOD_FILE_BY_CATEGORY) 밖이지만 부위가 하나로 정해지는 category.
+ * 유물(`sanctum.relic`)은 PoB 에 없는 부위라 MOD_FILE_BY_POB_CLASS 짝이 없다 — 장비 표에 넣지 않고 여기에 둔다.
+ */
+const FLAT_CATEGORY = { jewel: 'Jewel', 'sanctum.relic': 'Relic' }
 
 /** 부위가 하나로 정해지는 모든 category → modifiers 파일명 (속성 목록의 유형 칩이 쓴다). */
 export const CLASS_BY_CATEGORY = { ...MOD_FILE_BY_CATEGORY, ...FLAT_CATEGORY }
+
+/**
+ * PoE2 에 아직 나오지 않은 무기 부위 — 속성 목록의 유형 칩에서 뺀다(사용자 결정 2026-09-16).
+ * 게임 데이터·거래소 목록으로는 가릴 수 없다: 거래소 `data/items` 도 이 부위의 베이스·고유를 싣는다(2026-09-16 실측,
+ * 클로만 베이스 0). 출시되면 여기서 지운다. 티어 칩·부위 판정은 그대로 둔다 — 쓰이지 않을 뿐 틀린 데이터가 아니다.
+ */
+export const UNRELEASED_CLASSES = new Set(['Claw', 'Dagger', 'One_Hand_Sword', 'Two_Hand_Sword', 'One_Hand_Axe', 'Two_Hand_Axe', 'Flail'])
 
 /** pobBaseMap 의 PoB 클래스명 → modifiers 파일명. */
 export const MOD_FILE_BY_POB_CLASS = {

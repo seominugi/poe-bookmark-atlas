@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder, lineTextVariants } from '../scripts/build-tier-table.mjs'
+import { verifyClassBridge, rangesByLine, hasValueConflict, preferLadder, lineTextVariants, specialAffixesOf } from '../scripts/build-tier-table.mjs'
+import { normalizeTradeText } from '../src/lib/statTextNorm.js'
 import { MOD_FILE_BY_POB_CLASS } from '../src/lib/itemClass.js'
 
 describe('verifyClassBridge — 부위 대응표 양방향 검증', () => {
@@ -132,5 +133,40 @@ describe('preferLadder — 같은 거래소 id 에 계열이 여럿 걸릴 때',
   it('길이가 같으면 먼저 온 것을 지킨다 — 순서에 따라 표가 달라지지 않게', () => {
     expect(preferLadder(two, false, two, false)).toBe(false)
     expect(preferLadder(two, true, two, true)).toBe(false)
+  })
+})
+
+describe('specialAffixesOf — 에센스·타락 같은 버킷 속성의 값 사다리', () => {
+  const index = new Map([
+    [normalizeTradeText('생명력 최대치 #'), ['explicit.life']],
+    [normalizeTradeText('화염 저항 #%'), ['explicit.fire']],
+  ])
+  const mod = (id, tier, text, range, affixType = 'prefix') => ({
+    id, tier, affixType, valueRanges: [range],
+    stats: [{ stats: [{ stat: 'base_maximum_life', valueRange: range }], text: { kr: text } }],
+  })
+
+  it('요구 레벨이 높은 쪽부터 줄 세우고, 같은 범위는 낮은 요구 레벨 하나만 남긴다', () => {
+    const mods = [
+      mod('EssLife1', 10, '생명력 최대치 (20-29)', [20, 29]),
+      mod('EssLife3', 60, '생명력 최대치 (90-104)', [90, 104]),
+      mod('EssLife2', 40, '생명력 최대치 (60-70)', [60, 70]),
+      mod('EssLife2b', 45, '생명력 최대치 (60-70)', [60, 70]),
+    ]
+    const { total, x } = specialAffixesOf(mods, index, new Set(), [], { sided: true })
+    expect(total).toBe(4)
+    expect(x['explicit.life']).toEqual({ r: [{ l: 60, v: [[90, 104]] }, { l: 40, v: [[60, 70]] }, { l: 10, v: [[20, 29]] }], c: expect.any(String), k: 'p' })
+  })
+
+  it('같은 요구 레벨에 범위가 둘이면 그 id 를 뺀다 — 판단할 근거가 없다', () => {
+    const mods = [mod('A', 30, '화염 저항 (10-15)%', [10, 15], 'suffix'), mod('B', 30, '화염 저항 (20-25)%', [20, 25], 'suffix')]
+    expect(specialAffixesOf(mods, index, new Set(), []).x).toEqual({})
+  })
+
+  it('sided 가 아니면 접두·접미를 싣지 않고, 값 칸이 없는 id 는 뺀다', () => {
+    const mods = [mod('A', 1, '화염 저항 (10-15)%', [10, 15], 'suffix'), mod('L', 1, '생명력 최대치 (5-9)', [5, 9])]
+    const { x } = specialAffixesOf(mods, index, new Set(['explicit.life']), [])
+    expect(Object.keys(x)).toEqual(['explicit.fire'])
+    expect(x['explicit.fire'].k).toBeUndefined()
   })
 })

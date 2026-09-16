@@ -73,8 +73,25 @@ describe('실제 데이터', () => {
     expect(Object.keys(x).length).toBeGreaterThan(5)
     for (const [id, v] of Object.entries(x)) {
       expect(id).toMatch(/^enchant\.stat_\d+$/)
-      expect(v.v.length).toBeGreaterThan(0)
+      expect(v.r.length).toBeGreaterThan(0)
       expect(v.c).toBeTruthy()
+    }
+  })
+  it('에센스·합금은 비고정 id, 훼손된은 훼손된 id 이고 접두·접미가 있다', () => {
+    const ring = realAffixes.Ring
+    const cases = [['e', /^explicit\.stat_\d+$/], ['a', /^explicit\.stat_\d+$/], ['d', /^desecrated\.stat_\d+$/]]
+    for (const [key, pattern] of cases) {
+      expect(Object.keys(ring[key]).length, key).toBeGreaterThan(2)
+      for (const [id, v] of Object.entries(ring[key])) {
+        expect(id).toMatch(pattern)
+        expect(['p', 's']).toContain(v.k)
+        expect(v.r.length).toBeGreaterThan(0)
+      }
+    }
+    // 에센스 사다리는 요구 레벨이 높은 쪽부터
+    for (const v of Object.values(ring.e)) {
+      const levels = v.r.map((row) => row.l)
+      expect([...levels].sort((a, b) => b - a)).toEqual(levels)
     }
   })
 })

@@ -1,0 +1,163 @@
+// src/content/affix-type-doll.js
+// 속성 목록 창 위쪽 — 아이템 유형을 칩 나열 대신 **장비창 모양**으로 고르게 한다(시안 A, 사용자 결정 2026-09-16).
+// 게임에서 몸에 익은 칸 위치로 찾으므로 25종 넘는 유형을 글자로 읽지 않아도 된다.
+//
+// 배치(사용자 지시 2026-09-16):
+//   왼쪽 「무기」 영역 — 무기 유형을 한데 모아 칸으로
+//   가운데 인형 — 투구 · 목걸이 · 갑옷 · 반지(오른쪽 한 칸) · 장갑 · 장화 · 허리띠. 인형은 창 가운데에 맞춘다
+//   오른쪽 「보조」 영역 — 보조 장비(방패·버클러·집중구·화살통)를 칸으로 구분
+//   허리띠 아래 — 「플라스크 · 호신부」와 「주얼 · 기타」
+// 아이콘은 직접 그린 단색 선 그림이다 — 게임 데이터의 아이템 이미지는 배포할 수 없다(poe-game-data lock: 로컬 빌드 전용).
+// 이 배치에 없는 유형이 새로 생기면 「기타」 칸에 붙인다 — 조용히 사라지지 않게.
+
+const ICON = {
+  Helmet: 'M5 14a7 7 0 0 1 14 0v4h-4v-3H9v3H5z',
+  Body_Armour: 'M8.5 3 4 6l2 4 2-1v11h8V9l2 1 2-4-4.5-3-1.5 2h-4z',
+  Gloves: 'M8 21v-6l-3-4 1.5-1.5L9 12V5h2v6-7h2v7-6h2v7l2-2 1.5 1.2L15 15v6z',
+  Boots: 'M8 3h6v10l5 3v4H6l2-8z',
+  Belt: 'M3 10h18v4H3zM10 8.5h4v7h-4z',
+  Ring: 'M12 20a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM10 4.5 12 2.5l2 2-2 3z',
+  Amulet: 'M6 3c0 5 3 8 6 9 3-1 6-4 6-9M12 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6z',
+  Shield: 'M12 3l7 3v6c0 5-3 8-7 9-4-1-7-4-7-9V6z',
+  Buckler: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z',
+  Focus: 'M12 17a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 2v3M12 19v3M2 12h3M19 12h3',
+  Quiver: 'M8 9h8v12H8zM10 9V3M14 9V4M9 5l1-2 1 2M13 6l1-2 1 2',
+  Bow: 'M7 3c8 3 8 15 0 18M7 3v18M4 12h12',
+  Crossbow: 'M4 9c5-3 11-3 16 0M12 6v15M9 21h6M4 9l8 4 8-4',
+  Spear: 'M4 20 16 8M16 8l4-5-5 1z',
+  Warstaff: 'M5 21 19 3M7 17l2 2M15 5l2 2',
+  One_Hand_Mace: 'M5 19l7-7M15 13a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+  Two_Hand_Mace: 'M4 20l9-9M13 5l6 6-3 3-6-6z',
+  Wand: 'M5 19 15 9M18 3l.8 2.2L21 6l-2.2.8L18 9l-.8-2.2L15 6l2.2-.8z',
+  Sceptre: 'M6 20l8-8M16 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM19 2l-1 2',
+  Staff: 'M9 21V8M9 8c-3-1-3-5 0-5s4 3 2 5',
+  Talisman: 'M12 3l6 6-6 12-6-12zM6 9h12',
+  Jewel: 'M12 3l8 4.5v9L12 21l-8-4.5v-9zM12 8l4 2.5v3L12 16l-4-2.5v-3z',
+  Relic: 'M9 3h6M10 3v3c-4 2-5 6-4 10 1 3 3 5 6 5s5-2 6-5c1-4 0-8-4-10V3',
+  LifeFlask: 'M10 3h4v5l4 5v6a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-6l4-5zM7 15h10',
+  ManaFlask: 'M9 3h6v4l3 3v9a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-9l3-3zM6 14h12',
+  UtilityFlask: 'M12 3v4M12 19a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM9 13h6',
+}
+const FALLBACK_ICON = 'M6 18 18 6M8 6h10v10'
+
+/** 영역별 유형 — 순서가 곧 칸 순서다. */
+export const DOLL_LAYOUT = {
+  weapon: ['Bow', 'Crossbow', 'Spear', 'Warstaff', 'One_Hand_Mace', 'Two_Hand_Mace', 'Wand', 'Sceptre', 'Staff', 'Talisman',
+    'Claw', 'Dagger', 'One_Hand_Sword', 'Two_Hand_Sword', 'One_Hand_Axe', 'Two_Hand_Axe', 'Flail'],
+  offhand: ['Shield', 'Buckler', 'Focus', 'Quiver'],
+  // 인형 칸 — 반지는 오른쪽 한 칸만 둔다(두 칸이 같은 유형이라 헷갈린다, 사용자 결정 2026-09-16).
+  // 크기: 투구·장갑·장화는 큰 정사각형, 목걸이·반지는 작은 정사각형(CSS data-area 로 정한다).
+  body: [
+    { cls: 'Helmet', area: 'helm' }, { cls: 'Amulet', area: 'amulet' },
+    { cls: 'Body_Armour', area: 'body' }, { cls: 'Ring', area: 'ring' },
+    { cls: 'Gloves', area: 'gloves' }, { cls: 'Boots', area: 'boots' }, { cls: 'Belt', area: 'belt' },
+  ],
+  flask: ['LifeFlask', 'ManaFlask', 'UtilityFlask'],
+  other: ['Jewel', 'Relic'],
+}
+
+const NS = 'http://www.w3.org/2000/svg'
+function icon(doc, cls) {
+  const svg = doc.createElementNS(NS, 'svg')
+  svg.setAttribute('viewBox', '0 0 24 24')
+  svg.setAttribute('aria-hidden', 'true')
+  const path = doc.createElementNS(NS, 'path')
+  path.setAttribute('d', ICON[cls] ?? FALLBACK_ICON)
+  svg.appendChild(path)
+  return svg
+}
+
+/**
+ * 장비창 모양 유형 선택기를 만든다.
+ * @param {Document} doc
+ * @param {Array<{cls:string,label:string}>} classes 고를 수 있는 유형(표에 목록이 있는 것만, 이름은 거래소 표기)
+ * @param {{onPick:(cls:string)=>void}} ctx
+ * @returns {{el:HTMLElement, buttons:HTMLButtonElement[], setCurrent:(cls:string|null)=>void, setOpen:(open:boolean)=>void, isOpen:()=>boolean}}
+ */
+export function buildTypeDoll(doc, classes, { onPick }) {
+  const byCls = new Map(classes.map((c) => [c.cls, c]))
+  const placed = new Set()
+  const buttons = []
+  const make = (cls, area) => {
+    const c = byCls.get(cls)
+    if (!c) return null
+    placed.add(cls)
+    const b = doc.createElement('button')
+    b.type = 'button'
+    b.className = 'ba-affix-type ba-affix-slot'
+    b.dataset.cls = cls
+    if (area) { b.dataset.area = area; b.style.gridArea = area }
+    const label = doc.createElement('span')
+    label.textContent = c.label
+    b.append(icon(doc, cls), label)
+    b.addEventListener('click', () => onPick(cls))
+    buttons.push(b)
+    return b
+  }
+  const group = (name, title, list) => {
+    const box = doc.createElement('div')
+    box.className = `ba-affix-doll-area is-${name}`
+    const h = doc.createElement('div')
+    h.className = 'ba-affix-doll-title'
+    h.textContent = title
+    const grid = doc.createElement('div')
+    grid.className = 'ba-affix-doll-slots'
+    for (const cls of list) { const b = make(cls); if (b) grid.appendChild(b) }
+    box.append(h, grid)
+    return grid.childElementCount ? box : null
+  }
+
+  const root = doc.createElement('div')
+  root.className = 'ba-affix-doll'
+
+  // 접힌 상태의 머리 — 지금 유형과 「유형 바꾸기」 단추
+  const bar = doc.createElement('button')
+  bar.type = 'button'
+  bar.className = 'ba-affix-doll-bar'
+  const barLabel = doc.createElement('span')
+  barLabel.className = 'ba-affix-doll-bar-label'
+  const barCurrent = doc.createElement('span')
+  barCurrent.className = 'ba-affix-doll-bar-current'
+  const barToggle = doc.createElement('span')
+  barToggle.className = 'ba-affix-doll-bar-toggle'
+  barLabel.textContent = '아이템 유형'
+  bar.append(barLabel, barCurrent, barToggle)
+
+  const body = doc.createElement('div')
+  body.className = 'ba-affix-doll-body'
+  const weapon = group('weapon', '무기', DOLL_LAYOUT.weapon)
+  const center = doc.createElement('div')
+  center.className = 'ba-affix-doll-center'
+  for (const { cls, area } of DOLL_LAYOUT.body) { const b = make(cls, area); if (b) center.appendChild(b) }
+  const offhand = group('offhand', '보조', DOLL_LAYOUT.offhand)
+  const flask = group('flask', '플라스크 · 호신부', DOLL_LAYOUT.flask)
+  const leftovers = classes.map((c) => c.cls).filter((cls) => !placed.has(cls) && !DOLL_LAYOUT.other.includes(cls))
+  const other = group('other', '주얼 · 기타', [...DOLL_LAYOUT.other, ...leftovers])
+  const bottom = doc.createElement('div')
+  bottom.className = 'ba-affix-doll-bottom'
+  for (const g of [flask, other]) if (g) bottom.appendChild(g)
+  for (const part of [weapon, center, offhand]) if (part) body.appendChild(part)
+  if (bottom.childElementCount) body.appendChild(bottom)
+  root.append(bar, body)
+
+  let open = true
+  const setOpen = (value) => {
+    open = !!value
+    root.classList.toggle('is-open', open)
+    body.hidden = !open
+    bar.setAttribute('aria-expanded', String(open))
+    barToggle.textContent = open ? '접기' : '유형 바꾸기'
+  }
+  const setCurrent = (cls) => {
+    for (const b of buttons) {
+      const on = b.dataset.cls === cls
+      b.classList.toggle('is-on', on)
+      b.setAttribute('aria-pressed', String(on))
+    }
+    barCurrent.textContent = cls && byCls.has(cls) ? byCls.get(cls).label : '고르지 않음'
+    root.classList.toggle('has-current', !!cls)
+  }
+  bar.addEventListener('click', () => setOpen(!open))
+  setOpen(true)
+  return { el: root, buttons, setCurrent, setOpen, isOpen: () => open }
+}
