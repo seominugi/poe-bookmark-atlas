@@ -23,6 +23,8 @@ const SANCTUM_GROUP = '성역' // 유물 속성이 거래소에서 걸리는 그
 // Relic 은 v2026.09.16.7 부터 성역 설명 파일로 문장이 채워졌다(그 전에는 137개 중 9줄뿐이라 뺐었다).
 const GROUP_BY_CLASS = { Relic: SANCTUM_GROUP }
 const SKIP_FILES = new Set(['Map.json'])
+// 거래소 한국어 목록이 로컬 능력치에 붙이는 표시(영문 「(Local)」)
+export const LOCAL_MARK = '(특정)'
 
 // 일반 풀 밖의 속성 버킷 → statAffixes 의 키. 에센스·합금은 보통 속성처럼 비고정 그룹 문구로 이어진다(2026-09-15 실측).
 // 순서는 속성 목록에 보이는 순서와 같다.
@@ -111,8 +113,13 @@ function candidatesForMod(mod, tradeIndex, ambiguous) {
   let inferred = false
   for (const line of lines) {
     const slots = (line.stats ?? []).length
+    // 로컬 능력치(게임 스탯 id `local_…`)는 거래소에서 「(특정)」이 붙은 별도 조건이다 — 방어구의 「방어도 #% 증가」,
+    // 버클러의 「막기 확률 #% 증가」 등 8개가 표시 없는 전역 조건과 짝을 이룬다. 게임 문구에는 표시가 없어
+    // 그대로 이으면 **전역 조건**에 붙어, 넣은 필터가 그 부위 매물을 하나도 못 찾았다(2026-09-17 실측: 버클러 0건 ↔ 6539건).
+    const local = slots > 0 && line.stats.every((x) => /^local_/.test(x?.stat ?? ''))
     let hits = lineTextVariants(mod, line.text.kr)
       .flatMap((text) => modTextKeys(text, slots))
+      .map((k) => (local && tradeIndex.has(k + LOCAL_MARK) ? k + LOCAL_MARK : k))
       .filter((k, i, all) => tradeIndex.has(k) && all.indexOf(k) === i)
     // 둘 이상 붙으면 어느 숫자가 값인지 판정할 수 없다. 임의로 고르면 '못 붙음'이 아니라
     // **틀린 티어 값이 조용히 실린다** — 그래서 고르지 않고 버린다.
