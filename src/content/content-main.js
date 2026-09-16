@@ -780,8 +780,8 @@ function pobEnsureStyle() {
   .ba-affix-src { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
   /* 같은 거래소 조건이 다른 띠에도 있다는 표시 — 조용한 점선 칩, 다른 줄에서 골랐으면 그 줄 이름을 알린다 */
   .ba-affix-twinslot { flex: none; display: none; justify-content: flex-end; }
-  .has-twins .ba-affix-twinslot { display: inline-flex; width: 76px; }
-  .ba-affix-twin { flex: none; max-width: 100%; overflow: hidden; text-overflow: ellipsis; padding: 2px 6px; border-radius: 999px; border: 1px dashed rgba(201,196,220,0.32); color: #9d98b3; cursor: help;
+  .has-twins .ba-affix-twinslot { display: inline-flex; width: 92px; }
+  .ba-affix-twin { flex: none; white-space: nowrap; padding: 2px 7px; border-radius: 999px; border: 1px dashed rgba(201,196,220,0.32); color: #9d98b3; cursor: help;
     font: 600 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; white-space: nowrap; }
   .ba-affix-row.is-linked .ba-affix-twin { border-style: solid; border-color: rgba(92,195,242,0.5); color: #c9efff; }
   .ba-affix-src.is-corrupted { color: #f28aa0; }

@@ -484,7 +484,12 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     r.box.checked = !!pick
     r.row.classList.toggle('is-on', !!pick)
     r.row.classList.toggle('is-linked', !!pick && !mine)
-    if (r.linked) r.linked.textContent = pick && !mine ? `${poolLabel(pick.item)} 줄 값` : r.linked.dataset.base
+    if (r.linked) {
+      // 칩 글자는 짧게 고정한다(칸 폭을 넘으면 정렬이 깨진다) — 어느 띠의 값인지는 툴팁에 적는다
+      const linked = pick && !mine
+      r.linked.textContent = linked ? '다른 줄 값' : r.linked.dataset.base
+      r.linked.dataset.tip = linked ? `《${poolLabel(pick.item)}》 줄에서 고른 값으로 넣어요\n이 줄에서 값을 고르면 이 줄 값으로 바뀌어요` : r.linked.dataset.baseTip
+    }
     r.pills.forEach((p, i) => {
       const on = mine && pick.index === i
       p.classList.toggle('is-on', on)
@@ -867,6 +872,7 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
     const twin = el(doc, 'span', 'ba-affix-twin', `같은 조건 ${twins.length + 1}곳`)
     twin.dataset.base = twin.textContent
     twin.dataset.tip = `${twins.join(' · ')} 띠에도 있는 같은 거래소 조건이에요\n한 줄을 고르면 모두 함께 체크되고, 거래소에는 한 번만 들어가요\n값(티어)은 마지막에 값을 고른 줄의 것이 들어가요`
+    twin.dataset.baseTip = twin.dataset.tip
     bindPageTip(twin, { placement: 'below' })
     twinSlot.appendChild(twin)
     r.linked = twin
