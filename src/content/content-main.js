@@ -18,12 +18,13 @@ import { mountPanel } from './panel/panel.js'
 import { initFuzzyPrefix } from './fuzzyPrefix.js'
 import { buildPobText } from '../lib/pobExport.js'
 import { attachTierChips, rowStatText } from './tier-chip.js'
+import { bindPageTip } from './page-tip.js'
 import { readLiveTypeFilters } from './typeFilterDom.js'
 import { applyLiveTypeFilters, holdWhileAmbiguous } from '../lib/liveTypeFilters.js'
-import { classFromQuery, CLASS_BY_CATEGORY } from '../lib/itemClass.js'
+import { classFromQuery, CLASS_BY_CATEGORY, UNRELEASED_CLASSES } from '../lib/itemClass.js'
 import { normalizeTradeText } from '../lib/statTextNorm.js'
-import { attachAffixButtons, openAffixPopover, groupToken, groupLabel, groupRowTitles } from './affix-picker.js'
-import { affixListFor } from '../lib/affixList.js'
+import { attachAffixButtons, openAffixPopover, groupToken, groupLabel, groupRowTitles, AFFIX_CHIP_ICON } from './affix-picker.js'
+import { affixListFor, basesFor } from '../lib/affixList.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -392,6 +393,8 @@ function pobEnsureStyle() {
     font-size: 11px; font-weight: 600; color: #cbc5e8; white-space: nowrap; }
   /* 줄어드는 건 이름뿐이다 — 칩과 '최소'까지 같이 줄면 T1 글자가 잘린다(실측: 29 → 23px). */
   .ba-demo-filter .ba-tier-chip, .ba-demo-min { flex: none; }
+  .ba-demo-addrow { margin-top: 8px; }
+  .ba-demo-addrow .ba-demo-stat { color: #a39fbb; }
   .ba-demo-min { margin-left: 7px; padding: 1px 7px; font-size: 10px; color: #8b84a5;
     border: 1px solid rgba(167, 139, 250, 0.3); border-radius: 3px; white-space: nowrap; }
   .ba-demo-name { font-size: 13px; font-weight: 800; color: #fde68a; }
@@ -458,33 +461,34 @@ function pobEnsureStyle() {
     .ba-tier-chip:active, .ba-tier-ask:active { transform: none; }
   }
   /* ── 속성 목록 (글래스 시안 1 · 2026-09-15) ────────────────────────────────
-     트리거: 「+ 능력치 필터 추가」 글자 오른쪽의 티어 칩 모양. 거래소 CSS 가 이 줄 자식·버튼에 float·width·
-     배경·테두리를 먹이므로(2026-09-15 실측) 모양을 정하는 속성은 전부 재지정한다. */
-  .filter:has(> .ba-affix-btn) { position: relative; }
+     트리거: 「+ 능력치 필터 추가」 줄 **아래** 별도 줄의 칩(사용자 요청 2026-09-16). 글자 옆에 두면 창 폭이 바뀔 때
+     placeholder 글자를 덮었다. 거래소 CSS 가 그룹 안 버튼에 float·width·배경·테두리를 먹이므로(2026-09-15 실측)
+     모양을 정하는 속성은 전부 재지정한다. */
+  .ba-affix-chiprow { display: flex !important; justify-content: center; margin: 6px 0 2px !important; padding: 0 !important; float: none !important; width: auto !important; }
   .ba-affix-btn {
-    position: absolute !important; top: 50%; transform: translateY(-50%); z-index: 2;
-    box-sizing: border-box !important; float: none !important; width: auto !important;
-    display: inline-flex !important; align-items: center; gap: 5px;
-    height: 20px !important; margin: 0 !important; padding: 0 9px 0 7px !important;
+    position: static !important; box-sizing: border-box !important; float: none !important; width: auto !important;
+    display: inline-flex !important; align-items: center; gap: 6px;
+    height: 24px !important; margin: 0 !important; padding: 0 11px 0 9px !important;
     border: 1px solid rgba(167, 139, 250, 0.5) !important; border-radius: 999px !important;
     background: rgba(43, 35, 64, 0.88) !important; color: #ddd4f7 !important; cursor: pointer;
-    font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; white-space: nowrap;
+    font: 600 12px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; white-space: nowrap;
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
     transition: background .15s ease, border-color .15s ease, color .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
-  .ba-affix-btn svg { width: 12px; height: 12px; flex: none; }
+  .ba-affix-btn svg { width: 13px; height: 13px; flex: none; }
   @media (hover: hover) and (pointer: fine) {
     .ba-affix-btn:hover { background: rgba(60, 48, 88, 0.96) !important; border-color: rgba(167, 139, 250, 0.95) !important; color: #fff !important; }
   }
-  .ba-affix-btn:active { transform: translateY(-50%) scale(0.97); }
+  .ba-affix-btn:active { transform: scale(0.97); }
   .ba-affix-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
-  .filter:has(.multiselect--active) > .ba-affix-btn { visibility: hidden; } /* 드롭다운을 연 동안은 글자를 가리지 않게 */
-  @media (prefers-reduced-motion: reduce) { .ba-affix-btn:active { transform: translateY(-50%); } }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-btn:active { transform: none; } }
 
   /* 시트 — 확장 패널과 같은 보라 글래스. 뒤 흐림은 이 창이 열린 동안만 켜진다(패널은 상시라 뺐다). */
-  .ba-affix-scrim { position: fixed; inset: 0; z-index: 2147482999; background: rgba(6, 5, 12, 0.46);
+  /* z-index 는 패널 핸들(panel.css .ba-handle 2147483050)보다 위여야 한다 — 패널 호스트가 쌓임 맥락을 만들지 않아
+     핸들이 페이지 최상위 순서로 경쟁한다. 전에는 2147483000 이라 「북마크」 핸들이 시트 위에 떠 있었다(2026-09-16). */
+  .ba-affix-scrim { position: fixed; inset: 0; z-index: 2147483090; background: rgba(6, 5, 12, 0.46);
     animation: ba-affix-fade .18s ease-out; }
   .ba-affix-pop {
-    position: fixed; z-index: 2147483000; box-sizing: border-box; max-width: calc(100vw - 32px); max-height: calc(100vh - 64px);
+    position: fixed; z-index: 2147483100; box-sizing: border-box; max-width: calc(100vw - 32px); max-height: calc(100vh - 64px);
     display: flex; flex-direction: column; border-radius: 18px; overflow: hidden;
     background: linear-gradient(180deg, rgba(40, 33, 66, 0.72), rgba(18, 15, 30, 0.82));
     -webkit-backdrop-filter: blur(22px) saturate(140%); backdrop-filter: blur(22px) saturate(140%);
@@ -525,32 +529,163 @@ function pobEnsureStyle() {
   .ba-affix-close:hover { background: rgba(255,255,255,0.08) !important; color: #fff !important; }
   .ba-affix-close:focus-visible { outline: 2px solid #a78bfa; }
 
-  .ba-affix-types { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 18px 10px; }
-  .ba-affix-type { height: 26px; padding: 0 11px !important; margin: 0 !important; border-radius: 999px !important; cursor: pointer;
-    border: 1px solid rgba(255,255,255,0.1) !important; background: rgba(255,255,255,0.04) !important; color: #c9c4dc !important;
+  /* 유형 선택 — 장비창 모양(시안 A, 사용자 결정 2026-09-16). 가운데 인형 · 왼쪽 무기 영역 · 오른쪽 보조 영역 · 허리띠 아래 플라스크와 주얼. */
+  .ba-affix-doll { margin: 0 18px 10px; border-radius: 12px; background: rgba(255,255,255,0.03); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+  .ba-affix-doll-bar { display: flex; align-items: center; gap: 10px; width: 100%; height: 40px; padding: 0 8px 0 14px !important; margin: 0 !important;
+    border: 0 !important; background: transparent !important; cursor: pointer; text-align: left; border-radius: 12px !important; }
+  @media (hover: hover) and (pointer: fine) { .ba-affix-doll-bar:hover .ba-affix-doll-bar-toggle { background: rgba(167,139,250,0.3); color: #fff; } }
+  .ba-affix-doll-bar:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  .ba-affix-doll-bar-label { font: 600 12px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; }
+  .ba-affix-doll-bar-current { font: 700 14px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #fff; }
+  .ba-affix-doll:not(.has-current) .ba-affix-doll-bar-current { color: #77728f; font-weight: 500; }
+  .ba-affix-doll-bar-toggle { margin-left: auto; height: 26px; display: inline-flex; align-items: center; padding: 0 12px; border-radius: 999px;
+    font: 600 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #cfc8e6; background: rgba(255,255,255,0.08); transition: background .15s ease, color .15s ease; }
+  /* 양옆 열을 1fr 로 같게 두어 가운데 인형(방어구)이 창 한가운데에 온다 — 무기 영역(3열)이 보조 영역(2열)보다 넓어 치우쳤었다(2026-09-16). */
+  .ba-affix-doll-body { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-areas: "weapon center offhand" "bottom bottom bottom";
+    align-items: start; gap: 10px 16px; padding: 2px 14px 14px; }
+  .ba-affix-doll-body[hidden] { display: none; }
+  .ba-affix-doll-area { padding: 8px; border-radius: 10px; background: rgba(0,0,0,0.2); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); }
+  .ba-affix-doll-area.is-weapon { grid-area: weapon; justify-self: center; align-self: stretch; }
+  .ba-affix-doll-area.is-offhand { grid-area: offhand; justify-self: center; align-self: stretch; }
+  .ba-affix-doll-title { margin: 0 2px 7px; font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .04em; color: #a39fbb; }
+  .ba-affix-doll-slots { display: flex; flex-wrap: wrap; gap: 5px; }
+  .is-weapon > .ba-affix-doll-slots { display: grid; grid-template-columns: repeat(3, 72px); grid-auto-rows: 50px; }
+  .is-offhand > .ba-affix-doll-slots { display: grid; grid-template-columns: repeat(2, 76px); grid-auto-rows: 60px; }
+  /* 인형 — 투구·장갑·장화는 큰 정사각형(66), 목걸이·반지는 작은 정사각형(46), 갑옷은 두 줄 높이(사용자 요청 2026-09-16) */
+  .ba-affix-doll-center { grid-area: center; display: grid; grid-template-columns: 66px 96px 66px; grid-template-rows: 66px 66px 66px 46px; gap: 6px;
+    grid-template-areas: ". helm amulet" ". body ring" "gloves body boots" ". belt ."; }
+  .ba-affix-doll-center .ba-affix-slot[data-area="helm"] { width: 66px; justify-self: center; }
+  .ba-affix-doll-center .ba-affix-slot[data-area="amulet"],
+  .ba-affix-doll-center .ba-affix-slot[data-area="ring"] { width: 46px; height: 46px; align-self: center; justify-self: start; }
+  .ba-affix-doll-bottom { grid-area: bottom; justify-self: center; display: flex; flex-wrap: wrap; justify-content: center; align-items: flex-start; gap: 10px; }
+  .ba-affix-doll-bottom .ba-affix-slot { min-width: 76px; height: 50px; padding: 0 10px !important; }
+  .ba-affix-slot { display: flex !important; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-width: 0;
+    margin: 0 !important; padding: 0 4px !important; border: 0 !important; border-radius: 9px !important; cursor: pointer;
+    background: rgba(255,255,255,0.045) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1); color: #c9c4dc !important;
+    font: 500 11px/1.1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important;
+    transition: background .15s ease, box-shadow .15s ease, color .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  .ba-affix-slot span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ba-affix-slot svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-affix-slot:hover { background: rgba(167,139,250,0.12) !important; box-shadow: inset 0 0 0 1px rgba(167,139,250,0.5); color: #fff !important; }
+  }
+  .ba-affix-slot:active { transform: scale(0.97); }
+  .ba-affix-slot.is-on { background: rgba(167,139,250,0.26) !important; box-shadow: inset 0 0 0 1.5px rgba(196,181,253,0.85); color: #fff !important; }
+  .ba-affix-slot:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-slot:active { transform: none; } }
+  /* 베이스 칩 — 유형 칩 한 단 아래(주얼의 루비·에메랄드 …). 유형 칩보다 작고 시안 계열로 갈라 「유형 안의 선택」임을 보인다. */
+  .ba-affix-bases { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: -2px 18px 10px; padding: 7px 8px; border-radius: 10px;
+    background: rgba(92,195,242,0.06); box-shadow: inset 0 0 0 1px rgba(92,195,242,0.18); }
+  .ba-affix-bases[hidden] { display: none; }
+  .ba-affix-base { height: 24px; padding: 0 10px !important; margin: 0 !important; border-radius: 999px !important; cursor: pointer;
+    border: 1px solid rgba(92,195,242,0.22) !important; background: transparent !important; color: #bfe6f7 !important;
     font: 500 12px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; transition: background .15s ease, border-color .15s ease, color .15s ease; }
-  .ba-affix-type:hover { border-color: rgba(167,139,250,0.5) !important; color: #fff !important; }
-  .ba-affix-type.is-on { background: rgba(167,139,250,0.24) !important; border-color: rgba(167,139,250,0.7) !important; color: #fff !important; }
-  .ba-affix-type:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  .ba-affix-base:hover { border-color: rgba(92,195,242,0.6) !important; color: #fff !important; }
+  .ba-affix-base.is-on { background: rgba(92,195,242,0.22) !important; border-color: rgba(92,195,242,0.75) !important; color: #fff !important; }
+  .ba-affix-base:focus-visible { outline: 2px solid #5cc3f2; outline-offset: 1px; }
 
-  .ba-affix-body { overflow-y: auto; min-height: 0; padding: 4px 18px 8px; border-top: 1px solid rgba(255,255,255,0.07); }
-  .ba-affix-flow { column-width: 340px; column-gap: 22px; padding-top: 10px; }
-  /* 전체 탭 — 접두어 | 접미어 | 타락 을 상위 열로 가른다. 열 사이 세로 경계는 옅은 선 한 줄. */
-  .ba-affix-srccols { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); gap: 0; padding-top: 6px; }
-  .ba-affix-srccol { min-width: 0; padding: 6px 14px 0; }
-  .ba-affix-srccol:first-child { padding-left: 0; }
-  .ba-affix-srccol:last-child { padding-right: 0; }
-  .ba-affix-srccol + .ba-affix-srccol { border-left: 1px solid rgba(255,255,255,0.07); }
-  .ba-affix-srccol-title { display: flex; align-items: baseline; gap: 6px; margin: 0 0 6px; padding: 0 2px;
-    font: 700 13px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #fff; letter-spacing: -.01em; }
-  .ba-affix-srccol-title em { font: 600 12px/1 ui-monospace, Consolas, monospace; font-style: normal; color: #77728f; }
-  .ba-affix-srccol.is-corrupted .ba-affix-srccol-title { color: #f5a3b5; }
+  .ba-affix-body { overflow-y: auto; min-height: 0; padding: 4px 12px 8px 18px; border-top: 1px solid rgba(255,255,255,0.07);
+    scrollbar-gutter: stable; }
+  /* 스크롤바 — 창 기본 회색 막대 대신 시트와 같은 보라 유리 알약. 트랙은 비워 두고 손잡이만 띄운다(사용자 요청 2026-09-16).
+     표준 scrollbar-color 를 쓰면 크롬이 아래 ::-webkit-scrollbar 를 무시하므로 쓰지 않는다 — 확장은 크롬 전용이다. */
+  .ba-affix-body::-webkit-scrollbar { width: 12px; }
+  .ba-affix-body::-webkit-scrollbar-track { background: transparent; margin: 6px 0; }
+  .ba-affix-body::-webkit-scrollbar-thumb { border-radius: 999px; border: 3px solid transparent; background-clip: padding-box;
+    background-color: rgba(196,181,253,0.26); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); }
+  .ba-affix-body::-webkit-scrollbar-thumb:hover { background-color: rgba(196,181,253,0.46); }
+  .ba-affix-body::-webkit-scrollbar-thumb:active { background-color: rgba(196,181,253,0.62); }
+  .ba-affix-body::-webkit-scrollbar-button { display: none; height: 0; }
+  .ba-affix-body::-webkit-scrollbar-corner { background: transparent; }
+  .ba-affix-flow { column-width: 340px; column-gap: 22px; padding-top: 6px; }
+  .ba-affix-srccol { min-width: 0; }
+
+  /* 위계 — ① 띠 이름(15px 굵게) ② 접두어·접미어 칩(들여 씀) ③ 종류 이름(한 번 더 들여 씀) ④ 행.
+     셋이 같은 크기·색이라 구분이 안 됐다(사용자 피드백 2026-09-16). */
+  /* 띠 머리 = 누를 수 있는 칩. 옅은 유리판 + 테두리 + 오른쪽 「펼치기/접기」 단추로 클릭할 수 있는 영역임을 드러낸다
+     (사용자 요청 2026-09-16 — 선 하나짜리 머리는 제목처럼만 보여 눌러 볼 생각을 못 했다). */
+  .ba-affix-band { margin: 8px 0 0; }
+  .ba-affix-band-head { display: flex; align-items: center; gap: 10px; width: 100%; height: 42px; padding: 0 8px 0 14px !important; margin: 0 !important;
+    border: 0 !important; border-radius: 11px !important; cursor: pointer; text-align: left;
+    background: rgba(255,255,255,0.045) !important; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1), inset 0 1px 0 rgba(255,255,255,0.06);
+    transition: background .15s ease, box-shadow .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-affix-band-head:hover { background: rgba(167,139,250,0.12) !important; box-shadow: inset 0 0 0 1px rgba(167,139,250,0.45), inset 0 1px 0 rgba(255,255,255,0.08); }
+    .ba-affix-band-head:hover .ba-affix-band-toggle { background: rgba(167,139,250,0.3); color: #fff; }
+  }
+  .ba-affix-band-head:active { transform: scale(0.995); }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-band-head:active { transform: none; } }
+  .ba-affix-band.is-open > .ba-affix-band-head { background: rgba(167,139,250,0.09) !important; box-shadow: inset 0 0 0 1px rgba(167,139,250,0.3); border-radius: 11px 11px 4px 4px !important; }
+  .ba-affix-band-toggle { margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 7px; height: 26px; padding: 0 10px 0 11px; border-radius: 999px;
+    font: 600 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #cfc8e6; background: rgba(255,255,255,0.08);
+    transition: background .15s ease, color .15s ease; }
+  /* 단추 안 표시: 접힘 = 아래 화살표(펼치기), 펼침 = 위 화살표(접기) */
+  .ba-affix-band-toggle .ba-affix-sec-chev { margin: -3px 0 0; border-color: currentColor; transform: rotate(45deg); }
+  .ba-affix-band.is-open > .ba-affix-band-head .ba-affix-band-toggle .ba-affix-sec-chev { margin-top: 3px; transform: rotate(-135deg); }
+  .ba-affix-band-name { font: 750 15px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #fff; letter-spacing: -.015em; }
+  .ba-affix-band[data-pool="essence"] .ba-affix-band-name { color: #9fdcff; }
+  .ba-affix-band[data-pool="desecrated"] .ba-affix-band-name { color: #c9e49a; }
+  .ba-affix-band[data-pool="alloy"] .ba-affix-band-name { color: #f3cf8b; }
+  .ba-affix-band.is-mechanic .ba-affix-band-name { color: #a8ecd0; }
+  .ba-affix-band.is-mechanic[data-pool^="desecrated"] .ba-affix-band-name { color: #c9e49a; } /* 뒤바뀐 빗장뼈 — 훼손된과 같은 계열 색 */
+  .ba-affix-band-desc { font: 500 12px/1.2 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #a39fbb; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ba-affix-band-meta { font: 600 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; white-space: nowrap; }
+  .ba-affix-band-head:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+  .ba-affix-band-body { padding: 10px 0 6px 12px; }
+
+  /* 띠 안 두 열 — 왼쪽은 늘 접두어, 오른쪽은 늘 접미어. 한쪽이 비어도 자리를 지켜 위치만 보고 알 수 있게 한다. */
+  .ba-affix-sidegrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ba-affix-sidegrid > .ba-affix-srccol { padding: 2px 16px 0; }
+  .ba-affix-sidegrid > .ba-affix-srccol:first-child { padding-left: 0; }
+  .ba-affix-sidegrid > .ba-affix-srccol:last-child { padding-right: 0; border-left: 1px solid rgba(255,255,255,0.07); }
+  .ba-affix-srccol-title { display: flex; align-items: center; gap: 7px; margin: 2px 0 8px; }
+  .ba-affix-side-chip { display: inline-flex; align-items: center; height: 22px; padding: 0 10px; border-radius: 999px;
+    font: 700 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .02em;
+    color: #ddd3ff; background: rgba(167,139,250,0.16); box-shadow: inset 0 0 0 1px rgba(167,139,250,0.36); }
+  .ba-affix-srccol-title[data-side="suffix"] .ba-affix-side-chip { color: #c9efff; background: rgba(92,195,242,0.13); box-shadow: inset 0 0 0 1px rgba(92,195,242,0.34); }
+  .ba-affix-srccol-title em { font: 600 11.5px/1 ui-monospace, Consolas, monospace; font-style: normal; color: #77728f; }
+  .ba-affix-srccol > .ba-affix-sec, .ba-affix-side-none { margin-left: 12px; }
+  .ba-affix-side-none { padding: 2px 2px 10px; font-size: 12px; color: #6f6a88; margin-top: 0; margin-bottom: 0; }
+
+  /* 타락 — 맨 위 붉은 띠. 게임처럼 붉게, 일반 속성과 섞여 읽히지 않게 머리 칩과 펼친 본문을 붉은 유리판으로 칠한다. 접은 채 시작한다. */
+  .ba-affix-band[data-pool="corrupted"] { margin-top: 10px; }
+  .ba-affix-band[data-pool="corrupted"] > .ba-affix-band-head { background: linear-gradient(180deg, rgba(210,48,72,0.2), rgba(210,48,72,0.08)) !important;
+    box-shadow: inset 0 0 0 1px rgba(242,96,120,0.4), inset 0 1px 0 rgba(255,255,255,0.06); }
+  @media (hover: hover) and (pointer: fine) {
+    .ba-affix-band[data-pool="corrupted"] > .ba-affix-band-head:hover { background: linear-gradient(180deg, rgba(210,48,72,0.3), rgba(210,48,72,0.12)) !important; box-shadow: inset 0 0 0 1px rgba(255,120,145,0.6); }
+    .ba-affix-band[data-pool="corrupted"] > .ba-affix-band-head:hover .ba-affix-band-toggle { background: rgba(242,96,120,0.36); }
+  }
+  .ba-affix-band[data-pool="corrupted"].is-open > .ba-affix-band-body { margin-top: 0; padding: 10px 12px 4px; border-radius: 0 0 11px 11px;
+    background: linear-gradient(180deg, rgba(210,48,72,0.1), rgba(210,48,72,0.03)); box-shadow: inset 0 0 0 1px rgba(242,96,120,0.22); }
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-band-name { color: #ff8fa3; }
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-band-meta { color: #d27a8c; }
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-band-toggle { color: #ffc2cd; background: rgba(242,96,120,0.18); }
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-flow { column-width: 260px; padding-top: 0; }
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-row.is-on { background: linear-gradient(90deg, rgba(242,96,120,0.24), rgba(242,96,120,0.06)); box-shadow: inset 0 0 0 1px rgba(242,96,120,0.4); }
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-check:checked { background: #f26078; border-color: #f26078; }
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-pill.is-on { background: #f26078 !important; }
   .ba-affix-sec { break-inside: avoid; margin: 0 0 8px; }
   .ba-affix-sec-head { display: flex; align-items: center; gap: 8px; width: 100%; height: 22px; padding: 0 2px !important; margin: 0 0 2px !important;
     border: 0 !important; background: transparent !important; cursor: pointer; text-align: left; }
-  .ba-affix-sec-name { font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .06em; color: #c4b5fd; white-space: nowrap; }
+  .ba-affix-sec-name { font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .06em; color: currentColor; white-space: nowrap; }
   .ba-affix-sec-count { font: 600 11px/1 ui-monospace, Consolas, monospace; color: #77728f; }
-  .ba-affix-sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, rgba(196,181,253,0.28), transparent); }
+  .ba-affix-sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, currentColor, transparent); opacity: .3; }
+  /* 종류 색 — 뜻에 맞춘 계열(사용자 요청 2026-09-16). 이름과 밑줄이 같은 색을 쓴다(색은 머리에 주고 자식이 currentColor 로 받는다).
+     창 전체가 보라 유리라 채도를 낮춘 파스텔로 맞춘다 — 무지개처럼 튀면 읽는 흐름이 끊긴다. */
+  .ba-affix-sec[data-category="resist"] .ba-affix-sec-head { color: #f2c98a; }      /* 저항 — 원소 */
+  .ba-affix-sec[data-category="resource"] .ba-affix-sec-head { color: #f59ab0; }    /* 생명력·마나·정신력 */
+  .ba-affix-sec[data-category="defence"] .ba-affix-sec-head { color: #9fc2e8; }     /* 방어 */
+  .ba-affix-sec[data-category="attribute"] .ba-affix-sec-head { color: #c4b5fd; }   /* 능력치 */
+  .ba-affix-sec[data-category="added"] .ba-affix-sec-head { color: #f0ad82; }       /* 피해 추가 */
+  .ba-affix-sec[data-category="damage"] .ba-affix-sec-head { color: #ef8f7c; }      /* 피해·상태 이상 */
+  .ba-affix-sec[data-category="crit"] .ba-affix-sec-head { color: #ffd98a; }        /* 정확도·치명타 */
+  .ba-affix-sec[data-category="speed"] .ba-affix-sec-head { color: #7dd3fc; }       /* 속도 */
+  .ba-affix-sec[data-category="skill"] .ba-affix-sec-head { color: #b7a6ff; }       /* 스킬 */
+  .ba-affix-sec[data-category="recovery"] .ba-affix-sec-head { color: #8fe0bd; }    /* 회복·흡수 */
+  .ba-affix-sec[data-category="minion"] .ba-affix-sec-head { color: #c9e49a; }      /* 소환수·동료·토템 */
+  .ba-affix-sec[data-category="flask"] .ba-affix-sec-head { color: #9fd8e0; }       /* 플라스크·호신부 */
+  .ba-affix-sec[data-category="other"] .ba-affix-sec-head { color: #a39fbb; }       /* 기타 */
+  /* 타락 줄 안에서는 종류 색을 쓰지 않는다 — 그 줄의 정체성은 붉은 판이다 */
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-sec[data-category] .ba-affix-sec-head { color: #ff9fb1; }
   .ba-affix-sec-chev { width: 7px; height: 7px; border-right: 1.5px solid #77728f; border-bottom: 1.5px solid #77728f; transform: rotate(-45deg);
     transition: transform .16s cubic-bezier(0.23, 1, 0.32, 1); margin-right: 3px; }
   .ba-affix-sec.is-open .ba-affix-sec-chev { transform: rotate(45deg); }
@@ -614,30 +749,7 @@ function pobEnsureStyle() {
   @media (prefers-reduced-motion: reduce) { .ba-affix-add { transition: none; } .ba-affix-add:active { transform: none; } }`
   document.head.appendChild(st)
 }
-// 페이지 표면 커스텀 툴팁 — data-tip의 《...》를 강조색(시안) span으로 치환(패널 .ba-tip과 동일 관례).
-// 버튼 오른쪽에 배치(좁은 좌측 컬럼의 아이템 이미지를 안 가리도록) + 뷰포트 밖으로 안 나가게 클램프.
-let pageTip = null
-function ensurePageTip() {
-  if (pageTip) return pageTip
-  pageTip = document.createElement('div')
-  pageTip.id = 'ba-page-tip'
-  document.body.appendChild(pageTip)
-  return pageTip
-}
-function bindPageTip(el) {
-  el.addEventListener('mouseenter', () => {
-    const raw = el.getAttribute('data-tip'); if (!raw) return
-    const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-    const tip = ensurePageTip()
-    tip.innerHTML = esc(raw).replace(/《([^》]*)》/g, '<span class="ba-tip-accent">$1</span>')
-    tip.classList.add('show')
-    const r = el.getBoundingClientRect()
-    const left = Math.min(window.innerWidth - tip.offsetWidth - 8, r.right + 10)
-    const top = Math.max(8, Math.min(window.innerHeight - tip.offsetHeight - 8, r.top + r.height / 2 - tip.offsetHeight / 2))
-    tip.style.left = left + 'px'; tip.style.top = top + 'px'
-  })
-  el.addEventListener('mouseleave', () => { if (pageTip) pageTip.classList.remove('show') })
-}
+// 페이지 표면 커스텀 툴팁은 page-tip.js 로 옮겼다 — 속성 목록·티어 칩도 같은 툴팁을 쓴다(네이티브 title 금지).
 // 거래소 static API에서 화폐 정보 1회 로드 — 두 가지에 쓴다.
 //  ① 기본 화폐(엑잘/카오스) 아이콘: 확장 내부 URL은 페이지 CSP·dynamic URL 제약으로 깨질 수 있어
 //     GGG 공식 CDN 이미지(사이트 자체가 쓰는 것과 동일)를 쓴다.
@@ -1034,7 +1146,7 @@ async function openAffixesFor(group, btn) {
   const existingIds = groupRowTitles(group)
     .map((title) => index.get(normalizeTradeText(rowStatText(title))))
     .filter(Boolean)
-  const listForClass = (cls) => affixListFor({ table: tierTable, affixes: affixTable, itemClass: cls, statMap, ilvlMax, existingIds })
+  const listForClass = (cls, base = null) => affixListFor({ table: tierTable, affixes: affixTable, itemClass: cls, statMap, ilvlMax, existingIds, base })
   const label = groupLabel(document, group)
   openAffixPopover({
     anchor: btn,
@@ -1044,10 +1156,12 @@ async function openAffixesFor(group, btn) {
     classes: affixClassChoices(),
     currentClass: itemClass,
     listForClass,
-    onAdd: async (picks) => {
-      const res = await requestAddStatFilters(groupToken(group), picks)
-      LOG('속성 목록 — 넣기', JSON.stringify({ added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], error: res.error ?? null }))
-      panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role) }, label))
+    basesForClass: (cls) => basesFor(affixTable, cls),
+    onAdd: async (picks, meta) => {
+      const typeFilters = typeFiltersFor(meta?.classes, itemClass)
+      const res = await requestAddStatFilters(groupToken(group), picks, typeFilters)
+      LOG('속성 목록 — 넣기', JSON.stringify({ added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], typed: res.typed ?? [], error: res.error ?? null }))
+      panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role), typeFilters }, label))
     },
   })
 }
@@ -1061,9 +1175,26 @@ function affixClassChoices() {
   const seen = new Set()
   for (const [categoryId, text] of Object.entries(filterMap.options?.category ?? {})) {
     const cls = CLASS_BY_CATEGORY[categoryId]
-    if (!cls || seen.has(cls) || !affixTable?.[cls]) continue
+    if (!cls || seen.has(cls) || !affixTable?.[cls] || UNRELEASED_CLASSES.has(cls)) continue
     seen.add(cls)
     out.push({ cls, label: text })
+  }
+  return out
+}
+
+/**
+ * 속성을 넣을 때 함께 맞출 유형 필터(사용자 요청 2026-09-16).
+ * - 아이템 유형: 고른 속성이 **한 유형에서만** 왔고 그게 지금 거래소 유형과 다를 때만 그 유형으로 바꾼다.
+ *   여러 유형이 섞였으면 어느 쪽이 맞는지 모르므로 건드리지 않는다.
+ * - 희귀도: 「모든 비고유」 — 속성 목록은 고유 아이템에 붙지 않는 속성이다. 사용자가 이미 고른 희귀도는 페이지 쪽이 덮지 않는다.
+ */
+function typeFiltersFor(classes, pageClass) {
+  const out = { rarity: 'nonunique' }
+  const list = Array.isArray(classes) ? classes : []
+  const only = list.length === 1 ? list[0] : null
+  if (only && only !== pageClass) {
+    const category = Object.keys(filterMap.options?.category ?? {}).find((id) => CLASS_BY_CATEGORY[id] === only)
+    if (category) out.category = category
   }
   return out
 }
@@ -1084,16 +1215,24 @@ function addResultMessage(res, label) {
   if (created.includes('or')) parts.push('OR 조건은 새 「개수(최소 1)」 그룹에 넣었어요.')
   if (have) parts.push(`${have}개는 이미 그 그룹에 있어서 뺐어요.`)
   if (refused) parts.push(`${refused}개는 거래소가 받지 않았어요.`)
+  const typed = Array.isArray(res?.typed) ? res.typed : []
+  const changed = []
+  if (typed.includes('category') && res?.typeFilters?.category) {
+    const name = filterMap.options?.category?.[res.typeFilters.category]
+    changed.push(name ? `아이템 유형 「${name}」` : '아이템 유형')
+  }
+  if (typed.includes('rarity')) changed.push('희귀도 「모든 비고유」')
+  if (changed.length) parts.push(`유형 필터도 맞췄어요 — ${changed.join(' · ')}.`)
   return parts.join(' ') || '넣은 속성이 없어요.'
 }
 
 const pendingAdds = new Map()
-function requestAddStatFilters(token, items) {
+function requestAddStatFilters(token, items, typeFilters = null) {
   return new Promise((resolve) => {
     const reqId = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
     const timer = setTimeout(() => { pendingAdds.delete(reqId); resolve({ error: 'timeout', added: [], skipped: [] }) }, 3000)
     pendingAdds.set(reqId, (r) => { clearTimeout(timer); resolve(r) })
-    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items }, location.origin)
+    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items, ...(typeFilters ? { typeFilters } : {}) }, location.origin)
   })
 }
 
@@ -1403,9 +1542,13 @@ function demoTierHtml() {
   const chips = ['T1', 'T2', 'T3']
     .map((t) => `<button type="button" class="ba-tier-chip" tabindex="-1">${t}</button>`)
     .join('')
+  // 속성 목록 칩도 실제와 같은 클래스(.ba-affix-btn)다 — 투어 스텝이 그대로 가리킨다. 누를 수 있게 묶지 않는다(예시일 뿐).
+  // 추가 줄은 진짜 입력칸이 아니라 span 이다 — attachAffixButtons 가 입력칸을 찾아 실제 칩을 붙이지 않게.
   return `
     <div class="ba-demo-where">검색 조건 — 능력치 필터</div>
-    <div class="ba-demo-filter"><span class="ba-demo-stat">화염 저항 #%</span>${chips}<span class="ba-demo-min">최소</span></div>`
+    <div class="ba-demo-filter"><span class="ba-demo-stat">화염 저항 #%</span>${chips}<span class="ba-demo-min">최소</span></div>
+    <div class="ba-demo-filter ba-demo-addrow"><span class="ba-demo-stat">+ 능력치 필터 추가</span></div>
+    <div class="ba-affix-chiprow"><button type="button" class="ba-affix-btn" tabindex="-1">${AFFIX_CHIP_ICON}<span>속성 목록</span></button></div>`
 }
 
 /**

@@ -8,12 +8,16 @@
 //                     updateFilter(index,{min,max}) 행 입력칸에 숫자 치기
 //                     updateFloat('min','1')         그룹 헤더의 최소칸에 숫자 치기(개수 그룹의 N)
 //     그룹 추가 목록  selectStatGroup({type})        「+ 능력치 그룹 추가」 에서 방식 고르기
+//     유형 필터 그룹  updateFilter(index,{option})   아이템 유형·희귀도 드롭다운에서 고르기 (2026-09-16 라이브 확인:
+//                     필터 컴포넌트의 updateOption 이 그대로 이 메서드를 부른다. index 는 group.filters 안 순번)
 //
 // ⚠ 이 파일은 import 를 쓰면 안 된다. MAIN world 에는 chrome.runtime 이 없어 번들러의 import 로더가 깨진다.
 //
-// 요청: { __baSource:'ba-content', kind:'add-stat-filters', reqId, token, items:[{id, value, role}] }
+// 요청: { __baSource:'ba-content', kind:'add-stat-filters', reqId, token, items:[{id, value, role}], typeFilters? }
 //   role — 'here'(누른 그룹) · 'and'(필수: 모두 만족 그룹) · 'or'(하나 이상: 개수 그룹, 최소 1)
-// 응답: { __baSource:'ba-bridge', kind:'stat-filters-added', reqId, added, valued, skipped, created, error? }
+//   typeFilters — { category?, rarity? } 거래소 옵션 id. category 는 다르면 바꾸고, rarity 는 「모두」일 때만 채운다
+//                 (사용자가 직접 고른 희귀도를 덮지 않는다).
+// 응답: { __baSource:'ba-bridge', kind:'stat-filters-added', reqId, added, valued, skipped, created, typed, error? }
 //   token — 콘텐츠 스크립트가 그룹 요소에 달아 둔 data-ba-group-token. 두 world 가 공유하는 건 DOM 뿐이다.
 (() => {
   const ORIGIN = location.origin
@@ -50,6 +54,33 @@
     return null
   }
 
+  /**
+   * 유형 필터(아이템 유형·희귀도)를 거래소 화면이 스스로 고르는 길로 바꾼다. 바꾼 것의 id 목록을 돌려준다.
+   * 거래소가 모르는 옵션 id 는 넣지 않는다 — 드롭다운 목록에 있는 것만.
+   */
+  function applyTypeFilters(wanted) {
+    const typed = []
+    if (!wanted || typeof wanted !== 'object') return typed
+    const group = [...new Set([...document.querySelectorAll('.filter-group')].map((e) => e.__vue__).filter(Boolean))]
+      .find((v) => v.group && v.group.id === 'type_filters' && typeof v.updateFilter === 'function')
+    if (!group || !Array.isArray(group.filters)) return typed
+    const current = (id) => group.state && group.state.filters && group.state.filters[id] && group.state.filters[id].option
+    const choose = (id, option, onlyWhenEmpty) => {
+      if (typeof option !== 'string') return
+      const index = group.filters.findIndex((f) => f && f.id === id)
+      const filter = group.filters[index]
+      const options = filter && filter.option && Array.isArray(filter.option.options) ? filter.option.options : []
+      if (index < 0 || !options.some((o) => o && o.id === option)) return
+      const now = current(id)
+      if (now === option || (onlyWhenEmpty && now != null)) return
+      group.updateFilter(index, { option })
+      typed.push(id)
+    }
+    choose('category', wanted.category, false)
+    choose('rarity', wanted.rarity, true)
+    return typed
+  }
+
   window.addEventListener('message', (e) => {
     if (e.source !== window || e.origin !== ORIGIN) return
     const d = e.data
@@ -62,9 +93,10 @@
     const valued = []
     const skipped = []
     const created = []
+    let typed = []
     const reply = (error) => {
       try {
-        window.postMessage({ __baSource: 'ba-bridge', kind: 'stat-filters-added', reqId: d.reqId, added, valued, skipped, created, ...(error ? { error } : {}) }, ORIGIN)
+        window.postMessage({ __baSource: 'ba-bridge', kind: 'stat-filters-added', reqId: d.reqId, added, valued, skipped, created, typed, ...(error ? { error } : {}) }, ORIGIN)
       } catch (_) {}
     }
     try {
@@ -72,6 +104,8 @@
       const el = document.querySelector('.filter-group[data-ba-group-token="' + d.token + '"]')
       const home = el && el.__vue__
       if (!home || typeof home.selectFilter !== 'function') return reply('no-group')
+      // 유형을 먼저 정한다 — 능력치 행이 생길 때 티어 칩이 새 유형 기준으로 뜬다
+      try { typed = applyTypeFilters(d.typeFilters) } catch (_) { typed = [] }
 
       // 역할별 대상 그룹 — 필요할 때 한 번만 정한다(같은 요청에서 「필수」 여럿이 새 그룹 하나로 모이게).
       const targets = new Map()

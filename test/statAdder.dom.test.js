@@ -67,6 +67,48 @@ async function run(reqId, token, items) {
 beforeAll(async () => { await import('../src/content/stat-adder.js') })
 beforeEach(() => { document.body.innerHTML = '' })
 
+/** 유형 필터 그룹 — 라이브 구조(2026-09-16): group.id 'type_filters', filters[] 의 option.options, state.filters[id].option */
+function typeGroup({ category = null, rarity = null } = {}) {
+  const el = document.createElement('div')
+  el.className = 'filter-group'
+  const state = { filters: {} }
+  if (category) state.filters.category = { option: category }
+  if (rarity) state.filters.rarity = { option: rarity }
+  const calls = []
+  const opt = (ids) => ({ options: [{ id: null, text: '모두' }, ...ids.map((id) => ({ id, text: id }))] })
+  const filters = [{ id: 'category', option: opt(['accessory.ring', 'armour.gloves']) }, { id: 'rarity', option: opt(['rare', 'nonunique']) }, { id: 'ilvl' }]
+  el.__vue__ = {
+    group: { id: 'type_filters' }, state, filters,
+    updateFilter: (i, value) => { calls.push([filters[i].id, value]); state.filters[filters[i].id] = value },
+  }
+  document.body.appendChild(el)
+  return calls
+}
+
+describe('stat-adder — 유형 필터 맞추기', () => {
+  it('아이템 유형은 다르면 바꾸고, 희귀도는 비어 있을 때만 채운다', async () => {
+    fakePage([{ type: 'and', token: 'gtype001' }])
+    const calls = typeGroup({ category: 'armour.gloves' })
+    const reply = nextReply('t1')
+    send({ ...req('t1', 'gtype001', [{ id: 'explicit.stat_1' }]), typeFilters: { category: 'accessory.ring', rarity: 'nonunique' } })
+    const r = await reply
+    expect(calls).toEqual([['category', { option: 'accessory.ring' }], ['rarity', { option: 'nonunique' }]])
+    expect(r.typed).toEqual(['category', 'rarity'])
+  })
+
+  it('사용자가 고른 희귀도는 덮지 않고, 같은 유형·모르는 옵션은 건드리지 않는다', async () => {
+    fakePage([{ type: 'and', token: 'gtype002' }])
+    const calls = typeGroup({ category: 'accessory.ring', rarity: 'rare' })
+    const reply = nextReply('t2')
+    send({ ...req('t2', 'gtype002', [{ id: 'explicit.stat_1' }]), typeFilters: { category: 'accessory.ring', rarity: 'nonunique' } })
+    expect((await reply).typed).toEqual([])
+    const reply2 = nextReply('t3')
+    send({ ...req('t3', 'gtype002', [{ id: 'explicit.stat_1' }]), typeFilters: { category: 'weapon.nope' } })
+    expect((await reply2).typed).toEqual([])
+    expect(calls).toEqual([])
+  })
+})
+
 describe('stat-adder — 누른 그룹에 넣기', () => {
   it('고른 id 를 순서대로 selectFilter 에 넣고 added 로 돌려준다', async () => {
     const { log } = fakePage([{ type: 'count', token: 'gtoken01' }])

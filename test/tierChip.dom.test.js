@@ -81,10 +81,10 @@ describe('평평한 구조 — 화염 저항 (T1~T3)', () => {
   })
 
   // 넣는 칸이 능력치에 따라 갈리므로(음수는 최대칸) title 이 **어디에 무엇이** 들어가는지 말한다.
-  it('title 은 "범위 → 칸 값 · 아이템 레벨 L 이상"', () => {
+  it('툴팁(data-tip) 은 "범위 → 칸 값 · 아이템 레벨 L 이상"', () => {
     attachTierChips(document, ctx())
     const chip = row.querySelector('.' + CHIP_CLASS)
-    expect(chip.title).toBe('41~45 → 최소 41 · 아이템 레벨 82 이상')
+    expect(chip.dataset.tip).toBe('41~45 → 최소 41 · 아이템 레벨 82 이상')
   })
 
   it('T2 를 누르면 min 에 36 이 들어가고 onApply 가 불린다', () => {
@@ -121,7 +121,7 @@ describe('평평한 구조 — 화염 저항 (T1~T3)', () => {
     const c = () => ({ table, itemClass: 'Ring', statIdOf: () => statId })
 
     attachTierChips(document, c())
-    expect([...row.querySelectorAll('.' + CHIP_CLASS)].map((b) => b.title)[0]).toBe('41~45 → 최소 41 · 아이템 레벨 82 이상')
+    expect([...row.querySelectorAll('.' + CHIP_CLASS)].map((b) => b.dataset.tip)[0]).toBe('41~45 → 최소 41 · 아이템 레벨 82 이상')
 
     statId = 'stat.three_slots' // 다룰 수 없는 능력치 → 칩이 사라져야 한다
     attachTierChips(document, c())
@@ -206,7 +206,7 @@ describe('음수 능력치 — 최대칸에 넣는다', () => {
     const { row } = flatRow('호신부 충전 소모량 #% 감소')
     document.body.appendChild(row)
     attachTierChips(document, ctx())
-    expect(row.querySelector('.' + CHIP_CLASS).title).toBe('-25~-23 → 최대 -23 · 아이템 레벨 68 이상')
+    expect(row.querySelector('.' + CHIP_CLASS).dataset.tip).toBe('-25~-23 → 최대 -23 · 아이템 레벨 68 이상')
   })
 
   it('영문 거래소의 max placeholder 도 찾는다', () => {
@@ -300,7 +300,7 @@ describe('슬롯이 둘인 능력치 — 공격 시 화염 피해 #~# 추가', (
     document.body.appendChild(row)
     attachTierChips(document, { table, itemClass: 'Ring', statIdOf: () => 'stat.added_fire' })
     const chip = row.querySelector('.' + CHIP_CLASS)
-    expect(chip.title).toBe('(25~29)~(37~45) 평균 → 최소 31 · 아이템 레벨 75 이상')
+    expect(chip.dataset.tip).toBe('(25~29)~(37~45) 평균 → 최소 31 · 아이템 레벨 75 이상')
     chip.click()
     expect(min.value).toBe('31')
     expect(max.value).toBe('')

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { affixListFor, affixFilterValue, filterAffixes } from '../src/lib/affixList.js'
+import { affixListFor, affixFilterValue, filterAffixes, allAffixItems, basesFor } from '../src/lib/affixList.js'
 import realTable from '../src/lib/statTiers.poe2.json'
 import realAffixes from '../src/lib/statAffixes.poe2.json'
 
@@ -72,6 +72,138 @@ describe('affixListFor', () => {
     expect(affixListFor({ table, affixes, itemClass: null, statMap }).status).toBe('no-class')
     expect(affixListFor({ table, affixes, itemClass: 'Focus', statMap }).status).toBe('no-class')
     expect(affixListFor({ table, affixes, itemClass: 'constructor', statMap }).status).toBe('no-class')
+  })
+})
+
+describe('affixListFor — 일반 풀 밖의 속성', () => {
+  const specialAffixes = {
+    Gloves: {
+      ...affixes.Gloves,
+      x: { 'enchant.res': { r: [{ l: 1, v: [[5, 10]] }], c: 'resist' } },
+      e: {
+        'stat.life': { r: [{ l: 60, v: [[90, 104]] }, { l: 40, v: [[60, 70]] }, { l: 10, v: [[20, 29]] }], c: 'resource', k: 'p' },
+        'stat.fire_res': { r: [{ l: 30, v: [[21, 25]] }], c: 'resist', k: 's' },
+      },
+      d: { 'desecrated.slow': { r: [{ l: 65, v: [[-20, -12]] }], c: 'other', k: 's' } },
+    },
+  }
+  const map = { ...statMap, 'enchant.res': '모든 원소 저항 #%', 'desecrated.slow': '디버프의 감속 효력 #% 감소' }
+  const list = affixListFor({ table, affixes: specialAffixes, itemClass: 'Gloves', statMap: map })
+
+  it('풀마다 따로 담고, 에센스·훼손된은 접두·접미로 가른다', () => {
+    expect(list.corrupted.map((x) => x.id)).toEqual(['enchant.res'])
+    expect(list.essence.prefix.map((x) => x.id)).toEqual(['stat.life'])
+    expect(list.essence.suffix.map((x) => x.id)).toEqual(['stat.fire_res'])
+    expect(list.desecrated.suffix.map((x) => x.id)).toEqual(['desecrated.slow'])
+    expect(list.alloy).toEqual({ prefix: [], suffix: [] })
+  })
+
+  it('같은 능력치가 일반과 에센스에 함께 있어도 key 로 구분된다', () => {
+    expect(list.prefix[0].key).toBe('normal:stat.life')
+    expect(list.essence.prefix[0].key).toBe('essence:stat.life')
+    expect(list.essence.prefix[0].pool).toBe('essence')
+  })
+
+  it('사다리가 여러 줄이면 넣는 칸 하나, 한 줄이면 최소·최대 모두', () => {
+    const life = list.essence.prefix[0]
+    expect(life).toMatchObject({ single: false, tiers: 3, topLevel: 60, fill: 'min' })
+    expect(affixFilterValue(life, 1)).toEqual({ min: 60 })
+    expect(affixFilterValue(list.essence.suffix[0], 0)).toEqual({ min: 21, max: 25 })
+  })
+
+  it('음수 속성은 최대칸, 아이템 레벨 상한으로 닿는 줄만 고른다', () => {
+    expect(list.desecrated.suffix[0].fill).toBe('max')
+    const capped = affixListFor({ table, affixes: specialAffixes, itemClass: 'Gloves', statMap: map, ilvlMax: 45 })
+    expect(capped.essence.prefix[0].choices.map((c) => c.l)).toEqual([40, 10])
+    expect(capped.desecrated.suffix[0]).toMatchObject({ tiers: 0, choices: [] })
+  })
+
+  it('allAffixItems 는 화면 순서 — 일반 → 타락 → 에센스 → 훼손된 → 합금', () => {
+    expect(allAffixItems(list).map((x) => x.key)).toEqual([
+      'normal:stat.life', 'normal:stat.fire_add', 'normal:stat.fire_res', 'corrupted:enchant.res',
+      'essence:stat.life', 'essence:stat.fire_res', 'desecrated:desecrated.slow',
+    ])
+  })
+
+  it('no-class 도 같은 모양의 빈 목록', () => {
+    const r = affixListFor({ table, affixes: specialAffixes, itemClass: null, statMap: map })
+    expect(r.essence).toEqual({ prefix: [], suffix: [] })
+    expect(r.mechanics).toEqual([])
+    expect(allAffixItems(r)).toEqual([])
+  })
+
+  it('메커니즘 풀(m)은 게임 데이터 이름 그대로 띠가 되고, 예약된 풀 이름·빈 풀은 싣지 않는다', () => {
+    const withMech = {
+      Gloves: {
+        ...specialAffixes.Gloves,
+        m: [
+          { key: 'genesis_caster', n: '기원의 나무', x: { 'stat.fire_res': { r: [{ l: 12, v: [[5, 9]] }], c: 'resist', k: 's' } } },
+          { key: 'essence', n: '가짜', x: { 'stat.life': { r: [{ l: 1, v: [[1, 2]] }], c: 'resource', k: 'p' } } },
+          { key: 'empty', n: '빈 풀', x: {} },
+        ],
+      },
+    }
+    const r = affixListFor({ table, affixes: withMech, itemClass: 'Gloves', statMap: map })
+    expect(r.mechanics.map((m) => [m.pool, m.label, m.desc, m.prefix.length, m.suffix.length])).toEqual([['genesis_caster', '기원의 나무', null, 0, 1]])
+    // 제목(t)이 오면 제목이 띠 이름, 스탯 문장(n)은 설명
+    withMech.Gloves.m[0] = { ...withMech.Gloves.m[0], t: '기원의 나무', n: '산출된 아이템에 시전자 관련 속성 부여 가능' }
+    const titled = affixListFor({ table, affixes: withMech, itemClass: 'Gloves', statMap: map })
+    expect([titled.mechanics[0].label, titled.mechanics[0].desc]).toEqual(['기원의 나무', '산출된 아이템에 시전자 관련 속성 부여 가능'])
+    // 문장 속 줄바꿈 — 글자 `\n` 으로 오든 실제 개행으로 오든 한 줄로 잇는다
+    withMech.Gloves.m[0] = { ...withMech.Gloves.m[0], t: '뒤바뀐 빗장뼈', n: '희귀 목걸이를 훼손합니다.\\n일정 확률로 붙습니다.' }
+    expect(affixListFor({ table, affixes: withMech, itemClass: 'Gloves', statMap: map }).mechanics[0].desc).toBe('희귀 목걸이를 훼손합니다. 일정 확률로 붙습니다.')
+    expect(r.mechanics[0].suffix[0].key).toBe('genesis_caster:stat.fire_res')
+    expect(allAffixItems(r).at(-1).key).toBe('genesis_caster:stat.fire_res')
+  })
+})
+
+describe('affixListFor — 베이스별 목록 (주얼)', () => {
+  const baseAffixes = {
+    Jewel: {
+      ...affixes.Jewel,
+      x: { 'enchant.a': { r: [{ l: 1, v: [[1, 2]] }], c: 'other' } },
+      b: [
+        { id: 'JewelStr', n: '루비', k: { n: ['stat.accuracy'] } },
+        { id: 'JewelDex', n: '에메랄드', k: { n: ['stat.curse_speed'], x: ['enchant.a'] } },
+      ],
+    },
+  }
+  const map = { ...statMap, 'enchant.a': '타락 A #' }
+
+  it('basesFor 는 게임 이름 그대로 베이스 칩 목록을 준다 — 베이스가 없는 부위는 빈 배열', () => {
+    expect(basesFor(baseAffixes, 'Jewel')).toEqual([{ id: 'JewelStr', label: '루비' }, { id: 'JewelDex', label: '에메랄드' }])
+    expect(basesFor(baseAffixes, 'Gloves')).toEqual([])
+    expect(basesFor(baseAffixes, null)).toEqual([])
+  })
+
+  it('베이스를 고르면 그 베이스 풀에 있는 능력치만 남는다 — 풀에 없는 버킷은 비운다', () => {
+    const all = affixListFor({ table, affixes: baseAffixes, itemClass: 'Jewel', statMap: map })
+    expect(allAffixItems(all).map((x) => x.id)).toEqual(['stat.accuracy', 'stat.curse_speed', 'enchant.a'])
+    const ruby = affixListFor({ table, affixes: baseAffixes, itemClass: 'Jewel', statMap: map, base: 'JewelStr' })
+    expect(allAffixItems(ruby).map((x) => x.id)).toEqual(['stat.accuracy'])
+    const emerald = affixListFor({ table, affixes: baseAffixes, itemClass: 'Jewel', statMap: map, base: 'JewelDex' })
+    expect(allAffixItems(emerald).map((x) => x.id)).toEqual(['stat.curse_speed', 'enchant.a'])
+  })
+
+  it('모르는 베이스 id 면 거르지 않는다', () => {
+    const r = affixListFor({ table, affixes: baseAffixes, itemClass: 'Jewel', statMap: map, base: 'Nope' })
+    expect(allAffixItems(r)).toHaveLength(3)
+  })
+})
+
+describe('실제 데이터 — 유물', () => {
+  it('유물 7종 베이스가 있고 능력치는 성역 id 다', () => {
+    expect(basesFor(realAffixes, 'Relic').map((b) => b.label)).toEqual(['단지 유물', '손잡이 항아리 유물', '화병 유물', '인장 유물', '궤짝 유물', '융단 유물', '향 유물'])
+    for (const id of [...realAffixes.Relic.p, ...realAffixes.Relic.s]) expect(id).toMatch(/^sanctum\.stat_\d+$/)
+  })
+})
+
+describe('실제 데이터 — 주얼 베이스', () => {
+  it('일반 주얼 4종 + 오래된 주얼 4종이 있고, 다이아몬드는 루비보다 넓다', () => {
+    const bases = basesFor(realAffixes, 'Jewel')
+    expect(bases.map((b) => b.label)).toEqual(['루비', '에메랄드', '사파이어', '다이아몬드', '오래된 루비', '오래된 에메랄드', '오래된 사파이어', '오래된 다이아몬드'])
+    const n = (label) => realAffixes.Jewel.b.find((b) => b.n === label).k.n.length
+    expect(n('다이아몬드')).toBeGreaterThan(n('루비'))
   })
 })
 

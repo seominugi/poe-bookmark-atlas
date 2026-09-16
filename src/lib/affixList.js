@@ -16,31 +16,40 @@ const own = (obj, key) => (obj && Object.hasOwn(obj, key) ? obj[key] : null)
  * @param {Record<string,string>} args.statMap 거래소 stat id → 문구 (화면에 보이는 이름)
  * @param {number|null} [args.ilvlMax] 아이템 레벨 상한
  * @param {Iterable<string>} [args.existingIds] 넣을 그룹에 이미 있는 stat id
- * @returns {{status:'ok'|'no-class', prefix:AffixItem[], suffix:AffixItem[], corrupted:AffixItem[]}}
+ * @param {string|null} [args.base] 베이스 id(basesFor) — 주면 그 베이스에 붙는 능력치만 남긴다
+ * @returns {{status:'ok'|'no-class', prefix:AffixItem[], suffix:AffixItem[], corrupted:AffixItem[],
+ *            essence:{prefix:AffixItem[],suffix:AffixItem[]}, desecrated:{prefix:AffixItem[],suffix:AffixItem[]}, alloy:{prefix:AffixItem[],suffix:AffixItem[]}}}
  *
  * @typedef {{t:number,l:number,min:number,max:number,range:string}} AffixChoice
- * @typedef {{id:string, text:string, source:'prefix'|'suffix'|'corrupted', category:string, tiers:number, topLevel:number, have:boolean,
+ * @typedef {{id:string, key:string, text:string, pool:'normal'|'corrupted'|'essence'|'desecrated'|'alloy',
+ *            source:'prefix'|'suffix'|'corrupted', category:string, tiers:number, topLevel:number, have:boolean,
  *            single:boolean, fill:'min'|'max', choices:AffixChoice[]}} AffixItem
+ *   `key` — 목록 안에서 유일한 표식(`풀:id`). 같은 능력치가 일반과 에센스에 함께 있을 수 있어 id 만으로는 겹친다.
  *   `tiers` — 아이템 레벨 상한 안에서 닿는 티어 수(상한이 없으면 전체). 0 이면 이 상한으로는 안 붙는다.
  *   `topLevel` — 닿는 티어 중 가장 높은 것의 필요 아이템 레벨(닿는 게 없으면 T1 의 필요 레벨).
  *   `single` — 티어가 하나뿐인 능력치(주얼 등). 값이 정해진 범위 하나라 고를 티어가 없다.
  *   `choices` — 칩과 같은 상위 티어 값(statTiers.tiersFor). 넣을 값은 `affixFilterValue` 가 정한다.
  */
-export function affixListFor({ table, affixes, itemClass, statMap, ilvlMax = null, existingIds = [] }) {
+export function affixListFor({ table, affixes, itemClass, statMap, ilvlMax = null, existingIds = [], base = null }) {
   const byStat = itemClass ? own(table, itemClass) : null
   const lists = itemClass ? own(affixes, itemClass) : null
-  if (!byStat || !lists) return { status: 'no-class', prefix: [], suffix: [], corrupted: [] }
+  if (!byStat || !lists) return emptyList('no-class')
   const have = new Set(existingIds)
+  // 베이스를 고르면(주얼: 루비·에메랄드 …) 그 베이스에 붙는 능력치만 남긴다. 모르는 베이스면 거르지 않는다.
+  const baseEntry = base && Array.isArray(lists.b) ? lists.b.find((b) => b?.id === base) : null
+  const allowedIn = (key) => (baseEntry ? new Set(baseEntry.k?.[key] ?? []) : null)
   const build = (ids, source) => {
     const out = []
+    const allowed = allowedIn('n')
     for (const id of ids ?? []) {
+      if (allowed && !allowed.has(id)) continue
       const rows = own(byStat, id)
       const text = own(statMap, id)
       if (!Array.isArray(rows) || !rows.length || typeof text !== 'string') continue
       const reach = ilvlMax == null ? rows : rows.filter((r) => r.l <= ilvlMax)
       const tiers = tiersFor({ table, itemClass, statId: id, ilvlMax })
       out.push({
-        id, text, source,
+        id, key: `normal:${id}`, text, source, pool: 'normal',
         category: own(lists.c, id) ?? 'other',
         tiers: reach.length,
         topLevel: (reach[0] ?? rows[0]).l,
@@ -52,21 +61,97 @@ export function affixListFor({ table, affixes, itemClass, statMap, ilvlMax = nul
     }
     return out
   }
-  // 타락 속성 — 거래소 인챈트 id. 티어가 없고 값 범위 하나라 늘 single 이다(최소·최대를 함께 넣는다).
-  const corrupted = []
-  for (const [id, entry] of Object.entries(lists.x ?? {})) {
+  const out = { status: 'ok', prefix: build(lists.p, 'prefix'), suffix: build(lists.s, 'suffix') }
+  const bySide = (items) => ({ prefix: items.filter((it) => it.source === 'prefix'), suffix: items.filter((it) => it.source === 'suffix') })
+  const onlyAllowed = (items, key) => {
+    const allowed = allowedIn(key)
+    return allowed ? items.filter((it) => allowed.has(it.id)) : items
+  }
+  for (const { pool, key, sided } of SPECIAL_POOLS) {
+    const items = onlyAllowed(specialItems(own(lists, key), pool, { statMap, ilvlMax, have }), key)
+    out[pool] = sided ? bySide(items) : items
+  }
+  // 메커니즘이 태그를 덧붙여야 열리는 풀(기원의 나무 등). 이름은 게임 데이터가 준 것을 그대로 쓴다.
+  out.mechanics = []
+  const reserved = new Set(['normal', ...SPECIAL_POOLS.map((p) => p.pool)])
+  for (const m of Array.isArray(lists.m) ? lists.m : []) {
+    if (typeof m?.key !== 'string' || typeof m?.n !== 'string' || reserved.has(m.key)) continue
+    const items = onlyAllowed(specialItems(m.x, m.key, { statMap, ilvlMax, have }), m.key)
+    // 제목(t, 메커니즘 이름)이 있으면 그걸 띠 이름으로, 태그를 켜는 스탯 문장(n)은 설명으로 둔다
+    const title = typeof m.t === 'string' && m.t ? m.t : null
+    // 게임 문장에 줄바꿈이 섞여 온다(뒤바뀐 빗장뼈 「…훼손합니다.⏎일정 확률로…」 — 실제 개행 문자다).
+    // 띠 머리는 한 줄이라 공백으로 잇는다. 글자 `\n` 으로 오는 경우도 같이 막아 둔다(화면에 역슬래시가 찍히지 않게).
+    const sentence = m.n.replace(/\s*(?:\\n|\n)\s*/g, ' ')
+    if (items.length) out.mechanics.push({ pool: m.key, label: title ?? sentence, desc: title ? sentence : null, ...bySide(items) })
+  }
+  return out
+}
+
+/**
+ * 부위의 베이스 목록 — 한 부위 안에서 베이스마다 붙는 속성이 갈리는 곳(주얼)만 있다. 이름은 게임 데이터 표기 그대로.
+ * @returns {Array<{id:string, label:string}>}
+ */
+export function basesFor(affixes, itemClass) {
+  const lists = itemClass ? own(affixes, itemClass) : null
+  return (Array.isArray(lists?.b) ? lists.b : [])
+    .filter((b) => typeof b?.id === 'string' && typeof b?.n === 'string')
+    .map((b) => ({ id: b.id, label: b.n }))
+}
+
+/**
+ * 일반 풀 밖에서 붙는 속성 — statAffixes 의 키와 화면 이름. 순서가 곧 화면 순서다.
+ * 이름은 게임 표기다: 타락 · 에센스 · 합금(`룬 합금` 등) · 훼손된(거래소 능력치 그룹 이름).
+ */
+export const SPECIAL_POOLS = [
+  { pool: 'corrupted', key: 'x', label: '타락', sided: false },
+  { pool: 'essence', key: 'e', label: '에센스', sided: true },
+  { pool: 'desecrated', key: 'd', label: '훼손된', sided: true },
+  { pool: 'alloy', key: 'a', label: '합금', sided: true },
+]
+
+function emptyList(status) {
+  const out = { status, prefix: [], suffix: [], mechanics: [] }
+  for (const { pool, sided } of SPECIAL_POOLS) out[pool] = sided ? { prefix: [], suffix: [] } : []
+  return out
+}
+
+/**
+ * 버킷 속성 → 목록 항목. 값 사다리는 공급원마다 다른 범위라 티어 이름 대신 **범위**로 고르게 한다.
+ * 사다리가 한 줄이면 single(최소·최대를 함께 넣는다), 여러 줄이면 일반 속성처럼 넣는 칸 하나만 채운다.
+ */
+function specialItems(entries, pool, { statMap, ilvlMax, have }) {
+  const out = []
+  for (const [id, entry] of Object.entries(entries ?? {})) {
     const text = own(statMap, id)
-    if (typeof text !== 'string' || !Array.isArray(entry?.v) || !entry.v.length) continue
-    const bounds = filterBounds(entry.v)
-    const negative = entry.v.every((slot) => slot.every((n) => n < 0))
-    corrupted.push({
-      id, text, source: 'corrupted', category: entry.c ?? 'other',
-      tiers: 1, topLevel: 1, have: have.has(id), single: true,
+    const rows = Array.isArray(entry?.r) ? entry.r.filter((row) => Array.isArray(row?.v) && [1, 2].includes(row.v.length)) : []
+    if (typeof text !== 'string' || !rows.length) continue
+    const reach = ilvlMax == null ? rows : rows.filter((row) => row.l <= ilvlMax)
+    const negative = rows.every((row) => row.v.every((slot) => slot.every((n) => n < 0)))
+    out.push({
+      id, key: `${pool}:${id}`, text, pool,
+      source: entry.k === 's' ? 'suffix' : entry.k === 'p' ? 'prefix' : pool,
+      category: entry.c ?? 'other',
+      tiers: reach.length,
+      topLevel: (reach[0] ?? rows[0]).l,
+      have: have.has(id),
+      single: rows.length === 1,
       fill: negative ? 'max' : 'min',
-      choices: [{ t: 1, l: 1, ...bounds }],
+      choices: reach.map((row, i) => ({ t: i + 1, l: row.l, ...filterBounds(row.v) })),
     })
   }
-  return { status: 'ok', prefix: build(lists.p, 'prefix'), suffix: build(lists.s, 'suffix'), corrupted }
+  return out
+}
+
+/** 목록의 모든 항목 — 화면 순서(일반 접두 → 일반 접미 → 타락 → 에센스 → 훼손된 → 합금 → 메커니즘 풀). */
+export function allAffixItems(list) {
+  const out = [...(list?.prefix ?? []), ...(list?.suffix ?? [])]
+  for (const { pool, sided } of SPECIAL_POOLS) {
+    const v = list?.[pool]
+    if (!v) continue
+    out.push(...(sided ? [...(v.prefix ?? []), ...(v.suffix ?? [])] : v))
+  }
+  for (const m of list?.mechanics ?? []) out.push(...(m.prefix ?? []), ...(m.suffix ?? []))
+  return out
 }
 
 /**
