@@ -116,7 +116,9 @@ const SOURCE_LABEL = { prefix: '접두', suffix: '접미', corrupted: '타락' }
 // 접히는 공급원 띠 — 에센스·훼손된·합금. 일반 속성보다 드물게 찾으므로 접은 채 시작한다.
 const BAND_POOLS = SPECIAL_POOLS.filter((p) => p.sided)
 /** 목록 안에서 유일한 표식 — affixListFor 가 붙인 key, 없으면 출처와 id 로 만든다. */
-const keyOf = (item) => item.key ?? `${item.pool ?? item.source}:${item.id}`
+// 고른 것의 키는 **거래소 조건(id)** 이다. 기본·에센스·메커니즘 풀의 같은 속성은 모두 explicit.* 한 조건이라
+// 한 줄을 고르면 나머지 줄도 함께 체크된다(사용자 결정 2026-09-16). 훼손된(desecrated.*)·타락(enchant.*)은 id 가 달라 따로 간다.
+const keyOf = (item) => item.id
 const TABS = [
   { key: 'all', label: '전체' },
   { key: 'prefix', label: '접두어' },
@@ -138,7 +140,18 @@ const TABS = [
  * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'here'|'and'|'or'}>, meta:{classes:Array<string|null>})=>Promise<void>|void} args.onAdd
  *   meta.classes — 고른 속성이 온 유형(중복 없음, 넣는 순서). 유형 없이 본 목록이면 null 이 들어간다.
  */
-export function openAffixPopover({ anchor, title, subtitle, list, classes = [], currentClass = null, listForClass, basesForClass, onAdd }) {
+export function openAffixPopover({ anchor, title, subtitle, list, classes = [], currentClass = null, listForClass, basesForClass, onAdd, prefs = {}, onPrefs }) {
+  // 사용자 설정 — 창을 닫았다 열어도 남는다(부르는 쪽이 저장한다)
+  //   orSplit      OR 을 접두어·접미어 그룹으로 나눠 넣는다(사용자 요청 2026-09-16)
+  //   baseByClass  유형마다 마지막에 고른 베이스(주얼 → 루비 …)
+  const settings = { orSplit: prefs.orSplit !== false, baseByClass: { ...(prefs.baseByClass ?? {}) } }
+  const savePrefs = () => { try { onPrefs?.({ orSplit: settings.orSplit, baseByClass: { ...settings.baseByClass } }) } catch (_) { /* 저장 실패는 화면에 영향 없음 */ } }
+  /** 유형의 기억한 베이스 — 지금 그 유형에 없는 베이스면 잊는다. */
+  const rememberedBase = (cls) => {
+    const id = cls ? settings.baseByClass[cls] : null
+    if (!id || !basesForClass) return null
+    return basesForClass(cls).some((b) => b.id === id) ? id : null
+  }
   closeAffixPopover()
   const doc = anchor.ownerDocument
   const scrim = el(doc, 'div', 'ba-affix-scrim')
@@ -180,7 +193,8 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     if (!listForClass) return
     doll.setOpen(false)
     if (cls === current.cls) return
-    current = { cls, base: null, list: listForClass(cls, null) }
+    const base = rememberedBase(cls)
+    current = { cls, base, list: listForClass(cls, base) }
     render()
   }
   const doll = buildTypeDoll(doc, classes, { onPick: pickClass })
@@ -206,7 +220,16 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   clearBtn.type = 'button'
   const addBtn = el(doc, 'button', 'ba-affix-add')
   addBtn.type = 'button'
-  foot.append(hint, countEl, clearBtn, addBtn)
+  // OR 을 접두어·접미어로 나눠 넣을지 — 켜면 OR 표시가 접두어 개수 그룹과 접미어 개수 그룹으로 갈려 들어간다
+  const splitLabel = el(doc, 'label', 'ba-affix-split')
+  const splitBox = el(doc, 'input', 'ba-affix-split-check')
+  splitBox.type = 'checkbox'
+  splitBox.checked = settings.orSplit
+  splitLabel.append(splitBox, el(doc, 'span', null, 'OR 을 접두어·접미어로 나눠 넣기'))
+  splitLabel.dataset.tip = '켜면 OR 로 표시한 속성을\n접두어는 접두어끼리, 접미어는 접미어끼리\n각각 「개수(최소 1)」 그룹에 넣어요'
+  bindPageTip(splitLabel, { placement: 'below' })
+  splitBox.addEventListener('change', () => { settings.orSplit = splitBox.checked; savePrefs() })
+  foot.append(hint, splitLabel, countEl, clearBtn, addBtn)
   pop.appendChild(foot)
 
   // item.key → { index: 고른 값(-1 = 빈칸), role, item } — 유형을 바꿔도 고른 것은 남는다.
@@ -215,8 +238,14 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   let rows = [] // {item, row, box, pills, roles}
   let sections = [] // {el, rows, setOpen, startOpen}
   let bands = [] // 공급원 띠 {el, rows, setOpen, startOpen}
+  let bulks = [] // 「OR 전체」 단추 {btn, rowsOf}
   let tab = 'all'
   let current = { cls: currentClass, base: null, list }
+  {
+    // 이미 유형이 정해진 채 열었으면 그 유형에서 마지막에 고른 베이스로 시작한다
+    const base = rememberedBase(currentClass)
+    if (base && listForClass) current = { cls: currentClass, base, list: listForClass(currentClass, base) }
+  }
 
   const renderBases = () => {
     baseRow.innerHTML = ''
@@ -233,6 +262,9 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       b.addEventListener('click', () => {
         if (c.id === current.base || !listForClass) return
         current = { cls: current.cls, base: c.id, list: listForClass(current.cls, c.id) }
+        if (c.id) settings.baseByClass[current.cls] = c.id
+        else delete settings.baseByClass[current.cls]
+        savePrefs()
         render()
       })
       baseRow.appendChild(b)
@@ -249,6 +281,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     if (valued) parts.push(`값 ${valued}`)
     if (must) parts.push(`필수 ${must}`)
     if (or) parts.push(`OR ${or}`)
+    paintBulks()
     countEl.innerHTML = ''
     if (n) {
       countEl.append(el(doc, 'b', null, String(n)), `개 선택${parts.length ? ' · ' + parts.join(' · ') : ''}`)
@@ -271,15 +304,18 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       if (!classOrder.has(clsKey)) classOrder.set(clsKey, classOrder.size)
       selected.set(keyOf(r.item), { ...pick, item: r.item, pos: prev?.pos ?? posOf(r.item), batch: prev?.batch ?? classOrder.get(clsKey), cls: prev?.cls ?? current.cls })
     }
-    paintRow(r)
+    for (const t of rows) if (t.item.id === r.item.id) paintRow(t)
     refresh()
   }
   const paintRow = (r) => {
     const pick = selected.get(keyOf(r.item))
+    const mine = pick?.item === r.item // 값(티어)은 마지막에 고른 줄의 것이다
     r.box.checked = !!pick
     r.row.classList.toggle('is-on', !!pick)
+    r.row.classList.toggle('is-linked', !!pick && !mine)
+    if (r.linked) r.linked.textContent = pick && !mine ? `${poolLabel(pick.item)} 줄 값으로 넣어요` : ''
     r.pills.forEach((p, i) => {
-      const on = pick?.index === i
+      const on = mine && pick.index === i
       p.classList.toggle('is-on', on)
       p.setAttribute('aria-pressed', String(on))
     })
@@ -290,6 +326,57 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     })
   }
   const defaultPick = (item) => ({ index: item.single && item.choices.length ? 0 : -1, role: 'here' })
+  /** 줄이 속한 띠 이름 — 「같은 조건」 안내에 쓴다. */
+  const poolLabel = (item) => {
+    if (!item.pool || item.pool === 'normal') return '기본'
+    return SPECIAL_POOLS.find((p) => p.pool === item.pool)?.label
+      ?? (current.list?.mechanics ?? []).find((m) => m.pool === item.pool)?.label ?? item.pool
+  }
+  let twinPools = new Map() // id → 그 조건이 보이는 띠 이름들(렌더마다 다시 센다)
+
+  // ── OR 일괄 — OR 은 수십 개를 하나씩 누르기 번거롭다(사용자 요청 2026-09-16). 필수는 많아야 6개라 행마다 고른다. ──
+  // 대상은 지금 보이는(검색에 걸린) 행 중 이미 그룹에 있는 것을 뺀 것이다.
+  const bulkTargets = (list) => list.filter((r) => !r.item.have && !r.row.hidden)
+  const bulkIsOn = (list) => {
+    const targets = bulkTargets(list)
+    return targets.length > 0 && targets.every((r) => selected.get(keyOf(r.item))?.role === 'or')
+  }
+  const toggleBulk = (list) => {
+    const targets = bulkTargets(list)
+    if (!targets.length) return
+    const on = bulkIsOn(list)
+    const clsKey = current.cls ?? ''
+    if (!classOrder.has(clsKey)) classOrder.set(clsKey, classOrder.size)
+    for (const r of targets) {
+      const key = keyOf(r.item)
+      const prev = selected.get(key)
+      if (on) { if (prev?.role === 'or') selected.delete(key) } else if (prev) {
+        selected.set(key, { ...prev, role: 'or' }) // 같은 조건을 다른 줄에서 이미 골랐으면 그 값을 그대로 둔다
+      } else {
+        selected.set(key, { index: defaultPick(r.item).index, role: 'or', item: r.item, pos: posOf(r.item), batch: classOrder.get(clsKey), cls: current.cls })
+      }
+    }
+    rows.forEach(paintRow) // 같은 조건 줄이 다른 묶음에도 있다
+    refresh()
+  }
+  const makeBulk = (className, label, rowsOf) => {
+    const btn = el(doc, 'button', className, label)
+    btn.type = 'button'
+    btn.dataset.tip = '보이는 속성을 모두 OR 로 표시해요\n다시 누르면 OR 표시를 모두 풀어요'
+    bindPageTip(btn, { placement: 'below' })
+    btn.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); toggleBulk(rowsOf()) })
+    bulks.push({ btn, rowsOf })
+    return btn
+  }
+  function paintBulks() {
+    for (const b of bulks) {
+      const list = b.rowsOf()
+      const on = bulkIsOn(list)
+      b.btn.classList.toggle('is-on', on)
+      b.btn.setAttribute('aria-pressed', String(on))
+      b.btn.disabled = bulkTargets(list).length === 0
+    }
+  }
 
   /** 지금 유형·탭으로 본문을 다시 그린다. 고른 것(selected)은 그대로 둔다. */
   const render = () => {
@@ -301,6 +388,14 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     rows = []
     sections = []
     bands = []
+    bulks = []
+    twinPools = new Map()
+    for (const it of allAffixItems(l)) {
+      const names = twinPools.get(it.id) ?? []
+      const name = poolLabel(it)
+      if (!names.includes(name)) names.push(name)
+      twinPools.set(it.id, names)
+    }
     const sideCount = (side) => (l[side]?.length ?? 0)
       + BAND_POOLS.reduce((n, p) => n + (l[p.pool]?.[side]?.length ?? 0), 0)
       + (l.mechanics ?? []).reduce((n, m) => n + (m[side]?.length ?? 0), 0)
@@ -363,8 +458,12 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     h.dataset.side = label === '접두어' ? 'prefix' : 'suffix'
     h.append(el(doc, 'span', 'ba-affix-side-chip', label), el(doc, 'em', null, String(list.length)))
     col.appendChild(h)
-    if (list.length) renderSections(col, list, startOpen, false)
-    else {
+    if (list.length) {
+      const before = rows.length
+      renderSections(col, list, startOpen, false)
+      const colRows = rows.slice(before)
+      h.appendChild(makeBulk('ba-affix-bulk ba-affix-bulk--col', `${label} 전체 OR`, () => colRows))
+    } else {
       col.classList.add('is-empty')
       col.appendChild(el(doc, 'p', 'ba-affix-side-none', `${label}는 붙지 않아요`))
     }
@@ -434,6 +533,9 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       toggle.append(el(doc, 'span', 'ba-affix-sec-name', group.label), el(doc, 'span', 'ba-affix-sec-count', String(group.items.length)), el(doc, 'span', 'ba-affix-sec-line'), el(doc, 'span', 'ba-affix-sec-chev'))
       const secBody = el(doc, 'div', 'ba-affix-sec-body')
       const s = { el: sec, rows: [], startOpen }
+      // 머리 줄 — 펼침 단추 옆에 이 묶음만 OR 로 표시하는 단추(단추 안에 단추를 둘 수 없어 줄로 감싼다)
+      const headRow = el(doc, 'div', 'ba-affix-sec-headrow')
+      headRow.append(toggle, makeBulk('ba-affix-bulk', 'OR', () => s.rows))
       s.setOpen = (open) => {
         sec.classList.toggle('is-open', open)
         toggle.setAttribute('aria-expanded', String(open))
@@ -441,13 +543,13 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       }
       toggle.addEventListener('click', () => s.setOpen(secBody.hidden))
       for (const item of group.items) {
-        const r = buildRow(doc, item, { setRow, defaultPick, selected, showSource })
+        const r = buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins: (twinPools.get(item.id) ?? []).filter((n) => n !== poolLabel(item)) })
         paintRow(r)
         secBody.appendChild(r.row)
         rows.push(r)
         s.rows.push(r)
       }
-      sec.append(toggle, secBody)
+      sec.append(headRow, secBody)
       host.appendChild(sec)
       s.setOpen(startOpen)
       sections.push(s)
@@ -469,6 +571,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       b.el.hidden = !!term && hits === 0
       b.setOpen(term ? hits > 0 : b.startOpen)
     }
+    paintBulks() // 검색으로 대상이 바뀌면 일괄 단추 상태도 바뀐다
   }
 
   tabBtns.forEach((t) => t.el.addEventListener('click', () => { tab = t.key; render() }))
@@ -483,7 +586,9 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     // 고른 순서가 아니라 목록 순서(접두 → 접미 → 타락)로 넣는다 — 체크한 순서는 사용자도 기억하지 못한다.
     // 다른 유형에서 고른 것이 섞이면 유형을 처음 고른 차례대로, 그 안에서는 목록 순서다.
     const chosen = [...selected.values()].sort((a, b) => a.batch - b.batch || a.pos - b.pos)
-    const picks = chosen.map((p) => ({ id: p.item.id, value: affixFilterValue(p.item, p.index), role: p.role }))
+    // OR 을 나눠 넣으면 접두어·접미어가 각자 개수 그룹으로 간다(타락처럼 접두·접미가 없는 것은 나누지 않는다)
+    const roleOf = (p) => (p.role === 'or' && settings.orSplit && (p.item.source === 'prefix' || p.item.source === 'suffix') ? `or:${p.item.source}` : p.role)
+    const picks = chosen.map((p) => ({ id: p.item.id, value: affixFilterValue(p.item, p.index), role: roleOf(p) }))
     // 고른 속성이 온 유형들 — 하나뿐이면 부르는 쪽이 거래소 아이템 유형을 그 유형으로 맞출 수 있다
     const classesPicked = [...new Set(chosen.map((p) => p.cls))]
     addBtn.disabled = true
@@ -523,7 +628,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
 }
 
 /** 한 행 — 체크 · 이름 · (호버 시) 필수/OR · 넣을 값. */
-function buildRow(doc, item, { setRow, defaultPick, selected, showSource }) {
+function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins = [] }) {
   const row = el(doc, 'label', 'ba-affix-row')
   if (item.have) row.classList.add('is-have')
   if (!item.tiers) row.classList.add('is-out')
@@ -535,9 +640,23 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource }) {
   name.dataset.tip = item.single ? `${item.text}\n값 범위 하나` : `${item.text}\n티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
   bindPageTip(name, { placement: 'below' })
   const r = { item, row, box, pills: [], roles: [] }
-  const current = () => selected.get(keyOf(item)) ?? defaultPick(item)
+  const current = () => {
+    const pick = selected.get(keyOf(item))
+    if (!pick) return defaultPick(item)
+    // 같은 조건을 다른 줄에서 골랐으면 역할만 이어받고 값은 이 줄 기준으로 다시 고른다
+    return pick.item === item ? pick : { role: pick.role, index: defaultPick(item).index }
+  }
   const tail = el(doc, 'span', 'ba-affix-tail')
 
+  if (twins.length) {
+    // 같은 거래소 조건이 다른 띠에도 있다 — 한 곳만 고르면 된다
+    const twin = el(doc, 'span', 'ba-affix-twin', `같은 조건 ${twins.length + 1}곳`)
+    twin.dataset.tip = `${twins.join(' · ')} 띠에도 있는 같은 거래소 조건이에요\n한 줄을 고르면 모두 함께 체크되고, 거래소에는 한 번만 들어가요`
+    bindPageTip(twin, { placement: 'below' })
+    tail.appendChild(twin)
+    r.linked = el(doc, 'span', 'ba-affix-linked')
+    tail.appendChild(r.linked)
+  }
   if (showSource && SOURCE_LABEL[item.source]) {
     const src = el(doc, 'span', 'ba-affix-src', SOURCE_LABEL[item.source])
     if (item.source === 'corrupted') src.classList.add('is-corrupted')

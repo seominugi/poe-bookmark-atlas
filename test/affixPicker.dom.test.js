@@ -44,6 +44,9 @@ const list = {
   ],
 }
 
+// 열 제목 — 「전체 OR」 단추 글자는 빼고 읽는다
+const titleOf = (col) => [...col.querySelector('.ba-affix-srccol-title').children].filter((n) => !n.matches('.ba-affix-bulk')).map((n) => n.textContent).join('')
+
 beforeEach(() => {
   closeAffixPopover()
   document.body.innerHTML = ''
@@ -166,7 +169,7 @@ describe('openAffixPopover', () => {
     expect(normal.querySelector('.ba-affix-band-name').textContent).toBe('기본')
     expect(normal.querySelector('.ba-affix-band-body').hidden).toBe(false) // 기본은 펼친 채 시작
     const cols = [...normal.querySelectorAll('.ba-affix-sidegrid > .ba-affix-srccol')]
-    expect(cols.map((c) => [c.querySelector('.ba-affix-srccol-title').textContent, c.querySelectorAll('.ba-affix-row').length])).toEqual([['접두어3', 3], ['접미어3', 3]])
+    expect(cols.map((c) => [titleOf(c), c.querySelectorAll('.ba-affix-row').length])).toEqual([['접두어3', 3], ['접미어3', 3]])
     const row = strip.querySelector('.ba-affix-row')
     expect(row.textContent).toContain('모든 원소 저항')
     row.querySelector('.ba-affix-check').click()
@@ -220,7 +223,7 @@ describe('openAffixPopover', () => {
       expect(el.querySelector('.ba-affix-tab').textContent).toBe('전체9')
       bands[1].querySelector('.ba-affix-band-head').click()
       expect(bands[1].querySelector('.ba-affix-band-body').hidden).toBe(false)
-      expect([...bands[1].querySelectorAll('.ba-affix-srccol-title')].map((t) => t.textContent)).toEqual(['접두어1', '접미어1'])
+      expect([...bands[1].querySelectorAll('.ba-affix-srccol')].map(titleOf)).toEqual(['접두어1', '접미어1'])
     })
 
     it('메커니즘 풀은 데이터가 준 이름으로 맨 아래 띠가 된다', () => {
@@ -236,7 +239,7 @@ describe('openAffixPopover', () => {
     it('접미어만 있는 풀도 접미어 자리(오른쪽)에 그리고, 왼쪽은 비었다고 알린다', () => {
       const { el } = open({ list: withPools })
       const cols = [...el.querySelectorAll('.ba-affix-band[data-pool="desecrated"] .ba-affix-sidegrid > .ba-affix-srccol')]
-      expect(cols.map((c) => [c.querySelector('.ba-affix-srccol-title').textContent, c.classList.contains('is-empty'), c.querySelectorAll('.ba-affix-row').length]))
+      expect(cols.map((c) => [titleOf(c), c.classList.contains('is-empty'), c.querySelectorAll('.ba-affix-row').length]))
         .toEqual([['접두어0', true, 0], ['접미어1', false, 1]])
       expect(cols[0].textContent).toContain('접두어는 붙지 않아요')
     })
@@ -254,7 +257,7 @@ describe('openAffixPopover', () => {
       expect(el.querySelector('.ba-affix-band[data-pool="essence"] .ba-affix-band-body').hidden).toBe(false)
     })
 
-    it('같은 능력치를 기본과 에센스에서 따로 고를 수 있고, 에센스는 범위로 고른다', async () => {
+    it('에센스는 범위로 고르고, 같은 조건인 기본 줄은 함께 체크된다(값은 에센스 줄)', async () => {
       const onAdd = vi.fn(async () => {})
       const { el } = open({ onAdd, list: withPools })
       const band = el.querySelector('.ba-affix-band[data-pool="essence"]')
@@ -264,7 +267,7 @@ describe('openAffixPopover', () => {
       expect([...pills].map((p) => p.textContent)).toEqual(['90~104', '60~70'])
       pills[1].click()
       const normalMana = el.querySelector('.ba-affix-band[data-pool="normal"]').querySelectorAll('.ba-affix-row')[1]
-      expect(normalMana.querySelector('.ba-affix-check').checked).toBe(false) // 기본 마나는 그대로
+      expect(normalMana.querySelector('.ba-affix-check').checked).toBe(true) // 같은 거래소 조건(2026-09-16 사용자 결정)
       el.querySelector('.ba-affix-add').click()
       await Promise.resolve(); await Promise.resolve()
       expect(onAdd.mock.calls[0][0]).toEqual([{ id: 'stat.mana', value: { min: 60 }, role: 'here' }])
@@ -335,6 +338,142 @@ describe('openAffixPopover', () => {
     expect(body.hidden).toBe(true)
     expect(el.querySelector('.ba-affix-doll-bar-current').textContent).toBe('반지')
     expect(el.querySelector('.ba-affix-doll-bar-toggle').textContent).toBe('유형 바꾸기')
+  })
+
+  describe('OR 일괄 · 접두어/접미어 나눠 넣기', () => {
+    it('묶음의 OR 단추는 보이는 속성을 한꺼번에 OR 로 표시하고, 다시 누르면 푼다 — 이미 있는 속성은 건드리지 않는다', () => {
+      const { el } = open()
+      const prefixCol = el.querySelector('.ba-affix-band[data-pool="normal"] .ba-affix-srccol')
+      const secBulk = prefixCol.querySelector('.ba-affix-sec .ba-affix-bulk')
+      secBulk.click()
+      const roleOf = (text) => [...el.querySelectorAll('.ba-affix-row')].find((r) => r.textContent.includes(text))
+      expect(roleOf('마나 최대치').querySelector('.ba-affix-role[data-role="or"]').classList.contains('is-on')).toBe(true)
+      expect(roleOf('생명력 최대치').querySelector('.ba-affix-check').checked).toBe(false) // 추가됨
+      expect(secBulk.classList.contains('is-on')).toBe(true)
+      expect(el.querySelector('.ba-affix-count').textContent).toContain('OR 2')
+      secBulk.click()
+      expect(el.querySelector('.ba-affix-add').disabled).toBe(true)
+    })
+
+    it('열의 「접미어 전체 OR」 은 그 열 모두, 검색으로 숨긴 행은 빼고', () => {
+      const { el } = open()
+      const search = el.querySelector('.ba-affix-search-input')
+      search.value = '저항'; search.dispatchEvent(new Event('input'))
+      const colBulk = [...el.querySelectorAll('.ba-affix-bulk--col')].find((b) => b.textContent === '접미어 전체 OR')
+      colBulk.click()
+      const picked = [...el.querySelectorAll('.ba-affix-row.is-on .ba-affix-name')].map((n) => n.textContent)
+      expect(picked).toEqual(['화염 저항 #%', '냉기 저항 #%'])
+    })
+
+    it('나눠 넣기가 켜져 있으면 OR 역할이 접두어·접미어로 갈려 넘어가고, 끄면 하나로 간다 — 설정은 onPrefs 로 저장된다', async () => {
+      const onAdd = vi.fn(async () => {})
+      const onPrefs = vi.fn()
+      // 실제 목록은 항목마다 source 를 싣는다
+      const sourced = { ...list, prefix: list.prefix.map((it) => ({ ...it, source: 'prefix' })), suffix: list.suffix.map((it) => ({ ...it, source: 'suffix' })) }
+      const { el } = open({ list: sourced, onAdd, onPrefs })
+      const sel = (text) => [...el.querySelectorAll('.ba-affix-row')].find((r) => r.textContent.includes(text))
+      sel('마나 최대치').querySelector('.ba-affix-role[data-role="or"]').click()
+      sel('화염 저항').querySelector('.ba-affix-role[data-role="or"]').click()
+      const split = el.querySelector('.ba-affix-split-check')
+      expect(split.checked).toBe(true)
+      el.querySelector('.ba-affix-add').click()
+      await Promise.resolve(); await Promise.resolve()
+      expect(onAdd.mock.calls[0][0].map((p) => p.role)).toEqual(['or:prefix', 'or:suffix'])
+
+      const second = open({ list: sourced, onAdd, onPrefs, prefs: { orSplit: false } })
+      expect(second.el.querySelector('.ba-affix-split-check').checked).toBe(false)
+      const row = [...second.el.querySelectorAll('.ba-affix-row')].find((r) => r.textContent.includes('마나 최대치'))
+      row.querySelector('.ba-affix-role[data-role="or"]').click()
+      second.el.querySelector('.ba-affix-add').click()
+      await Promise.resolve(); await Promise.resolve()
+      expect(onAdd.mock.calls[1][0].map((p) => p.role)).toEqual(['or'])
+
+      const third = open({ onPrefs })
+      const box = third.el.querySelector('.ba-affix-split-check')
+      box.checked = false; box.dispatchEvent(new Event('change'))
+      expect(onPrefs).toHaveBeenLastCalledWith({ orSplit: false, baseByClass: {} })
+    })
+  })
+
+  describe('같은 거래소 조건', () => {
+    const e = (id, text, over = {}) => ({ id, key: `essence:${id}`, pool: 'essence', text, source: 'prefix', category: 'resource', tiers: 2, topLevel: 60, have: false, single: false, fill: 'min', choices: [res(1, 60, 90, 104), res(2, 40, 60, 70)], ...over })
+    const twinList = {
+      ...list,
+      essence: { prefix: [e('stat.mana', '마나 최대치 #')], suffix: [] },
+      desecrated: { prefix: [], suffix: [e('desecrated.stat.mana', '마나 최대치 #', { key: 'desecrated:x', pool: 'desecrated', source: 'suffix' })] },
+    }
+    const rowsOf = (el, text) => [...el.querySelectorAll('.ba-affix-row')].filter((r) => r.querySelector('.ba-affix-name').textContent === text)
+
+    it('기본·에센스의 같은 조건은 함께 체크되고 한 번만 넣는다 — 값은 마지막에 고른 줄, 훼손된은 따로', async () => {
+      const onAdd = vi.fn(async () => {})
+      const { el } = open({ list: twinList, onAdd })
+      const [normal, essence, desecrated] = rowsOf(el, '마나 최대치 #')
+      expect(normal.querySelector('.ba-affix-twin').textContent).toBe('같은 조건 2곳')
+      expect(desecrated.querySelector('.ba-affix-twin')).toBeNull()
+
+      essence.querySelectorAll('.ba-affix-pill')[1].click()
+      expect(normal.querySelector('.ba-affix-check').checked).toBe(true)
+      expect(normal.classList.contains('is-linked')).toBe(true)
+      expect(normal.querySelector('.ba-affix-linked').textContent).toBe('에센스 줄 값으로 넣어요')
+      expect(normal.querySelector('.ba-affix-pill.is-on')).toBeNull()
+      expect(desecrated.querySelector('.ba-affix-check').checked).toBe(false)
+      expect(el.querySelector('.ba-affix-add').textContent).toBe('1개 넣기')
+
+      // 기본 줄에서 OR 을 누르면 역할만 이어받고 값은 기본 줄 기준으로 바뀐다
+      normal.querySelector('.ba-affix-role[data-role="or"]').click()
+      expect(essence.classList.contains('is-linked')).toBe(true)
+      el.querySelector('.ba-affix-add').click()
+      await Promise.resolve(); await Promise.resolve()
+      expect(onAdd.mock.calls[0][0]).toEqual([{ id: 'stat.mana', value: null, role: 'or' }]) // 픽스처 기본 줄은 source 가 없어 나누지 않는다
+    })
+
+    it('한 줄의 체크를 풀면 같은 조건 줄도 모두 풀린다', () => {
+      const { el } = open({ list: twinList })
+      const [normal, essence] = rowsOf(el, '마나 최대치 #')
+      const box = normal.querySelector('.ba-affix-check')
+      box.checked = true; box.dispatchEvent(new Event('change'))
+      expect(essence.querySelector('.ba-affix-check').checked).toBe(true)
+      const ebox = essence.querySelector('.ba-affix-check')
+      ebox.checked = false; ebox.dispatchEvent(new Event('change'))
+      expect(normal.querySelector('.ba-affix-check').checked).toBe(false)
+      expect(el.querySelector('.ba-affix-add').disabled).toBe(true)
+    })
+  })
+
+  describe('베이스 기억', () => {
+    const basesForClass = (cls) => (cls === 'Jewel' ? [{ id: 'JewelStr', label: '루비' }, { id: 'JewelDex', label: '에메랄드' }] : [])
+    const classes = [{ cls: 'Jewel', label: '모든 주얼' }, { cls: 'Ring', label: '반지' }]
+
+    it('고른 베이스를 onPrefs 로 넘기고, 다음에 그 유형을 고르면 그 베이스로 연다', () => {
+      const onPrefs = vi.fn()
+      const listForClass = vi.fn(() => list)
+      const first = open({ classes, currentClass: null, listForClass, basesForClass, onPrefs })
+      first.el.querySelector('.ba-affix-slot[data-cls="Jewel"]').click()
+      ;[...first.el.querySelectorAll('.ba-affix-base')].find((b) => b.textContent === '에메랄드').click()
+      expect(onPrefs).toHaveBeenLastCalledWith({ orSplit: true, baseByClass: { Jewel: 'JewelDex' } })
+
+      const prefs = onPrefs.mock.calls.at(-1)[0]
+      const second = open({ classes, currentClass: null, listForClass, basesForClass, prefs })
+      second.el.querySelector('.ba-affix-slot[data-cls="Jewel"]').click()
+      expect(listForClass).toHaveBeenLastCalledWith('Jewel', 'JewelDex')
+      expect(second.el.querySelector('.ba-affix-base.is-on').textContent).toBe('에메랄드')
+
+      // 이미 주얼로 연 경우에도 그 베이스로 시작한다
+      const third = open({ classes, currentClass: 'Jewel', listForClass, basesForClass, prefs })
+      expect(listForClass).toHaveBeenLastCalledWith('Jewel', 'JewelDex')
+      expect(third.el.querySelector('.ba-affix-base.is-on').textContent).toBe('에메랄드')
+    })
+
+    it('「모든 베이스」 를 고르면 잊고, 지금 없는 베이스는 쓰지 않는다', () => {
+      const onPrefs = vi.fn()
+      const listForClass = vi.fn(() => list)
+      const { el } = open({ classes, currentClass: 'Jewel', listForClass, basesForClass, onPrefs, prefs: { baseByClass: { Jewel: 'JewelDex' } } })
+      ;[...el.querySelectorAll('.ba-affix-base')][0].click()
+      expect(onPrefs).toHaveBeenLastCalledWith({ orSplit: true, baseByClass: {} })
+      listForClass.mockClear()
+      open({ classes, currentClass: 'Jewel', listForClass, basesForClass, prefs: { baseByClass: { Jewel: 'Gone' } } })
+      expect(listForClass).not.toHaveBeenCalled() // 기억이 무효라 처음 목록 그대로
+    })
   })
 
   describe('장비창 모양 유형 선택', () => {
