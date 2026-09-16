@@ -201,6 +201,35 @@ describe('stat-adder — 필수·OR', () => {
     expect(r.created).toEqual([])
   })
 
+  it('OR 을 접두어·접미어로 나누면 각자 새 개수 그룹(최소 1)으로 간다', async () => {
+    const { store, log } = fakePage([{ type: 'and', token: 'gtoken16' }])
+    const r = await run('r16', 'gtoken16', [
+      { id: 'explicit.stat_1', role: 'or:prefix' },
+      { id: 'explicit.stat_2', role: 'or:suffix' },
+      { id: 'explicit.stat_3', role: 'or:prefix' },
+    ])
+    expect(store.state.persistent.stats.map((g) => [g.type, g.filters.map((f) => f.id)])).toEqual([
+      ['and', []],
+      ['count', ['explicit.stat_1', 'explicit.stat_3']],
+      ['count', ['explicit.stat_2']],
+    ])
+    expect(r.created).toEqual(['or', 'or'])
+    expect(log.float).toEqual([[1, 'min', '1'], [2, 'min', '1']])
+  })
+
+  it('누른 그룹이 개수 그룹이면 먼저 온 OR 쪽만 거기에, 다른 쪽은 새 그룹', async () => {
+    const { store } = fakePage([{ type: 'count', token: 'gtoken17' }])
+    const r = await run('r17', 'gtoken17', [
+      { id: 'explicit.stat_1', role: 'or:suffix' },
+      { id: 'explicit.stat_2', role: 'or:prefix' },
+    ])
+    expect(store.state.persistent.stats.map((g) => [g.type, g.filters.map((f) => f.id)])).toEqual([
+      ['count', ['explicit.stat_1']],
+      ['count', ['explicit.stat_2']],
+    ])
+    expect(r.created).toEqual(['or'])
+  })
+
   it('모르는 역할은 누른 그룹으로 본다', async () => {
     const { store } = fakePage([{ type: 'count', token: 'gtoken14' }])
     await run('r14', 'gtoken14', [{ id: 'explicit.stat_1', role: 'weird' }])

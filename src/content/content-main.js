@@ -666,6 +666,27 @@ function pobEnsureStyle() {
   .ba-affix-sec { break-inside: avoid; margin: 0 0 8px; }
   .ba-affix-sec-head { display: flex; align-items: center; gap: 8px; width: 100%; height: 22px; padding: 0 2px !important; margin: 0 0 2px !important;
     border: 0 !important; background: transparent !important; cursor: pointer; text-align: left; }
+  .ba-affix-sec-headrow { display: flex; align-items: center; gap: 6px; }
+  .ba-affix-sec-headrow > .ba-affix-sec-head { flex: 1; min-width: 0; }
+  /* OR 일괄 단추 — 작은 칩. 켜지면 OR 역할 버튼과 같은 하늘색 */
+  .ba-affix-bulk { flex: none; height: 18px; padding: 0 7px !important; margin: 0 !important; border-radius: 999px !important; cursor: pointer;
+    border: 1px solid rgba(92,195,242,0.28) !important; background: transparent !important; color: #8fc9e6 !important;
+    font: 700 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; letter-spacing: .02em;
+    transition: background .15s ease, border-color .15s ease, color .15s ease; }
+  @media (hover: hover) and (pointer: fine) { .ba-affix-bulk:hover { border-color: rgba(92,195,242,0.7) !important; color: #fff !important; } }
+  .ba-affix-bulk.is-on { background: rgba(92,195,242,0.22) !important; border-color: rgba(92,195,242,0.75) !important; color: #e3f6ff !important; }
+  .ba-affix-bulk[disabled] { opacity: .35; cursor: default; }
+  .ba-affix-bulk:focus-visible { outline: 2px solid #5cc3f2; outline-offset: 1px; }
+  .ba-affix-bulk--col { height: 22px; margin-left: 6px !important; padding: 0 10px !important; font-size: 11px !important; }
+  .ba-affix-split { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #c9c4dc; cursor: pointer; user-select: none; }
+  .ba-affix-split-check { appearance: none; -webkit-appearance: none; width: 28px; height: 16px; margin: 0; border-radius: 999px; cursor: pointer; position: relative;
+    background: rgba(255,255,255,0.14); transition: background .15s ease; }
+  .ba-affix-split-check::before { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff;
+    transition: transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  .ba-affix-split-check:checked { background: #5cc3f2; }
+  .ba-affix-split-check:checked::before { transform: translateX(12px); }
+  .ba-affix-split-check:focus-visible { outline: 2px solid #5cc3f2; outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .ba-affix-split-check, .ba-affix-split-check::before { transition: none; } }
   .ba-affix-sec-name { font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .06em; color: currentColor; white-space: nowrap; }
   .ba-affix-sec-count { font: 600 11px/1 ui-monospace, Consolas, monospace; color: #77728f; }
   .ba-affix-sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, currentColor, transparent); opacity: .3; }
@@ -708,6 +729,12 @@ function pobEnsureStyle() {
   .ba-affix-name { flex: 1; min-width: 0; }
   .ba-affix-tail { display: inline-flex; align-items: center; gap: 6px; flex: none; }
   .ba-affix-src { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
+  /* 같은 거래소 조건이 다른 띠에도 있다는 표시 — 조용한 점선 칩, 다른 줄에서 골랐으면 그 줄 이름을 알린다 */
+  .ba-affix-twin { flex: none; padding: 2px 6px; border-radius: 999px; border: 1px dashed rgba(201,196,220,0.32); color: #9d98b3; cursor: help;
+    font: 600 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; white-space: nowrap; }
+  .ba-affix-linked { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8fc9e6; white-space: nowrap; }
+  .ba-affix-linked:empty { display: none; }
+  .ba-affix-row.is-linked .ba-affix-twin { border-style: solid; border-color: rgba(92,195,242,0.5); color: #c9efff; }
   .ba-affix-src.is-corrupted { color: #f28aa0; }
   .ba-affix-have { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
   /* 필수·OR·티어는 조용히 숨었다가 호버·포커스·선택 때만 나타난다 — 목록이 표처럼 빽빽해 보이지 않게. */
@@ -1148,6 +1175,7 @@ async function openAffixesFor(group, btn) {
     .filter(Boolean)
   const listForClass = (cls, base = null) => affixListFor({ table: tierTable, affixes: affixTable, itemClass: cls, statMap, ilvlMax, existingIds, base })
   const label = groupLabel(document, group)
+  const prefs = await loadAffixPrefs()
   openAffixPopover({
     anchor: btn,
     title: label,
@@ -1157,6 +1185,8 @@ async function openAffixesFor(group, btn) {
     currentClass: itemClass,
     listForClass,
     basesForClass: (cls) => basesFor(affixTable, cls),
+    prefs,
+    onPrefs: saveAffixPrefs,
     onAdd: async (picks, meta) => {
       const typeFilters = typeFiltersFor(meta?.classes, itemClass)
       const res = await requestAddStatFilters(groupToken(group), picks, typeFilters)
@@ -1199,6 +1229,18 @@ function typeFiltersFor(classes, pageClass) {
   return out
 }
 
+// 속성 목록 설정 — OR 나눠 넣기 · 유형마다 마지막에 고른 베이스(주얼 → 루비). 창을 닫았다 열어도, 페이지를 옮겨도 남긴다.
+const AFFIX_PREFS_KEY = 'affixPickerPrefs'
+async function loadAffixPrefs() {
+  try {
+    const got = (await chrome.storage.local.get(AFFIX_PREFS_KEY))[AFFIX_PREFS_KEY]
+    return got && typeof got === 'object' ? got : {}
+  } catch (_) { return {} } // 확장이 새로고침돼 연결이 끊겼어도 창은 기본값으로 연다
+}
+function saveAffixPrefs(prefs) {
+  try { chrome.storage.local.set({ [AFFIX_PREFS_KEY]: prefs }).catch(() => {}) } catch (_) { /* 저장 실패는 다음에 기본값으로 연다 */ }
+}
+
 /** 거래소에 넣은 결과를 사용자 말로. 응답은 페이지 쪽에서 오므로 개수만 쓰고 내용은 싣지 않는다. */
 function addResultMessage(res, label) {
   const added = Array.isArray(res?.added) ? res.added.length : 0
@@ -1212,7 +1254,9 @@ function addResultMessage(res, label) {
   const spread = created.length || (Array.isArray(res?.roles) && res.roles.some((r) => r !== 'here'))
   if (added) parts.push(`속성 ${added}개를 ${spread ? '넣었어요' : `${label}에 넣었어요`}.${valued ? ` ${valued}개는 고른 값까지 채웠어요.` : ' 값은 티어 칩으로 고르세요.'}`)
   if (created.includes('and')) parts.push('필수 조건은 새 「모두 만족」 그룹에 넣었어요.')
-  if (created.includes('or')) parts.push('OR 조건은 새 「개수(최소 1)」 그룹에 넣었어요.')
+  const orGroups = created.filter((c) => c === 'or').length
+  if (orGroups > 1) parts.push(`OR 조건은 접두어·접미어로 나눠 새 「개수(최소 1)」 그룹 ${orGroups}개에 넣었어요.`)
+  else if (orGroups) parts.push('OR 조건은 새 「개수(최소 1)」 그룹에 넣었어요.')
   if (have) parts.push(`${have}개는 이미 그 그룹에 있어서 뺐어요.`)
   if (refused) parts.push(`${refused}개는 거래소가 받지 않았어요.`)
   const typed = Array.isArray(res?.typed) ? res.typed : []
