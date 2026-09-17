@@ -7,8 +7,11 @@
 //
 // 노트 본문에서 `[[mock:키]]` 한 줄로 불러온다(update.js mdToHtml).
 import { icon } from '../lib/icons.js'
+import { DOLL_ICONS } from '../content/affix-type-doll.js'
 
 const card = (inner) => `<div class="mk-card">${inner}</div>`
+// 속성 목록 장비창 칸 그림 — 창과 같은 선 그림을 쓴다(목업만 따로 그리면 둘이 어긋난다)
+const dollIcon = (cls) => `<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="${DOLL_ICONS[cls]}" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/></svg>`
 
 export const MOCKUPS = {
   // 북마크 카드의 ⋯ 를 눌렀을 때 뜨는 액션 목록에서 '라이브로 열기' 의 자리
@@ -214,29 +217,96 @@ export const MOCKUPS = {
       <div class="mk-note">도는 동안 <b>몇 개째인지</b> 보이고, <b>다시 누르면 멈춥니다</b>.</div>`,
   },
 
-  // 0.14.0 — 속성 목록. 칩이 **어디에** 있고 창이 **어떻게 생겼는지**가 글로는 안 온다.
+  // 0.14.0 — 속성 목록. 칩이 **어디에** 있는지부터. 창 모양은 아래 두 그림(affix-type · affix-pop)이 맡는다.
   'affix-list': {
-    caption: '능력치 그룹의 <b>속성 목록</b> 칩 → 접두어 · 접미어 목록',
+    caption: '거래소 <b>능력치 그룹</b> 아래에 생긴 칩',
     html: `
       ${card(`
         <div class="mk-line"><span class="mk-chip">+ 능력치 필터 추가</span></div>
         <div class="mk-line"><span class="mk-chip mk-point">${icon('layers', 11)}속성 목록</span></div>`)}
-      <div class="mk-pair">
-        <div class="mk-side">
-          <div class="mk-side-lbl">접두어</div>
-          ${card(`
-            <div class="mk-line"><span class="mk-open"><b>생명력 최대치 #</b></span><span class="mk-chip mk-chip--tight">필수</span><span class="mk-chip mk-chip--tight">T1</span></div>
-            <div class="mk-line"><span class="mk-open"><b>방어도 #% 증가(특정)</b></span><span class="mk-chip mk-chip--tight mk-point">후보</span></div>`)}
+      <div class="mk-note">누르면 아래 창이 열려요 — <b>위쪽 장비창</b>에서 유형을 고르고, <b>아래 목록</b>에서 속성을 고릅니다.</div>`,
+  },
+
+  // 0.14.0 — 유형 고르기. 글자 목록이 아니라 **게임 장비창 자리**라는 것이 핵심이라 모양을 그대로 줄여 그린다.
+  // 칸 이름은 게임 표기(ItemClasses.kr) 그대로다(§30) — 쇠뇌·육척봉·호신부.
+  'affix-type': {
+    caption: '창 위쪽 — <b>장비창</b>에서 아이템 유형 고르기',
+    html: (() => {
+      const slot = (cls, name, extra = '') => `<span class="mk-slot${extra}">${dollIcon(cls)}<span>${name}</span></span>`
+      return card(`
+        <div class="mk-doll-bar"><span class="mk-doll-bar-lbl">아이템 유형</span><b>반지</b><span class="mk-doll-bar-btn">접기</span></div>
+        <div class="mk-doll">
+          <div class="mk-doll-area mk-doll-weapon">
+            <span class="mk-doll-chip">무도 무기</span>
+            <div class="mk-doll-grid">${slot('Bow', '활')}${slot('Crossbow', '쇠뇌')}${slot('Spear', '창')}${slot('One_Hand_Mace', '한손 철퇴')}${slot('Warstaff', '육척봉')}${slot('Two_Hand_Mace', '양손 철퇴')}</div>
+            <span class="mk-doll-chip">마법 무기</span>
+            <div class="mk-doll-grid">${slot('Wand', '마법봉')}${slot('Sceptre', '셉터')}${slot('Staff', '지팡이')}</div>
+          </div>
+          <div class="mk-doll-area mk-doll-armour">
+            <span class="mk-doll-chip">방어구 · <i>장신구</i></span>
+            <div class="mk-doll-body">
+              ${slot('Helmet', '투구', ' mk-a-helm')}
+              ${slot('Amulet', '목걸이', ' mk-a-amulet is-jewel')}
+              ${slot('Body_Armour', '갑옷', ' mk-a-body')}
+              ${slot('Ring', '반지', ' mk-a-ring is-jewel is-on')}
+              ${slot('Gloves', '장갑', ' mk-a-gloves')}
+              ${slot('Belt', '허리띠', ' mk-a-belt is-jewel')}
+              ${slot('Boots', '장화', ' mk-a-boots')}
+            </div>
+          </div>
+          <div class="mk-doll-area mk-doll-off">
+            <span class="mk-doll-chip">보조</span>
+            <div class="mk-doll-grid">${slot('Shield', '방패')}${slot('Buckler', '버클러')}${slot('Focus', '집중구')}${slot('Quiver', '화살통')}</div>
+          </div>
+          <div class="mk-doll-bottom">
+            <div class="mk-doll-area"><span class="mk-doll-chip">플라스크 · 호신부</span><div class="mk-doll-row">${slot('LifeFlask', '생명력 플라스크')}${slot('ManaFlask', '마나 플라스크')}${slot('UtilityFlask', '호신부')}</div></div>
+            <div class="mk-doll-area"><span class="mk-doll-chip">주얼</span><div class="mk-doll-row">${slot('Jewel', '주얼')}</div></div>
+            <div class="mk-doll-area"><span class="mk-doll-chip">기타</span><div class="mk-doll-row">${slot('Relic', '유물')}${slot('TowerAugmentation', '서판')}</div></div>
+          </div>
+        </div>`)
+    })() + `<div class="mk-note">게임 장비창과 <b>같은 자리</b>라 글자를 읽지 않아도 찾아요. <b>금색 테두리</b>는 장신구(목걸이·반지·허리띠)예요. 유형을 고르면 칸들이 접혀 이 막대만 남고, <b>유형 바꾸기</b>로 다시 열어요. 그림은 칸을 펼친 모습이에요.</div>`,
+  },
+
+  // 0.14.0 — 속성 고르기. 번호표로 창의 네 부분을 가리키고, 노트 본문이 같은 번호로 설명한다.
+  // 속성 문구는 거래소 stats 표기 그대로다(§30).
+  'affix-pop': {
+    caption: '창 아래쪽 — <b>접두어 · 접미어</b> 목록에서 속성 고르기',
+    html: (() => {
+      const row = (name, { on = false, role = '', tier = '' } = {}) => `
+        <div class="mk-ap-row${on ? ' is-on' : ''}">
+          <span class="mk-ap-check">${on ? icon('check', 10) : ''}</span>
+          <span class="mk-ap-name">${name}</span>
+          <span class="mk-ap-roles"><span class="mk-ap-role${role === 'and' ? ' is-and' : ''}">필수</span><span class="mk-ap-role${role === 'or' ? ' is-or' : ''}">후보</span></span>
+          <span class="mk-ap-tiers">${['T1', 'T2', 'T3'].map((t) => `<span class="mk-ap-tier${t === tier ? ' is-on' : ''}">${t}</span>`).join('')}</span>
+        </div>`
+      return card(`
+        <div class="mk-ap-head">
+          <span class="mk-ap-title"><b>그룹 1에 넣기</b><small>아이템 레벨 상한 없음</small></span>
+          <span class="mk-ap-tabs"><span class="mk-num">1</span><span class="mk-ap-tab is-on">전체</span><span class="mk-ap-tab">접두어</span><span class="mk-ap-tab">접미어</span><span class="mk-ap-tab">타락</span></span>
+          <span class="mk-ap-search">${icon('search', 11)}속성 검색 (예: 저항 화염)</span>
         </div>
-        <div class="mk-side">
-          <div class="mk-side-lbl">접미어 · 후보 중 최소 2</div>
-          ${card(`
-            <div class="mk-line"><span class="mk-open"><b>화염 저항 #%</b></span><span class="mk-chip mk-chip--tight mk-point">후보</span></div>
-            <div class="mk-line"><span class="mk-open"><b>냉기 저항 #%</b></span><span class="mk-chip mk-chip--tight mk-point">후보</span></div>
-            <div class="mk-line"><span class="mk-open"><b>번개 저항 #%</b></span><span class="mk-chip mk-chip--tight mk-point">후보</span></div>`)}
+        <div class="mk-ap-band"><span class="mk-num">2</span><b>기본</b><span>접두어 3 · 접미어 3</span></div>
+        <div class="mk-ap-cols">
+          <div class="mk-ap-col">
+            <div class="mk-ap-colhead"><b>접두어</b><span class="mk-ap-bulk">접두어 전체 후보</span></div>
+            ${row('생명력 최대치 #', { on: true, role: 'and', tier: 'T1' })}
+            ${row('마나 최대치 #')}
+            ${row('정확도 #')}
+          </div>
+          <div class="mk-ap-col">
+            <div class="mk-ap-colhead"><b>접미어</b><span class="mk-num">3</span><span class="mk-ap-step"><span class="mk-ap-step-lbl">접미어 후보</span><i>−</i><b>2</b><i>+</i></span></div>
+            ${row('화염 저항 #%', { on: true, role: 'or' })}
+            ${row('냉기 저항 #%', { on: true, role: 'or' })}
+            ${row('번개 저항 #%', { on: true, role: 'or' })}
+          </div>
         </div>
-      </div>
-      <div class="mk-note">체크하면 <b>후보</b>, 꼭 붙어야 하면 <b>필수</b>. 몇 개 이상인지는 제목 줄에서 정해요.</div>`,
+        <div class="mk-ap-foot">
+          <span class="mk-num">4</span>
+          <span class="mk-ap-sum"><b>4</b>개 선택<span class="mk-ap-sumchip is-and">필수 1</span><span class="mk-ap-sumchip is-or">접미어 후보 3</span></span>
+          <span class="mk-ap-clear">선택 해제</span>
+          <span class="mk-ap-add">4개 넣기</span>
+        </div>`)
+    })(),
   },
 
   // 0.14.0 — 희귀도 테두리. 색 설명은 그림 없이는 전달되지 않는다.
