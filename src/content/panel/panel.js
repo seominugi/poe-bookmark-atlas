@@ -276,20 +276,45 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const canAnimate = (e) => e.getClientRects().length && typeof e.animate === 'function'
   const foldParts = () => [...root.querySelectorAll('.ba-head, .ba-econ-btn, .ba-foot-tx, .ba-foot-soc')].filter(canAnimate)
   const shiftOf = (e) => (e.closest('.ba-foot') ? 'translateY(8px)' : 'translateY(-8px)')
-  const slideAround = (commit) => {
-    const els = [...root.querySelectorAll('.ba-econ-row, #ba-sets, .ba-list, .ba-foot')].filter(canAnimate)
-    const before = els.map((e) => e.getBoundingClientRect().top)
+  const stillMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  // 자리 바꾸기를 미끄러짐으로(FLIP) — 높이 접기와 폭 조절이 함께 쓴다.
+  // 바꾸기 전 화면 위치(움직이는 중이면 그 위치)를 재고, 진행 중인 미끄러짐을 멈춘 뒤 새 자리를 재서
+  // 그 차이만큼 되돌려 놓고 0 으로 푼다. 그래서 연달아 바뀌어도(폭 드래그) 튀지 않고 이어진다.
+  // 화면 밖 요소는 재지도 움직이지도 않는다 — 목록이 길어도 비용이 보이는 만큼만 든다.
+  const flipAnims = new WeakMap()
+  const smoothReflow = (commit, sel, { duration, easing, min = 0.5 }) => {
+    const vh = window.innerHeight
+    const els = []
+    const before = []
+    for (const e of root.querySelectorAll(sel)) {
+      if (!canAnimate(e)) continue
+      const r = e.getBoundingClientRect()
+      if (r.bottom < -40 || r.top > vh + 40) continue
+      els.push(e); before.push(r.top)
+    }
     commit()
+    for (const e of els) { const a = flipAnims.get(e); if (a) { a.cancel(); flipAnims.delete(e) } }
     els.forEach((e, k) => {
       const d = before[k] - e.getBoundingClientRect().top
-      if (Math.abs(d) > 0.5) e.animate([{ transform: `translateY(${d}px)` }, { transform: 'none' }], { duration: SLIDE_MS, easing: EASE_MOVE })
+      if (Math.abs(d) <= min) return
+      const a = e.animate([{ transform: `translateY(${d}px)` }, { transform: 'none' }], { duration, easing })
+      flipAnims.set(e, a)
+      a.finished.then(() => { if (flipAnims.get(e) === a) flipAnims.delete(e) }, () => {})
     })
+  }
+  const slideAround = (commit) => smoothReflow(commit, '.ba-econ-row, #ba-sets, .ba-list, .ba-foot', { duration: SLIDE_MS, easing: EASE_MOVE })
+  // 폭을 끄는 동안 — 카드가 한 줄↔두 줄로 바뀌거나 상단 버튼 배치가 달라지면 그 아래가 툭 튄다(사용자 요청 2026-09-17: 높이 접기처럼 부드럽게).
+  // 서로 품지 않는 요소만 고른다 — 부모와 자식을 둘 다 움직이면 이동이 두 번 더해진다.
+  // 3px 이하는 움직이지 않는다 — 폭을 끄는 동안 생기는 잔떨림까지 미끄러지면 오히려 흐릿해 보인다.
+  const WIDTH_FLIP_SEL = '.ba-econ-row, #ba-sets, .ba-sec-head, .ba-folder-head, .ba-hday, .ba-row, .ba-foot'
+  const applyWidthSmooth = (w) => {
+    if (stillMotion()) { applyWidth(w); return }
+    smoothReflow(() => applyWidth(w), WIDTH_FLIP_SEL, { duration: 260, easing: EASE_OUT, min: 3 })
   }
   let wantShort = false
   const setShort = (on, animate) => {
     wantShort = on
-    const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (!animate || still) { shortOn = on; paintHead(); return }
+    if (!animate || stillMotion()) { shortOn = on; paintHead(); return }
     if (on) {
       const anims = foldParts().map((e) => e.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: shiftOf(e) }], { duration: FADE_OUT_MS, easing: EASE_OUT, fill: 'forwards' }))
       Promise.all(anims.map((a) => a.finished.catch(() => {}))).then(() => {
@@ -471,6 +496,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       placeBadge()
     }
     let startX = 0, startW = 0, dragging = false
+    // 폭은 프레임마다 한 번만 바꾼다 — 포인터 이벤트가 한 프레임에 여러 번 와도 자리 계산은 한 번이다
+    let pendingW = 0, widthFrame = 0
     grip.addEventListener('pointerdown', (e) => {
       dragging = true; startX = e.clientX; startW = panelW
       resizing = true
@@ -491,13 +518,15 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       // 잡는 곳이 패널 **안쪽** 변이라 방향이 배치에 따라 뒤집힌다.
       // 우측 배치: 왼쪽으로 끌수록 넓어짐 / 좌측 배치: 오른쪽으로 끌수록 넓어짐.
       const delta = panelSide === 'left' ? (e.clientX - startX) : (startX - e.clientX)
-      applyWidth(startW + delta) // applyWidth 가 clampPanelWidth 로 최소~최대 사이에 가둔다
+      pendingW = startW + delta // applyWidth 가 clampPanelWidth 로 최소~최대 사이에 가둔다
+      if (!widthFrame) widthFrame = requestAnimationFrame(() => { widthFrame = 0; applyWidthSmooth(pendingW); drawBadge() })
       badgeY = e.clientY
       drawBadge()
     })
     const end = (e) => {
       if (!dragging) return
       dragging = false
+      if (widthFrame) { cancelAnimationFrame(widthFrame); widthFrame = 0; applyWidthSmooth(pendingW) } // 마지막 값을 놓치지 않고 저장한다
       resizing = false
       elRoot.classList.remove('ba-resizing')
       tipSuppressed = false
@@ -632,20 +661,36 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     if (top + h > window.innerHeight - 8) top = window.innerHeight - 8 - h
     tipEl.style.top = Math.max(8, top) + 'px'
   }
+  const tipEsc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+  const tipLine = (line, head) => {
+    let h = tipEsc(line)
+    if (!head) {
+      const arrow = h.indexOf(' → ')
+      if (arrow > 0) h = `<b class="ba-tip-key">${h.slice(0, arrow)}</b>${h.slice(arrow)}`
+      else if (h.startsWith('클릭하면 ')) h = `<b class="ba-tip-key">클릭</b>${h.slice(2)}`
+    }
+    h = h.replace(/《([^》]*)》/g, '<span class="ba-tip-accent">$1</span>')
+    return `<div class="ba-tip-line${head ? ' ba-tip-head' : ''}">${h || '&nbsp;'}</div>`
+  }
+  const tipHtml = (raw) => {
+    const secs = raw.split(/\n?────────\n?/)
+    return secs.map((sec, si) => `<div class="ba-tip-sec">${sec.split('\n').map((l, li) => tipLine(l, secs.length > 1 && si === 0 && li === 0)).join('')}</div>`)
+      .join('<hr class="ba-tip-hr">')
+  }
   root.addEventListener('mouseover', (e) => {
     if (tipSuppressed) return
     const el = e.target.closest && e.target.closest('[data-tip]')
     if (!el) return
     const raw = el.getAttribute('data-tip')
-    // 구분선 마커(────────)는 폭 100% <hr>로, 《...》는 강조색(시안) 텍스트로 치환(나머지는 escape해 안전하게 HTML 렌더)
-    if (raw.indexOf('────────') >= 0 || raw.indexOf('《') >= 0) {
-      const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
-      tipEl.innerHTML = esc(raw)
-        .replace(/\n?────────\n?/, '<hr class="ba-tip-hr">')
-        .replace(/《([^》]*)》/g, '<span class="ba-tip-accent">$1</span>')
-    } else {
-      tipEl.textContent = raw
-    }
+    // 여러 줄이면 구조를 입혀 그린다(사용자 지적 2026-09-17: 강조가 없어 읽기 어렵고 줄 간격이 맥락과 무관했다).
+    //   · 구분선(────────)으로 나눈 덩어리마다 묶는다 — 덩어리 사이는 넓게, 안은 촘촘하게
+    //   · 구분선이 있으면 첫 덩어리의 첫 줄은 제목(이름)이라 굵게
+    //   · 「조작 → 결과」 줄과 「클릭하면 …」 줄은 조작 부분을 굵게
+    //   · 《...》는 강조색(시안)
+    // ⚠ 예전에는 구분선을 **첫 번째만** 바꿔, 둘째 구분선이 글자로 보였다. 이제 전부 나눈다.
+    // 모든 조각은 escape 한 뒤에 태그를 입힌다 — data-tip 에는 사용자가 붙인 이름이 들어간다.
+    if (raw.indexOf('\n') >= 0 || raw.indexOf('《') >= 0) tipEl.innerHTML = tipHtml(raw)
+    else tipEl.textContent = raw
     tipEl.hidden = false
     // 폭 조절 그립처럼 **아주 긴** 요소는 세로로 포인터를 따라간다. 그립은 패널 높이 전체라
     // 요소 상단에 붙이면 툴팁이 화면 맨 위에 뜬다 — 정작 잡고 있는 자리와 수백 px 떨어진다(제보 2026-08-23).
