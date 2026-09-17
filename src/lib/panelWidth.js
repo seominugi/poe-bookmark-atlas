@@ -122,3 +122,15 @@ export function activePreset(w, viewportW) {
   const ps = widthPresets(viewportW).filter((p) => p.enabled && p.w <= n)
   return ps.length ? ps[ps.length - 1].key : 'base'
 }
+
+// ── 낮은 창 자동 접기 (사용자 결정 2026-09-17) ──
+// 창이 낮으면 상단(로고 줄·시세·동향)과 하단(안내 문구·소셜)을 접어 목록에 자리를 낸다. 설정 없이 기본 동작이다.
+// 경계를 **둘** 둔다: 하나면 그 근처에서 창 높이를 조절할 때 접혔다 펴지기를 되풀이한다.
+export const SHORT_FOLD_BELOW = 560
+export const SHORT_UNFOLD_AT = 620
+/** 패널 높이(px)와 지금 접혀 있는지로 다음 상태를 정한다. 접힌 동안은 더 높아져야 펼친다. */
+export function nextShort(panelH, wasShort) {
+  const h = Number(panelH)
+  if (!Number.isFinite(h) || h <= 0) return false // 잴 수 없으면 접지 않는다 — 잘못 접으면 기능이 사라져 보인다
+  return wasShort ? h < SHORT_UNFOLD_AT : h < SHORT_FOLD_BELOW
+}

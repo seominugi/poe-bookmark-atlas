@@ -1095,6 +1095,10 @@
    ⚠ ⌨ 칩도 남긴다 — 단축키 목록이 그 팝오버에만 있어서, 숨기면 Alt+S·Alt+K 를 볼 곳이 아예 없어진다.
      그래서 panel.js 가 간결 모드에서 칩을 .ba-econ-row 로 **옮긴다**(마크업은 한 벌). 시세·동향이
      빠져 그 줄에 자리가 남고, 팝오버는 mouseenter 에서 칩 rect 로 위치를 잡으므로 옮겨도 그대로 뜬다. */
+/* 낮은 창 자동 접기(data-short) — 하단 안내 문구·소셜을 접고 가이드·설정 한 줄만 남긴다. 상단은 data-headcompact 가 같이 켜진다. */
+.ba-root[data-short="1"] .ba-foot-tx,
+.ba-root[data-short="1"] .ba-foot-soc { display: none; }
+.ba-root[data-short="1"] .ba-foot { padding-top: 9px; padding-bottom: 10px; }
 .ba-root[data-headcompact="1"] .ba-head { display: none; }
 .ba-root[data-headcompact="1"] .ba-econ-btn { display: none; }
 /* 간결 모드의 econ 행 — 저장(신축) + ⌨(고정). 위 여백은 헤더가 사라진 만큼 줄인다. */
