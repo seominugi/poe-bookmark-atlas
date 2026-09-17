@@ -1121,7 +1121,9 @@ AdSense 대안으로 후원을 검토했다. **방향은 정해졌고 시점은 
 
 **0.13.0 스토어 배포 완료 (사용자 확인 2026-09-17) · 다음은 0.14.0 — 속성 목록**
 
-- 0.14.0 업데이트 노트(`src/lib/updateNotes.js` 맨 앞, 목업 `affix-list`·`rarity-chip`)와 가이드 투어 스텝(since 0.14.0: 속성 목록 · 고유/비고유 칩)을 미리 써 두었다. 버전은 아직 0.13.0 — 릴리즈 때 manifest·package 버전과 `WHATS_NEW_VERSION` 을 **0.14.0 으로 함께** 올리고, 노트 date 를 실제 날짜로 고친다.
+- 0.14.0 업데이트 노트(`src/lib/updateNotes.js` 맨 앞, 목업 `affix-list`·`rarity-chip`)와 가이드 투어 스텝(since 0.14.0: 속성 목록 · 고유/비고유 칩).
+- **2026-09-17 릴리즈 준비 완료**: manifest·package·package-lock 버전 0.14.0, `WHATS_NEW_VERSION` 0.14.0, 노트 date 2026-09-17. 노트 창은 `notesSince(본 버전, 설치 버전)` 이라 **설치 버전이 0.13.0 인 동안에는 0.14.0 노트가 안 보인다** — 사용자가 "노트에 14 내용이 안 보인다"고 한 원인이 이것이었다. 새로워진 기능 투어는 이제 0.14 스텝 2개(PoE1 은 1개)라 `test/settingsTour` 기대값을 바꿨고, 찜 스텝(0.13.0)을 새 기능 투어로 보던 `test/tourSkipIfMissing` 은 전체 가이드 투어로 보게 옮겼다.
+- 남은 것: develop → main 머지 · 릴리즈 태그 · 스토어 업로드(dist zip). 권한 변경 없음 — 재승인 안내 불필요.
 
 (아래는 0.13.0 릴리즈 당시 기록)
 

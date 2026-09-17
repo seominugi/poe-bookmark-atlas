@@ -1439,7 +1439,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   //
   // 0.13.0: 설정 둘러보기. ⚙ 스텝이 설정을 실제로 열고 '하나씩 볼게요'로 5스텝이 이어진다.
   //         이미 투어를 본 사람에게는 이 한 스텝이 유일한 소식 경로다(⚙ 점은 안 눌러 본 사람용).
-  const WHATS_NEW_VERSION = '0.13.0'
+  // 0.14.0: 속성 목록(PoE2 전용) · 고유/비고유 테두리 색 — 2스텝(PoE1 은 1스텝).
+  const WHATS_NEW_VERSION = '0.14.0'
   /**
    * 게임 전용 스텝을 걸러낸다. 스텝에 `game` 이 없으면 두 게임 공통이다.
    * 여기서 걸러야 하는 이유: PoE1 사용자에게 티어 칩 스텝을 보여주면 가리킬 대상도 없고

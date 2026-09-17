@@ -174,8 +174,8 @@ describe('둘러보기로 데려오는 신호', () => {
     const card = await waitForTour(2500) // 1.2초 뒤에 뜬다
     expect(card, '새로워진 기능 안내가 안 떴다 — 스텝의 since 가 WHATS_NEW_VERSION 과 어긋났을 수 있다').not.toBeNull()
     expect(card.querySelector('.ba-tour-step').textContent).toContain('새로워진 기능')
-    // 0.13.0 소식은 셋이다: 티어 칩(PoE2 전용) · 섹션 접기·순서 · 설정 둘러보기.
-    // 셋 다 **화면만 봐선 알 수 없는 것**이라 말해 주지 않으면 영영 모른다 — 그게 이 배치의 기준이다.
+    // 0.14.0 소식은 둘이다: 속성 목록(PoE2 전용) · 고유/비고유 테두리 색.
+    // 둘 다 **화면만 봐선 알 수 없는 것**이라 말해 주지 않으면 영영 모른다 — 그게 이 배치의 기준이다.
     // 순서·개수를 숫자로 박지 않는다: 스텝을 하나 넣을 때마다 깨지고, 정작 봐야 할 건
     // "무엇이 들어 있고 어디서 끝나는가"다.
     const titles = []
@@ -188,13 +188,9 @@ describe('둘러보기로 데려오는 신호', () => {
       next.click()
       await new Promise((r) => setTimeout(r, 40))
     }
-    expect(titles.some((t) => t.includes('T1')), '티어 칩 소식이 없다').toBe(true)
-    expect(titles.some((t) => t.includes('섹션')), '섹션 접기 소식이 없다').toBe(true)
-    // 마지막 스텝은 설정 — 실제로 열리고 갈래가 있어야 한다.
-    const last = root.querySelector('.ba-tour-card')
-    expect(last.querySelector('.ba-tour-title').textContent).toContain('설정')
-    expect(last.querySelector('.ba-tour-branch'), '갈래 버튼이 없다').not.toBeNull()
-    expect(root.getElementById('ba-namebar').hidden, '설정 모달이 안 열렸다').toBe(false)
+    expect(titles.some((t) => t.includes('속성 목록')), '속성 목록 소식이 없다').toBe(true)
+    expect(titles.at(-1), '마지막은 고유/비고유 소식이어야 한다').toContain('고유')
+    expect(titles.some((t) => t.includes('T1')), '지난 버전(0.13.0) 소식이 다시 떴다').toBe(false)
   })
 
   it('한 번 본 사람에게는 다시 뜨지 않고, 투어가 끝나면 모달도 닫힌다', async () => {
