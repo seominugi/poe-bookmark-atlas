@@ -473,7 +473,7 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
   const condTip = escapeHtml(condTipText(r))
   // 조건 칩 카운트 = 비능력치 필터(유형·가격·레벨 등) + 능력치 수 — 히스토리·북마크 공통
   const condCount = (Array.isArray(r.otherFilters) ? r.otherFilters.length : 0) + stats.length
-  const condChip = condCount ? `<span class="ba-cond" data-tip="${condTip}">${icon('search', 12)}조건 ${condCount}개</span>` : ''
+  const condChip = condCount ? `<span class="ba-cond" data-tip="${condTip}">${icon('filter', 12)}조건 ${condCount}개</span>` : ''
   // 저장 당시 리그 — 조건 칩 툴팁 맨 위에 얹는다(히스토리·북마크 공통). 《...》는 tooltip 렌더러가
   // 시안색으로 바꿔줌(기존 ────────→<hr> 패턴과 동일 메커니즘).
   const leagueName = lg ? lg.name(r.league) : r.league || ''
@@ -506,7 +506,7 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
   // raw query 가 있어야 정확한 그룹까지 재현되므로 그때만 클릭 가능하게 한다.
   const canAddStats = !!(r.query && stats.length)
   const addTip = canAddStats ? '\n────────\n클릭하면 이 능력치를 지금 검색에 추가' : ''
-  const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
+  const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('filter', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
   // 대표 아이템 이미지 — 북마크·히스토리 공통(검색 결과 최빈 아이콘)
   const thumb = r.icon && isAllowedIconUrl(r.icon) ? `<img class="ba-thumb" src="${escapeHtml(r.icon)}" alt="" loading="lazy" />` : ''
   // 고유·비고유 검색이면 이름 칩 테두리 색으로 구분한다(고유 주황 · 비고유 노랑, 사용자 요청 2026-09-16). 모르면 칠하지 않는다.
@@ -524,7 +524,7 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
     // 예전에는 날짜 칩에 얹혀, 같은 가격이 줄마다 다른 칩·다른 자리에 보였다. 기본 보기에서는 이름 줄의 가격 필이 맡는다.
     const histCondChip = condCount
       // 글자를 .ba-cond-n 으로 감싼다 — 간략 보기가 아이콘만 남기고 접을 수 있게(북마크 칩과 같은 구조)
-      ? `<span class="ba-cond${canAdd ? ' ba-cond--add' : ''}"${canAdd ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${canAdd ? escapeHtml('\n────────\n클릭하면 이 능력치를 지금 검색에 추가') : ''}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
+      ? `<span class="ba-cond${canAdd ? ' ba-cond--add' : ''}"${canAdd ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${canAdd ? escapeHtml('\n────────\n클릭하면 이 능력치를 지금 검색에 추가') : ''}">${icon('filter', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
       : (briefPrice ? `<span class="ba-cond ba-cond--priceonly">${briefPrice}</span>` : '')
     // 검색 시각은 칩으로 두지 않는다 — 날짜 구분 줄이 나이를 말하고, 정확한 시각은 이름에 올리면 보인다.
     // 조건 칩이 없는 검색은 리그를 걸어 둘 곳이 이름뿐이라 여기에 함께 싣는다.

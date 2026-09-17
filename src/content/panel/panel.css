@@ -881,6 +881,8 @@
   contain-intrinsic-size: auto 58px;
 }
 .ba-row[data-kind] > .ba-line1 { flex: 1 0 auto; min-width: 0; max-width: 100%; }
+/* 히스토리 카드 높이를 이미지 유무·보기와 상관없이 같게 — 이미지 칸(28px)만큼 이름 줄 높이를 잡아 둔다 */
+.ba-row[data-kind="history"] > .ba-line1 { min-height: 28px; }
 .ba-row[data-kind] > .ba-meta,
 .ba-row[data-kind] > .ba-meta-row { flex: none; margin: 0 0 0 auto; }
 
@@ -1019,7 +1021,9 @@
    간략 보기를 켠 사용자는 밀도를 택한 것이고, 이 목록에서 카드를 구분하는 건 아이콘이 아니라
    사용자가 직접 붙인 이름이다. 조건 아이콘은 남긴다 — 툴팁 앵커이자 '조건이 있다'는 유일한 표시라,
    빼면 칩이 그냥 숫자가 되어 무엇을 가리키는지 알 수 없다(+17px 를 포기한 이유). */
-.ba-root[data-brief="1"] .ba-thumb { display: none; }
+/* 히스토리는 간략 보기에서도 이미지를 남긴다(사용자 결정 2026-09-17) — 이름을 직접 짓지 않아 '서판'·'검색'이 줄줄이
+   같아지므로, 무엇을 찾았는지 알려 주는 건 이미지다. 북마크는 사용자가 붙인 이름이 그 역할을 한다. */
+.ba-root[data-brief="1"] .ba-row[data-kind="bookmark"] .ba-thumb { display: none; }
 /* 한 글자씩 세로로 접히던 문제(실측 84px → 137px)는 이제 칩 줄이 내려가는 것으로 막는다 —
    이름 줄이 글자 한 줄 길이 아래로 줄지 않으므로 좁은 칸에 갇히지 않는다. 자르지도 않는다. */
 .ba-root[data-brief="1"] .ba-l1l { min-width: 0; }
