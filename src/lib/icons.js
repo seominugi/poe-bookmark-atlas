@@ -14,6 +14,8 @@ const PATHS = {
   refresh: '<path d="M20.5 12a8.5 8.5 0 1 1-2.8-6.3M20.5 4.2v4.3h-4.3"/>',
   grip: '<path stroke-width="2.4" d="M9 5.5v.01M9 12v.01M9 18.5v.01M15 5.5v.01M15 12v.01M15 18.5v.01"/>',
   keyboard: '<rect x="2.5" y="7" width="19" height="10" rx="1.8"/><path stroke-width="2.2" d="M6 11v.01M9.5 11v.01M13 11v.01M16.5 11v.01"/><path d="M8 14.2h8"/>',
+  // 조건(필터) — 돋보기는 '검색 열기'에만 쓴다. 조건 칩까지 돋보기면 한 카드에 같은 아이콘이 둘이 된다(사용자 지적 2026-09-17)
+  filter: '<path d="M4 5h16l-6.2 7.3V18.5l-3.6 1.8v-8z"/>',
   search: '<path d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14M20 20l-4.2-4.2"/>',
   chart: '<path d="M3 20.5h18M6.5 20.5v-6M11.5 20.5V8M16.5 20.5v-9"/>',
   chevronDown: '<path d="M6 9.5l6 6 6-6"/>',
