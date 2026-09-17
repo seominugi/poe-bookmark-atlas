@@ -508,7 +508,11 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
   const addTip = canAddStats ? '\n────────\n클릭하면 이 능력치를 지금 검색에 추가' : ''
   const condSummaryChip = `<span class="ba-cond ba-cond--summary${canAddStats ? ' ba-cond--add' : ''}"${canAddStats ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${escapeHtml(addTip)}">${icon('filter', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
   // 대표 아이템 이미지 — 북마크·히스토리 공통(검색 결과 최빈 아이콘)
-  const thumb = r.icon && isAllowedIconUrl(r.icon) ? `<img class="ba-thumb" src="${escapeHtml(r.icon)}" alt="" loading="lazy" />` : ''
+  // 이미지를 못 정한 검색(유형만 고른 검색 등)도 **같은 자리를 비워 둔다**(사용자 결정 2026-09-17) — 칸이 없으면 이름이
+  // 줄마다 다른 위치에서 시작해 목록이 들쭉날쭉해진다.
+  const thumb = r.icon && isAllowedIconUrl(r.icon)
+    ? `<img class="ba-thumb" src="${escapeHtml(r.icon)}" alt="" loading="lazy" />`
+    : '<span class="ba-thumb ba-thumb--empty" aria-hidden="true"></span>'
   // 고유·비고유 검색이면 이름 칩 테두리 색으로 구분한다(고유 주황 · 비고유 노랑, 사용자 요청 2026-09-16). 모르면 칠하지 않는다.
   const rarity = rarityOfQuery(r.query)
   const rarityAttr = rarity ? ` data-rarity="${rarity}"` : ''
