@@ -55,7 +55,7 @@ describe('renderList — 히스토리 통합(모든 리그), 북마크는 리그
     const list = await render()
     const row = list.querySelector('.ba-row[data-kind="history"]')
     expect(row.querySelector('.ba-hist-when')).toBeNull()
-    expect(row.querySelector('.ba-htitle').getAttribute('data-tip')).toContain('검색 26/07/03 06:41')
+    expect(row.querySelector('.ba-hopen').getAttribute('data-tip')).toContain('검색 26/07/03 06:41')
     expect(row.querySelector('.ba-actpop-time').textContent.trim()).toBe('26/07/03 06:41')
   })
 
@@ -89,7 +89,7 @@ describe('renderList — 히스토리 통합(모든 리그), 북마크는 리그
     expect(condTip.startsWith('[리그] 《Beta 리그》')).toBe(true)
     expect(condTip).toContain('아이템 레벨') // 기존 필터 내용도 그대로 뒤에
     // 조건이 있으면 이름 툴팁엔 리그를 또 싣지 않는다(중복 방지 — 조건 칩에 이미 있음)
-    expect(row.querySelector('.ba-htitle').getAttribute('data-tip')).not.toContain('Beta')
+    expect(row.querySelector('.ba-hopen').getAttribute('data-tip')).not.toContain('Beta')
   })
 
   it('조건 없으면: 이름 툴팁에 리그가 붙는다(호버할 곳이 그것뿐이므로)', async () => {
@@ -97,7 +97,7 @@ describe('renderList — 히스토리 통합(모든 리그), 북마크는 리그
     const list = await render()
     const row = list.querySelector('.ba-row[data-kind="history"]')
     expect(row.querySelector('.ba-cond')).toBeFalsy() // 조건 칩 자체가 없음
-    expect(row.querySelector('.ba-htitle').getAttribute('data-tip')).toContain('[리그] 《Beta 리그》')
+    expect(row.querySelector('.ba-hopen').getAttribute('data-tip')).toContain('[리그] 《Beta 리그》')
   })
 
   it('카드 액션(북마크로 저장·링크 복사·삭제)이 ⋯ 팝오버 뒤에 숨어 있다(북마크 카드와 동일 패턴)', async () => {
@@ -211,4 +211,5 @@ describe('renderList — 변형(discriminator) 아이템 이름', () => {
     expect(row.querySelector('b').textContent).toBe('해안 교두보')
     expect(row.outerHTML).not.toContain('[object Object]')
   })
+
 })

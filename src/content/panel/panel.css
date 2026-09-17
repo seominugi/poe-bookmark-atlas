@@ -729,16 +729,14 @@
 .ba-open[data-rarity="unique"]:hover { border-color: rgba(232,142,72,1); background: rgba(232,142,72,0.2); box-shadow: 0 0 14px rgba(232,142,72,0.3); }
 .ba-open[data-rarity="nonunique"] { border-color: rgba(230,205,96,0.7); background: rgba(230,205,96,0.08); }
 .ba-open[data-rarity="nonunique"]:hover { border-color: rgba(230,205,96,1); background: rgba(230,205,96,0.18); box-shadow: 0 0 14px rgba(230,205,96,0.26); }
-.ba-htitle[data-rarity], .ba-wname[data-rarity] { padding: 1px 7px; border-radius: 7px; border: 1px solid transparent; }
-.ba-htitle[data-rarity="unique"], .ba-wname[data-rarity="unique"] { border-color: rgba(232,142,72,0.7); background: rgba(232,142,72,0.08); }
-.ba-htitle[data-rarity="nonunique"], .ba-wname[data-rarity="nonunique"] { border-color: rgba(230,205,96,0.65); background: rgba(230,205,96,0.07); }
+/* 히스토리 이름은 이제 .ba-open 칩이라 희귀도 색은 위 .ba-open[data-rarity] 규칙이 맡는다 */
+.ba-wname[data-rarity] { padding: 1px 7px; border-radius: 7px; border: 1px solid transparent; }
+.ba-wname[data-rarity="unique"] { border-color: rgba(232,142,72,0.7); background: rgba(232,142,72,0.08); }
+.ba-wname[data-rarity="nonunique"] { border-color: rgba(230,205,96,0.65); background: rgba(230,205,96,0.07); }
 /* 이름은 자르지 않는다(사용자 결정 2026-09-17: 말줄임 금지) — 좁으면 줄을 바꾼다. 한글은 낱말 단위로만 끊는다. */
 .ba-open b { color: var(--ba-text-strong); font-weight: 700; line-height: 1.4; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
 .ba-open > svg { margin-top: 3px; }
-/* 두 줄 카드에서는 이름 칩이 첫 줄을 끝까지 채운다(사용자 결정 2026-09-17).
-   기본 폭의 상세 보기는 늘 두 줄이라 처음부터 채우고, 간략 보기·넓은 폭은 줄이 넘어간 행(.is-wrapped)만 채운다. */
-.ba-root:not([data-brief="1"]):not([data-band="l"]):not([data-band="xl"]) .ba-row[data-kind="bookmark"] .ba-l1l,
-.ba-root:not([data-brief="1"]):not([data-band="l"]):not([data-band="xl"]) .ba-row[data-kind="bookmark"] .ba-open,
+/* 두 줄이 된 카드(.is-wrapped — renderList watchWrap)에서는 이름 칩이 첫 줄을 끝까지 채운다(사용자 결정 2026-09-17). */
 .ba-row.is-wrapped .ba-l1l,
 .ba-row.is-wrapped .ba-open { flex: 1 1 auto; }
 .ba-htitle { word-break: keep-all; overflow-wrap: anywhere; }
@@ -871,6 +869,16 @@
 .ba-actions-pop .ba-act { width: auto; height: auto; justify-content: flex-start; gap: 9px; padding: 8px 10px; border: none; background: transparent; border-radius: 7px; font-size: 12px; font-weight: 600; }
 .ba-actions-pop .ba-act:hover { background: rgba(255,255,255,0.07); }
 .ba-meta-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 7px; min-width: 0; }
+/* 북마크·히스토리 카드는 **보기와 상관없이** 한 줄에 들어가면 한 줄, 넘칠 때만 부가 정보가 아래 줄 오른쪽으로 내려간다
+   (사용자 결정 2026-09-17 — 상세 보기가 늘 두 줄이라 짧은 이름도 자리를 두 배로 썼다).
+   이름 줄의 기본 폭을 글자 한 줄 길이(auto)로 두고 줄어들지 않게 하면, 모자랄 때 부가 정보 줄이 다음 줄로 넘어간다. */
+.ba-row[data-kind="bookmark"], .ba-row[data-kind="history"] {
+  display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 8px;
+  contain-intrinsic-size: auto 58px;
+}
+.ba-row[data-kind] > .ba-line1 { flex: 1 0 auto; min-width: 0; max-width: 100%; }
+.ba-row[data-kind] > .ba-meta,
+.ba-row[data-kind] > .ba-meta-row { flex: none; margin: 0 0 0 auto; }
 
 /* 폴더 색 구분 — 헤더 좌측 3px 띠 (color는 마크업에서 인라인으로 주입) */
 .ba-folder-head { border-left: 4px solid var(--ba-violet); }   /* 기본값; 폴더별 color로 덮어쓰기 */
