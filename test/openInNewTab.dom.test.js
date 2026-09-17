@@ -125,7 +125,7 @@ describe("'검색 열기' 설정", () => {
     setOpenInNewTab(true)
     await addHistory(rec({ url: URL_NEW, dedupeKey: 'h1' }))
     const list = await render(makeUi().ui)
-    click(list.querySelector('.ba-row[data-kind="history"]'))
+    click(list.querySelector('.ba-row[data-kind="history"] .ba-open')) // 히스토리도 이름 칩으로 연다(2026-09-17)
     await tick()
     expect(sent).toHaveBeenCalledWith({ type: 'ba-open-tab', url: URL_NEW })
   })

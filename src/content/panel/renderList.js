@@ -514,7 +514,8 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
   const rarityAttr = rarity ? ` data-rarity="${rarity}"` : ''
   const rarityLine = rarity ? `${RARITY_LABEL[rarity]}&#10;` : ''
 
-  // ── 히스토리: 카드 전체 클릭으로 재검색 (디자인: 북마크 카드와 동일한 조건칩+⋯팝오버 언어) ──
+  // ── 히스토리: 이름 칩(.ba-open)으로 재검색 — 북마크와 같은 칩·같은 동작(사용자 결정 2026-09-17).
+  //    예전에는 카드 전체가 눌렸는데, 북마크와 달라 헷갈리고 칩 주변을 잘못 눌러도 검색이 열렸다. ──
   if (kind === 'history') {
     // 히스토리는 모든 리그 통합 렌더라 그룹으로 구분이 안 됨 — 리그는 별도 칩(말줄임 문제 있었음) 대신
     // 조건 칩(+ 조건이 없으면 날짜 칩) 툴팁 맨 위에 얹는다(leagueLine·condTipWithLeague는 위에서 공용 계산).
@@ -536,7 +537,7 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
       `검색 ${whenText}`,
     ].filter(Boolean).join('\n'))
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b class="ba-htitle"${rarityAttr} data-tip="${titleTip}">${title}</b></span></div>
+      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<span class="ba-open ba-hopen"${rarityAttr} data-tip="${titleTip}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b class="ba-htitle">${title}</b></span></span></div>
       <div class="ba-meta">${histCondChip}${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>
       <div class="ba-actions-pop" hidden>
         <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
@@ -1101,14 +1102,7 @@ function bindAll(listEl, ui, ctx) {
     })
   }
 
-  // 행 열기 — 히스토리는 카드 전체 클릭, 북마크는 이름 칩(.ba-open)만 (오클릭 방지)
-  listEl.querySelectorAll('.ba-row').forEach((row) => {
-    if (row.dataset.kind !== 'history') return
-    row.addEventListener('click', (e) => {
-      if (e.target.closest('.ba-star,.ba-copy,.ba-cond,.ba-stale,.ba-hist-del,.ba-more,.ba-actions-pop')) return
-      openTradeUrl(decodeURIComponent(row.dataset.url), toast, e)
-    })
-  })
+  // 행 열기 — 북마크·히스토리 모두 이름 칩(.ba-open)만 (오클릭 방지). 처리는 아래 .ba-open 핸들러가 한다.
 
   // ── 리그 이관 — 저장된 조건을 현재 리그의 새 검색으로 다시 만들고, 성공하면 북마크 링크를 그걸로 교체 ──
   // 북마크는 저장 시점 리그의 검색 링크라 리그가 바뀌면 조건이 사라진다. 조건(query)을 그대로 다시 제출하면
