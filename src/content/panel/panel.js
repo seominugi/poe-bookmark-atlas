@@ -8,7 +8,7 @@ import { listByKind, addBookmark, overwriteBookmark, listFolders, addFolder, nee
   moveBookmarks } from '../../store/store.js'
 import { extractConditionSet, conditionSetSummary, conditionSetTip, SET_FAIL } from '../../lib/conditionSet.js'
 import { suggestName } from '../../lib/suggestName.js'
-import { clampPanelWidth, maxPanelWidth, panelBand, nextBandAt, bandProgress, widthPresets, activePreset, MIN_W, MAX_W } from '../../lib/panelWidth.js'
+import { clampPanelWidth, maxPanelWidth, panelBand, nextBandAt, bandProgress, widthPresets, activePreset, MIN_W, MAX_W, nextShort } from '../../lib/panelWidth.js'
 import { startCollapsed } from '../../lib/startCollapsed.js'
 import { hasUnseen } from '../../lib/updateNotes.js'
 import cafeIcon from '../../icons/naver_cafe_logo.webp'
@@ -238,12 +238,17 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   // 저장 버튼과 ⌨ 칩은 **남긴다**: 저장은 핵심 동작이고, 단축키 목록은 그 팝오버에만 있다.
   // ⌨ 는 숨기는 대신 econ 행으로 **옮긴다** — 마크업을 복제하지 않는다(두 벌이 되면 반드시 갈라진다).
   let headCompact = false
-  const applyHeadCompact = (on) => {
-    headCompact = !!on
+  // 낮은 창 자동 접기(shortOn) — 설정의 「간결」과 **따로** 든다. 상단은 둘 중 하나만 켜져도 접히고,
+  // 하단(안내 문구·소셜)은 낮은 창일 때만 접는다(data-short). 「간결」을 고른 사람의 하단은 그대로다.
+  let shortOn = false
+  const paintHead = () => {
+    const on = headCompact || shortOn
+    if (shortOn) elRoot.setAttribute('data-short', '1')
+    else elRoot.removeAttribute('data-short')
     const kbd = root.querySelector('.ba-kbd-wrap')
     const brand = root.querySelector('.ba-brand')
     const econ = root.querySelector('.ba-econ-row')
-    if (headCompact) {
+    if (on) {
       elRoot.setAttribute('data-headcompact', '1')
       if (kbd && econ && kbd.parentElement !== econ) econ.appendChild(kbd)
     } else {
@@ -254,6 +259,39 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     }
     if (activeTourLayout) activeTourLayout() // 상단이 사라지며 아래 요소들이 통째로 올라온다
   }
+  const applyHeadCompact = (on) => { headCompact = !!on; paintHead() }
+
+  // 창 높이가 바뀌면 다시 잰다. 조절하는 동안에는 기다렸다가 멈춘 뒤 한 번만 판단한다.
+  // 접고 펴는 순간에만 짧게 움직인다 — 무엇이 어디로 갔는지 보이게. 창 크기를 바꿀 때만 일어나 드물다.
+  // 움직이는 건 투명도·위치(transform)뿐이고, 자리는 움직임이 끝난 뒤(접기) / 시작하기 전(펼치기)에 한 번 바뀐다.
+  const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
+  const foldParts = () => [...root.querySelectorAll('.ba-head, .ba-econ-btn, .ba-foot-tx, .ba-foot-soc')]
+    .filter((e) => e.getClientRects().length && typeof e.animate === 'function')
+  const shiftOf = (e) => (e.closest('.ba-foot') ? 'translateY(4px)' : 'translateY(-4px)')
+  let wantShort = false
+  const setShort = (on, animate) => {
+    wantShort = on
+    const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (!animate || still) { shortOn = on; paintHead(); return }
+    if (on) {
+      const anims = foldParts().map((e) => e.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: shiftOf(e) }], { duration: 140, easing: EASE_OUT, fill: 'forwards' }))
+      Promise.all(anims.map((a) => a.finished.catch(() => {}))).then(() => {
+        anims.forEach((a) => a.cancel())
+        if (wantShort) { shortOn = true; paintHead() } // 그사이 다시 높아졌으면 접지 않는다
+      })
+    } else {
+      shortOn = false
+      paintHead()
+      foldParts().forEach((e) => e.animate([{ opacity: 0, transform: shiftOf(e) }, { opacity: 1, transform: 'none' }], { duration: 180, easing: EASE_OUT }))
+    }
+  }
+  const checkShort = (animate) => {
+    if (activeTourFinish) return // 투어 중에는 화면을 바꾸지 않는다 — 끝나면 다시 잰다
+    const want = nextShort(elRoot.getBoundingClientRect().height, wantShort)
+    if (want !== wantShort) setShort(want, animate)
+  }
+  let shortTimer = 0
+  window.addEventListener('resize', () => { clearTimeout(shortTimer); shortTimer = setTimeout(() => checkShort(true), 150) })
   // 접힘 시 핸들에 북마크 수 배지 표시
   const updateHandleBadge = async () => {
     const badge = $('ba-handle-badge'); if (!badge) return
@@ -285,6 +323,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   applyBrief(!!(cached && cached.brief))
   // 상단 간결도 같은 이유로 첫 프레임에 건다 — 나중에 storage 로 켜면 브랜드 줄이 잠깐 보였다 사라진다.
   applyHeadCompact(!!(cached && cached.headCompact))
+  checkShort(false)
   if (cached) {
     panelSide = cached.side
     elRoot.setAttribute('data-side', panelSide)
@@ -503,6 +542,13 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   window.addEventListener('resize', updateHandleGrad)
 
   let toastTimer = null
+  // 낮은 창에서 접힌 동안에는 가이드를 띄우지 않는다(사용자 결정 2026-09-17) — 가리킬 버튼이 숨어 있어
+  // 설명이 빈 곳을 가리킨다. 본 것으로 기록하지 않으므로 창을 키운 뒤 다음 방문에 다시 뜬다.
+  const tourBlockedByShort = () => {
+    if (!shortOn) return false
+    toast('창 높이가 낮아 사용법 가이드를 띄울 수 없어요. 브라우저 창을 더 크게 한 뒤 다시 눌러 주세요.')
+    return true
+  }
   // action({label, onClick})을 주면 토스트에 버튼이 붙고, 누를 시간을 벌기 위해 더 오래 머문다.
   // 배열로 주면 버튼이 여러 개 붙는다(업데이트 알림의 '노트 보기' + '이번엔 넘기기').
   // 텍스트·버튼 모두 DOM API로 넣는다 — 묶음 이름 등 사용자 입력이 들어오므로 innerHTML은 쓰지 않는다.
@@ -805,7 +851,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
         // 상단 영역 — "젤 위 타이틀이랑 저장, 시세 등등도 하단으로 내리거나 숨김"(제보 2026-09-04).
         // 목록에 자리를 내주는 게 목적이라 숨기는 쪽을 골랐다. 저장·⌨ 는 남긴다(panel.css 주석 참조).
         row('header',
-          lbl('상단 영역', '간결로 두면 맨 위 제목 줄과 시세·동향 버튼을 접어 목록에 자리를 냅니다.&#10;현재 검색 저장과 ⌨ 단축키는 그대로 남아요.'),
+          lbl('상단 영역', '간결로 두면 맨 위 제목 줄과 시세·동향 버튼을 접어 목록에 자리를 냅니다.&#10;현재 검색 저장과 ⌨ 단축키는 그대로 남아요.&#10;────────&#10;표시로 두어도 창 높이가 낮으면 저절로 접히고, 넉넉해지면 다시 펼쳐져요.'),
           `<span class="ba-seg ba-set-seg">
             <span class="ba-set-opt${headCompact ? '' : ' active'}" data-hc="0">표시</span>
             <span class="ba-set-opt${headCompact ? ' active' : ''}" data-hc="1">간결</span>
@@ -1458,6 +1504,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
    */
   async function startTour(steps, label, opt = {}) {
     const { seedDemo = true, markDone = true } = opt
+    if (tourBlockedByShort()) return
     // 투어 둘이 겹치면 모달 소유권(settingsOpenedByTour)과 정리 훅이 서로를 지운다 — 앞의 것을 먼저 닫는다.
     if (activeTourFinish) activeTourFinish()
     // ⚠ 반드시 사본이다. 인자가 없으면 목록이 TOUR **그 자체**라, 갈래(branch)로 스텝을 끼우는 순간
@@ -1502,7 +1549,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     root.appendChild(card)
     // 투어가 스스로 연 설정 모달만 되닫는다 — 이미 열려 있던 모달(설정 안에서 시작한 둘러보기)은 남겨 둔다.
     const closeOwnModal = () => { if (!settingsOpenedByTour) return; settingsOpenedByTour = false; if (closeSettings) closeSettings() }
-    const finish = () => { activeTourFinish = null; activeTourLayout = null; closeOwnModal(); box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setsWasCollapsed) setsCollapsed = true; if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } else if (setsWasCollapsed) { renderSets() }
+    const finish = () => { activeTourFinish = null; activeTourLayout = null; setTimeout(() => checkShort(true), 0); closeOwnModal(); box.remove(); arrow.remove(); card.remove(); document.removeEventListener('keydown', onKeyNav, true); if (tourDemo) tourDemo.hide(); if (demoOn) { clearDemoData().then(() => refresh()).catch(() => {}) } if (setsWasCollapsed) setsCollapsed = true; if (setDemoOn) { clearDemoSets().then(() => renderSets()).catch(() => {}) } else if (setsWasCollapsed) { renderSets() }
       // ⚠ 설정 둘러보기는 이 표시를 남기지 않는다(markDone:false). 남기면 둘러보기만 본 신규 사용자가
       //   '첫 실행 가이드를 이미 봤다'로 처리돼 **본 투어를 영영 못 본다.**
       if (markDone) { try { chrome.storage.local.set({ tourDone: true, whatsNewSeen: WHATS_NEW_VERSION }) } catch (_) {} } }
@@ -1680,6 +1727,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     updateGearDot()
   }
   const startSettingsTour = () => {
+    if (tourBlockedByShort()) return // 본 것으로 표시하지 않는다 — 창을 키우면 다시 볼 수 있어야 한다
     markSettingsTourSeen()
     // 데모 데이터는 심지 않는다(가리킬 대상이 전부 모달 안이다) · 첫 실행 가이드를 봤다고 기록하지 않는다.
     startTour(SETTINGS_TOUR, '설정', { seedDemo: false, markDone: false })

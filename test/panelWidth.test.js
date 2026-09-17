@@ -4,7 +4,7 @@
 // (test/actionRowBudget.dom.test.js 실측). 더 좁히면 그 행이 줄바꿈된다.
 // 2026-08-13 에 300px 까지 내렸다가('narrow 밴드'와 한 세트였다) 같은 날 되돌리고 밴드를 폐기했다.
 import { describe, it, expect } from 'vitest'
-import { clampPanelWidth, maxPanelWidth, MIN_W, MAX_W } from '../src/lib/panelWidth.js'
+import { clampPanelWidth, maxPanelWidth, MIN_W, MAX_W, nextShort } from '../src/lib/panelWidth.js'
 
 describe('clampPanelWidth', () => {
   it('최소·최대 밖은 가둔다', () => {
@@ -37,5 +37,18 @@ describe('clampPanelWidth', () => {
 
   it('정수로 떨어진다 — 소수 px 은 핸들 위치를 미세하게 어긋나게 한다', () => {
     expect(Number.isInteger(clampPanelWidth(432.7, 1920))).toBe(true)
+  })
+})
+
+describe('낮은 창 자동 접기 — 경계 둘', () => {
+  it('560 아래에서 접고, 접힌 뒤에는 620 이상이 돼야 펼친다(그 사이는 지금 상태 유지)', () => {
+    expect(nextShort(559, false)).toBe(true)
+    expect(nextShort(590, false)).toBe(false)
+    expect(nextShort(590, true)).toBe(true)
+    expect(nextShort(620, true)).toBe(false)
+  })
+  it('높이를 잴 수 없으면 접지 않는다', () => {
+    expect(nextShort(0, true)).toBe(false)
+    expect(nextShort(undefined, false)).toBe(false)
   })
 })
