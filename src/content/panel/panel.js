@@ -277,7 +277,7 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   const foldParts = () => [...root.querySelectorAll('.ba-head, .ba-econ-btn, .ba-foot-tx, .ba-foot-soc')].filter(canAnimate)
   const shiftOf = (e) => (e.closest('.ba-foot') ? 'translateY(8px)' : 'translateY(-8px)')
   const stillMotion = () => typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  // 자리 바꾸기를 미끄러짐으로(FLIP) — 높이 접기와 폭 조절이 함께 쓴다.
+  // 자리 바꾸기를 미끄러짐으로(FLIP) — 높이 접기가 쓴다(폭 드래그에는 쓰지 않는다 — 아래 ⚠).
   // 바꾸기 전 화면 위치(움직이는 중이면 그 위치)를 재고, 진행 중인 미끄러짐을 멈춘 뒤 새 자리를 재서
   // 그 차이만큼 되돌려 놓고 0 으로 푼다. 그래서 연달아 바뀌어도(폭 드래그) 튀지 않고 이어진다.
   // 화면 밖 요소는 재지도 움직이지도 않는다 — 목록이 길어도 비용이 보이는 만큼만 든다.
@@ -303,14 +303,9 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     })
   }
   const slideAround = (commit) => smoothReflow(commit, '.ba-econ-row, #ba-sets, .ba-list, .ba-foot', { duration: SLIDE_MS, easing: EASE_MOVE })
-  // 폭을 끄는 동안 — 카드가 한 줄↔두 줄로 바뀌거나 상단 버튼 배치가 달라지면 그 아래가 툭 튄다(사용자 요청 2026-09-17: 높이 접기처럼 부드럽게).
-  // 서로 품지 않는 요소만 고른다 — 부모와 자식을 둘 다 움직이면 이동이 두 번 더해진다.
-  // 3px 이하는 움직이지 않는다 — 폭을 끄는 동안 생기는 잔떨림까지 미끄러지면 오히려 흐릿해 보인다.
-  const WIDTH_FLIP_SEL = '.ba-econ-row, #ba-sets, .ba-sec-head, .ba-folder-head, .ba-hday, .ba-row, .ba-foot'
-  const applyWidthSmooth = (w) => {
-    if (stillMotion()) { applyWidth(w); return }
-    smoothReflow(() => applyWidth(w), WIDTH_FLIP_SEL, { duration: 260, easing: EASE_OUT, min: 3 })
-  }
+  // ⚠ 폭 드래그에는 미끄러짐(FLIP)을 걸지 않는다. 2026-09-17 에 걸어 봤다가 되돌렸다(사용자: "다닥 2단계로 렉 걸린 것처럼 보인다").
+  //   카드 높이(한 줄↔두 줄)는 그 자리에서 바뀌는데 위치만 늦게 따라와 두 박자가 되고, 매 프레임 이동을 새로 시작해 끊겨 보인다.
+  //   손으로 직접 끄는 동작은 화면이 즉시 따라와야 한다 — 미끄러짐은 한 번에 끝나는 변화(높이 접기)에만 쓴다.
   let wantShort = false
   const setShort = (on, animate) => {
     wantShort = on
@@ -519,14 +514,14 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
       // 우측 배치: 왼쪽으로 끌수록 넓어짐 / 좌측 배치: 오른쪽으로 끌수록 넓어짐.
       const delta = panelSide === 'left' ? (e.clientX - startX) : (startX - e.clientX)
       pendingW = startW + delta // applyWidth 가 clampPanelWidth 로 최소~최대 사이에 가둔다
-      if (!widthFrame) widthFrame = requestAnimationFrame(() => { widthFrame = 0; applyWidthSmooth(pendingW); drawBadge() })
+      if (!widthFrame) widthFrame = requestAnimationFrame(() => { widthFrame = 0; applyWidth(pendingW); drawBadge() })
       badgeY = e.clientY
       drawBadge()
     })
     const end = (e) => {
       if (!dragging) return
       dragging = false
-      if (widthFrame) { cancelAnimationFrame(widthFrame); widthFrame = 0; applyWidthSmooth(pendingW) } // 마지막 값을 놓치지 않고 저장한다
+      if (widthFrame) { cancelAnimationFrame(widthFrame); widthFrame = 0; applyWidth(pendingW) } // 마지막 값을 놓치지 않고 저장한다
       resizing = false
       elRoot.classList.remove('ba-resizing')
       tipSuppressed = false
