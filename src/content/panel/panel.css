@@ -473,6 +473,7 @@
 .ba-line1 b { color: var(--ba-text-strong); font-weight: 700; font-size: 14px; }
 .ba-l1l { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .ba-thumb { width: 28px; height: 28px; flex: none; box-sizing: border-box; padding: 2px; border-radius: 6px; object-fit: contain; background: rgba(0, 0, 0, 0.25); border: 1px solid var(--ba-border); }
+.ba-thumb--empty { display: inline-block; background: rgba(0, 0, 0, 0.18); border-style: dashed; border-color: rgba(255, 255, 255, 0.1); }
 .ba-cur { width: 17px; height: 17px; vertical-align: middle; flex-shrink: 0; }
 .ba-stale { color: var(--ba-warn); cursor: help; }
 /* 히스토리 가격 칩 — 북마크(.ba-price-pill, 골드)와 같은 필 구조·크기지만 히스토리 전용 색(시안)으로 구분 */
