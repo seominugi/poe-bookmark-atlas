@@ -261,7 +261,8 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
   }
   const applyHeadCompact = (on) => { headCompact = !!on; paintHead() }
 
-  // 창 높이가 바뀌면 다시 잰다. 조절하는 동안에는 기다렸다가 멈춘 뒤 한 번만 판단한다.
+  // 창 높이가 바뀌면 다시 잰다 — **드래그하는 동안에도** 프레임마다 한 번(사용자 요청 2026-09-17: 패널 폭 조절처럼
+  // 끄는 중에 바로 반응해야 한다. 멈춘 뒤에만 판단하면 놓는 순간에야 바뀐다). 경계가 둘이라 끄는 중에 깜박이지 않는다.
   // 접고 펴는 순간에만 짧게 움직인다 — 무엇이 어디로 갔는지 보이게. 창 크기를 바꿀 때만 일어나 드물다.
   // 움직이는 건 투명도·위치(transform)뿐이고, 자리는 움직임이 끝난 뒤(접기) / 시작하기 전(펼치기)에 한 번 바뀐다.
   const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
@@ -290,8 +291,11 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
     const want = nextShort(elRoot.getBoundingClientRect().height, wantShort)
     if (want !== wantShort) setShort(want, animate)
   }
-  let shortTimer = 0
-  window.addEventListener('resize', () => { clearTimeout(shortTimer); shortTimer = setTimeout(() => checkShort(true), 150) })
+  let shortFrame = 0
+  window.addEventListener('resize', () => {
+    if (shortFrame) return
+    shortFrame = requestAnimationFrame(() => { shortFrame = 0; checkShort(true) })
+  })
   // 접힘 시 핸들에 북마크 수 배지 표시
   const updateHandleBadge = async () => {
     const badge = $('ba-handle-badge'); if (!badge) return
