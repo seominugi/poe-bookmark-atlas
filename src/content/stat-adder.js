@@ -26,7 +26,7 @@
   const TOKEN_RE = /^[a-z0-9]{6,40}$/
   const ID_RE = /^[a-z]+\.[a-z0-9_]+$/ // explicit.stat_1573130764 · pseudo.pseudo_total_life
   const MAX_ITEMS = 40
-  const ROLES = new Set(['here', 'and', 'or', 'or:prefix', 'or:suffix'])
+  const ROLES = new Set(['here', 'and', 'or', 'or:prefix', 'or:suffix', 'or:skill']) // or:skill — 스킬 부여 후보(따로 개수 그룹)
 
   /** {min,max} 중 유한한 숫자만 남긴다. 남는 게 없으면 null. */
   const cleanValue = (v) => {

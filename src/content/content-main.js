@@ -703,6 +703,9 @@ function pobEnsureStyle() {
   .ba-affix-band[data-pool="corrupted"] .ba-affix-check:checked { background: #f26078; border-color: #f26078; }
   .ba-affix-band[data-pool="corrupted"] .ba-affix-pill.is-on { background: #f26078 !important; }
   .ba-affix-sec { break-inside: avoid; margin: 0 0 8px; }
+  /* 종류가 하나뿐인 흐름(스킬 부여) — 머리를 숨기고 묶음이 열 사이에서 쪼개지게 둔다(안 그러면 첫 열에 몰린다) */
+  .ba-affix-sec.is-flat { break-inside: auto; }
+  .ba-affix-sec.is-flat > .ba-affix-sec-headrow { display: none; }
   .ba-affix-sec-head { display: flex; align-items: center; gap: 8px; width: 100%; height: 22px; padding: 0 2px !important; margin: 0 0 2px !important;
     border: 0 !important; background: transparent !important; cursor: pointer; text-align: left; }
   .ba-affix-sec-headrow { display: flex; align-items: center; gap: 6px; }

@@ -22,7 +22,7 @@ export const AFFIX_CATEGORIES = [
   { key: 'added', label: '피해 추가', re: /added_[a-z]+_damage|thorns_minimum/ },
   { key: 'crit', label: '정확도·치명타', re: /critical_strike|accuracy/ },
   { key: 'skill', label: '스킬 레벨', re: /gem_level|skill_level/ },
-  { key: 'grant', label: '스킬 부여', re: /^skill\./ }, // 거래소 「스킬」 그룹 id(skill.<id>) — 모드 이름이 아니라 빌드가 키를 직접 박는다
+  { key: 'grant', label: '스킬 부여', re: /(?!)/ }, // 모드 이름으로는 판정하지 않는다 — 빌드(skillGrantPool)가 키를 직접 박는다. 이름·순서용
   { key: 'speed', label: '속도', re: /speed|velocity|cooldown/ },
   { key: 'damage', label: '피해·상태 이상', re: /damage|ailment|ignite|bleed|poison|shock|chill|freeze|curse|mark_|stun|daze|blind|incision|pin_/ },
   { key: 'other', label: '기타', re: /.*/ },

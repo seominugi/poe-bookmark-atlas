@@ -161,7 +161,7 @@ const TABS = [
  * @param {string|null} [args.currentClass]
  * @param {(cls:string, base:string|null)=>object} [args.listForClass] 유형·베이스 칩을 눌렀을 때 그 목록
  * @param {(cls:string)=>Array<{id:string,label:string}>} [args.basesForClass] 유형의 베이스 칩(없으면 빈 배열)
- * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'and'|'or'|'or:prefix'|'or:suffix'}>, meta:{classes:Array<string|null>, orMin:Record<string,number>})=>Promise<void>|void} args.onAdd
+ * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'and'|'or'|'or:prefix'|'or:suffix'|'or:skill'}>, meta:{classes:Array<string|null>, orMin:Record<string,number>})=>Promise<void>|void} args.onAdd
  *   meta.classes — 고른 속성이 온 유형(중복 없음, 넣는 순서). 유형 없이 본 목록이면 null 이 들어간다.
  *   meta.orMin — OR 역할별 「최소 몇 개」(그룹을 만들 때 개수 칸에 넣는다)
  * @param {{baseByClass?:Record<string,string>, emphasis?:boolean}} [args.prefs]
@@ -299,10 +299,12 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
    * 고른 것이 들어갈 OR 그룹 — 접두어·접미어는 각자 개수 그룹이다(타락처럼 접두·접미가 없는 것은 따로 한 그룹).
    * 「모두 한 그룹」 방식은 두지 않는다 — 요청이 오면 그때 설정으로 연다(사용자 결정 2026-09-16).
    */
-  const orGroupOf = (p) => (p.role === 'or' && (p.item.source === 'prefix' || p.item.source === 'suffix') ? `or:${p.item.source}` : p.role)
+  // 스킬 부여도 따로 한 그룹이다 — 타락 후보와 한 개수 그룹에 섞이면 「둘 중 하나」가 돼 뜻이 바뀐다(독립 검토 2026-09-17).
+  const OWN_OR_SOURCES = new Set(['prefix', 'suffix', 'skill'])
+  const orGroupOf = (p) => (p.role === 'or' && OWN_OR_SOURCES.has(p.item.source) ? `or:${p.item.source}` : p.role)
   const orMinPicked = new Map() // 그룹 키 → 사용자가 고른 최소 개수(없으면 1)
   // 접두·접미가 없는 OR(타락)은 따로 한 그룹이다 — 이름은 그 그룹이 전부 타락일 때만 붙인다
-  const OR_GROUP_LABEL = { 'or:prefix': '접두어', 'or:suffix': '접미어' }
+  const OR_GROUP_LABEL = { 'or:prefix': '접두어', 'or:suffix': '접미어', 'or:skill': '스킬 부여' }
   const orLabel = (g) => OR_GROUP_LABEL[g]
     ?? ([...selected.values()].filter((p) => orGroupOf(p) === 'or').every((p) => p.item.source === 'corrupted') ? '타락' : '')
   /**
@@ -316,7 +318,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       if (!g.startsWith('or')) continue
       const e = out.get(g) ?? { count: 0, limit: 1 }
       e.count++
-      if (g !== 'or') e.limit = Math.max(e.limit, affixLimitOf(p.cls))
+      if (g === 'or:prefix' || g === 'or:suffix') e.limit = Math.max(e.limit, affixLimitOf(p.cls)) // 타락·스킬 부여는 한 아이템에 하나
       out.set(g, e)
     }
     for (const e of out.values()) e.max = Math.max(1, Math.min(e.count, e.limit))
@@ -382,9 +384,9 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     if (valued) parts.push({ kind: 'value', text: `값 ${valued}`, tip: `${valued}개는 고른 티어 값까지 채워 넣어요\n나머지는 값 칸을 비워 둬요` })
     if (must) parts.push({ kind: 'and', text: `필수 ${must}`, tip: `필수 ${must}개가 모두 붙은 아이템을 찾아요` })
     // OR 은 들어갈 그룹(접두·접미·타락)대로 센다
-    const by = { 'or:prefix': 0, 'or:suffix': 0, or: 0 }
+    const by = { 'or:prefix': 0, 'or:suffix': 0, 'or:skill': 0, or: 0 }
     for (const p of picks) { const g = orGroupOf(p); if (g in by) by[g]++ }
-    for (const g of ['or:prefix', 'or:suffix', 'or']) {
+    for (const g of ['or:prefix', 'or:suffix', 'or:skill', 'or']) {
       if (!by[g]) continue
       const e = orGroups().get(g)
       const name = `${orLabel(g) ? orLabel(g) + ' ' : ''}${OR_WORD}`
@@ -633,13 +635,15 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     })
   }
 
-  /** 접두·접미 구분이 없는 띠(스킬 부여) — 타락과 같은 한 흐름. 접은 채 시작한다. */
+  /** 접두·접미 구분이 없는 띠(스킬 부여) — 타락과 같은 한 흐름. 접은 채 시작한다.
+   *  종류가 하나뿐이라 묶음 머리를 숨기고(띠 이름과 같은 글자가 두 번 보인다) 묶음이 열 사이에서 쪼개지게 둔다 —
+   *  안 그러면 131줄이 첫 열에 몰린다(독립 검토 2026-09-17). */
   const renderFlowBand = (p, items) => {
     if (!items?.length) return
     makeBand({ pool: p.pool, label: p.label, desc: p.desc, mechanic: p.mechanic, meta: `${items.length}개`, defaultOpen: false }, (inner) => {
-      inner.appendChild(flowHead('or'))
+      inner.appendChild(flowHead(`or:${p.pool}`))
       const flow = el(doc, 'div', 'ba-affix-flow')
-      renderSections(flow, items, true, false)
+      renderSections(flow, items, true, false, { flat: true })
       inner.appendChild(flow)
     })
   }
@@ -725,11 +729,12 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   }
 
   /** 종류별 묶음을 host 에 그린다. */
-  const renderSections = (host, items, startOpen, showSource) => {
+  const renderSections = (host, items, startOpen, showSource, { flat = false } = {}) => {
     host.style.setProperty('--ba-tier-w', `${tierWidthOf(items)}px`)
     host.classList.toggle('has-twins', items.some((it) => (twinPools.get(it.id) ?? []).length > 1))
     for (const group of groupByCategory(items, (it) => it.category)) {
       const sec = el(doc, 'section', 'ba-affix-sec')
+      if (flat) sec.classList.add('is-flat')
       sec.dataset.category = group.key // 종류마다 다른 색을 입힌다(CSS)
       const toggle = el(doc, 'button', 'ba-affix-sec-head')
       toggle.type = 'button'
