@@ -161,7 +161,7 @@ const TABS = [
  * @param {string|null} [args.currentClass]
  * @param {(cls:string, base:string|null)=>object} [args.listForClass] 유형·베이스 칩을 눌렀을 때 그 목록
  * @param {(cls:string)=>Array<{id:string,label:string}>} [args.basesForClass] 유형의 베이스 칩(없으면 빈 배열)
- * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'and'|'or'|'or:prefix'|'or:suffix'}>, meta:{classes:Array<string|null>, orMin:Record<string,number>})=>Promise<void>|void} args.onAdd
+ * @param {(picks:Array<{id:string, value:{min?:number,max?:number}|null, role:'and'|'or'|'or:prefix'|'or:suffix'|'or:skill'}>, meta:{classes:Array<string|null>, orMin:Record<string,number>})=>Promise<void>|void} args.onAdd
  *   meta.classes — 고른 속성이 온 유형(중복 없음, 넣는 순서). 유형 없이 본 목록이면 null 이 들어간다.
  *   meta.orMin — OR 역할별 「최소 몇 개」(그룹을 만들 때 개수 칸에 넣는다)
  * @param {{baseByClass?:Record<string,string>, emphasis?:boolean}} [args.prefs]
@@ -299,10 +299,12 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
    * 고른 것이 들어갈 OR 그룹 — 접두어·접미어는 각자 개수 그룹이다(타락처럼 접두·접미가 없는 것은 따로 한 그룹).
    * 「모두 한 그룹」 방식은 두지 않는다 — 요청이 오면 그때 설정으로 연다(사용자 결정 2026-09-16).
    */
-  const orGroupOf = (p) => (p.role === 'or' && (p.item.source === 'prefix' || p.item.source === 'suffix') ? `or:${p.item.source}` : p.role)
+  // 스킬 부여도 따로 한 그룹이다 — 타락 후보와 한 개수 그룹에 섞이면 「둘 중 하나」가 돼 뜻이 바뀐다(독립 검토 2026-09-17).
+  const OWN_OR_SOURCES = new Set(['prefix', 'suffix', 'skill'])
+  const orGroupOf = (p) => (p.role === 'or' && OWN_OR_SOURCES.has(p.item.source) ? `or:${p.item.source}` : p.role)
   const orMinPicked = new Map() // 그룹 키 → 사용자가 고른 최소 개수(없으면 1)
   // 접두·접미가 없는 OR(타락)은 따로 한 그룹이다 — 이름은 그 그룹이 전부 타락일 때만 붙인다
-  const OR_GROUP_LABEL = { 'or:prefix': '접두어', 'or:suffix': '접미어' }
+  const OR_GROUP_LABEL = { 'or:prefix': '접두어', 'or:suffix': '접미어', 'or:skill': '스킬 부여' }
   const orLabel = (g) => OR_GROUP_LABEL[g]
     ?? ([...selected.values()].filter((p) => orGroupOf(p) === 'or').every((p) => p.item.source === 'corrupted') ? '타락' : '')
   /**
@@ -316,7 +318,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       if (!g.startsWith('or')) continue
       const e = out.get(g) ?? { count: 0, limit: 1 }
       e.count++
-      if (g !== 'or') e.limit = Math.max(e.limit, affixLimitOf(p.cls))
+      if (g === 'or:prefix' || g === 'or:suffix') e.limit = Math.max(e.limit, affixLimitOf(p.cls)) // 타락·스킬 부여는 한 아이템에 하나
       out.set(g, e)
     }
     for (const e of out.values()) e.max = Math.max(1, Math.min(e.count, e.limit))
@@ -382,9 +384,9 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     if (valued) parts.push({ kind: 'value', text: `값 ${valued}`, tip: `${valued}개는 고른 티어 값까지 채워 넣어요\n나머지는 값 칸을 비워 둬요` })
     if (must) parts.push({ kind: 'and', text: `필수 ${must}`, tip: `필수 ${must}개가 모두 붙은 아이템을 찾아요` })
     // OR 은 들어갈 그룹(접두·접미·타락)대로 센다
-    const by = { 'or:prefix': 0, 'or:suffix': 0, or: 0 }
+    const by = { 'or:prefix': 0, 'or:suffix': 0, 'or:skill': 0, or: 0 }
     for (const p of picks) { const g = orGroupOf(p); if (g in by) by[g]++ }
-    for (const g of ['or:prefix', 'or:suffix', 'or']) {
+    for (const g of ['or:prefix', 'or:suffix', 'or:skill', 'or']) {
       if (!by[g]) continue
       const e = orGroups().get(g)
       const name = `${orLabel(g) ? orLabel(g) + ' ' : ''}${OR_WORD}`
@@ -612,7 +614,10 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       renderBand({ pool: 'normal', label: '기본' }, l, tab, normalCount <= COLLAPSE_OVER)
       for (const p of BAND_POOLS) renderBand(p, l[p.pool], tab, true)
       // 기원의 나무처럼 메커니즘이 열어 주는 풀 — 이름은 게임 데이터가 준다
-      for (const m of l.mechanics ?? []) renderBand({ pool: m.pool, label: m.label, desc: m.desc, mechanic: true }, m, tab, true)
+      for (const m of l.mechanics ?? []) {
+        // 접두·접미가 없는 풀(스킬 부여)은 타락처럼 한 흐름으로 — 전체 탭에서만 보인다
+        if (m.flow) { if (tab === 'all') renderFlowBand({ pool: m.pool, label: m.label, desc: m.desc, mechanic: true }, m.items) } else renderBand({ pool: m.pool, label: m.label, desc: m.desc, mechanic: true }, m, tab, true)
+      }
     }
     applySearch()
     paintOrMin()
@@ -626,6 +631,19 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       inner.appendChild(flowHead('or'))
       const flow = el(doc, 'div', 'ba-affix-flow')
       renderSections(flow, list, true, false)
+      inner.appendChild(flow)
+    })
+  }
+
+  /** 접두·접미 구분이 없는 띠(스킬 부여) — 타락과 같은 한 흐름. 접은 채 시작한다.
+   *  종류가 하나뿐이라 묶음 머리를 숨기고(띠 이름과 같은 글자가 두 번 보인다) 묶음이 열 사이에서 쪼개지게 둔다 —
+   *  안 그러면 131줄이 첫 열에 몰린다(독립 검토 2026-09-17). */
+  const renderFlowBand = (p, items) => {
+    if (!items?.length) return
+    makeBand({ pool: p.pool, label: p.label, desc: p.desc, mechanic: p.mechanic, meta: `${items.length}개`, defaultOpen: false }, (inner) => {
+      inner.appendChild(flowHead(`or:${p.pool}`))
+      const flow = el(doc, 'div', 'ba-affix-flow')
+      renderSections(flow, items, true, false, { flat: true })
       inner.appendChild(flow)
     })
   }
@@ -711,11 +729,12 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   }
 
   /** 종류별 묶음을 host 에 그린다. */
-  const renderSections = (host, items, startOpen, showSource) => {
+  const renderSections = (host, items, startOpen, showSource, { flat = false } = {}) => {
     host.style.setProperty('--ba-tier-w', `${tierWidthOf(items)}px`)
     host.classList.toggle('has-twins', items.some((it) => (twinPools.get(it.id) ?? []).length > 1))
     for (const group of groupByCategory(items, (it) => it.category)) {
       const sec = el(doc, 'section', 'ba-affix-sec')
+      if (flat) sec.classList.add('is-flat')
       sec.dataset.category = group.key // 종류마다 다른 색을 입힌다(CSS)
       const toggle = el(doc, 'button', 'ba-affix-sec-head')
       toggle.type = 'button'
@@ -837,7 +856,7 @@ export function tierWidthOf(items) {
       const label = byRange ? String(c.range).replace(/ 평균$/, '') : `T${c.t}`
       w += Math.max(26, label.length * 6.6 + 12) + 1
     }
-    if (!(item.choices ?? []).length) w = 56 // 「레벨 부족」
+    if (!(item.choices ?? []).length) w = item.open ? 84 : 56 // 「레벨 직접 입력」 · 「레벨 부족」
     max = Math.max(max, w)
   }
   return Math.ceil(max)
@@ -853,7 +872,8 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
   box.disabled = item.have
   const name = el(doc, 'span', 'ba-affix-name', item.text)
   // 툴팁은 전부 우리 것(page-tip.js) — 네이티브 title 을 쓰지 않는다(사용자 결정 2026-09-16)
-  name.dataset.tip = item.single ? `${item.text}\n값 범위 하나` : `${item.text}\n티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
+  name.dataset.tip = item.open ? `${item.text}
+레벨은 거래소 칸에 직접 넣어요` : item.single ? `${item.text}\n값 범위 하나` : `${item.text}\n티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
   bindPageTip(name, { placement: 'below' })
   const r = { item, row, box, pills: [], roles: [] }
   const current = () => {
@@ -903,7 +923,7 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
     }
     const tierBox = el(doc, 'span', 'ba-affix-tierbox')
     controls.appendChild(tierBox)
-    if (!item.choices.length) tierBox.appendChild(el(doc, 'span', 'ba-affix-have', '레벨 부족'))
+    if (!item.choices.length) tierBox.appendChild(el(doc, 'span', 'ba-affix-have', item.open ? '레벨 직접 입력' : '레벨 부족'))
     else {
       const seg = el(doc, 'span', 'ba-affix-tiers')
       item.choices.forEach((c, i) => {

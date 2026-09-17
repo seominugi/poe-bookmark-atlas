@@ -697,11 +697,15 @@ function pobEnsureStyle() {
   .ba-affix-band[data-pool="corrupted"] .ba-affix-band-name { color: #ff8fa3; }
   .ba-affix-band[data-pool="corrupted"] .ba-affix-band-meta { color: #d27a8c; }
   .ba-affix-band[data-pool="corrupted"] .ba-affix-band-toggle { color: #ffc2cd; background: rgba(242,96,120,0.18); }
-  .ba-affix-band[data-pool="corrupted"] .ba-affix-flow { column-width: 260px; padding-top: 0; }
+  /* 타락도 기본 띠와 같은 열 폭 — 260px 이던 때는 뒤쪽 칸(필수·후보·값)이 자리를 다 차지해 이름이 세로로 꺾였다(제보 2026-09-17) */
+  .ba-affix-band[data-pool="corrupted"] .ba-affix-flow { padding-top: 0; }
   .ba-affix-band[data-pool="corrupted"] .ba-affix-row.is-on { background: linear-gradient(90deg, rgba(242,96,120,0.24), rgba(242,96,120,0.06)); box-shadow: inset 0 0 0 1px rgba(242,96,120,0.4); }
   .ba-affix-band[data-pool="corrupted"] .ba-affix-check:checked { background: #f26078; border-color: #f26078; }
   .ba-affix-band[data-pool="corrupted"] .ba-affix-pill.is-on { background: #f26078 !important; }
   .ba-affix-sec { break-inside: avoid; margin: 0 0 8px; }
+  /* 종류가 하나뿐인 흐름(스킬 부여) — 머리를 숨기고 묶음이 열 사이에서 쪼개지게 둔다(안 그러면 첫 열에 몰린다) */
+  .ba-affix-sec.is-flat { break-inside: auto; }
+  .ba-affix-sec.is-flat > .ba-affix-sec-headrow { display: none; }
   .ba-affix-sec-head { display: flex; align-items: center; gap: 8px; width: 100%; height: 22px; padding: 0 2px !important; margin: 0 0 2px !important;
     border: 0 !important; background: transparent !important; cursor: pointer; text-align: left; }
   .ba-affix-sec-headrow { display: flex; align-items: center; gap: 6px; }
@@ -762,7 +766,9 @@ function pobEnsureStyle() {
   @media (prefers-reduced-motion: reduce) { .ba-affix-sec-chev { transition: none; } }
 
   /* 행 28px — 34px 에서는 지팡이·완드·셉터(접미어 24개)가 높이 1319px 화면에서도 넘쳐 스크롤이 생겼다(2026-09-15 실측). */
-  .ba-affix-row { display: flex; align-items: center; gap: 8px; min-height: 28px; padding: 2px 8px; border-radius: 9px; cursor: pointer; color: #e4e0f2; }
+  /* 이름이 낱말 단위 아래로는 줄지 않는다(keep-all + 자동 최소 폭). 그래도 안 들어가면 뒤쪽 칸이 아랫줄로 내려간다 —
+     타락 띠에서 이름이 세로 한 글자씩 쌓이던 문제(제보 2026-09-17). min-width:0 은 한글을 글자마다 꺾게 놔둔다 */
+  .ba-affix-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; min-height: 28px; padding: 2px 8px; border-radius: 9px; cursor: pointer; color: #e4e0f2; }
   .ba-affix-row[hidden] { display: none; }
   @media (hover: hover) and (pointer: fine) { .ba-affix-row:hover { background: rgba(255,255,255,0.05); } }
   .ba-affix-row.is-on { background: linear-gradient(90deg, rgba(167,139,250,0.2), rgba(167,139,250,0.06)); box-shadow: inset 0 0 0 1px rgba(167,139,250,0.28); }
@@ -775,8 +781,8 @@ function pobEnsureStyle() {
   .ba-affix-check:disabled { opacity: .35; cursor: default; }
   .ba-affix-check:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
   /* 이름은 다 보인다(말줄임 금지 — 사용자 결정 2026-09-16). 뒤쪽 칸이 늘 자리를 차지하므로 호버해도 줄이 바뀌지 않는다 */
-  .ba-affix-name { flex: 1; min-width: 0; line-height: 1.35; padding: 3px 0; }
-  .ba-affix-tail { display: inline-flex; align-items: center; gap: 6px; flex: none; }
+  .ba-affix-name { flex: 1; min-width: auto; word-break: keep-all; line-height: 1.35; padding: 3px 0; }
+  .ba-affix-tail { display: inline-flex; align-items: center; gap: 6px; flex: none; margin-left: auto; }
   .ba-affix-src { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
   /* 같은 거래소 조건이 다른 띠에도 있다는 표시 — 조용한 점선 칩, 다른 줄에서 골랐으면 그 줄 이름을 알린다 */
   .ba-affix-twinslot { flex: none; display: none; justify-content: flex-end; }

@@ -23,7 +23,8 @@ const own = (obj, key) => (obj && Object.hasOwn(obj, key) ? obj[key] : null)
  * @typedef {{t:number,l:number,min:number,max:number,range:string}} AffixChoice
  * @typedef {{id:string, key:string, text:string, pool:'normal'|'corrupted'|'essence'|'desecrated'|'alloy',
  *            source:'prefix'|'suffix'|'corrupted', category:string, tiers:number, topLevel:number, have:boolean,
- *            single:boolean, fill:'min'|'max', choices:AffixChoice[]}} AffixItem
+ *            single:boolean, fill:'min'|'max', open?:boolean, choices:AffixChoice[]}} AffixItem
+ *   `open` — 값을 열어 둔 항목(스킬 부여의 레벨). choices 가 비어 있고 거래소 칸은 빈칸으로 들어간다.
  *   `key` — 목록 안에서 유일한 표식(`풀:id`). 같은 능력치가 일반과 에센스에 함께 있을 수 있어 id 만으로는 겹친다.
  *   `tiers` — 아이템 레벨 상한 안에서 닿는 티어 수(상한이 없으면 전체). 0 이면 이 상한으로는 안 붙는다.
  *   `topLevel` — 닿는 티어 중 가장 높은 것의 필요 아이템 레벨(닿는 게 없으면 T1 의 필요 레벨).
@@ -82,7 +83,9 @@ export function affixListFor({ table, affixes, itemClass, statMap, ilvlMax = nul
     // 게임 문장에 줄바꿈이 섞여 온다(뒤바뀐 빗장뼈 「…훼손합니다.⏎일정 확률로…」 — 실제 개행 문자다).
     // 띠 머리는 한 줄이라 공백으로 잇는다. 글자 `\n` 으로 오는 경우도 같이 막아 둔다(화면에 역슬래시가 찍히지 않게).
     const sentence = m.n.replace(/\s*(?:\\n|\n)\s*/g, ' ')
-    if (items.length) out.mechanics.push({ pool: m.key, label: title ?? sentence, desc: title ? sentence : null, ...bySide(items) })
+    // 접두·접미가 없는 풀(스킬 부여, `f`)은 타락처럼 한 흐름(`items`)으로 그린다 — 양쪽 열은 비워 둔다
+    const flow = m.f === 1
+    if (items.length) out.mechanics.push({ pool: m.key, label: title ?? sentence, desc: title ? sentence : null, flow, items: flow ? items : [], ...(flow ? { prefix: [], suffix: [] } : bySide(items)) })
   }
   return out
 }
@@ -124,7 +127,13 @@ function specialItems(entries, pool, { statMap, ilvlMax, have }) {
   for (const [id, entry] of Object.entries(entries ?? {})) {
     const text = own(statMap, id)
     const rows = Array.isArray(entry?.r) ? entry.r.filter((row) => Array.isArray(row?.v) && [1, 2].includes(row.v.length)) : []
-    if (typeof text !== 'string' || !rows.length) continue
+    if (typeof text !== 'string') continue
+    // 값을 열어 둔 항목(`o`, 스킬 부여의 레벨) — 사다리가 없고 사용자가 거래소 칸에 직접 넣는다. 아이템 레벨 상한과 무관하다.
+    if (entry?.o === 1) {
+      out.push({ id, key: `${pool}:${id}`, text, pool, source: pool, category: entry.c ?? 'other', tiers: 1, topLevel: 0, have: have.has(id), single: false, fill: 'min', open: true, choices: [] })
+      continue
+    }
+    if (!rows.length) continue
     const reach = ilvlMax == null ? rows : rows.filter((row) => row.l <= ilvlMax)
     const negative = rows.every((row) => row.v.every((slot) => slot.every((n) => n < 0)))
     out.push({
@@ -150,7 +159,7 @@ export function allAffixItems(list) {
     if (!v) continue
     out.push(...(sided ? [...(v.prefix ?? []), ...(v.suffix ?? [])] : v))
   }
-  for (const m of list?.mechanics ?? []) out.push(...(m.prefix ?? []), ...(m.suffix ?? []))
+  for (const m of list?.mechanics ?? []) out.push(...(m.items ?? []), ...(m.prefix ?? []), ...(m.suffix ?? []))
   return out
 }
 
