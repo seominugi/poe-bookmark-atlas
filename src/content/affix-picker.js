@@ -612,7 +612,10 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       renderBand({ pool: 'normal', label: '기본' }, l, tab, normalCount <= COLLAPSE_OVER)
       for (const p of BAND_POOLS) renderBand(p, l[p.pool], tab, true)
       // 기원의 나무처럼 메커니즘이 열어 주는 풀 — 이름은 게임 데이터가 준다
-      for (const m of l.mechanics ?? []) renderBand({ pool: m.pool, label: m.label, desc: m.desc, mechanic: true }, m, tab, true)
+      for (const m of l.mechanics ?? []) {
+        // 접두·접미가 없는 풀(스킬 부여)은 타락처럼 한 흐름으로 — 전체 탭에서만 보인다
+        if (m.flow) { if (tab === 'all') renderFlowBand({ pool: m.pool, label: m.label, desc: m.desc, mechanic: true }, m.items) } else renderBand({ pool: m.pool, label: m.label, desc: m.desc, mechanic: true }, m, tab, true)
+      }
     }
     applySearch()
     paintOrMin()
@@ -626,6 +629,17 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       inner.appendChild(flowHead('or'))
       const flow = el(doc, 'div', 'ba-affix-flow')
       renderSections(flow, list, true, false)
+      inner.appendChild(flow)
+    })
+  }
+
+  /** 접두·접미 구분이 없는 띠(스킬 부여) — 타락과 같은 한 흐름. 접은 채 시작한다. */
+  const renderFlowBand = (p, items) => {
+    if (!items?.length) return
+    makeBand({ pool: p.pool, label: p.label, desc: p.desc, mechanic: p.mechanic, meta: `${items.length}개`, defaultOpen: false }, (inner) => {
+      inner.appendChild(flowHead('or'))
+      const flow = el(doc, 'div', 'ba-affix-flow')
+      renderSections(flow, items, true, false)
       inner.appendChild(flow)
     })
   }
@@ -837,7 +851,7 @@ export function tierWidthOf(items) {
       const label = byRange ? String(c.range).replace(/ 평균$/, '') : `T${c.t}`
       w += Math.max(26, label.length * 6.6 + 12) + 1
     }
-    if (!(item.choices ?? []).length) w = 56 // 「레벨 부족」
+    if (!(item.choices ?? []).length) w = item.open ? 84 : 56 // 「레벨 직접 입력」 · 「레벨 부족」
     max = Math.max(max, w)
   }
   return Math.ceil(max)
@@ -853,7 +867,8 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
   box.disabled = item.have
   const name = el(doc, 'span', 'ba-affix-name', item.text)
   // 툴팁은 전부 우리 것(page-tip.js) — 네이티브 title 을 쓰지 않는다(사용자 결정 2026-09-16)
-  name.dataset.tip = item.single ? `${item.text}\n값 범위 하나` : `${item.text}\n티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
+  name.dataset.tip = item.open ? `${item.text}
+레벨은 거래소 칸에 직접 넣어요` : item.single ? `${item.text}\n값 범위 하나` : `${item.text}\n티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
   bindPageTip(name, { placement: 'below' })
   const r = { item, row, box, pills: [], roles: [] }
   const current = () => {
@@ -903,7 +918,7 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
     }
     const tierBox = el(doc, 'span', 'ba-affix-tierbox')
     controls.appendChild(tierBox)
-    if (!item.choices.length) tierBox.appendChild(el(doc, 'span', 'ba-affix-have', '레벨 부족'))
+    if (!item.choices.length) tierBox.appendChild(el(doc, 'span', 'ba-affix-have', item.open ? '레벨 직접 입력' : '레벨 부족'))
     else {
       const seg = el(doc, 'span', 'ba-affix-tiers')
       item.choices.forEach((c, i) => {

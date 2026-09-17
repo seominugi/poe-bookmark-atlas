@@ -7,6 +7,14 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
+## 속성 목록 7차 — 목걸이 「스킬 부여」 띠 · 타락 띠 세로 글자 수정 · 속성 목록 하네스 (2026-09-17)
+
+- **스킬 부여(부재 목걸이)** — 게임 모드 데이터(modifiers)에는 이 속성이 **없다**(목걸이 버킷: normal·corrupted·essence·unique 뿐). 거래소 능력치 목록의 「스킬」 그룹(`skill.<id>`, 「스킬 부여: #레벨 X」 131개)에만 있어서 빌드(`skillGrantPool`)가 그 그룹을 **목걸이 전용 메커니즘 풀**로 싣는다(`statAffixes.poe2.json` `Amulet.m[key=skill]`). 새 표기: `f:1` = 접두·접미 없는 흐름(타락처럼 한 흐름으로 그림, 전체 탭에서만) · `x[id].o:1` = 값을 열어 둔 항목(사다리 없음 → 칩 대신 「레벨 직접 입력」, 넣을 때 값은 빈칸). 종류 키 `grant`(스킬 부여). 레벨 사다리는 **모른다** — 부재 목걸이가 주는 스킬 레벨 범위를 알게 되면 `r` 로 채우면 된다.
+  - 문구가 같은 쌍 3건이 두 줄로 보인다: 낙뢰(`lightning_bolt`|`unique_breach_lightning_bolt`) · 부패(`corpse_cloud_triggered`|`corpse_cloud`) · 점멸(`blink`|`blink_reservation`). 거래소 목록 자체가 그렇다 — 실측하면 `trade-twins.poe2.json` 에 넣어 정리한다.
+- **타락 띠 세로 글자**(제보) — 타락 흐름만 열 폭 260px 이었고, 줄 뒤쪽 칸(필수·후보·값 칩 — 숨겨도 자리를 차지)이 폭을 다 먹어 이름이 한 글자씩 세로로 쌓였다. 열 폭을 기본 띠와 같은 340px 로, 이름은 `min-width:auto` + `word-break:keep-all`(낱말 아래로는 안 줄어듦), 그래도 안 들어가면 줄이 `flex-wrap` 으로 뒤쪽 칸을 아랫줄로 내린다. 처음 시도한 `min-width:9em` 은 **짧은 이름 줄까지 두 줄로** 만들어 기각했다.
+- **하네스** — `test-harness/affix.html?class=Amulet`(`npx vite --config vite.harness.config.js`). 실제 statAffixes·statTiers 와 거래소 능력치 목록(vite 프록시 `/trade2-api` → 카카오 `/api`)으로 시트를 그린다. CSS 는 content-main.js 의 `pobEnsureStyle` 문자열을 `?raw` 로 꺼내 쓴다. 라이브 확인이 막힐 때(아래) 쓴다.
+- ⚠ **라이브 실측은 못 했다** — 개발 브라우저(claude-in-chrome 「Browser 2」)의 확장은 **메인 체크아웃 `D:\github\poe-bookmark-atlas\dist`** 를 읽고, `chrome://extensions` 리로드를 도구로 할 수 없다. 워크트리에서 만든 것은 메인에서 `npm run build` 후 확장을 리로드해야 보인다. 하네스로 1500×800 에서 확인: 타락 줄 전부 28px 한 줄(이름 폭 268px), 스킬 부여 131줄(긴 이름 3줄만 낱말 단위 두 줄), 넣기 → `{id:'skill.shield_block', value:null, role:'or'}`.
+
 ## 속성 목록 6차 — 문구 같은 id 정리 · 필수/OR 규칙 · OR 최소 개수 · 서판 · 장비창 칩 · 희귀도 칩 (2026-09-16)
 
 poe-game-data 를 **v2026.09.16.7 → v2026.09.17.2**(서판 모드 파일 신설 #23 · 부적 양손 무기 풀 #24 · 투구·장갑·장화에서 고유 전용 3속성 베이스 제외 #25)으로 올렸다. 버클러 「막기 확률 #% 증가」 0건은 데이터 문제가 아니라 우리 매핑 문제였다(아래 로컬 능력치).

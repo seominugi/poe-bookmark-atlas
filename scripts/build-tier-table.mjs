@@ -18,6 +18,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const EXPLICIT_GROUP = '비고정' // 거래소 능력치 목록에서 일반 옵션 그룹
 const ENCHANT_GROUP = '인챈트' // 타락 속성이 거래소에서 걸리는 그룹 — 실측 380개 중 356개가 이 그룹 문구와 이어진다(2026-09-15)
 const DESECRATED_GROUP = '훼손된' // 훼손된 속성이 거래소에서 걸리는 그룹 — 같은 문구가 비고정에도 있지만, 훼손된 속성만 고르려면 이쪽이다
+const SKILL_GROUP = '스킬' // 「스킬 부여: #레벨 X」 — 부재 목걸이처럼 스킬을 주는 아이템의 조건. 게임 모드 데이터에는 없고 거래소 목록에만 있다
 const SANCTUM_GROUP = '성역' // 유물 속성이 거래소에서 걸리는 그룹 — 비고정에도 같은 문구가 있어 부위로 갈라 이 그룹만 본다
 // 부위 → 일반 풀을 이을 거래소 그룹. 적지 않은 부위는 비고정.
 // Relic 은 v2026.09.16.7 부터 성역 설명 파일로 문장이 채워졌다(그 전에는 137개 중 9줄뿐이라 뺐었다).
@@ -344,6 +345,11 @@ async function main() {
       const title = data.bucketTitles?.[bucket]?.kr
       if (Object.keys(got.x).length) { mechanics.push({ key: bucket, n: name, ...(title ? { t: title } : {}), x: got.x }); poolMods[bucket] = got.mods }
     }
+    // 스킬 부여 — 목걸이만(부재 목걸이). 모드 데이터가 아니라 거래소 「스킬」 그룹에서 온다.
+    if (cls === 'Amulet') {
+      const skills = skillGrantPool(statsPayload)
+      if (skills) { mechanics.push(skills); specialCounts.skill = { total: Object.keys(skills.x).length, matched: Object.keys(skills.x).length } }
+    }
     if (Object.keys(byStat).length) {
       table[cls] = byStat
       const bases = basesOf(data, poolMods)
@@ -527,6 +533,25 @@ export function pruneTradeTwins(entry, { category, rules, textOf }) {
     for (const b of entry.b ?? []) for (const k of Object.keys(b.k ?? {})) b.k[k] = b.k[k].filter(keep)
   }
   return { dropped: [...drop], unresolved: [...unresolved] }
+}
+
+/**
+ * 스킬 부여 풀 — 거래소 능력치 목록의 「스킬」 그룹(`skill.<id>`, 「스킬 부여: #레벨 X」)을 그대로 싣는다.
+ * 게임 모드 데이터(modifiers)에는 이 속성이 없다 — 부재 목걸이가 주는 스킬은 모드가 아니라 아이템 자체의 속성이라
+ * 티어 사다리가 없고, 값(레벨)은 사용자가 거래소 칸에 직접 넣는다(`o` = 값을 열어 둔 항목).
+ * 접두·접미 구분도 없어 타락처럼 한 흐름으로 그린다(`f`).
+ * @param {{result?:Array<{label?:string, entries?:Array<{id?:string,text?:string}>}>}} statsPayload
+ * @returns {{key:string, n:string, t:string, f:1, x:Record<string,{c:string,o:1}>}|null}
+ */
+export function skillGrantPool(statsPayload) {
+  const group = (statsPayload?.result ?? []).find((g) => g?.label === SKILL_GROUP)
+  const x = {}
+  for (const e of group?.entries ?? []) {
+    if (typeof e?.id !== 'string' || !e.id.startsWith('skill.') || typeof e.text !== 'string') continue
+    x[e.id] = { c: 'grant', o: 1 }
+  }
+  if (!Object.keys(x).length) return null
+  return { key: 'skill', n: '부재 목걸이처럼 스킬을 주는 아이템의 조건 — 레벨은 거래소 칸에 직접 넣어요', t: '스킬 부여', f: 1, x }
 }
 
 /** 버킷의 접두 + 접미 모드. */

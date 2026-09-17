@@ -22,6 +22,7 @@ export const AFFIX_CATEGORIES = [
   { key: 'added', label: '피해 추가', re: /added_[a-z]+_damage|thorns_minimum/ },
   { key: 'crit', label: '정확도·치명타', re: /critical_strike|accuracy/ },
   { key: 'skill', label: '스킬 레벨', re: /gem_level|skill_level/ },
+  { key: 'grant', label: '스킬 부여', re: /^skill\./ }, // 거래소 「스킬」 그룹 id(skill.<id>) — 모드 이름이 아니라 빌드가 키를 직접 박는다
   { key: 'speed', label: '속도', re: /speed|velocity|cooldown/ },
   { key: 'damage', label: '피해·상태 이상', re: /damage|ailment|ignite|bleed|poison|shock|chill|freeze|curse|mark_|stun|daze|blind|incision|pin_/ },
   { key: 'other', label: '기타', re: /.*/ },
@@ -29,7 +30,7 @@ export const AFFIX_CATEGORIES = [
 
 // 규칙 순서(판정 우선순위)와 화면 순서는 다르다 — 같은 키가 규칙 두 곳에 있을 수 있다(피해: 관통 + 일반).
 // 화면은 사용자가 먼저 찾는 것부터: 방어 쪽(저항·생명력·방어) → 공격 쪽 → 기타.
-const DISPLAY_ORDER = ['resist', 'resource', 'defence', 'attribute', 'added', 'damage', 'crit', 'speed', 'skill', 'recovery', 'minion', 'flask', 'other']
+const DISPLAY_ORDER = ['resist', 'resource', 'defence', 'attribute', 'added', 'damage', 'crit', 'speed', 'skill', 'grant', 'recovery', 'minion', 'flask', 'other']
 const ORDER = new Map(DISPLAY_ORDER.map((k, i) => [k, i]))
 const LABEL = new Map(AFFIX_CATEGORIES.map((c) => [c.key, c.label]))
 
