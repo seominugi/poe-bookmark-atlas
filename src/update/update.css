@@ -137,6 +137,107 @@ body {
 .mk-rarity-unique, .mk-rarity-nonunique { flex: 0 1 auto; padding: 3px 9px 3px 7px; border-radius: 8px; border: 1px solid; }
 .mk-rarity-unique { border-color: rgba(232,142,72,0.75); background: rgba(232,142,72,0.1); }
 .mk-rarity-nonunique { border-color: rgba(230,205,96,0.7); background: rgba(230,205,96,0.08); }
+
+/* 0.14.0 속성 목록 — 창을 줄여 그린다. 색은 창(content-main.js .ba-affix-*)과 같다:
+   필수 초록 #4fd39a · 후보 하늘 #5cc3f2 · 장신구 금 #e8c872 · 고른 칸/티어 보라 #a78bfa */
+.mk-num {
+  flex: none; display: inline-flex; align-items: center; justify-content: center;
+  width: 16px; height: 16px; border-radius: 50%;
+  font-size: 10px; font-weight: 800; color: #0b0a16; background: #fde68a;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 유형 고르기 — 장비창 */
+.mk-doll-bar { display: flex; align-items: center; gap: 8px; padding: 2px 2px 9px; font-size: 12px; }
+.mk-doll-bar-lbl { font-size: 11px; font-weight: 600; color: #8f89a8; }
+.mk-doll-bar b { color: #fff; font-size: 12.5px; }
+.mk-doll-bar-btn { margin-left: auto; font-size: 10.5px; font-weight: 700; color: #ddd6fe; background: rgba(167,139,250,0.16); border-radius: 999px; padding: 3px 10px; }
+.mk-doll {
+  display: grid; gap: 7px; align-items: stretch;
+  grid-template-columns: auto auto auto;
+  grid-template-areas: "weapon armour off" "bottom bottom bottom";
+  justify-content: center;
+}
+.mk-doll-area { padding: 6px; border-radius: 9px; background: rgba(0,0,0,0.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); display: flex; flex-direction: column; gap: 5px; }
+.mk-doll-weapon { grid-area: weapon; }
+.mk-doll-armour { grid-area: armour; }
+.mk-doll-off { grid-area: off; }
+.mk-doll-chip { align-self: flex-start; font-size: 9.5px; font-weight: 700; color: #c4b5fd; background: rgba(167,139,250,0.12); border-radius: 999px; padding: 2px 7px; white-space: nowrap; }
+.mk-doll-chip i { font-style: normal; color: #e8c872; }
+.mk-doll-grid { display: grid; grid-template-columns: repeat(2, 50px); grid-auto-rows: 40px; gap: 4px; }
+.mk-doll-weapon .mk-doll-grid + .mk-doll-chip { margin-top: 3px; }
+.mk-slot {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0;
+  border-radius: 7px; background: rgba(255,255,255,0.05); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.1);
+  color: #b9b3d3; font-size: 9px; font-weight: 600; line-height: 1.15; text-align: center; padding: 2px;
+}
+.mk-slot > span { word-break: keep-all; }
+.mk-slot.is-jewel { box-shadow: inset 0 0 0 1px rgba(232,200,114,0.55); background: rgba(232,200,114,0.07); color: #f1dca6; }
+.mk-slot.is-on { box-shadow: inset 0 0 0 1.5px rgba(196,181,253,0.85); background: rgba(167,139,250,0.26); color: #fff; }
+.mk-slot.is-jewel.is-on { box-shadow: inset 0 0 0 1.5px #e8c872; background: rgba(232,200,114,0.24); }
+/* 방어구 — 게임 장비창 자리: 투구·갑옷·허리띠는 한 열, 목걸이는 갑옷 윗선, 반지는 갑옷 아랫선, 장갑·허리띠·장화는 한 줄 */
+.mk-doll-body {
+  flex: 1; display: grid; gap: 4px;
+  grid-template-columns: 44px 62px 44px;
+  grid-template-rows: 34px 32px 32px 34px;
+  grid-template-areas:
+    ".      helm   ."
+    ".      body   amulet"
+    ".      body   ring"
+    "gloves belt   boots";
+}
+.mk-a-helm { grid-area: helm; }
+.mk-a-body { grid-area: body; }
+.mk-a-amulet { grid-area: amulet; }
+.mk-a-ring { grid-area: ring; }
+.mk-a-gloves { grid-area: gloves; }
+.mk-a-belt { grid-area: belt; }
+.mk-a-boots { grid-area: boots; }
+.mk-doll-bottom { grid-area: bottom; display: flex; flex-wrap: wrap; justify-content: center; gap: 7px; }
+.mk-doll-row { display: flex; gap: 4px; }
+.mk-doll-row .mk-slot { min-width: 50px; height: 40px; padding: 2px 6px; }
+
+/* 속성 고르기 — 목록 창 */
+.mk-ap-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding-bottom: 9px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+.mk-ap-title { display: flex; flex-direction: column; line-height: 1.3; }
+.mk-ap-title b { font-size: 12.5px; color: #fff; }
+.mk-ap-title small { font-size: 9.5px; color: #8f89a8; }
+.mk-ap-tabs { display: inline-flex; align-items: center; gap: 2px; padding: 2px; border-radius: 8px; background: rgba(255,255,255,0.05); }
+.mk-ap-tabs .mk-num { margin: 0 3px 0 1px; }
+.mk-ap-tab { font-size: 10px; font-weight: 600; color: #a39fbb; padding: 3px 7px; border-radius: 6px; }
+.mk-ap-tab.is-on { background: rgba(167,139,250,0.22); color: #fff; }
+.mk-ap-search { flex: 1 1 140px; display: inline-flex; align-items: center; gap: 5px; font-size: 10px; color: #77728f; padding: 5px 8px; border-radius: 8px; background: rgba(0,0,0,0.25); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.08); white-space: nowrap; overflow: hidden; }
+.mk-ap-band { display: flex; align-items: center; gap: 6px; margin: 9px 0 7px; font-size: 11px; }
+.mk-ap-band b { color: #e6e3f5; }
+.mk-ap-band span:last-child { font-size: 10px; color: #8f89a8; }
+.mk-ap-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mk-ap-col { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.mk-ap-colhead { display: flex; align-items: center; gap: 5px; min-height: 22px; margin-bottom: 2px; font-size: 10.5px; }
+.mk-ap-colhead > b { color: #c4b5fd; }
+.mk-ap-bulk { margin-left: auto; font-size: 9.5px; color: #9fd8f7; border: 1px solid rgba(92,195,242,0.35); border-radius: 999px; padding: 1px 7px; white-space: nowrap; }
+.mk-ap-colhead .mk-num { margin-left: auto; }
+.mk-ap-step { display: inline-flex; align-items: center; gap: 4px; font-size: 9.5px; color: #d3f0ff; background: rgba(92,195,242,0.14); box-shadow: inset 0 0 0 1px rgba(92,195,242,0.45); border-radius: 999px; padding: 1px 3px 1px 7px; white-space: nowrap; }
+.mk-ap-step i { font-style: normal; display: inline-flex; align-items: center; justify-content: center; width: 15px; height: 15px; border-radius: 50%; background: rgba(255,255,255,0.1); color: #fff; }
+.mk-ap-step b { color: #fff; min-width: 8px; text-align: center; font-variant-numeric: tabular-nums; }
+.mk-ap-row { display: flex; align-items: center; gap: 5px; padding: 4px 5px; border-radius: 7px; font-size: 10.5px; color: #c6bfe4; background: rgba(255,255,255,0.025); }
+.mk-ap-row.is-on { background: rgba(167,139,250,0.1); color: #fff; }
+.mk-ap-check { flex: none; width: 12px; height: 12px; border-radius: 3px; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3); display: inline-flex; align-items: center; justify-content: center; color: #150f2b; }
+.mk-ap-row.is-on .mk-ap-check { background: #a78bfa; box-shadow: none; }
+.mk-ap-name { flex: 1; min-width: 0; font-weight: 600; }
+.mk-ap-roles, .mk-ap-tiers { flex: none; display: inline-flex; gap: 2px; }
+.mk-ap-role { font-size: 9px; color: #8f89a8; border: 1px solid rgba(255,255,255,0.14); border-radius: 5px; padding: 1px 4px; }
+.mk-ap-role.is-and { color: #c7f5df; border-color: rgba(79,211,154,0.5); background: rgba(79,211,154,0.16); }
+.mk-ap-role.is-or { color: #d3f0ff; border-color: rgba(92,195,242,0.5); background: rgba(92,195,242,0.16); }
+.mk-ap-tier { font: 600 9px/1 ui-monospace, Consolas, monospace; color: #8f89a8; padding: 3px 3px; border-radius: 4px; }
+.mk-ap-tier.is-on { background: #a78bfa; color: #150f2b; }
+.mk-ap-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.07); font-size: 10.5px; }
+.mk-ap-sum { flex: 1 1 auto; display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; color: #c6bfe4; }
+.mk-ap-sum > b { color: #fff; font-size: 12px; }
+.mk-ap-sumchip { font-size: 9.5px; border-radius: 999px; padding: 1px 7px; }
+.mk-ap-sumchip.is-and { color: #c7f5df; background: rgba(79,211,154,0.16); box-shadow: inset 0 0 0 1px rgba(79,211,154,0.5); }
+.mk-ap-sumchip.is-or { color: #d3f0ff; background: rgba(92,195,242,0.16); box-shadow: inset 0 0 0 1px rgba(92,195,242,0.5); }
+.mk-ap-clear { color: #a39fbb; font-size: 10px; }
+.mk-ap-add { font-size: 11px; font-weight: 700; color: #150f2b; background: linear-gradient(180deg, #c4b5fd, #a78bfa); border-radius: 8px; padding: 5px 12px; }
 .mk-price { flex: none; font-size: 11px; font-weight: 700; color: #fde68a; }
 .mk-more { flex: none; color: #9b94bd; }
 .mk-chip {
@@ -239,6 +340,10 @@ body {
 
 @media (max-width: 520px) {
   .mk-pair { flex-direction: column; }
+  /* 장비창은 세 영역을 위아래로 — 한 줄에 두면 칸 글자가 부서진다 */
+  .mk-doll { grid-template-columns: auto; grid-template-areas: "weapon" "armour" "off" "bottom"; }
+  .mk-doll-weapon .mk-doll-grid, .mk-doll-off .mk-doll-grid { grid-template-columns: repeat(3, 56px); }
+  .mk-ap-cols { grid-template-columns: 1fr; }
   .mk-w-narrow { max-width: 100%; }
 }
 

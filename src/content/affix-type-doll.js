@@ -42,6 +42,8 @@ const ICON = {
   UtilityFlask: 'M12 3v4M12 19a6 6 0 1 0 0-12 6 6 0 0 0 0 12zM9 13h6',
   TowerAugmentation: 'M7 3h10l2 4v14H5V7zM5 7h14M9 11h6M9 15h4',
 }
+/** 업데이트 노트 목업도 같은 그림을 쓴다 — 그림이 바뀌어도 노트가 따로 낡지 않게. */
+export { ICON as DOLL_ICONS }
 const FALLBACK_ICON = 'M6 18 18 6M8 6h10v10'
 
 /** 영역별 유형 — 순서가 곧 칸 순서다. */
