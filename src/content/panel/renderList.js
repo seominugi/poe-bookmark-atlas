@@ -528,10 +528,10 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
       : (briefPrice ? `<span class="ba-cond ba-cond--priceonly">${briefPrice}</span>` : '')
     // 검색 시각은 칩으로 두지 않는다 — 날짜 구분 줄이 나이를 말하고, 정확한 시각은 이름에 올리면 보인다.
     // 조건 칩이 없는 검색은 리그를 걸어 둘 곳이 이름뿐이라 여기에 함께 싣는다.
-    const whenText = `${fmtTime(when)} · ${ago(when)}`
+    const whenText = `${fmtTime(when)} · 《${ago(when)}》`
     const titleTip = escapeHtml([
-      rarity && RARITY_LABEL[rarity],
       nameText || titleText,
+      rarity && RARITY_LABEL[rarity],
       '────────',
       !condCount && leagueLine,
       `검색 ${whenText}`,
@@ -581,7 +581,7 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
     : ''
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}${selecting ? ' ba-row--sel' : ''}${selected ? ' is-selected' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
-      <span class="ba-l1l">${selBox}<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open"${rarityAttr} data-tip="${rarityLine}${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
+      <span class="ba-l1l">${selBox}<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open"${rarityAttr} data-tip="${title}&#10;${rarityLine}────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
     </div>
     <div class="ba-meta-row">${attn}${leagueChip}${condSummaryChip}${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}${actBar(r)}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
     <div class="ba-actions-pop" hidden>
