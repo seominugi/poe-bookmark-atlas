@@ -415,7 +415,7 @@
   box-shadow: inset 0 1px 1px rgba(255,255,255,0.06), 0 2px 10px rgba(0,0,0,0.22);
 }
 .ba-folder-head {
-  display: flex; justify-content: space-between; align-items: center; gap: 7px;
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 7px;
   padding: 11px 12px;
   color: var(--ba-text-strong); font-weight: 700; font-size: 13.5px; letter-spacing: .2px;
   background: rgba(167, 139, 250, 0.07); border-bottom: 1px solid var(--ba-violet-soft);
@@ -423,9 +423,12 @@
 .ba-folder-grip { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 24px; height: 24px; cursor: grab; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; transition: background .15s, border-color .15s; }
 .ba-folder-grip:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); }
 .ba-folder-grip:active { cursor: grabbing; }
-.ba-folder-name { display: inline-flex; align-items: center; gap: 6px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 폴더 이름은 자르지 않는다(사용자 결정 2026-09-17). 제목 묶음이 글자 한 줄 길이 아래로 줄지 않아,
+   액션 버튼과 한 줄에 못 들어가면 **액션 묶음이 아래 줄로** 내려간다. 이름이 머리 전체보다 길면 이름 안에서 줄을 바꾼다. */
+.ba-folder-title { display: flex; align-items: center; gap: 7px; flex: 1 0 auto; min-width: 0; max-width: 100%; }
+.ba-folder-name { display: inline-flex; align-items: center; gap: 6px; min-width: 0; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
 .ba-folder-count { font-weight: 700; font-size: 10.5px; padding: 1px 8px; border-radius: 9px; }
-.ba-folder-head > span:last-child { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; }
+.ba-folder-head > .ba-folder-actions { display: inline-flex; align-items: center; gap: 5px; flex-shrink: 0; margin-left: auto; }
 .ba-folder-edit {
   background: rgba(255, 255, 255, 0.08); border: 1px solid var(--ba-violet); border-radius: var(--ba-r-chip);
   color: var(--ba-text-strong); font-size: 12px; font-weight: 700; padding: 3px 8px; outline: none;
@@ -477,7 +480,7 @@
 .ba-hist-price img { width: 16px; height: 16px; }
 
 /* 카드 메타 */
-.ba-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ba-text); font-size: 11px; }
+.ba-meta { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-top: 10px; color: var(--ba-text); font-size: 11px; }
 /* 히스토리 날짜 구분 줄 — 줄마다 있던 날짜 칩을 대신한다(2026-09-17). 나이는 여기서, 정확한 시각은 이름 툴팁에서. */
 .ba-hday { display: flex; align-items: center; gap: 8px; margin: 12px 2px 7px; font-size: 11px; font-weight: 700; color: var(--ba-text-muted); letter-spacing: 0.02em; }
 .ba-hday::after { content: ''; flex: 1; height: 1px; background: var(--ba-border); }
@@ -485,7 +488,8 @@
 /* 조건칩이 이제 .ba-meta의 첫 항목(좌측 정렬)이라 .ba-cond 기본 margin-left:auto(우측 정렬용)를 무효화.
    ⋯는 반대로 margin-left:auto로 항상 행 우측 끝에 고정(칩들이 짧아 남는 공간이 ⋯ 앞이 아니라 뒤에 생기던 문제) */
 .ba-meta .ba-cond { flex: none; margin-left: 0; }
-.ba-meta .ba-more, .ba-meta-row .ba-more { flex: none; margin-left: auto; }
+/* 가격·조건·경고·⋯ 는 아래 줄 **오른쪽**에 모은다(사용자 결정 2026-09-17). 이름 줄은 이름 칩만 쓴다. */
+.ba-meta .ba-more, .ba-meta-row .ba-more { flex: none; margin-left: 0; }
 .ba-cond {
   margin-left: auto; cursor: help; font-size: 12.5px; font-weight: 600; color: #c4b5fd; white-space: nowrap;
   background: var(--ba-violet-soft); border: 1px solid var(--ba-violet-line);
@@ -718,7 +722,7 @@
 .ba-chips .ba-cond { margin-left: 0; }   /* 칩 행에서는 좌측 정렬(히스토리 .ba-meta의 우측 정렬 override) */
 
 /* 이름 = 클릭 칩(다시 열기) — 북마크는 이 칩만 재검색 트리거 */
-.ba-open { display: inline-flex; align-items: center; gap: 5px; min-width: 0; padding: 3px 9px 3px 7px; margin: -3px 0; border-radius: 8px; cursor: pointer; background: rgba(167,139,250,0.09); border: 1px solid rgba(167,139,250,0.3); transition: background .16s, border-color .16s, box-shadow .16s; }
+.ba-open { display: inline-flex; align-items: flex-start; gap: 5px; min-width: 0; padding: 3px 9px 3px 7px; margin: -3px 0; border-radius: 8px; cursor: pointer; background: rgba(167,139,250,0.09); border: 1px solid rgba(167,139,250,0.3); transition: background .16s, border-color .16s, box-shadow .16s; }
 .ba-open:hover { background: rgba(167,139,250,0.2); border-color: rgba(167,139,250,0.6); box-shadow: 0 0 14px rgba(167,139,250,0.3); }
 /* 고유·비고유 검색 — 이름 칩 테두리 색(게임의 고유 주황 · 희귀 노랑 계열, 사용자 요청 2026-09-16) */
 .ba-open[data-rarity="unique"] { border-color: rgba(232,142,72,0.75); background: rgba(232,142,72,0.1); }
@@ -729,7 +733,14 @@
 .ba-htitle[data-rarity="unique"], .ba-wname[data-rarity="unique"] { border-color: rgba(232,142,72,0.7); background: rgba(232,142,72,0.08); }
 .ba-htitle[data-rarity="nonunique"], .ba-wname[data-rarity="nonunique"] { border-color: rgba(230,205,96,0.65); background: rgba(230,205,96,0.07); }
 /* 이름은 자르지 않는다(사용자 결정 2026-09-17: 말줄임 금지) — 좁으면 줄을 바꾼다. 한글은 낱말 단위로만 끊는다. */
-.ba-open b { color: var(--ba-text-strong); font-weight: 700; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.ba-open b { color: var(--ba-text-strong); font-weight: 700; line-height: 1.4; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.ba-open > svg { margin-top: 3px; }
+/* 두 줄 카드에서는 이름 칩이 첫 줄을 끝까지 채운다(사용자 결정 2026-09-17).
+   기본 폭의 상세 보기는 늘 두 줄이라 처음부터 채우고, 간략 보기·넓은 폭은 줄이 넘어간 행(.is-wrapped)만 채운다. */
+.ba-root:not([data-brief="1"]):not([data-band="l"]):not([data-band="xl"]) .ba-row[data-kind="bookmark"] .ba-l1l,
+.ba-root:not([data-brief="1"]):not([data-band="l"]):not([data-band="xl"]) .ba-row[data-kind="bookmark"] .ba-open,
+.ba-row.is-wrapped .ba-l1l,
+.ba-row.is-wrapped .ba-open { flex: 1 1 auto; }
 .ba-htitle { word-break: keep-all; overflow-wrap: anywhere; }
 
 /* 가격 = 앰버 알약 (카드 우상단) */
@@ -859,7 +870,7 @@
 .ba-actpop-time { display: inline-flex; align-items: center; gap: 5px; font-size: 10.5px; color: var(--ba-text-muted); padding: 2px 8px 6px; margin-bottom: 3px; border-bottom: 1px solid rgba(167,139,250,0.14); font-variant-numeric: tabular-nums; }
 .ba-actions-pop .ba-act { width: auto; height: auto; justify-content: flex-start; gap: 9px; padding: 8px 10px; border: none; background: transparent; border-radius: 7px; font-size: 12px; font-weight: 600; }
 .ba-actions-pop .ba-act:hover { background: rgba(255,255,255,0.07); }
-.ba-meta-row { display: flex; align-items: center; gap: 6px; margin-top: 7px; min-width: 0; }
+.ba-meta-row { display: flex; align-items: center; justify-content: flex-end; gap: 6px; margin-top: 7px; min-width: 0; }
 
 /* 폴더 색 구분 — 헤더 좌측 3px 띠 (color는 마크업에서 인라인으로 주입) */
 .ba-folder-head { border-left: 4px solid var(--ba-violet); }   /* 기본값; 폴더별 color로 덮어쓰기 */
@@ -907,7 +918,6 @@
 .ba-folder-ic { display: inline-flex; flex: none; cursor: pointer; }
 .ba-folder-ic[data-id] { width: 24px; height: 24px; align-items: center; justify-content: center; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14); border-radius: 6px; transition: background .15s, border-color .15s; }
 .ba-folder-ic[data-id]:hover { background: rgba(255,255,255,0.12); border-color: rgba(255,255,255,0.28); }
-.ba-folder-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ba-folder-actions { display: inline-flex; align-items: center; gap: 5px; flex: none; }
 .ba-folder--collapsed .ba-folder-body { display: none; }
 
@@ -1001,6 +1011,8 @@
 /* 한 글자씩 세로로 접히던 문제(실측 84px → 137px)는 이제 칩 줄이 내려가는 것으로 막는다 —
    이름 줄이 글자 한 줄 길이 아래로 줄지 않으므로 좁은 칸에 갇히지 않는다. 자르지도 않는다. */
 .ba-root[data-brief="1"] .ba-l1l { min-width: 0; }
+/* 두 줄이 된 행(.is-wrapped — renderList watchWrap)은 이름 칩이 첫 줄을 끝까지 채운다. 한 줄 행은 그대로 글자 폭. */
+/* 두 줄이 된 행의 이름 칩 폭 규칙은 .ba-open 옆 공용 규칙에 있다 */
 /* content-visibility:auto 의 추정 높이. 96px 그대로 두면 실제 47px 와 2배 어긋나 스크롤바가 튄다
    (옛 구현이 containment 를 통째로 껐던 이유도 같은 문제였다 — 여기선 추정치만 맞춘다). */
 /* 두 줄이 된 행도 있으니 한 번 그려진 높이를 기억하게 한다(auto) */
@@ -1363,7 +1375,7 @@
    간략 보기와 다르다: **아무것도 숨기지 않고** 둘째 줄을 첫 줄 오른쪽으로 옮기기만 한다.
    카드 높이 79 → 47px. 간략 보기가 켜져 있으면 그쪽 규칙이 이긴다(선언 순서상 아래에 있다). */
 .ba-root[data-band="l"] .ba-row[data-kind="bookmark"],
-.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] { display: flex; align-items: center; gap: 10px; }
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] { display: flex; flex-wrap: wrap; align-items: center; column-gap: 10px; row-gap: 7px; }
 /* 남는 폭은 **이름 쪽이 가져간다.** 조건 요약을 접은 뒤로 메타 쪽 내용이 작아졌는데(리그 칩 + '조건 N개'),
    44/56 으로 반씩 나누면 메타 절반 한가운데가 텅 비고 ⋯ 만 멀리 떨어져 보인다.
    이름은 길면 잘리는 쪽이라 남는 자리를 줄수록 이득이고, 메타는 내용만큼만 차지하면 된다. */
@@ -1371,13 +1383,15 @@
      (실측: 아주 긴 이름에서 ⋯ 가 카드 오른쪽 경계를 100px 넘어갔다).
      이름 쪽은 0 에서 시작해 남는 만큼만 받고(넘치면 말줄임), 메타는 줄어들지 않게 고정한다.
      메타 자식(리그 칩·조건 칩·액션바·⋯)은 전부 flex:none 이라 메타가 줄면 그대로 흘러넘친다. */
+/* 2026-09-17: 이름을 자르지 않는다 — 이름 쪽 기저를 글자 한 줄 길이(auto)로 두고 줄지 않게 하면,
+   메타와 한 줄에 못 들어갈 때 메타가 **다음 줄 오른쪽**으로 내려간다(위 ⚠ 의 '밀어내기'는 줄바꿈이 받아 준다). */
 .ba-root[data-band="l"] .ba-row[data-kind="bookmark"] .ba-line1,
-.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-line1 { flex: 1 1 0; min-width: 0; }
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-line1 { flex: 1 0 auto; min-width: 0; max-width: 100%; }
 .ba-root[data-band="l"] .ba-row[data-kind="bookmark"] .ba-meta-row,
-.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-meta-row { flex: 0 0 auto; min-width: 0; margin-top: 0; }
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] .ba-meta-row { flex: 0 0 auto; min-width: 0; margin: 0 0 0 auto; }
 /* content-visibility:auto 의 추정 높이 — 실제(47px)와 어긋나면 스크롤바가 튄다(간략 보기가 겪은 함정). */
 .ba-root[data-band="l"] .ba-row[data-kind="bookmark"],
-.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] { contain-intrinsic-size: 47px; }
+.ba-root[data-band="xl"] .ba-row[data-kind="bookmark"] { contain-intrinsic-size: auto 47px; }
 
 /* ── xl (820px+) — 카드 액션 상시 노출 ──
    자주 쓰는 셋(라이브 · 복사 · 갱신)을 카드에 꺼낸다. ⋯ 팝오버에도 그대로 남으므로 이동이 아니라 중복이다.
@@ -1386,8 +1400,7 @@
 .ba-actbar { display: none; }
 /* 오른쪽 끝(⋯ 옆)으로 몬다 — 조건 칩 바로 뒤에 붙으면 카드마다 위치가 달라 눈이 매번 찾아야 한다.
    자유 공간을 여기서 전부 먹으므로 .ba-more 의 margin-left:auto 는 꺼야 한다(둘 다 auto 면 반씩 나눠 갖는다). */
-.ba-root[data-band="xl"] .ba-actbar { display: inline-flex; align-items: center; gap: 4px; flex: none; margin-left: auto; }
-.ba-root[data-band="xl"] .ba-meta-row .ba-more { margin-left: 0; }
+.ba-root[data-band="xl"] .ba-actbar { display: inline-flex; align-items: center; gap: 4px; flex: none; }
 .ba-act-ic {
   width: 27px; height: 27px; flex: none;
   display: inline-flex; align-items: center; justify-content: center;
