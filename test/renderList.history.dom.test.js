@@ -2,7 +2,7 @@
 // 히스토리 통합 — 리그별로 나뉘던 히스토리 섹션을 하나로 합친다(북마크는 기존대로 리그별 유지).
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { addBookmark, addHistory, addFolder } from '../src/store/store.js'
-import { renderList } from '../src/content/panel/renderList.js'
+import { renderList, dayLabel } from '../src/content/panel/renderList.js'
 
 if (!Element.prototype.scrollIntoView) Element.prototype.scrollIntoView = function () {}
 if (typeof globalThis.CSS === 'undefined' || !globalThis.CSS.escape) globalThis.CSS = { escape: (s) => String(s) }
@@ -48,15 +48,37 @@ describe('renderList — 히스토리 통합(모든 리그), 북마크는 리그
     expect(titles).toEqual(['최신B', '중간A', '오래된A'])
   })
 
-  it('날짜 칩엔 연월일시분 전체만(리그 텍스트 없음 — 말줄임 문제로 뺐음)', async () => {
+  it('검색 시각은 칩이 아니라 이름 툴팁과 ⋯ 메뉴에 있다 — 줄에는 날짜 칩이 없다', async () => {
     const spy = vi.spyOn(Date, 'now'); spy.mockReturnValue(new Date('2026-07-03T06:41:00').getTime())
     await addHistory(baseRec({ league: 'B', title: 'B검색', dedupeKey: 'kx', otherFilters: [] }))
     spy.mockRestore()
     const list = await render()
     const row = list.querySelector('.ba-row[data-kind="history"]')
-    const chip = row.querySelector('.ba-hist-when')
-    expect(chip.textContent.trim()).toBe('26/07/03 06:41')
-    expect(chip.textContent).not.toContain('Beta')
+    expect(row.querySelector('.ba-hist-when')).toBeNull()
+    expect(row.querySelector('.ba-htitle').getAttribute('data-tip')).toContain('검색 26/07/03 06:41')
+    expect(row.querySelector('.ba-actpop-time').textContent.trim()).toBe('26/07/03 06:41')
+  })
+
+  it('날짜가 바뀌는 자리에만 날짜 줄이 하나씩 — 검색으로 행이 다 숨으면 그 날짜 줄도 숨는다', async () => {
+    const day = (s) => new Date(s).getTime()
+    const spy = vi.spyOn(Date, 'now')
+    spy.mockReturnValueOnce(day('2026-07-01T09:00:00')); await addHistory(baseRec({ title: '첫날', dedupeKey: 'd1' }))
+    spy.mockReturnValueOnce(day('2026-07-03T08:00:00')); await addHistory(baseRec({ title: '셋째날A', dedupeKey: 'd2' }))
+    spy.mockReturnValueOnce(day('2026-07-03T09:00:00')); await addHistory(baseRec({ title: '셋째날B', dedupeKey: 'd3' }))
+    spy.mockRestore()
+    const list = await render()
+    const days = [...list.querySelectorAll('.ba-hday')]
+    expect(days.length).toBe(2)
+    expect(days[0].nextElementSibling.querySelector('b').textContent).toBe('셋째날B')
+    expect(days[1].nextElementSibling.querySelector('b').textContent).toBe('첫날')
+  })
+
+  it('날짜 줄 이름 — 오늘 · 어제 · 올해는 월 일 · 그 전은 연도까지', () => {
+    const now = new Date('2026-09-17T12:00:00').getTime()
+    expect(dayLabel(new Date('2026-09-17T00:05:00').getTime(), now)).toBe('오늘')
+    expect(dayLabel(new Date('2026-09-16T23:59:00').getTime(), now)).toBe('어제')
+    expect(dayLabel(new Date('2026-09-11T10:00:00').getTime(), now)).toBe('9월 11일')
+    expect(dayLabel(new Date('2025-12-31T10:00:00').getTime(), now)).toBe('2025년 12월 31일')
   })
 
   it('조건 있으면: 리그가 조건 칩 툴팁 맨 위에 강조 마커로(《...》) 붙는다', async () => {
@@ -66,17 +88,16 @@ describe('renderList — 히스토리 통합(모든 리그), 북마크는 리그
     const condTip = row.querySelector('.ba-cond').getAttribute('data-tip')
     expect(condTip.startsWith('[리그] 《Beta 리그》')).toBe(true)
     expect(condTip).toContain('아이템 레벨') // 기존 필터 내용도 그대로 뒤에
-    // 조건이 있으면 날짜 칩엔 툴팁을 안 얹음(중복 방지 — 조건 칩에 이미 있음)
-    expect(row.querySelector('.ba-hist-when').hasAttribute('data-tip')).toBe(false)
+    // 조건이 있으면 이름 툴팁엔 리그를 또 싣지 않는다(중복 방지 — 조건 칩에 이미 있음)
+    expect(row.querySelector('.ba-htitle').getAttribute('data-tip')).not.toContain('Beta')
   })
 
-  it('조건 없으면: 날짜 칩에 리그 툴팁이 붙는다(호버할 곳이 그것뿐이므로)', async () => {
+  it('조건 없으면: 이름 툴팁에 리그가 붙는다(호버할 곳이 그것뿐이므로)', async () => {
     await addHistory(baseRec({ league: 'B', title: 'B검색', dedupeKey: 'kz', otherFilters: [] }))
     const list = await render()
     const row = list.querySelector('.ba-row[data-kind="history"]')
     expect(row.querySelector('.ba-cond')).toBeFalsy() // 조건 칩 자체가 없음
-    const whenTip = row.querySelector('.ba-hist-when').getAttribute('data-tip')
-    expect(whenTip).toBe('[리그] 《Beta 리그》')
+    expect(row.querySelector('.ba-htitle').getAttribute('data-tip')).toContain('[리그] 《Beta 리그》')
   })
 
   it('카드 액션(북마크로 저장·링크 복사·삭제)이 ⋯ 팝오버 뒤에 숨어 있다(북마크 카드와 동일 패턴)', async () => {

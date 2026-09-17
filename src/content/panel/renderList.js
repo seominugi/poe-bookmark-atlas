@@ -203,6 +203,18 @@ const ago = (t) => {
   if (s < 86400) return `${Math.floor(s / 3600)}시간 전`
   return `${Math.floor(s / 86400)}일 전`
 }
+// 히스토리 날짜 구분 줄 — 줄마다 날짜 칩을 두는 대신 날짜가 바뀌는 자리에 한 번만 쓴다(사용자 피드백 2026-09-17:
+// 간략 보기에서 날짜 칩이 이름 자리를 먹어 이름이 잘렸다). 오늘 · 어제 · 올해는 월 일 · 그 전은 연도까지.
+const dayKey = (t) => { const d = new Date(t); return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}` }
+export function dayLabel(t, now = Date.now()) {
+  const d = new Date(t)
+  const today = new Date(now); today.setHours(0, 0, 0, 0)
+  const diff = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - today) / 86400000)
+  if (diff === 0) return '오늘'
+  if (diff === -1) return '어제'
+  const md = `${d.getMonth() + 1}월 ${d.getDate()}일`
+  return d.getFullYear() === today.getFullYear() ? md : `${d.getFullYear()}년 ${md}`
+}
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
 // 폴더 색(#rrggbb)을 헤더 틴트·레일·배지용 rgba로. 잘못된 값이면 입력 그대로(폴백).
@@ -314,6 +326,14 @@ function applyFilters(listEl) {
     const show = !term || (row.dataset.search || '').includes(term)
     row.style.display = show ? '' : 'none'
     if (show) hsVisible++
+  })
+  // 날짜 줄은 그 아래(다음 날짜 줄 전까지)에 보이는 행이 있을 때만 — 빈 날짜가 남으면 결과가 있는 것처럼 읽힌다
+  listEl.querySelectorAll('.ba-hday').forEach((d) => {
+    let any = false
+    for (let n = d.nextElementSibling; n && !n.classList.contains('ba-hday'); n = n.nextElementSibling) {
+      if (n.dataset.kind === 'history' && n.style.display !== 'none') { any = true; break }
+    }
+    d.style.display = any ? '' : 'none'
   })
   const hsHead = listEl.querySelector('.ba-sec-hist')
   let hsNoRes = listEl.querySelector('.ba-no-result-hs')
@@ -480,15 +500,27 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
     // 히스토리는 모든 리그 통합 렌더라 그룹으로 구분이 안 됨 — 리그는 별도 칩(말줄임 문제 있었음) 대신
     // 조건 칩(+ 조건이 없으면 날짜 칩) 툴팁 맨 위에 얹는다(leagueLine·condTipWithLeague는 위에서 공용 계산).
     const canAdd = !!(r.query && stats.length)
+    // 간략 보기의 가격 자리는 **언제나 이 칩 하나**다(사용자 결정 2026-09-17). 조건이 없으면 가격만 담은 칩을 둔다 —
+    // 예전에는 날짜 칩에 얹혀, 같은 가격이 줄마다 다른 칩·다른 자리에 보였다. 기본 보기에서는 이름 줄의 가격 필이 맡는다.
     const histCondChip = condCount
       // 글자를 .ba-cond-n 으로 감싼다 — 간략 보기가 아이콘만 남기고 접을 수 있게(북마크 칩과 같은 구조)
       ? `<span class="ba-cond${canAdd ? ' ba-cond--add' : ''}"${canAdd ? ` data-id="${r.id}"` : ''} data-tip="${condTipWithLeague}${canAdd ? escapeHtml('\n────────\n클릭하면 이 능력치를 지금 검색에 추가') : ''}">${icon('search', 12)}<span class="ba-cond-n">조건 ${condCount}개</span>${briefPrice}</span>`
-      : ''
-    const whenChip = `<span class="ba-hist-when"${condTipWithLeague && !condCount ? ` data-tip="${condTipWithLeague}"` : ''}>${icon('clock', 11)}${fmtTime(when)}${condCount ? '' : briefPrice}</span>`
+      : (briefPrice ? `<span class="ba-cond ba-cond--priceonly">${briefPrice}</span>` : '')
+    // 검색 시각은 칩으로 두지 않는다 — 날짜 구분 줄이 나이를 말하고, 정확한 시각은 이름에 올리면 보인다.
+    // 조건 칩이 없는 검색은 리그를 걸어 둘 곳이 이름뿐이라 여기에 함께 싣는다.
+    const whenText = `${fmtTime(when)} · ${ago(when)}`
+    const titleTip = escapeHtml([
+      rarity && RARITY_LABEL[rarity],
+      nameText || titleText,
+      '────────',
+      !condCount && leagueLine,
+      `검색 ${whenText}`,
+    ].filter(Boolean).join('\n'))
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b class="ba-htitle"${rarityAttr}>${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
-      <div class="ba-meta">${histCondChip}${whenChip}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>
+      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b class="ba-htitle"${rarityAttr} data-tip="${titleTip}">${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
+      <div class="ba-meta">${histCondChip}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>
       <div class="ba-actions-pop" hidden>
+        <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
         <span class="ba-act ba-star" data-id="${r.id}" data-name="${title}">${icon('star', 13)}북마크로 저장</span>
         <span class="ba-act ba-copy" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}">${icon('link', 13)}링크 복사</span>
         ${r.query ? `<span class="ba-act cset ba-cset" data-id="${r.id}">${icon('layers', 13)}조건 묶음으로 등록</span>` : ''}
@@ -894,7 +926,16 @@ export async function renderList(listEl, root, ui = {}) {
       ? sec('history',
         secHead('history', icon('clock', 14), '히스토리', history.length,
           `<button class="ba-clear-hist" data-tip="히스토리 전체 삭제 (북마크는 영향 없음)">${icon('trash', 12)}전체 삭제</button>`, 'ba-sec-hist'),
-        history.slice(0, historyLimit).map((r) => rowHtml(r, 'history', lg)).join('')
+        (() => {
+          let prev = ''
+          return history.slice(0, historyLimit).map((r) => {
+            const t = r.lastUsedAt || r.updatedAt
+            const k = dayKey(t)
+            const head = k === prev ? '' : `<div class="ba-hday" role="separator">${dayLabel(t)}</div>`
+            prev = k
+            return head + rowHtml(r, 'history', lg)
+          }).join('')
+        })()
         + (history.length > historyLimit ? `<button class="ba-more-hist" data-tip="히스토리 더 불러오기">더 보기 (남은 ${history.length - historyLimit}개)</button>` : ''))
       : ''),
   }

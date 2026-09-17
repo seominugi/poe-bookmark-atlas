@@ -68,11 +68,17 @@ describe('간략 보기가 기대는 마크업', () => {
     expect(inChip.getAttribute('data-tip')).toContain('검색 시점 시세')
   })
 
-  it('조건이 없는 히스토리는 가격이 시각 칩에 얹힌다 — 갈 곳이 항상 있어야 한다', async () => {
+  it('조건이 없는 히스토리도 가격은 같은 칩 자리에 — 가격만 담은 칩이 생긴다', async () => {
     await addHistory(rec({ dedupeKey: 'h2', stats: [], otherFilters: [], snapshot: { valueDiv: 5, capturedAt: Date.now() } }))
     const row = (await render()).querySelector('.ba-row[data-kind="history"]')
-    expect(row.querySelector('.ba-cond')).toBeNull() // 조건 칩 자체가 없다
-    expect(row.querySelector('.ba-hist-when .ba-cond-price')).not.toBeNull()
+    expect(row.querySelector('.ba-cond:not(.ba-cond--priceonly)')).toBeNull() // 조건 칩은 없다
+    expect(row.querySelector('.ba-cond--priceonly .ba-cond-price')).not.toBeNull()
+  })
+
+  it('가격도 조건도 없는 히스토리는 칩을 그리지 않는다(빈 칩 방지)', async () => {
+    await addHistory(rec({ dedupeKey: 'h3', stats: [], otherFilters: [] }))
+    const row = (await render()).querySelector('.ba-row[data-kind="history"]')
+    expect(row.querySelector('.ba-cond')).toBeNull()
   })
 
   it('주의 배지는 접는 대상이 아니다 — 문제 있는 카드는 눈에 띄어야 한다', async () => {

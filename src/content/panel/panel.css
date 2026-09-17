@@ -478,11 +478,10 @@
 
 /* 카드 메타 */
 .ba-meta { display: flex; align-items: center; gap: 8px; margin-top: 10px; color: var(--ba-text); font-size: 11px; }
-/* 히스토리 날짜 칩 — 가격 칩과 같은 히스토리 시안 계열로 통일, 조건칩과 폭·글꼴 비례 맞춤(11px→12px).
-   리그는 더 이상 이 칩에 안 담김(가변 길이라 말줄임 문제 있었음) — 조건칩(있으면)·이 칩의 툴팁으로 이동. 날짜는 항상 고정 길이라 flex:none으로 충분 */
-.ba-hist-when { flex: none; display: inline-flex; align-items: center; gap: 5px; cursor: default;
-  font-size: 12px; font-weight: 600; color: #7de6ee; white-space: nowrap;
-  background: var(--ba-cyan-soft); border: 1px solid var(--ba-cyan-line); border-radius: var(--ba-r-chip); padding: 4px 10px; }
+/* 히스토리 날짜 구분 줄 — 줄마다 있던 날짜 칩을 대신한다(2026-09-17). 나이는 여기서, 정확한 시각은 이름 툴팁에서. */
+.ba-hday { display: flex; align-items: center; gap: 8px; margin: 12px 2px 7px; font-size: 11px; font-weight: 700; color: var(--ba-text-muted); letter-spacing: 0.02em; }
+.ba-hday::after { content: ''; flex: 1; height: 1px; background: var(--ba-border); }
+.ba-sec-body > .ba-hday:first-child { margin-top: 2px; }
 /* 조건칩이 이제 .ba-meta의 첫 항목(좌측 정렬)이라 .ba-cond 기본 margin-left:auto(우측 정렬용)를 무효화.
    ⋯는 반대로 margin-left:auto로 항상 행 우측 끝에 고정(칩들이 짧아 남는 공간이 ⋯ 앞이 아니라 뒤에 생기던 문제) */
 .ba-meta .ba-cond { flex: none; margin-left: 0; }
@@ -729,7 +728,9 @@
 .ba-htitle[data-rarity], .ba-wname[data-rarity] { padding: 1px 7px; border-radius: 7px; border: 1px solid transparent; }
 .ba-htitle[data-rarity="unique"], .ba-wname[data-rarity="unique"] { border-color: rgba(232,142,72,0.7); background: rgba(232,142,72,0.08); }
 .ba-htitle[data-rarity="nonunique"], .ba-wname[data-rarity="nonunique"] { border-color: rgba(230,205,96,0.65); background: rgba(230,205,96,0.07); }
-.ba-open b { color: var(--ba-text-strong); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 이름은 자르지 않는다(사용자 결정 2026-09-17: 말줄임 금지) — 좁으면 줄을 바꾼다. 한글은 낱말 단위로만 끊는다. */
+.ba-open b { color: var(--ba-text-strong); font-weight: 700; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
+.ba-htitle { word-break: keep-all; overflow-wrap: anywhere; }
 
 /* 가격 = 앰버 알약 (카드 우상단) */
 .ba-price-pill { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px 3px 9px; background: rgba(252,211,77,0.10); border: 1px solid rgba(252,211,77,0.28); border-radius: 999px; color: var(--ba-gold); font-weight: 800; white-space: nowrap; font-size: 12.5px; font-variant-numeric: tabular-nums; flex: none; }
@@ -967,10 +968,13 @@
    ⚠ 주의 배지(.ba-attn)는 접지 않는다. 문제 있는 카드는 눈에 띄어야 한다.
    ⚠ 조건 칩은 아이콘만 남기고 글자를 접는다. 툴팁(조건 전체·리그)은 그대로 살아 있다.
      '조건 N개' 라벨까지 남기면 이름 잘림이 2/11 → 9/11 로 뛴다(384px 실측). */
-.ba-root[data-brief="1"] .ba-row { display: flex; align-items: center; gap: 8px; }
-.ba-root[data-brief="1"] .ba-line1 { flex: 1 1 auto; min-width: 0; }
+/* 이름이 칩들과 한 줄에 다 들어가지 않으면 **칩 줄이 아래로 내려간다**(사용자 결정 2026-09-17 — 말줄임 대신 두 줄).
+   이름 줄의 기본 폭을 글자 한 줄 길이(auto)로 두고 줄어들지 않게(flex-shrink 0) 하면, 남는 폭이 모자랄 때
+   칩 줄이 다음 줄로 넘어간다. 이름이 행 전체보다 길면 max-width 가 막아 이름 안에서 줄을 바꾼다. */
+.ba-root[data-brief="1"] .ba-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; row-gap: 6px; }
+.ba-root[data-brief="1"] .ba-line1 { flex: 1 0 auto; min-width: 0; max-width: 100%; }
 .ba-root[data-brief="1"] .ba-meta-row,
-.ba-root[data-brief="1"] .ba-meta { flex: none; margin: 0; }
+.ba-root[data-brief="1"] .ba-meta { flex: none; margin: 0 0 0 auto; }
 .ba-root[data-brief="1"] .ba-cond-n { display: none; }
 /* 가격은 사라지지 않고 조건 칩 **안으로** 들어간다. 필 하나 분량의 테두리·좌우 여백·간격이
    빠지면서 그만큼(약 32px)이 이름에 간다 — 384px 에서 이름 글자 폭이 32px 였다("회오…").
@@ -985,20 +989,22 @@
 .ba-root[data-brief="1"] .ba-cond-price img { width: 14px; height: 14px; }
 /* 히스토리 칩은 시안 계열이라 가격도 그 색을 따른다(원래 .ba-hist-price 가 시안이었다) */
 .ba-root[data-brief="1"] .ba-hist .ba-cond-price { color: var(--ba-cyan); }
+/* 조건 없는 검색의 가격 칩 — 간략 보기에서만 보인다(기본 보기는 이름 줄의 가격 필) */
+.ba-cond--priceonly { display: none; }
+.ba-root[data-brief="1"] .ba-cond--priceonly { display: inline-flex; align-items: center; cursor: default; }
 /* 썸네일은 접는다 — 한 줄에서 이름 폭을 가장 크게 먹는 요소다(28px + 간격 6px).
    실측(384px·긴 한글 이름): 이름 글자 폭 61px(4자) → 95px(7자).
    간략 보기를 켠 사용자는 밀도를 택한 것이고, 이 목록에서 카드를 구분하는 건 아이콘이 아니라
    사용자가 직접 붙인 이름이다. 조건 아이콘은 남긴다 — 툴팁 앵커이자 '조건이 있다'는 유일한 표시라,
    빼면 칩이 그냥 숫자가 되어 무엇을 가리키는지 알 수 없다(+17px 를 포기한 이유). */
 .ba-root[data-brief="1"] .ba-thumb { display: none; }
-/* 히스토리 제목은 북마크(.ba-open b)와 달리 말줄임이 없다. 두 줄 배치에선 폭이 넉넉해 안 드러나지만,
-   한 줄로 접으면 남는 폭이 좁아져 **한 글자씩 세로로 접힌다**(실측 84px → 137px 회귀).
-   북마크 제목과 같은 규칙을 준다 — 자르는 게 쪼개지는 것보다 낫다. */
+/* 한 글자씩 세로로 접히던 문제(실측 84px → 137px)는 이제 칩 줄이 내려가는 것으로 막는다 —
+   이름 줄이 글자 한 줄 길이 아래로 줄지 않으므로 좁은 칸에 갇히지 않는다. 자르지도 않는다. */
 .ba-root[data-brief="1"] .ba-l1l { min-width: 0; }
-.ba-root[data-brief="1"] .ba-hist .ba-l1l > b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* content-visibility:auto 의 추정 높이. 96px 그대로 두면 실제 47px 와 2배 어긋나 스크롤바가 튄다
    (옛 구현이 containment 를 통째로 껐던 이유도 같은 문제였다 — 여기선 추정치만 맞춘다). */
-.ba-root[data-brief="1"] .ba-row { contain-intrinsic-size: 47px; }
+/* 두 줄이 된 행도 있으니 한 번 그려진 높이를 기억하게 한다(auto) */
+.ba-root[data-brief="1"] .ba-row { contain-intrinsic-size: auto 47px; }
 
 /* 헤더 — 로고 + 부제 + 풀폭 저장 (.dc.html 렌더 구조) */
 .ba-head { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 16px 16px 0; border-bottom: none; }
