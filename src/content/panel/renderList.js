@@ -316,6 +316,25 @@ function openLive(url, toast) {
     .catch(() => say('새 탭을 열지 못했어요. 확장 프로그램을 새로고침한 뒤 다시 시도해 주세요.'))
 }
 
+// 간략 보기에서 칩 줄이 아래로 내려간(두 줄이 된) 행에 .is-wrapped 를 단다 — 그때만 이름 칩이 첫 줄을 다 채운다
+// (사용자 결정 2026-09-17). 줄이 넘어갔는지는 CSS 로 알 수 없어 행 크기가 바뀔 때 잰다.
+// 행 자신을 관찰하므로 화면 밖(content-visibility 로 배치를 건너뛴) 행을 억지로 배치시키지 않는다.
+// 클래스를 바꿔도 행 높이는 그대로라(이름 칩 폭만 늘어난다) 관찰이 되먹임 고리를 만들지 않는다.
+let wrapObserver = null
+function watchWrap(listEl) {
+  if (wrapObserver) wrapObserver.disconnect()
+  if (typeof ResizeObserver !== 'function') return
+  wrapObserver = new ResizeObserver((entries) => {
+    for (const { target: row } of entries) {
+      const line1 = row.querySelector(':scope > .ba-line1')
+      const meta = row.querySelector(':scope > .ba-meta-row, :scope > .ba-meta')
+      if (!line1 || !meta) continue
+      row.classList.toggle('is-wrapped', meta.offsetTop > line1.offsetTop + 4)
+    }
+  })
+  listEl.querySelectorAll('.ba-row').forEach((row) => wrapObserver.observe(row))
+}
+
 // 빠른 검색 필터 — 재렌더 없이 행 show/hide (검색창 포커스 유지). 통합 검색어(bmSearch) 기준.
 function applyFilters(listEl) {
   // 통합 검색어 하나로 북마크·히스토리를 동시에 필터
@@ -517,8 +536,8 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
       `검색 ${whenText}`,
     ].filter(Boolean).join('\n'))
     return `<div class="ba-row ba-hist" data-id="${r.id}" data-kind="history" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}">
-      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b class="ba-htitle"${rarityAttr} data-tip="${titleTip}">${title}</b></span>${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}</div>
-      <div class="ba-meta">${histCondChip}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>
+      <div class="ba-line1"><span class="ba-l1l">${icon('clock', 13)}${thumb}<b class="ba-htitle"${rarityAttr} data-tip="${titleTip}">${title}</b></span></div>
+      <div class="ba-meta">${histCondChip}${price ? `<span class="ba-hist-price"${priceTip ? ` data-tip="${priceTip}"` : ''}>${price}</span>` : ''}<span class="ba-more" data-tip="카드 액션 (북마크로 저장·링크 복사·삭제)">${icon('more', 16)}</span></div>
       <div class="ba-actions-pop" hidden>
         <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
         <span class="ba-act ba-star" data-id="${r.id}" data-name="${title}">${icon('star', 13)}북마크로 저장</span>
@@ -562,9 +581,8 @@ function rowHtml(r, kind, lg, currentLeague, selected) {
   return `<div class="ba-row${dim ? ' ba-attn-dim' : ''}${selecting ? ' ba-row--sel' : ''}${selected ? ' is-selected' : ''}" data-id="${r.id}" data-kind="bookmark" data-order="${r.order ?? 0}" data-folder="${r.folderId ?? ''}" data-search="${searchText}" data-url="${encodeURIComponent(r.url)}"${pastLeague ? ' data-past="1"' : ''}>
     <div class="ba-line1">
       <span class="ba-l1l">${selBox}<span class="ba-grip" draggable="true" data-id="${r.id}" data-tip="드래그해 순서·폴더 이동&#10;정렬이 &#39;순서&#39;로 바뀝니다">${icon('grip', 14)}</span>${thumb}<span class="ba-open"${rarityAttr} data-tip="${rarityLine}${title}&#10;────────&#10;${openTip()}">${icon('search', 13)}<b>${title}</b></span></span>
-      ${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}
     </div>
-    <div class="ba-meta-row">${attn}${leagueChip}${condSummaryChip}${actBar(r)}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
+    <div class="ba-meta-row">${attn}${leagueChip}${condSummaryChip}${price ? `<span class="ba-price-pill"${priceTip ? ` data-tip="${priceTip}&#10;북마크를 열면 최신 시세로 갱신돼요."` : ''}>${price}</span>` : ''}${actBar(r)}<span class="ba-more" data-tip="카드 액션 (복사·갱신·이름·이동·삭제)">${icon('more', 16)}</span></div>
     <div class="ba-actions-pop" hidden>
       <span class="ba-actpop-time">${icon('clock', 11)}${fmtTime(when)}</span>
       <span class="ba-act live ba-live" data-id="${r.id}" data-url="${encodeURIComponent(r.url)}" data-tip="새 탭에서 열고 거래소의 라이브 검색을 자동으로 켭니다.&#10;조건에 맞는 새 매물이 올라오면 그 탭에 바로 나타나요.">${icon('refresh', 13)}라이브로 열기</span>
@@ -632,7 +650,7 @@ function folderHtml(g, items, lg, currentLeague) {
   const headStyle = `background:${hexToRgba(folderColor, g.id === null ? 0.1 : 0.15)};border-left-color:${folderColor}`
   const countStyle = `color:${folderColor};background:${hexToRgba(folderColor, 0.16)}`
   return `<div class="ba-folder${collapsed ? ' ba-folder--collapsed' : ''}${selecting ? ' ba-folder--selecting' : ''}" data-folder="${fkey}">
-      <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}">${fgrip}${chevron}${folderIc}<span class="ba-folder-name" data-tip="${escapeHtml(g.name)}&#10;────────&#10;클릭하면 접거나 펼쳐요">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span><span class="ba-folder-actions">${fActions}</span></div>
+      <div class="ba-folder-head" data-id="${fkey}" style="${headStyle}"><span class="ba-folder-title">${fgrip}${chevron}${folderIc}<span class="ba-folder-name" data-tip="${escapeHtml(g.name)}&#10;────────&#10;클릭하면 접거나 펼쳐요">${escapeHtml(g.name)}</span><span class="ba-folder-count" style="${countStyle}">${items.length}</span></span><span class="ba-folder-actions">${fActions}</span></div>
       <div class="ba-folder-body" data-folder="${fkey}" style="border-left-color:${hexToRgba(folderColor, 0.34)}">${saveChip}${items.map((r) => rowHtml(r, 'bookmark', lg, currentLeague, selecting ? selectedIds.has(r.id) : undefined)).join('') || '<div class="ba-folder-empty">여기로 드래그</div>'}</div>
     </div>`
 }
@@ -942,6 +960,7 @@ export async function renderList(listEl, root, ui = {}) {
   const html = secOrder.map((k) => (parts[k] ? parts[k]() : '')).join('')
 
   listEl.innerHTML = html
+  watchWrap(listEl)
   bindAll(listEl, ui, { lg, currentLeague })
   applyFilters(listEl) // 재렌더 후 현재 검색어로 필터 재적용
   if (focusGripId) { // 키보드 재정렬 후 포커스 복원 (연속 이동 가능)
