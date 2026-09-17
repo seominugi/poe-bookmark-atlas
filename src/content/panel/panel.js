@@ -263,27 +263,45 @@ export function mountPanel({ game, league, getLeagueMap, getCurrentSearch, migra
 
   // 창 높이가 바뀌면 다시 잰다 — **드래그하는 동안에도** 프레임마다 한 번(사용자 요청 2026-09-17: 패널 폭 조절처럼
   // 끄는 중에 바로 반응해야 한다. 멈춘 뒤에만 판단하면 놓는 순간에야 바뀐다). 경계가 둘이라 끄는 중에 깜박이지 않는다.
-  // 접고 펴는 순간에만 짧게 움직인다 — 무엇이 어디로 갔는지 보이게. 창 크기를 바꿀 때만 일어나 드물다.
-  // 움직이는 건 투명도·위치(transform)뿐이고, 자리는 움직임이 끝난 뒤(접기) / 시작하기 전(펼치기)에 한 번 바뀐다.
+  // 접고 펴는 순간에만 움직인다 — 무엇이 어디로 갔는지 보이게. 창 크기를 바꿀 때만 일어나 드물다.
+  // 두 겹이다(사용자 요청 2026-09-17: 더 느리고 부드럽게):
+  //   ① 사라지는·나타나는 영역은 흐려지며 살짝 밀린다(투명도·transform)
+  //   ② 그 아래 영역(저장 줄·조건 묶음·목록·하단 줄)은 **새 자리로 순간이동하지 않고 미끄러진다** — 자리를 바꾼 직후
+  //      옛 위치만큼 transform 으로 되돌려 놓고 0 으로 푼다(FLIP). 자리 계산은 한 번뿐이고 움직임은 transform 만 쓴다.
   const EASE_OUT = 'cubic-bezier(0.23, 1, 0.32, 1)'
-  const foldParts = () => [...root.querySelectorAll('.ba-head, .ba-econ-btn, .ba-foot-tx, .ba-foot-soc')]
-    .filter((e) => e.getClientRects().length && typeof e.animate === 'function')
-  const shiftOf = (e) => (e.closest('.ba-foot') ? 'translateY(4px)' : 'translateY(-4px)')
+  const EASE_MOVE = 'cubic-bezier(0.65, 0, 0.35, 1)' // 화면 안에서 옮겨 가는 움직임 — 천천히 출발해 천천히 선다
+  const FADE_OUT_MS = 200
+  const SLIDE_MS = 300
+  const FADE_IN_MS = 260
+  const canAnimate = (e) => e.getClientRects().length && typeof e.animate === 'function'
+  const foldParts = () => [...root.querySelectorAll('.ba-head, .ba-econ-btn, .ba-foot-tx, .ba-foot-soc')].filter(canAnimate)
+  const shiftOf = (e) => (e.closest('.ba-foot') ? 'translateY(8px)' : 'translateY(-8px)')
+  const slideAround = (commit) => {
+    const els = [...root.querySelectorAll('.ba-econ-row, #ba-sets, .ba-list, .ba-foot')].filter(canAnimate)
+    const before = els.map((e) => e.getBoundingClientRect().top)
+    commit()
+    els.forEach((e, k) => {
+      const d = before[k] - e.getBoundingClientRect().top
+      if (Math.abs(d) > 0.5) e.animate([{ transform: `translateY(${d}px)` }, { transform: 'none' }], { duration: SLIDE_MS, easing: EASE_MOVE })
+    })
+  }
   let wantShort = false
   const setShort = (on, animate) => {
     wantShort = on
     const still = typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (!animate || still) { shortOn = on; paintHead(); return }
     if (on) {
-      const anims = foldParts().map((e) => e.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: shiftOf(e) }], { duration: 140, easing: EASE_OUT, fill: 'forwards' }))
+      const anims = foldParts().map((e) => e.animate([{ opacity: 1, transform: 'none' }, { opacity: 0, transform: shiftOf(e) }], { duration: FADE_OUT_MS, easing: EASE_OUT, fill: 'forwards' }))
       Promise.all(anims.map((a) => a.finished.catch(() => {}))).then(() => {
+        if (!wantShort) { anims.forEach((a) => { a.reverse(); a.finished.then(() => a.cancel(), () => {}) }); return } // 그사이 다시 높아졌으면 접지 않고 되돌린다
+        slideAround(() => { shortOn = true; paintHead() })
         anims.forEach((a) => a.cancel())
-        if (wantShort) { shortOn = true; paintHead() } // 그사이 다시 높아졌으면 접지 않는다
       })
     } else {
-      shortOn = false
-      paintHead()
-      foldParts().forEach((e) => e.animate([{ opacity: 0, transform: shiftOf(e) }, { opacity: 1, transform: 'none' }], { duration: 180, easing: EASE_OUT }))
+      if (!shortOn) return // 접는 중이었다 — 위의 접기가 끝나며 스스로 되돌린다
+      slideAround(() => { shortOn = false; paintHead() })
+      // 아래 영역이 비켜 준 뒤에 떠오르게 조금 늦춘다 — 동시에 나타나면 미끄러지는 줄과 겹쳐 보인다
+      foldParts().forEach((e) => e.animate([{ opacity: 0, transform: shiftOf(e) }, { opacity: 1, transform: 'none' }], { duration: FADE_IN_MS, delay: 80, easing: EASE_OUT, fill: 'backwards' }))
     }
   }
   const checkShort = (animate) => {
