@@ -309,9 +309,27 @@ export const MOCKUPS = {
     })(),
   },
 
+  // 0.14.0 — 카드 정리. 날짜 칩이 구분 줄로 바뀌고, 이름이 칩·한 줄 우선·두 줄이면 칩이 첫 줄 전체라는 걸 한 장에 보인다.
+  'history-card': {
+    caption: '히스토리 — <b>날짜 구분 줄</b> · 이름 칩 · 깔때기 조건 칩',
+    html: (() => {
+      const cond = (p) => `<span class="mk-chip mk-chip--tight">${icon('filter', 11)}<span class="mk-hprice">≈ ${p}</span></span>`
+      const more = `<span class="mk-more">${icon('more', 14)}</span>`
+      const name = (t, extra = '') => `<span class="mk-open mk-hname${extra}">${icon('search', 11)}<b>${t}</b></span>`
+      const row = (inner, wrap = false) => `<div class="mk-hrow${wrap ? ' is-wrap' : ''}">${inner}</div>`
+      const thumb = (empty) => `<span class="mk-hthumb${empty ? ' is-empty' : ''}">${empty ? '' : icon('layers', 12)}</span>`
+      return card(`
+        <div class="mk-hday">오늘</div>
+        ${row(`<span class="mk-ic">${icon('clock', 12)}</span>${thumb()}${name('서판')}<span class="mk-hright">${cond(2)}${more}</span>`)}
+        ${row(`<span class="mk-ic">${icon('clock', 12)}</span>${thumb(true)}${name('갑옷', ' mk-rarity-nonunique')}<span class="mk-hright">${cond(1.8)}${more}</span>`)}
+        <div class="mk-hday">어제</div>
+        ${row(`<div class="mk-hline"><span class="mk-ic">${icon('clock', 12)}</span>${thumb()}${name('영원한 불꽃 · 화염 저항 목걸이 (생명력 80+) 상위 매물', ' is-full')}</div><div class="mk-hright">${cond(5)}${more}</div>`, true)}`)
+    })() + `<div class="mk-note">짧으면 <b>한 줄</b>, 길면 이름 칩이 첫 줄을 채우고 가격·조건은 <b>아래 오른쪽</b>으로. 검색 시각은 이름에 마우스를 올리면 보여요.</div>`,
+  },
+
   // 0.14.0 — 희귀도 테두리. 색 설명은 그림 없이는 전달되지 않는다.
   'rarity-chip': {
-    caption: '북마크 이름 칩의 <b>테두리 색</b>',
+    caption: '북마크·히스토리 이름 칩의 <b>테두리 색</b>',
     html: `
       ${card(`<div class="mk-line"><span class="mk-open mk-rarity-unique">${icon('search', 12)}<b>베렉의 손아귀</b></span><span class="mk-price">≈ 92</span></div>`)}
       ${card(`<div class="mk-line"><span class="mk-open mk-rarity-nonunique">${icon('search', 12)}<b>화염 저항 반지</b></span><span class="mk-price">≈ 24</span></div>`)}

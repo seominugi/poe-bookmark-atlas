@@ -138,6 +138,23 @@ body {
 .mk-rarity-unique { border-color: rgba(232,142,72,0.75); background: rgba(232,142,72,0.1); }
 .mk-rarity-nonunique { border-color: rgba(230,205,96,0.7); background: rgba(230,205,96,0.08); }
 
+/* 0.14.0 카드 정리 — 히스토리 카드(날짜 구분 줄 · 이름 칩 · 한 줄 우선) */
+.mk-hday { display: flex; align-items: center; gap: 8px; margin: 2px 2px 6px; font-size: 10.5px; font-weight: 700; color: #9b94bd; }
+.mk-hday::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.12); }
+.mk-hday:not(:first-child) { margin-top: 10px; }
+.mk-hrow { display: flex; align-items: center; gap: 6px; padding: 6px 8px; margin-bottom: 5px; border-radius: 9px; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.14); font-size: 11.5px; }
+.mk-hrow.is-wrap { flex-wrap: wrap; row-gap: 6px; }
+.mk-hline { display: flex; align-items: flex-start; gap: 6px; flex: 1 0 100%; min-width: 0; }
+.mk-hright { display: inline-flex; align-items: center; gap: 5px; margin-left: auto; flex: none; }
+.mk-hthumb { flex: none; width: 22px; height: 22px; border-radius: 5px; display: inline-flex; align-items: center; justify-content: center; color: #a5b4fc; background: rgba(0,0,0,0.25); border: 1px solid rgba(255,255,255,0.14); }
+.mk-hthumb.is-empty { border-style: dashed; border-color: rgba(255,255,255,0.1); background: rgba(0,0,0,0.18); }
+.mk-hname { flex: 0 1 auto; padding: 2px 7px; border-radius: 7px; border: 1px solid rgba(167,139,250,0.3); background: rgba(167,139,250,0.09); align-items: flex-start; }
+.mk-hname.is-full { flex: 1 1 auto; }
+.mk-hname b { white-space: normal; word-break: keep-all; line-height: 1.4; overflow: visible; text-overflow: clip; }
+.mk-hname.mk-rarity-nonunique { border-color: rgba(230,205,96,0.7); background: rgba(230,205,96,0.08); }
+.mk-hname > svg { margin-top: 3px; }
+.mk-hprice { color: #7de6ee; font-weight: 800; }
+
 /* 0.14.0 속성 목록 — 창을 줄여 그린다. 색은 창(content-main.js .ba-affix-*)과 같다:
    필수 초록 #4fd39a · 후보 하늘 #5cc3f2 · 장신구 금 #e8c872 · 고른 칸/티어 보라 #a78bfa */
 .mk-num {
