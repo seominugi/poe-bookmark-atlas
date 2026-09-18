@@ -28,16 +28,48 @@ export const AFFIX_CATEGORIES = [
   { key: 'other', label: '기타', re: /.*/ },
 ]
 
+/**
+ * 부위 전용 규칙 — 그 부위는 **이 규칙만** 본다(위 공용 규칙은 장비용이라 서판 이름에 걸릴 게 없다).
+ *
+ * 서판(TowerAugmentation)의 능력치는 전부 지도에 콘텐츠를 더하는 것이라 공용 규칙으로는 63개 중 61개가 「기타」였고,
+ * 나머지 둘은 이름의 `spirit`(아즈메리 혼백)이 「생명력·마나·정신력」에 잘못 걸렸다(사용자 제보 2026-09-18).
+ * 이름은 게임 문구 그대로다: 심연·균열·의식·환영·탐험·바알 등대·에센스·성소·금고·아즈메리 혼백·탈주 유배자·소환의 원.
+ * 순서가 우선순위다 — 콘텐츠 이름이 먼저, 보스·몬스터·보상은 그 뒤(「환영 인카운터의 고유 보스」는 환영, 「강력한 보스 지도에 에센스 추가」는 에센스).
+ */
+export const CLASS_AFFIX_CATEGORIES = {
+  TowerAugmentation: [
+    { key: 'abyss', label: '심연', re: /abyss/ },
+    { key: 'breach', label: '균열', re: /breach/ },
+    { key: 'ritual', label: '의식', re: /ritual/ },
+    { key: 'delirium', label: '환영', re: /affliction|delirium/ },
+    { key: 'expedition', label: '탐험', re: /expedition|verisium/ },
+    { key: 'incursion', label: '바알 등대', re: /incursion/ },
+    { key: 'essence', label: '에센스', re: /monolith|essence/ },
+    { key: 'shrine', label: '성소', re: /shrine/ },
+    { key: 'strongbox', label: '금고', re: /strongbox/ },
+    { key: 'azmeri', label: '아즈메리 혼백', re: /spirit/ },
+    { key: 'exile', label: '탈주 유배자', re: /exile/ },
+    { key: 'circle', label: '소환의 원', re: /stone_circle/ },
+    { key: 'mapboss', label: '지도 보스', re: /boss/ },
+    { key: 'mapmonster', label: '몬스터', re: /monster|pack/ },
+    { key: 'mapreward', label: '보상', re: /item_|gold|experience|chest/ },
+  ],
+}
+
 // 규칙 순서(판정 우선순위)와 화면 순서는 다르다 — 같은 키가 규칙 두 곳에 있을 수 있다(피해: 관통 + 일반).
 // 화면은 사용자가 먼저 찾는 것부터: 방어 쪽(저항·생명력·방어) → 공격 쪽 → 기타.
-const DISPLAY_ORDER = ['resist', 'resource', 'defence', 'attribute', 'added', 'damage', 'crit', 'speed', 'skill', 'grant', 'recovery', 'minion', 'flask', 'other']
+const DISPLAY_ORDER = ['resist', 'resource', 'defence', 'attribute', 'added', 'damage', 'crit', 'speed', 'skill', 'grant', 'recovery', 'minion', 'flask',
+  // 서판 — 지도 전체(몬스터·보상·보스) 먼저, 그다음 콘텐츠
+  'mapmonster', 'mapreward', 'mapboss', ...CLASS_AFFIX_CATEGORIES.TowerAugmentation.map((c) => c.key).filter((k) => !k.startsWith('map')),
+  'other']
 const ORDER = new Map(DISPLAY_ORDER.map((k, i) => [k, i]))
-const LABEL = new Map(AFFIX_CATEGORIES.map((c) => [c.key, c.label]))
+const LABEL = new Map([...AFFIX_CATEGORIES, ...Object.values(CLASS_AFFIX_CATEGORIES).flat()].map((c) => [c.key, c.label]))
 
-/** 게임 내부 능력치 이름 → 종류 키. 모르면 'other'. */
-export function affixCategoryOf(statName) {
+/** 게임 내부 능력치 이름 → 종류 키. 모르면 'other'. 부위 전용 규칙이 있는 부위(서판)는 그 규칙만 본다. */
+export function affixCategoryOf(statName, itemClass = null) {
   const name = String(statName ?? '')
-  return AFFIX_CATEGORIES.find((c) => c.re.test(name))?.key ?? 'other'
+  const rules = (itemClass && Object.hasOwn(CLASS_AFFIX_CATEGORIES, itemClass)) ? CLASS_AFFIX_CATEGORIES[itemClass] : AFFIX_CATEGORIES
+  return rules.find((c) => c.re.test(name))?.key ?? 'other'
 }
 
 /** 종류 키 → 화면 이름. 모르는 키는 기타로 본다. */
