@@ -7,12 +7,25 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
-## 0.14.1 패치 릴리즈 준비 — develop 까지 완료, main·태그·zip 은 사용자 확인 대기 (2026-09-18)
+## 0.14.1 릴리즈 게시 완료 — 스토어 심사 제출 대기 (2026-09-18)
 
-- 버전 `0.14.0 → 0.14.1`(package.json · package-lock.json · manifest.json), `UPDATE_NOTES` 0.14.1 추가(목업 지시자 **없음** — GitHub 릴리즈 본문으로 그대로 쓸 수 있다). 권한 변화 없음 → **재승인 없음**.
-- 담긴 것: #84 목걸이 스킬 부여 띠 · 타락 띠 세로 글자 / #85 서판 콘텐츠별 묶음 / 이번 PR 「기타」 전수 점검.
-- **남은 절차**(main 은 보호 브랜치라 사용자 확인 후): `develop → main` fast-forward → 메인 체크아웃에서 `npm run build` → `pwsh` 로 `deploy/poe-bookmark-atlas-0.14.1.zip`(역슬래시 0 · manifest 루트 · 0.14.1 검사) → `gh release create v0.14.1 --target main` → 스토어 제출. ⚠ 0.14.0 이 아직 심사 중이면 새 제출이 그것을 **대체**한다(handoff 아래 「제출 충돌」 참조) — 제출 전에 심사 상태부터 확인.
-- ⚠ **확장은 메인 체크아웃의 `dist` 를 읽는다.** 머지만 하고 메인에서 빌드하지 않으면 화면이 그대로다(2026-09-18 실제로 겪음 — #84·#85 머지 뒤 dist 가 전날 것이라 사용자가 변화를 못 봤다). 머지 후 라이브 확인을 부탁할 때는 **메인에서 빌드까지 해 두고** 「확장 리로드」만 부탁할 것.
+- `develop → main` fast-forward(`13f1c2e..bce4451`) → **`v0.14.1` 태그 publish(대상 `bce4451`)** — https://github.com/seominugi/poe-bookmark-atlas/releases/tag/v0.14.1
+- `deploy/poe-bookmark-atlas-0.14.1.zip` — **36파일 · 461KB · 역슬래시 0 · `manifest.json` 루트 · 0.14.1 · 권한 storage·tabs + host 3 · optional 없음** → **재승인 없음**. 본문 `deploy/RELEASE-0.14.1.md`(`UPDATE_NOTES` 0.14.1 그대로 — 목업 지시자 없음).
+- 담긴 것: #84 목걸이 스킬 부여 띠 · 타락 띠 세로 글자 / #85 서판 콘텐츠별 묶음 / #86 「기타」 전수 점검 · 유물 묶음.
+- 제출 충돌 없음 — 0.14.0 은 이미 스토어 배포 완료(#83).
+- ⏳ **남은 것**: 사용자가 zip 을 스토어에 제출 → 심사 통과 확인. **라이브 화면 확인은 아직 아무도 못 했다**(아래) — 검증 대기 원장 #84·#85·#86 이 pending.
+- 🛠 zip 검사를 `pwsh -Command "…"` 한 줄로 돌리면 셸이 역슬래시 패턴을 망가뜨려 **검사가 오류를 내면서 0 을 출력한다**(이번에 겪음). 검사 스크립트는 `.ps1` 파일로 만들어 `pwsh -File` 로 돌릴 것 — `$_.Contains([char]92)`.
+
+### ⚠ 라이브 확인이 안 된 이유 — 크롬 프로필마다 도는 확장이 다르다 (2026-09-18 실측, 위 기록 정정)
+
+이 문서의 8차·준비 절에 "확장은 메인 체크아웃의 `dist` 를 읽는다"고 적었는데 **한쪽 프로필에만 맞는 말이었다.** Chrome `Secure Preferences` 실측:
+
+| 프로필 | 카카오 로그인 | 확장 |
+|---|---|---|
+| 「서미누기」(claude-in-chrome 에서 보통 Browser 2) | 됨 | `kjdnpniemjhflpbgfhcjgdenngdpikeh` — **크롬 웹스토어 설치본** |
+| 「민욱」(Browser 1) | 안 됨 | `nohgcdabbnbkclbbafkibohlmofghhhn` — **압축해제 개발 빌드** `D:\github\poe-bookmark-atlas\dist` |
+
+사용자가 보던 화면은 스토어 설치본이라 dist 를 몇 번 빌드해도 바뀔 수 없었다(「여전히 달라지지 않았어」 제보 2회). **라이브 확인 전에 페이지의 `chrome-extension://<id>/…` 자산 주소로 어느 빌드인지부터 볼 것.** 개발 빌드를 로그인된 화면에서 보려면 사용자가 「서미누기」 프로필에 dist 를 압축해제 로드해야 한다(스토어본과 동시에 켜면 패널이 둘 뜬다). 로그인·`chrome://extensions` 조작은 에이전트가 할 수 없다.
 
 ## 속성 목록 9차 — 「기타」 전수 점검 (2026-09-18)
 
