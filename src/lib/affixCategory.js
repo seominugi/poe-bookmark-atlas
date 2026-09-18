@@ -25,6 +25,17 @@ export const AFFIX_CATEGORIES = [
   { key: 'grant', label: '스킬 부여', re: /(?!)/ }, // 모드 이름으로는 판정하지 않는다 — 빌드(skillGrantPool)가 키를 직접 박는다. 이름·순서용
   { key: 'speed', label: '속도', re: /speed|velocity|cooldown/ },
   { key: 'damage', label: '피해·상태 이상', re: /damage|ailment|ignite|bleed|poison|shock|chill|freeze|curse|mark_|stun|daze|blind|incision|pin_/ },
+  // ── 아래는 위 규칙에 안 걸려 「기타」로 남던 것을 가른다(전수 점검 2026-09-18). 맨 끝에 두어 **기존 분류는 그대로**다 —
+  //    위에서 걸린 이름은 여기까지 오지 않는다.
+  { key: 'attribute', label: '능력치', re: /^(strength|dexterity|intelligence)_\+%|all_attributes/ }, // 힘·민첩·지능 #% 증가
+  { key: 'defence', label: '방어', re: /(^|_)ward/ }, // 룬 수호
+  { key: 'flask', label: '플라스크·호신부', re: /^local_.*charges/ }, // 플라스크의 충전량·충전 — 아래 「충전」(인내·격분·권능)보다 먼저
+  { key: 'minion', label: '소환수·동료·토템', re: /totems_allowed|minion_limit/ },
+  { key: 'projectile', label: '투사체', re: /projectile|pierce|chain|fork|arrow/ },
+  { key: 'cost', label: '소모·점유 효율', re: /cost|reservation_efficiency/ },
+  { key: 'charge', label: '격노·충전·중첩', re: /rage|_charges|glory|combo|infusion|seal|archon|puppet|energy/ },
+  { key: 'modeffect', label: '속성 부여·아이템 효과', re: /mod_effect|socketed_items_effect|passive_in_radius_effect/ },
+  { key: 'area', label: '효과 범위·지속시간', re: /area|duration|weapon_range|light_radius|remnant_pickup_range/ },
   { key: 'other', label: '기타', re: /.*/ },
 ]
 
@@ -54,11 +65,21 @@ export const CLASS_AFFIX_CATEGORIES = {
     { key: 'mapmonster', label: '몬스터', re: /monster|pack/ },
     { key: 'mapreward', label: '보상', re: /item_|gold|experience|chest/ },
   ],
+  // 유물 — 시련 전용 속성이라 공용 규칙으로는 31개 중 18개가 「기타」였다. 명예·열쇠·신성한 물은 게임 문구다.
+  Relic: [
+    { key: 'honour', label: '명예', re: /honour/ },
+    { key: 'sanctumkey', label: '열쇠', re: /key/ },
+    { key: 'sanctumgold', label: '신성한 물·상인', re: /gold|merchant|fountain/ },
+    { key: 'sanctumfoe', label: '몬스터·보스·덫', re: /monster|boss|guard|traps/ },
+    { key: 'sanctumplayer', label: '플레이어', re: /map_player/ },
+  ],
 }
 
 // 규칙 순서(판정 우선순위)와 화면 순서는 다르다 — 같은 키가 규칙 두 곳에 있을 수 있다(피해: 관통 + 일반).
 // 화면은 사용자가 먼저 찾는 것부터: 방어 쪽(저항·생명력·방어) → 공격 쪽 → 기타.
-const DISPLAY_ORDER = ['resist', 'resource', 'defence', 'attribute', 'added', 'damage', 'crit', 'speed', 'skill', 'grant', 'recovery', 'minion', 'flask',
+const DISPLAY_ORDER = ['resist', 'resource', 'defence', 'attribute', 'added', 'damage', 'crit', 'speed', 'projectile', 'area', 'skill', 'grant', 'cost', 'charge', 'recovery', 'minion', 'flask', 'modeffect',
+  // 유물
+  ...['honour', 'sanctumkey', 'sanctumgold', 'sanctumplayer', 'sanctumfoe'],
   // 서판 — 지도 전체(몬스터·보상·보스) 먼저, 그다음 콘텐츠
   'mapmonster', 'mapreward', 'mapboss', ...CLASS_AFFIX_CATEGORIES.TowerAugmentation.map((c) => c.key).filter((k) => !k.startsWith('map')),
   'other']
