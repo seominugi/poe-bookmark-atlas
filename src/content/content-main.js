@@ -756,6 +756,11 @@ function pobEnsureStyle() {
   .ba-affix-sec[data-category="recovery"] .ba-affix-sec-head { color: #8fe0bd; }    /* 회복·흡수 */
   .ba-affix-sec[data-category="minion"] .ba-affix-sec-head { color: #c9e49a; }      /* 소환수·동료·토템 */
   .ba-affix-sec[data-category="flask"] .ba-affix-sec-head { color: #9fd8e0; }       /* 플라스크·호신부 */
+  /* 서판 — 지도 전체(몬스터·보상·보스)와 콘텐츠. 콘텐츠는 한 색으로 묶어 장비 종류 색과 헷갈리지 않게 한다 */
+  .ba-affix-sec[data-category="mapmonster"] .ba-affix-sec-head { color: #ef8f7c; }
+  .ba-affix-sec[data-category="mapreward"] .ba-affix-sec-head { color: #ffd98a; }
+  .ba-affix-sec[data-category="mapboss"] .ba-affix-sec-head { color: #f59ab0; }
+  .ba-affix-sec:is([data-category="abyss"],[data-category="breach"],[data-category="ritual"],[data-category="delirium"],[data-category="expedition"],[data-category="incursion"],[data-category="essence"],[data-category="shrine"],[data-category="strongbox"],[data-category="azmeri"],[data-category="exile"],[data-category="circle"]) .ba-affix-sec-head { color: #8fe0bd; }
   .ba-affix-sec[data-category="other"] .ba-affix-sec-head { color: #a39fbb; }       /* 기타 */
   /* 타락 줄 안에서는 종류 색을 쓰지 않는다 — 그 줄의 정체성은 붉은 판이다 */
   .ba-affix-band[data-pool="corrupted"] .ba-affix-sec[data-category] .ba-affix-sec-head { color: #ff9fb1; }

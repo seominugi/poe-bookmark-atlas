@@ -308,7 +308,7 @@ async function main() {
             byStat[id] = tiers
             inferredById[id] = inferred
             affixById[id] = affix // 표에 실린 사다리의 접두·접미를 따른다
-            categoryById[id] = affixCategoryOf(statNames[lineIndex])
+            categoryById[id] = affixCategoryOf(statNames[lineIndex], cls)
             modIdsById[id] = modIds
           }
         }
@@ -322,7 +322,7 @@ async function main() {
         : src.group === ENCHANT_GROUP ? { index: enchantIndex, valueless: enchantValueless }
           : src.group === DESECRATED_GROUP ? { index: desecratedIndex, valueless: desecratedValueless }
             : { index: tradeIndex, valueless }
-      const got = specialAffixesOf(bucketMods(data, src.bucket), trade.index, trade.valueless, ambiguous, { sided: src.sided })
+      const got = specialAffixesOf(bucketMods(data, src.bucket), trade.index, trade.valueless, ambiguous, { sided: src.sided, itemClass: cls })
       specialCounts[src.bucket] ??= { total: 0, matched: 0 }
       specialCounts[src.bucket].total += got.total
       specialCounts[src.bucket].matched += Object.keys(got.x).length
@@ -337,7 +337,7 @@ async function main() {
       if (!name) { unnamedBuckets.add(bucket); continue }
       // 훼손된 계열(desecrated_breach 등)은 거래소 「훼손된」 그룹으로 거른다 — 2026-09-16 실측 36개 모두 이 그룹 문구에 이어진다
       const trade = bucket.startsWith('desecrated') ? { index: desecratedIndex, valueless: desecratedValueless } : { index: tradeIndex, valueless }
-      const got = specialAffixesOf(bucketMods(data, bucket), trade.index, trade.valueless, ambiguous, { sided: true })
+      const got = specialAffixesOf(bucketMods(data, bucket), trade.index, trade.valueless, ambiguous, { sided: true, itemClass: cls })
       specialCounts[bucket] ??= { total: 0, matched: 0 }
       specialCounts[bucket].total += got.total
       specialCounts[bucket].matched += Object.keys(got.x).length
@@ -421,7 +421,7 @@ async function main() {
  * @returns {{total:number, x:Record<string,{r:Array<{l:number,v:number[][]}>, c:string, k?:'p'|'s'}>, mods:Record<string,string[]>}}
  *   `mods` — 능력치 id → 그 사다리를 만든 모드 id (베이스별 목록용, statAffixes 에는 싣지 않는다)
  */
-export function specialAffixesOf(mods, index, valueless, ambiguous, { sided = false } = {}) {
+export function specialAffixesOf(mods, index, valueless, ambiguous, { sided = false, itemClass = null } = {}) {
   const acc = new Map() // id → { rows: Map(l → v), c, k }
   const conflicted = new Set()
   let total = 0
@@ -435,7 +435,7 @@ export function specialAffixesOf(mods, index, valueless, ambiguous, { sided = fa
     const level = Number.isFinite(mod.tier) ? mod.tier : 1
     found.cands.forEach((ids, lineIndex) => {
       const v = byLine[lineIndex]
-      const c = affixCategoryOf(found.lines[lineIndex].stats?.[0]?.stat ?? '')
+      const c = affixCategoryOf(found.lines[lineIndex].stats?.[0]?.stat ?? '', itemClass)
       for (const id of ids) {
         if (valueless.has(id) || conflicted.has(id)) continue
         if (!acc.has(id)) acc.set(id, { rows: new Map(), c, k: mod.affixType === 'suffix' ? 's' : 'p', mods: [] })
