@@ -756,6 +756,17 @@ function pobEnsureStyle() {
   .ba-affix-sec[data-category="recovery"] .ba-affix-sec-head { color: #8fe0bd; }    /* 회복·흡수 */
   .ba-affix-sec[data-category="minion"] .ba-affix-sec-head { color: #c9e49a; }      /* 소환수·동료·토템 */
   .ba-affix-sec[data-category="flask"] .ba-affix-sec-head { color: #9fd8e0; }       /* 플라스크·호신부 */
+  .ba-affix-sec[data-category="projectile"] .ba-affix-sec-head { color: #a5d8ff; }  /* 투사체 */
+  .ba-affix-sec[data-category="area"] .ba-affix-sec-head { color: #d0bfff; }        /* 효과 범위·지속시간 */
+  .ba-affix-sec[data-category="cost"] .ba-affix-sec-head { color: #99e9f2; }        /* 소모·점유 효율 */
+  .ba-affix-sec[data-category="charge"] .ba-affix-sec-head { color: #ffc078; }      /* 격노·충전·중첩 */
+  .ba-affix-sec[data-category="modeffect"] .ba-affix-sec-head { color: #e6c9a8; }   /* 속성 부여·아이템 효과 */
+  /* 유물 */
+  .ba-affix-sec[data-category="honour"] .ba-affix-sec-head { color: #ffd98a; }
+  .ba-affix-sec[data-category="sanctumkey"] .ba-affix-sec-head { color: #c4b5fd; }
+  .ba-affix-sec[data-category="sanctumgold"] .ba-affix-sec-head { color: #7dd3fc; }
+  .ba-affix-sec[data-category="sanctumplayer"] .ba-affix-sec-head { color: #8fe0bd; }
+  .ba-affix-sec[data-category="sanctumfoe"] .ba-affix-sec-head { color: #ef8f7c; }
   /* 서판 — 지도 전체(몬스터·보상·보스)와 콘텐츠. 콘텐츠는 한 색으로 묶어 장비 종류 색과 헷갈리지 않게 한다 */
   .ba-affix-sec[data-category="mapmonster"] .ba-affix-sec-head { color: #ef8f7c; }
   .ba-affix-sec[data-category="mapreward"] .ba-affix-sec-head { color: #ffd98a; }
