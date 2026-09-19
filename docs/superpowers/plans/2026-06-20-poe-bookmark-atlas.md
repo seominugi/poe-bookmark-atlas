@@ -1,5 +1,10 @@
 # 북마크 아틀라스 (poe-bookmark-atlas) Implementation Plan
 
+> [!NOTE]
+> 이 문서는 2026-06-20 당시의 구현 계획입니다. 당시 MIT 공개를 전제로 한
+> 내용은 태그 `v0.14.1` 이하의 역사적 기록이며, 현재 라이선스 조건은 저장소
+> 루트의 [`LICENSE`](../../../LICENSE)를 따릅니다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** POE 거래소(`poe.kakaogames.com`, POE1·POE2) 검색을 북마크·히스토리로 저장하고, 저장 시점 시세 스냅샷(div·ex)을 함께 보여주는 MV3 크롬 확장을 만든다.
