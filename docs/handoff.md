@@ -1165,11 +1165,11 @@ AdSense 대안으로 후원을 검토했다. **방향은 정해졌고 시점은 
 
 **소스 투명성 공개와 무단 재사용 금지를 함께 적용하는 라이선스 전환**
 
-- 현재 작업 브랜치: `codex/source-available-license` (`origin/develop`의 `4895646`에서 분기).
+- PR [#88](https://github.com/seominugi/poe-bookmark-atlas/pull/88) squash merge 완료. `origin/develop` 머지 커밋 `6de64cc1e229ae150249839d91c1b56fac095db6` 및 원격 파일 내용을 확인했다.
 - `LICENSE`를 한·영 병기 `Seominugi Transparency Source License 1.0`으로 교체했다. 열람·분석과 검토 목적의 일시적 로컬 빌드/실행, 공식 배포본의 개인 사용만 기본 허용하고 복제·변형·재배포·제품/서비스 통합·호스팅은 사전 서면 허락 대상으로 둔다.
 - 과거 Git 태그 `v0.14.1`(`bce44512ab7f0d0548c2312e621336e9b4f8f6ff`) 이하는 기존 MIT 권리를 그대로 보존한다. 전환 커밋 이후 스냅샷은 새 라이선스로 제공하며, 패키지·매니페스트 버전 문자열은 경계로 쓰지 않는다.
 - `THIRD_PARTY_NOTICES.md`로 npm 의존성·Pretendard·Path of Exile 관련 제3자 권리를 분리한다.
-- 기준선 `npm test` **68파일·1013테스트 통과**, `npm run build` 통과. 최종 검증과 PR 머지는 아직 진행 중이며 `main`·기존 태그·릴리스는 변경하지 않는다.
+- 최종 `npm test` **68파일·1013테스트 통과**, `npm run build` 통과. 독립 계약 검토에서 지적 4건을 수정했고 재검토에서 새 모순 0건. `main`·기존 태그·릴리스는 변경하지 않았다.
 
 ---
 
@@ -1632,7 +1632,7 @@ gh release create v<버전> --target main --title v<버전> --notes-file deploy/
 
 ## 완료된 작업
 
-### 소스 투명성 라이선스 전환 (2026-09-20, PR 전)
+### 소스 투명성 라이선스 전환 (2026-09-20, PR #88)
 
 - `LICENSE`: 한·영 병기 `Seominugi Transparency Source License 1.0`. 검토 목적의 열람·분석·일시적 로컬 빌드/실행 및 공식 배포본 개인 사용은 허용하고, 그 밖의 복제·변형·재배포·제품/서비스 재사용·호스팅은 사전 서면 허락 대상으로 명시했다.
 - 과거 권리 경계: Git 태그 `v0.14.1`(`bce44512ab7f0d0548c2312e621336e9b4f8f6ff`) 이하의 MIT 권리는 소급 취소하지 않는다. 전환 기준은 루트 LICENSE 첫 줄이 새 라이선스 제목으로 바뀐 최초 커밋으로 정의했고, 그 이후 스냅샷에 새 라이선스를 적용한다. 과거 태그와 동일한 자료를 해당 태그의 MIT 조건으로 이용할 권리는 유지된다.
@@ -1641,7 +1641,7 @@ gh release create v<버전> --target main --title v<버전> --notes-file deploy/
 - `THIRD_PARTY_NOTICES.md`: npm 개발 의존성, Pretendard(OFL-1.1), Path of Exile 관련 권리를 자체 라이선스와 분리했다.
 - 과거 설계·계획 문서는 원문을 보존하되 상단에 당시 MIT 설명이 `v0.14.1` 이하의 역사 기록이고 현재는 루트 `LICENSE`가 기준이라는 주석을 추가했다.
 - 기준선 검증: `npm test` **68파일·1013테스트 통과**, `npm run build` 통과. npm 감사 결과 기존 의존성 취약점 8건(중간 3·높음 4·치명적 1)은 이번 변경 범위 밖이라 자동 수정하지 않았다.
-- 상태: 전용 워크트리 `.claude/worktrees/source-available-license`, 브랜치 `codex/source-available-license`. 독립 검토·최종 전체 게이트·PR 머지는 진행 중이다. `main`·기존 태그·기존 릴리스는 건드리지 않는다.
+- 상태: PR #88 squash merge 완료(`6de64cc1e229ae150249839d91c1b56fac095db6`), `origin/develop` 반영과 원격 파일 내용을 확인했다. 독립 계약 검토는 지적 4건 수정 후 재검토에서 새 모순 0건. `main`·기존 태그·기존 릴리스는 건드리지 않았다.
 
 ### 능력치 필터 티어 칩 (PoE2) — 코드 완료, 실측 대기 (2026-09-04, 브랜치 `claude/poe-search-palette-bookmark-a419dc`)
 
@@ -1963,7 +1963,7 @@ jsdom import 가 불가능하고, 핸드오프 1430줄에도 "이 파일은 하�
 
 ## 현재 상태
 
-- **라이선스 전환 (2026-09-20)**: `codex/source-available-license`에서 7개 파일 변경 중(`LICENSE`, `README.md`, `THIRD_PARTY_NOTICES.md`, `package.json`, `package-lock.json`, 과거 설계·계획 문서). 기준선 테스트 1013/1013·빌드 통과. 커밋·PR·`develop` 머지는 아직이며, 독립 검토 후 최종 게이트를 다시 실행한다.
+- **라이선스 전환 (2026-09-20)**: PR #88 squash merge 완료(`6de64cc1e229ae150249839d91c1b56fac095db6`), `origin/develop` 반영 확인. 8개 파일 변경(`LICENSE`, `README.md`, `THIRD_PARTY_NOTICES.md`, `package.json`, `package-lock.json`, 과거 설계·계획 문서, 이 핸드오프). 최종 테스트 1013/1013·빌드 통과, 독립 계약 재검토 새 모순 0건.
 - **배포 경계**: 이번 작업은 `develop` 소스 정책 변경만 대상이다. `main`, Chrome Web Store 배포본, `v0.14.1` 이하 태그와 릴리스는 그대로이고 과거 MIT 권리도 유지된다.
 
 - **티어 칩 (2026-09-04~05)**: 브랜치 `claude/poe-search-palette-bookmark-a419dc`, origin 반영 완료.
