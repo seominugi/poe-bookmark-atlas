@@ -1,21 +1,233 @@
-MIT License
+Seominugi Transparency Source License 1.0
+서미누기 투명성 소스 라이선스 1.0
 
-Copyright (c) 2026 서민욱 (seominugi)
+Copyright (c) 2026 서민욱 (seominugi). All rights reserved.
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+전환 커밋: 저장소 루트 LICENSE의 첫 줄이 이 라이선스의 영문 제목으로
+바뀐 최초의 Git 커밋
+Transition Commit: the first Git commit in which the first line of the
+repository-root LICENSE is the English title of this license
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+이 라이선스는 한국어본과 영문본으로 제공됩니다. 두 본문 사이에 의미가
+충돌하거나 차이가 있으면 한국어본이 우선합니다.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
+This license is provided in Korean and English. If the two versions conflict or
+differ in meaning, the Korean version controls.
+
+==========================================================================
+한국어본 (정본)
+==========================================================================
+
+1. 적용 대상
+
+이 라이선스는 전환 커밋 및 그 이후의 저장소 스냅샷에 포함된 소스 코드,
+문서 및 자산 중 저작권자 서민욱이 권리를 보유한 자료(이하 "대상 자료")에
+적용됩니다. 제3자 자료와 이전 버전은 아래 제7조 및 제8조를 따릅니다.
+
+2. 허용되는 행위
+
+다음 행위만 별도의 서면 허락 없이 허용됩니다.
+
+a. 코드의 동작, 보안성 및 구조를 검토하기 위해 대상 자료를 열람하고
+   분석하는 행위
+b. 위 검토만을 목적으로 합리적으로 필요한 범위에서 대상 자료를 개인의
+   로컬 컴퓨터에 임시로 복제하고 빌드하거나 실행하는 행위
+c. 저작권자가 Chrome 웹 스토어 또는 GitHub Releases 등 공식 배포 경로로
+   제공한 완성된 프로그램을 개인 최종 사용자로서 설치하고 실행하는 행위
+d. GitHub 이용약관 및 제6조의 범위에서 GitHub가 제공하는 공개 저장소 열람과
+   표준 Fork 기능을 사용하는 행위
+
+제2조는 그 밖의 사용, 배포 또는 재사용 권리를 부여하지 않습니다.
+
+3. 금지되는 행위
+
+저작권자의 사전 서면 허락 없이 다음 행위를 해서는 안 됩니다.
+
+a. 제2조에서 허용한 범위를 넘어 대상 자료의 전부 또는 일부를 복제하는 행위
+b. 대상 자료를 수정, 번역, 변형하거나 이를 바탕으로 파생물을 만드는 행위
+c. 대상 자료 또는 파생물을 배포, 공개, 게시, 재라이선스, 판매 또는
+   재판매하는 행위
+d. 대상 자료의 전부 또는 일부를 제품, 서비스, 웹사이트, 애플리케이션,
+   확장 프로그램, 라이브러리, 데이터세트 또는 자동화 작업에 포함하거나
+   통합하는 행위
+e. 대상 자료 또는 파생물을 공개 또는 비공개로 호스팅하거나 제3자에게
+   기능으로 제공하는 행위
+f. 대상 자료를 사용하여 제3자를 위한 서비스를 운영하는 행위
+g. 저작권, 라이선스 또는 출처 고지를 제거하거나 변경하는 행위
+
+4. 독립 구현과 아이디어
+
+이 라이선스는 저작권법이 보호하지 않는 아이디어, 원리, 기능 또는 방법
+자체를 제한하지 않습니다. 대상 자료의 보호되는 표현을 복제하지 않고
+독립적으로 작성한 구현은 이 라이선스의 제한 대상이 아닙니다. 다만 AI 도구를
+포함한 어떠한 도구를 사용하더라도 대상 자료의 보호되는 표현을 복제할 권리가
+새로 생기지는 않습니다.
+
+5. 별도 허락
+
+저작권자는 특정 사람이나 조직에 별도 조건으로 서면 허락을 줄 수 있습니다.
+허락을 요청하려면 이 저장소의 GitHub Issues를 통해 문의하십시오.
+별도 허락은 그 문서에 명시된 대상, 목적, 기간 및 조건에만 적용됩니다.
+
+6. GitHub 기능
+
+이 라이선스는 GitHub 이용약관에 따라 GitHub가 공개 저장소의 열람과 표준
+Fork 등 서비스 기능을 제공하는 데 필요한 복제, 공개 및 호스팅을 허용합니다.
+이 허용은 GitHub 기능이 자동으로 만드는 변경되지 않은 포크를 해당 서비스
+안에 유지하는 범위로 한정됩니다. 포크가 생성되었다는 사실만으로 제2조를
+넘는 수정, 별도 배포, 외부 호스팅 또는 서비스 운영 권리가 부여되지는 않습니다.
+
+7. 제3자 자료
+
+대상 자료에 포함되거나 함께 제공되는 제3자 코드, 글꼴, 이미지, 상표, 게임
+데이터 및 기타 자료에는 각각의 원래 라이선스와 권리가 적용됩니다. 이
+라이선스는 저작권자가 보유하지 않은 권리를 부여하거나 제한하지 않습니다.
+자세한 고지는 THIRD_PARTY_NOTICES.md를 참조하십시오.
+
+8. 이전 버전
+
+Git 태그 `v0.14.1`(커밋 `bce44512ab7f0d0548c2312e621336e9b4f8f6ff`) 및
+그 이전 태그에 실제로 포함된 자료는 해당 태그와 함께 제공된 MIT License에
+따라 계속 이용할 수 있습니다. 이미 부여된 MIT 권리는 이 라이선스로 취소되거나
+소급 변경되지 않습니다. 전환 커밋 이후의 저장소 스냅샷은 제1조에 따라 이
+라이선스로 제공되지만, 이전 태그의 자료와 동일한 자료를 그 태그의 MIT
+License에 따라 이용할 권리에는 영향을 주지 않습니다. `package.json` 또는
+`manifest.json`의 버전 문자열만으로 라이선스 경계를 판단해서는 안 됩니다.
+
+9. 상표
+
+이 라이선스는 "서미누기", 제품명, 로고, 아이콘 또는 기타 상표를 사용할
+권리를 부여하지 않습니다.
+
+10. 종료
+
+이 라이선스의 조건을 위반하면 이 라이선스로 부여된 권리는 자동으로 즉시
+종료됩니다. 권리가 종료된 경우 대상 자료와 그 복제물 및 빌드 산출물의 사용을
+중단하고 삭제해야 합니다. 제3조부터 제12조까지는 종료 후에도 유효합니다.
+
+11. 보증 부인
+
+대상 자료와 공식 배포 프로그램은 상품성, 특정 목적 적합성 및 비침해성에
+대한 보증을 포함하여 명시적 또는 묵시적인 어떠한 보증도 없이 "있는 그대로"
+제공됩니다.
+
+12. 책임 제한
+
+관련 법률이 허용하는 최대 범위에서 저작권자는 대상 자료 또는 공식 배포
+프로그램의 사용이나 사용 불능으로 발생한 청구, 손해 또는 기타 책임에 대해
+계약, 불법행위 또는 그 밖의 어떠한 법리에 의해서도 책임을 지지 않습니다.
+
+==========================================================================
+English Translation (Korean version controls)
+==========================================================================
+
+1. Covered Material
+
+This license applies to source code, documentation, and assets included in
+repository snapshots at or after the Transition Commit for which the copyright
+holder, Seominugi (Minwook Seo), owns the rights (the "Covered Material").
+Third-party material and prior versions are addressed in Sections 7 and 8.
+
+2. Permitted Activities
+
+Only the following activities are permitted without separate written
+permission:
+
+a. Viewing and analyzing the Covered Material to review its behavior,
+   security, and structure;
+b. Temporarily copying, building, and running the Covered Material on your own
+   local computer, only to the extent reasonably necessary for that review;
+c. Installing and running a finished program distributed by the copyright
+   holder through an official channel such as the Chrome Web Store or GitHub
+   Releases, solely as an individual end user.
+d. Using GitHub's public-repository viewing and standard Fork features within
+   the scope of GitHub's Terms of Service and Section 6.
+
+Section 2 grants no other right to use, distribute, or reuse the Covered
+Material.
+
+3. Prohibited Activities
+
+Without the copyright holder's prior written permission, you may not:
+
+a. Copy any part of the Covered Material beyond the scope permitted by
+   Section 2;
+b. Modify, translate, adapt, or create derivative works based on the Covered
+   Material;
+c. Distribute, publish, post, relicense, sell, or resell the Covered Material
+   or a derivative work;
+d. Include or integrate any part of the Covered Material into a product,
+   service, website, application, extension, library, dataset, or automated
+   workflow;
+e. Host the Covered Material or a derivative work, publicly or privately, or
+   provide its functionality to a third party;
+f. Operate a service for a third party using the Covered Material; or
+g. Remove or alter copyright, license, or attribution notices.
+
+4. Independent Implementations and Ideas
+
+This license does not restrict ideas, principles, functions, or methods that
+copyright law does not protect. An independently written implementation that
+does not copy protected expression from the Covered Material is not restricted
+by this license. Use of any tool, including an AI tool, does not create a right
+to copy protected expression from the Covered Material.
+
+5. Separate Permission
+
+The copyright holder may give a person or organization written permission
+under separate terms. Request permission through this repository's GitHub
+Issues. Separate permission applies only to the subject, purpose, duration, and
+conditions stated in that written permission.
+
+6. GitHub Features
+
+This license permits the copying, public display, and hosting necessary for
+GitHub to provide public-repository viewing and standard Fork features under
+GitHub's Terms of Service. This permission is limited to keeping the unmodified
+fork automatically created by that feature within GitHub's service. Creation
+of a fork does not by itself grant a right to modify, separately distribute,
+externally host, or operate a service beyond Section 2.
+
+7. Third-Party Material
+
+Third-party code, fonts, images, trademarks, game data, and other material
+included in or distributed with the Covered Material remain subject to their
+original licenses and rights. This license neither grants nor restricts rights
+the copyright holder does not own. See THIRD_PARTY_NOTICES.md for details.
+
+8. Prior Versions
+
+Material actually contained in Git tag `v0.14.1` (commit
+`bce44512ab7f0d0548c2312e621336e9b4f8f6ff`) and earlier tags remains available
+under the MIT License included with those tags. Rights already granted under
+the MIT License are not revoked or retroactively changed. Repository snapshots
+at or after the Transition Commit are offered under this license as described
+in Section 1, but this does not affect the right to use material identical to
+material in a prior tag under that tag's MIT License. Version strings in
+`package.json` or `manifest.json` do not by themselves determine the license
+boundary.
+
+9. Trademarks
+
+This license grants no right to use the name "Seominugi," product names, logos,
+icons, or other trademarks.
+
+10. Termination
+
+Any violation of this license automatically and immediately terminates the
+rights granted by it. After termination, you must stop using and delete the
+Covered Material and its copies and build artifacts. Sections 3 through 12
+survive termination.
+
+11. Disclaimer of Warranty
+
+THE COVERED MATERIAL AND OFFICIAL DISTRIBUTIONS ARE PROVIDED "AS IS," WITHOUT
+WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, AND NON-INFRINGEMENT.
+
+12. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE COPYRIGHT HOLDER SHALL
+NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN CONTRACT,
+TORT, OR OTHERWISE, ARISING FROM THE COVERED MATERIAL OR OFFICIAL DISTRIBUTIONS
+OR THEIR USE OR INABILITY TO BE USED.
