@@ -7,13 +7,13 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
-## 0.14.1 릴리즈 게시 완료 — 스토어 심사 제출 대기 (2026-09-18)
+## 0.14.1 스토어 릴리즈 완료 — 사이클 종료 (2026-09-20 사용자 확인)
 
 - `develop → main` fast-forward(`13f1c2e..bce4451`) → **`v0.14.1` 태그 publish(대상 `bce4451`)** — https://github.com/seominugi/poe-bookmark-atlas/releases/tag/v0.14.1
 - `deploy/poe-bookmark-atlas-0.14.1.zip` — **36파일 · 461KB · 역슬래시 0 · `manifest.json` 루트 · 0.14.1 · 권한 storage·tabs + host 3 · optional 없음** → **재승인 없음**. 본문 `deploy/RELEASE-0.14.1.md`(`UPDATE_NOTES` 0.14.1 그대로 — 목업 지시자 없음).
 - 담긴 것: #84 목걸이 스킬 부여 띠 · 타락 띠 세로 글자 / #85 서판 콘텐츠별 묶음 / #86 「기타」 전수 점검 · 유물 묶음.
 - 제출 충돌 없음 — 0.14.0 은 이미 스토어 배포 완료(#83).
-- ⏳ **남은 것**: 사용자가 zip 을 스토어에 제출 → 심사 통과 확인. **라이브 화면 확인은 아직 아무도 못 했다**(아래) — 검증 대기 원장 #84·#85·#86 이 pending.
+- ✅ **스토어 릴리즈 완료**(사용자 확인 2026-09-20 — 「릴리즈 완료했어」). 남은 절차 없음. **라이브 화면도 사용자가 직접 확인했다**(2026-09-18) — 검증 대기 원장 #84·#85·#86 은 `done`(closedBy user). 에이전트는 아래 이유로 라이브 확인을 끝내지 못했다.
 - 🛠 zip 검사를 `pwsh -Command "…"` 한 줄로 돌리면 셸이 역슬래시 패턴을 망가뜨려 **검사가 오류를 내면서 0 을 출력한다**(이번에 겪음). 검사 스크립트는 `.ps1` 파일로 만들어 `pwsh -File` 로 돌릴 것 — `$_.Contains([char]92)`.
 
 ### ⚠ 라이브 확인이 안 된 이유 — 크롬 프로필마다 도는 확장이 다르다 (2026-09-18 실측, 위 기록 정정)
