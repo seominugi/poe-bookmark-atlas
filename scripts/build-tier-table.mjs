@@ -13,6 +13,7 @@ import { resolveLockedGameDataRoot } from './poe-game-data-lock.mjs'
 import { normalizeTradeText, modTextKeys, polarityFlipped } from '../src/lib/statTextNorm.js'
 import { MOD_FILE_BY_POB_CLASS, CLASS_BY_CATEGORY } from '../src/lib/itemClass.js'
 import { affixCategoryOf } from '../src/lib/affixCategory.js'
+import { LOCAL_MARK } from '../src/lib/modLineMatch.js'
 
 const here = dirname(fileURLToPath(import.meta.url))
 const EXPLICIT_GROUP = '비고정' // 거래소 능력치 목록에서 일반 옵션 그룹
@@ -25,7 +26,7 @@ const SANCTUM_GROUP = '성역' // 유물 속성이 거래소에서 걸리는 그
 const GROUP_BY_CLASS = { Relic: SANCTUM_GROUP }
 const SKIP_FILES = new Set(['Map.json'])
 // 거래소 한국어 목록이 로컬 능력치에 붙이는 표시(영문 「(Local)」)
-export const LOCAL_MARK = '(특정)'
+export { LOCAL_MARK } // 정본은 src/lib/modLineMatch.js
 
 // 일반 풀 밖의 속성 버킷 → statAffixes 의 키. 에센스·합금은 보통 속성처럼 비고정 그룹 문구로 이어진다(2026-09-15 실측).
 // 순서는 속성 목록에 보이는 순서와 같다.

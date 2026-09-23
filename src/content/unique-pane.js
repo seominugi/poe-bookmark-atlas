@@ -27,7 +27,7 @@ const ROLE_TIP = {
  * @param {Document} doc
  * @param {{table:{u:object[]}, onChange:()=>void}} args
  */
-export function createUniquePane(doc, { table, onChange }) {
+export function createUniquePane(doc, { table, onChange, observe = null }) {
   const root = el(doc, 'div', 'ba-uq')
   const listEl = el(doc, 'div', 'ba-uq-list')
   listEl.setAttribute('role', 'listbox')
@@ -40,6 +40,9 @@ export function createUniquePane(doc, { table, onChange }) {
   let shown = []
   let active = null // 오른쪽에 보이는 고유(표 항목)
   let showMf = false // 함양판 고정 속성 목록을 펼쳤나
+  // 「매물에서 속성 더 찾기」 결과 — 고유 키 → { data:{count, lines, resolved}, at }. 창을 닫으면 잊는다(저장은 부르는 쪽).
+  const observed = new Map()
+  const obsState = new Map() // 고유 키 → 'loading' | 상태 문구
   // 고른 줄 — 키 `${kind}|${순번}`. 고른 고유는 하나라 고유 키는 따로 쥔다.
   let pickedUnique = null
   const picked = new Map() // key → { kind, line, role, min, max }
@@ -96,6 +99,7 @@ export function createUniquePane(doc, { table, onChange }) {
     detail.appendChild(head)
     const note = el(doc, 'p', 'ba-uq-note', '값을 넣은 줄만 걸러져요 · 빈칸이면 그 속성이 붙은 것만 봐요')
     detail.appendChild(note)
+    if (observe) detail.appendChild(observeBar(e))
     const cols = el(doc, 'div', 'ba-uq-cols')
     cols.setAttribute('aria-hidden', 'true')
     cols.append(el(doc, 'span', null, ''), el(doc, 'span', null, '속성'), el(doc, 'span', null, '최소'), el(doc, 'span', null, '최대'), el(doc, 'span', null, '역할'))
@@ -114,20 +118,82 @@ export function createUniquePane(doc, { table, onChange }) {
         if (showMf) section(e, 'mf', '함양판 고정 속성')
       }
     }
+    const obs = observed.get(uniqueKey(e))
+    if (obs?.data?.lines?.length) section(e, 'o', `매물에서 본 속성 — 싼 매물 ${obs.data.count}개 기준 · 무작위로 붙는 속성일 수 있어요`)
+  }
+
+  /** 「매물에서 속성 더 찾기」 줄 — 단추와 결과 한 줄. */
+  function observeBar(e) {
+    const k = uniqueKey(e)
+    const bar = el(doc, 'div', 'ba-uq-observe')
+    const obs = observed.get(k)
+    const state = obsState.get(k)
+    const btn = el(doc, 'button', 'ba-uq-observe-btn', state === 'loading' ? '매물 찾는 중…' : obs ? '다시 찾기' : '매물에서 속성 더 찾기')
+    btn.type = 'button'
+    btn.disabled = state === 'loading'
+    btn.dataset.tip = '거래소 매물 10개를 받아 무작위로 붙는 속성과\n조건이 둘로 갈리는 줄을 채워요 · 거래소 요청 2회'
+    bindPageTip(btn, { placement: 'below' })
+    btn.addEventListener('click', () => runObserve(e, !!obs))
+    const msg = el(doc, 'span', 'ba-uq-observe-msg')
+    msg.setAttribute('aria-live', 'polite')
+    if (state && state !== 'loading') msg.textContent = state
+    else if (obs) {
+      const fresh = Object.keys(obs.data.resolved ?? {}).length
+      msg.textContent = `매물 ${obs.data.count}개 기준 · 새 속성 ${obs.data.lines.length}개${fresh ? ` · 조건 확정 ${fresh}줄` : ''} · ${ago(obs.at)}`
+    }
+    bar.append(btn, msg)
+    return bar
+  }
+
+  async function runObserve(e, fresh) {
+    const k = uniqueKey(e)
+    obsState.set(k, 'loading')
+    if (active === e) renderDetail()
+    let res
+    try { res = await observe(e, { fresh }) } catch (_) { res = { status: 'error' } }
+    if (res?.status === 'ok' && res.data) {
+      observed.set(k, { data: res.data, at: res.at ?? Date.now() })
+      obsState.delete(k)
+      // 새 결과로 줄이 바뀐다 — 매물에서 본 줄·매물로 확정된 줄을 골라 둔 것은 푼다(옛 조건 id 가 남지 않게)
+      if (pickedUnique === k) {
+        for (const [key, p] of [...picked.entries()]) if (key.startsWith('o|') || p.line?.sure) picked.delete(key)
+        if (!picked.size) pickedUnique = null
+      }
+    } else {
+      obsState.set(k, res?.status === 'empty' ? '지금 이 고유의 매물이 없어요'
+        : res?.status === 'busy' ? '다른 고유를 찾는 중이에요 — 끝나면 다시 눌러 주세요'
+        : res?.status === 'rate' ? `거래소 요청 제한 — ${res.wait ?? 10}초 뒤에 다시 눌러 주세요`
+          : '매물을 가져오지 못했어요 — 잠시 뒤 다시 눌러 주세요')
+    }
+    if (active === e) renderDetail()
+    changed()
+  }
+
+  /** 표의 줄에 매물 결과를 얹은 것 — 후보 조건이 매물로 확정된 줄은 그 조건 하나로 바뀐다. */
+  function linesOf(e, kind) {
+    const obs = observed.get(uniqueKey(e))?.data
+    if (kind === 'o') return obs?.lines ?? []
+    const resolved = obs?.resolved ?? {}
+    return (e[kind] ?? []).map((line, i) => {
+      const id = resolved[`${kind}|${i}`]
+      // 확정 id 가 **그 줄의 후보**일 때만 — 저장된 결과는 줄 번호로 되어 있어, 표가 바뀌면 다른 줄을 가리킬 수 있다(독립 검토)
+      return id && line.alt?.includes(id) ? { ...line, id, alt: undefined, sure: true } : line
+    })
   }
 
   function section(e, kind, label, { mutated = false } = {}) {
-    const lines = e[kind] ?? []
+    const lines = linesOf(e, kind)
     if (!lines.length) return
     const sec = el(doc, 'section', 'ba-uq-sec')
     sec.dataset.kind = kind
     sec.appendChild(el(doc, 'h4', 'ba-uq-sec-title', label))
-    lines.forEach((line, i) => sec.appendChild(row(e, kind, line, i, mutated)))
+    lines.forEach((line, i) => sec.appendChild(row(e, kind, line, i, mutated || (kind === 'o' && !!line.mutated))))
     detail.appendChild(sec)
   }
 
   function row(e, kind, line, i, mutated) {
-    const state = lineState(line, kind)
+    // 매물에서 본 줄은 값이 한 번만 보였어도 아이템마다 다를 수 있다 — 함양 줄처럼 「값 하나뿐」으로 막지 않는다
+    const state = lineState(line, kind === 'o' ? 'm' : kind)
     const key = `${kind}|${i}`
     const mine = pickedUnique === uniqueKey(e) ? picked.get(key) : null
     const r = el(doc, 'label', 'ba-uq-row')
@@ -143,9 +209,10 @@ export function createUniquePane(doc, { table, onChange }) {
     if (state !== 'ok') { text.dataset.tip = STATE_TIP[state]; bindPageTip(text, { placement: 'below' }) }
     const range = state === 'ok' ? lineRange(line) : null
     // 값이 하나뿐인 줄(바알 함양 「접근 효과 범위 100% 감소」)은 붙었는지만 본다 — 칸을 끈다
-    const valued = !!range && range.min !== range.max
+    const valued = !!range && (range.min !== range.max || kind === 'o')
     // 거래소는 감소를 「증가」 조건의 음수로 받는다(20% 감소 = -20) — 칸에 음수가 보이는 이유를 알린다
-    const negTip = valued && range.max <= 0 && /감소|감폭|감속/.test(line.t) ? '거래소는 감소를 음수로 받아요\n예) 20% 감소 → -20' : null
+    // 매물에서 본 줄은 거래소 문구(「증가」)로 보여 문구로는 가릴 수 없다 — 값이 음수면 알린다
+    const negTip = valued && range.max <= 0 && (kind === 'o' || /감소|감폭|감속/.test(line.t)) ? '거래소는 감소를 음수로 받아요\n예) 20% 감소 → -20' : null
     const num = (k) => {
       const input = el(doc, 'input', 'ba-uq-num')
       input.type = 'number'
@@ -239,7 +306,7 @@ export function createUniquePane(doc, { table, onChange }) {
   function picks() {
     const e = (table?.u ?? []).find((x) => uniqueKey(x) === pickedUnique)
     if (!e || !picked.size) return null
-    const order = ['i', 'f', 'm', 'mf']
+    const order = ['i', 'f', 'm', 'mf', 'o']
     const seen = new Set()
     const items = []
     for (const [, p] of [...picked.entries()]
@@ -248,7 +315,7 @@ export function createUniquePane(doc, { table, onChange }) {
       if (seen.has(p.line.id)) continue
       seen.add(p.line.id)
       // 함양판 고정 속성을 골랐다면 함양된 매물을 찾는 것이다 — 함양 필터도 켠다
-      items.push({ id: p.line.id, value: cleanLineValue(p), role: p.role, mutated: p.kind === 'm' || p.kind === 'mf' })
+      items.push({ id: p.line.id, value: cleanLineValue(p), role: p.role, mutated: p.kind === 'm' || p.kind === 'mf' || (p.kind === 'o' && !!p.line.mutated) })
     }
     return { unique: e, items }
   }
@@ -261,6 +328,15 @@ export function createUniquePane(doc, { table, onChange }) {
   }
 
   return { el: root, setQuery, picks, clear, count: () => picked.size }
+}
+
+/** 결과를 받은 때 — 저장해 둔 결과(최대 7일)를 다시 보여 줄 때 얼마나 된 것인지 알린다. */
+function ago(at) {
+  const m = Math.floor((Date.now() - at) / 60000)
+  if (m < 1) return '방금'
+  if (m < 60) return `${m}분 전`
+  const h = Math.floor(m / 60)
+  return h < 24 ? `${h}시간 전` : `${Math.floor(h / 24)}일 전`
 }
 
 function el(doc, tag, className, text) {
