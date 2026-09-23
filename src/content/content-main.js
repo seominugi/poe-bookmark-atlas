@@ -25,7 +25,7 @@ import { classFromQuery, CLASS_BY_CATEGORY, UNRELEASED_CLASSES } from '../lib/it
 import { normalizeTradeText } from '../lib/statTextNorm.js'
 import { attachAffixButtons, openAffixPopover, groupToken, groupLabel, groupRowTitles, AFFIX_CHIP_ICON } from './affix-picker.js'
 import { affixListFor, basesFor } from '../lib/affixList.js'
-import { rarityOfItem } from '../lib/searchRarity.js'
+import { rarityOfItem, rarityOfQuery } from '../lib/searchRarity.js'
 
 const LOG = (...a) => console.log('[BA]', ...a)
 const game = location.pathname.startsWith('/trade2') ? 'poe2' : 'poe1'
@@ -868,6 +868,90 @@ function pobEnsureStyle() {
     transition: transform .16s cubic-bezier(0.23, 1, 0.32, 1), opacity .15s ease; }
   .ba-affix-add:active { transform: scale(0.97); }
   .ba-affix-add[disabled] { opacity: .4; cursor: default; transform: none; box-shadow: none; }
+
+  /* ── 고유 모드(시안 B, 2026-09-23) — 머리의 「비고유 | 고유」 · 왼쪽 이름 목록 · 오른쪽 속성 ──
+     고유 주황은 패널 희귀도 칩과 같은 rgb(232,142,72), 바알 함양 줄은 게임·poe2db 처럼 빨강.
+     목록을 고르고 상세를 바꾸는 건 자주 하는 조작이라 움직임을 넣지 않는다(색 전환만). */
+  .ba-affix-mode { display: inline-flex; gap: 2px; padding: 3px; border-radius: 10px; background: rgba(0,0,0,0.28); border: 1px solid rgba(255,255,255,0.07); }
+  .ba-affix-mode-btn { border: 0 !important; background: transparent !important; color: #a39fbb !important; cursor: pointer; margin: 0 !important;
+    font: 600 12px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; padding: 7px 11px !important; border-radius: 7px !important;
+    transition: background .15s ease, color .15s ease; }
+  @media (hover: hover) and (pointer: fine) { .ba-affix-mode-btn:hover { color: #fff !important; } }
+  .ba-affix-mode-btn.is-on { background: rgba(167,139,250,0.22) !important; color: #fff !important; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12); }
+  .ba-affix-mode-btn[data-mode="unique"].is-on { background: rgba(232,142,72,0.2) !important; color: #ffd2b0 !important; box-shadow: inset 0 0 0 1px rgba(232,142,72,0.55); }
+  .ba-affix-mode-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  .ba-affix-sum-chip[data-kind="unique"] { color: #ffd2b0; background: rgba(232,142,72,0.16); box-shadow: inset 0 0 0 1px rgba(232,142,72,0.55); }
+  .ba-affix-sum-chip[data-kind="mutated"] { color: #ffd6d6; background: rgba(255,90,90,0.18); box-shadow: inset 0 0 0 1px rgba(255,107,107,0.55); }
+
+  .ba-uq { display: grid; grid-template-columns: minmax(0, 280px) minmax(0, 1fr); gap: 16px; padding-top: 10px; min-height: 360px; }
+  .ba-uq-list { position: sticky; top: 0; align-self: start; max-height: calc(100vh - 250px); overflow-y: auto; display: flex; flex-direction: column; gap: 2px; padding-right: 6px; }
+  .ba-uq-empty { color: #a39fbb; margin: 0; padding: 24px 6px; }
+  .ba-uq-item { display: flex; align-items: center; gap: 8px; width: 100%; text-align: left; cursor: pointer; margin: 0 !important; padding: 7px 10px !important;
+    border: 0 !important; border-radius: 9px !important; background: transparent !important; color: #e4e0f2 !important;
+    transition: background .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  @media (hover: hover) and (pointer: fine) { .ba-uq-item:hover { background: rgba(255,255,255,0.05) !important; } }
+  .ba-uq-item.is-on { background: rgba(232,142,72,0.14) !important; box-shadow: inset 0 0 0 1px rgba(232,142,72,0.45); }
+  .ba-uq-item:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  .ba-uq-item:active { transform: scale(0.98); }
+  @media (prefers-reduced-motion: reduce) { .ba-uq-item:active { transform: none; } }
+  .ba-uq-item-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .ba-uq-item-name { font: 700 13px/1.25 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #f0a870; word-break: keep-all; }
+  .ba-uq-item-base { font: 500 11.5px/1.2 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; }
+  .ba-uq-item.has-picks .ba-uq-item-name::after { content: " ●"; color: #a78bfa; font-size: 9px; vertical-align: 2px; }
+  .ba-uq-item-marks { display: inline-flex; align-items: center; gap: 5px; flex: none; }
+  .ba-uq-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff6b6b; box-shadow: 0 0 0 2px rgba(255,107,107,0.2); }
+  .ba-uq-corrupt { font: 600 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; font-style: normal; color: #f28aa0; padding: 2px 5px; border-radius: 5px; background: rgba(242,96,120,0.14); }
+
+  .ba-uq-detail { min-width: 0; padding-bottom: 8px; }
+  .ba-uq-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; }
+  .ba-uq-name { margin: 0; font: 800 18px/1.25 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #f0a870; letter-spacing: -.01em; }
+  .ba-uq-base { font-size: 12.5px; color: #a39fbb; }
+  .ba-uq-note { margin: 4px 0 10px; font-size: 12px; color: #77728f; }
+  .ba-uq-cols, .ba-uq-row { display: grid; grid-template-columns: 16px minmax(0, 1fr) 76px 76px 96px; align-items: center; gap: 8px; }
+  .ba-uq-cols { padding: 0 8px 4px; font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
+  .ba-uq-sec { margin-top: 8px; }
+  .ba-uq-sec-title { margin: 0 0 3px; padding: 0 8px; font: 700 11.5px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; letter-spacing: .02em; }
+  .ba-uq-sec[data-kind="m"] .ba-uq-sec-title { color: #ff8a8a; }
+  .ba-uq-row { min-height: 32px; padding: 3px 8px; border-radius: 9px; cursor: pointer; color: #b9c6ff; }
+  @media (hover: hover) and (pointer: fine) { .ba-uq-row:hover { background: rgba(255,255,255,0.05); } }
+  .ba-uq-row[data-kind="i"], .ba-uq-row[data-kind="mf"] { color: #c9c4dc; }
+  .ba-uq-row.is-mutated { color: #ff8a8a; background: linear-gradient(90deg, rgba(255,90,90,0.1), rgba(255,90,90,0) 80%); }
+  .ba-uq-row.is-on { background: linear-gradient(90deg, rgba(167,139,250,0.2), rgba(167,139,250,0.06)); box-shadow: inset 0 0 0 1px rgba(167,139,250,0.28); }
+  .ba-uq-row.is-mutated.is-on { background: linear-gradient(90deg, rgba(255,90,90,0.22), rgba(255,90,90,0.06)); box-shadow: inset 0 0 0 1px rgba(255,107,107,0.45); }
+  .ba-uq-row:not([data-state="ok"]) { cursor: default; opacity: .55; }
+  .ba-uq-row[data-state="random"] { opacity: .75; font-style: italic; }
+  .ba-uq-text { word-break: keep-all; line-height: 1.35; padding: 3px 0; }
+  .ba-uq-check { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; margin: 0; border-radius: 5px;
+    border: 1.5px solid rgba(255,255,255,0.28); background: transparent; display: grid; place-items: center; cursor: pointer; }
+  .ba-uq-check:checked { background: #a78bfa; border-color: #a78bfa; }
+  .ba-uq-row.is-mutated .ba-uq-check:checked { background: #ff6b6b; border-color: #ff6b6b; }
+  .ba-uq-check:checked::before { content: ""; width: 8px; height: 4px; border: 2px solid #150f2b; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+  .ba-uq-check:disabled { opacity: .35; cursor: default; }
+  .ba-uq-check:focus-visible { outline: 2px solid #a78bfa; outline-offset: 2px; }
+  .ba-uq-num { width: 100%; height: 26px; padding: 0 7px; border-radius: 7px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.3);
+    color: #fff; font: 600 12px/1 ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
+  .ba-uq-num::placeholder { color: #5f5a78; }
+  .ba-uq-num:focus { outline: none; border-color: rgba(167,139,250,0.6); box-shadow: 0 0 0 3px rgba(167,139,250,0.15); }
+  .ba-uq-num:disabled { opacity: .3; }
+  .ba-uq-roles { display: inline-flex; gap: 4px; justify-content: flex-end; }
+  .ba-uq-role { height: 22px; padding: 0 7px !important; margin: 0 !important; border-radius: 6px !important; cursor: pointer;
+    border: 1px solid rgba(255,255,255,0.12) !important; background: transparent !important; color: #8f89a8 !important;
+    font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+  @media (hover: hover) and (pointer: fine) { .ba-uq-role:not([disabled]):hover { color: #fff !important; border-color: rgba(255,255,255,0.35) !important; } }
+  .ba-uq-role[disabled] { visibility: hidden; }
+  .ba-uq-role[data-role="and"].is-on { color: #c7f5df !important; border-color: rgba(79,211,154,0.5) !important; background: rgba(79,211,154,0.16) !important; }
+  .ba-uq-role[data-role="or"].is-on { color: #d3f0ff !important; border-color: rgba(92,195,242,0.5) !important; background: rgba(92,195,242,0.16) !important; }
+  .ba-uq-role:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 1px; }
+  .ba-uq-mf-toggle { margin: 8px 0 0 8px !important; padding: 5px 10px !important; border-radius: 8px !important; cursor: pointer;
+    border: 1px dashed rgba(255,107,107,0.45) !important; background: transparent !important; color: #ffb3b3 !important;
+    font: 600 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; }
+  @media (hover: hover) and (pointer: fine) { .ba-uq-mf-toggle:hover { background: rgba(255,90,90,0.1) !important; } }
+  @media (max-width: 760px) {
+    .ba-uq { grid-template-columns: 1fr; }
+    .ba-uq-list { position: static; max-height: 220px; }
+    .ba-uq-cols, .ba-uq-row { grid-template-columns: 16px minmax(0, 1fr) 60px 60px; }
+    .ba-uq-roles, .ba-uq-cols > :last-child { display: none; }
+  }
   .ba-affix-add:focus-visible, .ba-affix-clear:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 2px; }
   @media (prefers-reduced-motion: reduce) { .ba-affix-add { transition: none; } .ba-affix-add:active { transform: none; } }`
   document.head.appendChild(st)
@@ -1252,6 +1336,19 @@ function ensureAffixTable() {
   return null
 }
 
+// 고유 아이템 속성 표(uniqueMods, 199KB) — 속성 목록 창을 처음 열 때만 받는다. 못 받아도 비고유 목록은 그대로 뜬다.
+let uniqueTable = null
+let uniqueTableLoading = null
+function ensureUniqueTable() {
+  if (uniqueTable) return uniqueTable
+  if (!uniqueTableLoading) {
+    uniqueTableLoading = import('../lib/uniqueMods.poe2.json')
+      .then((m) => { uniqueTable = m.default })
+      .catch((err) => { LOG('고유 속성 표 로드 실패', String(err)) })
+  }
+  return null
+}
+
 function renderAffixButtons() {
   if (game !== 'poe2') return
   pobEnsureStyle()
@@ -1259,8 +1356,8 @@ function renderAffixButtons() {
 }
 
 async function openAffixesFor(group, btn) {
-  ensureTierTable(); ensureAffixTable()
-  await Promise.all([tierTableLoading, affixTableLoading])
+  ensureTierTable(); ensureAffixTable(); ensureUniqueTable()
+  await Promise.all([tierTableLoading, affixTableLoading, uniqueTableLoading])
   if (!tierTable || !affixTable || !Object.keys(statMap).length) {
     panel.toast('속성 목록을 아직 불러오는 중이에요. 잠시 뒤 다시 눌러 주세요.')
     return
@@ -1289,6 +1386,18 @@ async function openAffixesFor(group, btn) {
       const res = await requestAddStatFilters(groupToken(group), picks, typeFilters, meta?.orMin)
       LOG('속성 목록 — 넣기', JSON.stringify({ added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], typed: res.typed ?? [], error: res.error ?? null }))
       panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role), typeFilters, orMin: meta?.orMin }, label))
+    },
+    // 고유 — 지금 검색이 고유 검색(희귀도 고유이거나 이름 지정)이면 고유 모드로 연다
+    uniques: uniqueTable,
+    startMode: rarityOfQuery(lastQuery) === 'unique' ? 'unique' : 'normal',
+    onAddUnique: async ({ unique, items }) => {
+      const picks = items.map(({ id, value, role }) => ({ id, value, role }))
+      // 유형은 그 고유의 유형으로, 희귀도는 「고유」로 **맞춘다**(비고유로 두면 결과가 비어 버린다).
+      const typeFilters = { ...typeFiltersFor(unique.c ? [unique.c] : [], itemClass), rarity: 'unique', forceRarity: true }
+      const misc = items.some((p) => p.mutated) ? { mutated: 'true' } : null
+      const res = await requestAddStatFilters(groupToken(group), picks, typeFilters, { or: 1 }, misc)
+      LOG('속성 목록(고유) — 넣기', JSON.stringify({ unique: unique.n, added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], typed: res.typed ?? [], misced: res.misced ?? [], error: res.error ?? null }))
+      panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role), typeFilters, orMin: { or: 1 }, misc }, label))
     },
   })
 }
@@ -1368,18 +1477,23 @@ function addResultMessage(res, label) {
     const name = filterMap.options?.category?.[res.typeFilters.category]
     changed.push(name ? `아이템 유형 「${name}」` : '아이템 유형')
   }
-  if (typed.includes('rarity')) changed.push('희귀도 「모든 비고유」')
+  if (typed.includes('rarity')) changed.push(res?.typeFilters?.rarity === 'unique' ? '희귀도 「고유」' : '희귀도 「모든 비고유」')
   if (changed.length) parts.push(`유형 필터도 맞췄어요 — ${changed.join(' · ')}.`)
+  // 바알 함양 줄을 골랐으면 기타 필터 「함양된 바알 고유: 예」 — 거래소 화면에서 그 필터를 못 찾았으면 직접 켜 달라고 한다
+  if (res?.misc?.mutated) {
+    const misced = Array.isArray(res?.misced) ? res.misced : []
+    parts.push(misced.includes('mutated') ? '기타 필터 「함양된 바알 고유: 예」도 켰어요.' : '기타 필터 「함양된 바알 고유」는 켜지 못했어요 — 기타 필터에서 「예」로 직접 골라 주세요.')
+  }
   return parts.join(' ') || '넣은 속성이 없어요.'
 }
 
 const pendingAdds = new Map()
-function requestAddStatFilters(token, items, typeFilters = null, orMin = null) {
+function requestAddStatFilters(token, items, typeFilters = null, orMin = null, misc = null) {
   return new Promise((resolve) => {
     const reqId = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
     const timer = setTimeout(() => { pendingAdds.delete(reqId); resolve({ error: 'timeout', added: [], skipped: [] }) }, 3000)
     pendingAdds.set(reqId, (r) => { clearTimeout(timer); resolve(r) })
-    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items, ...(typeFilters ? { typeFilters } : {}), ...(orMin ? { orMin } : {}) }, location.origin)
+    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items, ...(typeFilters ? { typeFilters } : {}), ...(orMin ? { orMin } : {}), ...(misc ? { misc } : {}) }, location.origin)
   })
 }
 

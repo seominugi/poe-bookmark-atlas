@@ -9,6 +9,7 @@ import { buildStatMap } from '../src/lib/statMap.js'
 import { openAffixPopover } from '../src/content/affix-picker.js'
 import affixes from '../src/lib/statAffixes.poe2.json'
 import table from '../src/lib/statTiers.poe2.json'
+import uniques from '../src/lib/uniqueMods.poe2.json'
 
 // 시트의 CSS 는 content-main.js 의 pobEnsureStyle 안에 있다 — 그 문자열을 그대로 꺼내 쓴다(복제하면 어긋난다).
 const css = contentMainSource.split('st.textContent = `')[1]?.split('\n  `')[0]
@@ -16,7 +17,10 @@ const style = document.createElement('style')
 style.textContent = css ?? ''
 document.head.appendChild(style)
 
-const cls = new URLSearchParams(location.search).get('class') || 'Amulet'
+const params = new URLSearchParams(location.search)
+const cls = params.get('class') || 'Amulet'
+// ?mode=unique 로 고유 모드로 연다
+const startMode = params.get('mode') === 'unique' ? 'unique' : 'normal'
 const log = document.getElementById('log')
 const stats = await fetch('/trade2-api/trade2/data/stats').then((r) => r.json())
 const statMap = buildStatMap(stats)
@@ -26,6 +30,8 @@ const btn = document.getElementById('open')
 const open = () => openAffixPopover({
   anchor: btn, title: '그룹 1 · 능력치 필터', subtitle: '아이템 레벨 상한 없음', list, currentClass: cls,
   onAdd: (picks, meta) => { log.textContent += '\n넣기: ' + JSON.stringify({ picks, meta }) },
+  uniques, startMode,
+  onAddUnique: ({ unique, items }) => { log.textContent += '\n넣기(고유): ' + JSON.stringify({ unique: unique.n, items }) },
 })
 btn.addEventListener('click', open)
 open()
