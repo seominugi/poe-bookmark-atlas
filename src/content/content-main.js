@@ -5,7 +5,9 @@ import { buildStatMap, buildStatIdIndex } from '../lib/statMap.js'
 import { buildFilterMap } from '../lib/filterMap.js'
 import { buildLeagueMap } from '../lib/leagueMap.js'
 import { enFetchPath, isSafeListingId, pickItem } from '../lib/enListing.js'
-import { nextDelay } from '../lib/tradeRate.js'
+import { nextDelay, retryAfterMs, waitSeconds } from '../lib/tradeRate.js'
+import { observeListings, uniqueSearchBody, validObserved } from '../lib/uniqueObserved.js'
+import { indexFromStatMap } from '../lib/modLineMatch.js'
 import { buildItemMap } from '../lib/itemMap.js'
 import { priceSnapshot } from '../lib/priceSnapshot.js'
 import { topIcon } from '../lib/topIcon.js'
@@ -946,6 +948,18 @@ function pobEnsureStyle() {
     border: 1px dashed rgba(255,107,107,0.45) !important; background: transparent !important; color: #ffb3b3 !important;
     font: 600 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; }
   @media (hover: hover) and (pointer: fine) { .ba-uq-mf-toggle:hover { background: rgba(255,90,90,0.1) !important; } }
+  /* 「매물에서 속성 더 찾기」 — 누를 때만 거래소에 묻는다. 결과 한 줄은 조용한 글자 */
+  .ba-uq-observe { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 10px; }
+  .ba-uq-observe-btn { height: 28px; padding: 0 12px !important; margin: 0 !important; border-radius: 8px !important; cursor: pointer;
+    border: 1px solid rgba(232,142,72,0.5) !important; background: rgba(232,142,72,0.1) !important; color: #ffd2b0 !important;
+    font: 600 12px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; transition: background .15s ease, transform .16s cubic-bezier(0.23, 1, 0.32, 1); }
+  @media (hover: hover) and (pointer: fine) { .ba-uq-observe-btn:not([disabled]):hover { background: rgba(232,142,72,0.2) !important; } }
+  .ba-uq-observe-btn:active { transform: scale(0.97); }
+  .ba-uq-observe-btn[disabled] { opacity: .6; cursor: default; transform: none; }
+  .ba-uq-observe-btn:focus-visible { outline: 2px solid #a78bfa; outline-offset: 1px; }
+  @media (prefers-reduced-motion: reduce) { .ba-uq-observe-btn:active { transform: none; } }
+  .ba-uq-observe-msg { font-size: 12px; color: #a39fbb; }
+  .ba-uq-sec[data-kind="o"] .ba-uq-sec-title { color: #f0a870; }
   @media (max-width: 760px) {
     .ba-uq { grid-template-columns: 1fr; }
     .ba-uq-list { position: static; max-height: 220px; }
@@ -1349,6 +1363,76 @@ function ensureUniqueTable() {
   return null
 }
 
+// ── 고유 「매물에서 속성 더 찾기」 — 누를 때만 거래소에 묻는다(검색 1 + 가져오기 1). 결과는 리그별로 7일 둔다. ──
+// 같은 창구에서 연타해도 계정 규칙(6요청/4초)을 넘지 않게 간격을 두고, 429 면 막힌 시간을 알린다(찜 확인과 같은 규칙).
+const UNIQUE_OBS_KEY = 'uniqueObserved'
+const UNIQUE_OBS_TTL = 7 * 24 * 3600 * 1000
+const UNIQUE_OBS_MAX = 40 // 오래된 것부터 버린다
+const UNIQUE_OBS_SAMPLE = 10 // 한 번에 가져오는 매물 수(거래소 /fetch 한 번의 한도)
+const LISTING_ID = /^[A-Za-z0-9]{8,80}$/
+// 검색 id — 카카오 거래소는 조건을 gzip 한 긴 문자열(실측 202자, 2026-09-23)을 준다. 주소에 이어 붙이지 않고
+// `?query=` 값으로만(인코딩해) 쓰므로 isSafeSearchId(경로용, 64자)보다 넓게 받는다.
+const QUERY_ID = /^[A-Za-z0-9_-]{1,512}$/
+const obsGate = { lastAt: 0, lastSearchAt: 0, blockedUntil: 0, busy: false }
+// 검색 API 는 가져오기(/fetch)보다 규칙이 엄격하다 — 다른 고유를 연달아 눌러도 검색 사이를 넉넉히 띄운다(독립 검토 2026-09-23)
+const UNIQUE_OBS_SEARCH_GAP = 4000
+async function observeUnique(entry, { fresh = false } = {}) {
+  const league = leagueFromUrl()
+  const key = `${league}|${entry.n}|${entry.b}`
+  let store = {}
+  try {
+    const raw = (await chrome.storage.local.get(UNIQUE_OBS_KEY))[UNIQUE_OBS_KEY]
+    if (raw && typeof raw === 'object' && !Array.isArray(raw)) store = raw
+  } catch (_) {}
+  const hit = store[key]
+  const cached = hit && Number.isFinite(hit.at) ? validObserved(hit.data) : null
+  if (!fresh && cached && Date.now() - hit.at < UNIQUE_OBS_TTL) return { status: 'ok', data: cached, at: hit.at }
+  // 한 번에 하나만 — 연달아 누른 요청이 창구를 겹쳐 쓰지 않게(저장소를 읽고 쓰는 사이 결과가 덮이는 일도 막는다)
+  if (obsGate.busy) return { status: 'busy' }
+  const now = Date.now()
+  const gate = nextDelay(Math.max(obsGate.lastAt, obsGate.lastSearchAt + UNIQUE_OBS_SEARCH_GAP - 700), now, obsGate.blockedUntil)
+  if (gate.blocked) return { status: 'rate', wait: waitSeconds(gate.wait) }
+  obsGate.busy = true
+  try { return await observeFromTrade(entry, league, key, store, gate.wait) } finally { obsGate.busy = false }
+}
+
+async function observeFromTrade(entry, league, key, store, firstWait) {
+  if (firstWait) await new Promise((r) => setTimeout(r, firstWait))
+  const request = async (url, init) => {
+    obsGate.lastAt = Date.now()
+    const res = await fetch(url, init)
+    if (res.status === 429) { obsGate.blockedUntil = Date.now() + retryAfterMs(res.headers); throw Object.assign(new Error('rate'), { rate: true }) }
+    if (!res.ok) throw new Error('http ' + res.status)
+    return res.json()
+  }
+  try {
+    obsGate.lastSearchAt = Date.now()
+    const found = await request(searchApiPath(game, league), {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(uniqueSearchBody(entry)),
+    })
+    const ids = (Array.isArray(found?.result) ? found.result : []).filter((x) => LISTING_ID.test(String(x))).slice(0, UNIQUE_OBS_SAMPLE)
+    if (typeof found?.id !== 'string' || !QUERY_ID.test(found.id)) { LOG('고유 매물 보충 — 검색 id 이상'); return { status: 'error' } }
+    if (!ids.length) return { status: 'empty' }
+    const gap = nextDelay(obsGate.lastAt, Date.now(), obsGate.blockedUntil)
+    if (gap.blocked) return { status: 'rate', wait: waitSeconds(gap.wait) }
+    await new Promise((r) => setTimeout(r, gap.wait))
+    const got = await request(`/api/trade2/fetch/${ids.join(',')}?query=${encodeURIComponent(found.id)}`)
+    const pool = entry.c && affixTable?.[entry.c] ? new Set([...(affixTable[entry.c].p ?? []), ...(affixTable[entry.c].s ?? [])]) : null
+    const index = indexFromStatMap(statMap, entry.c === 'Relic' ? 'sanctum' : 'explicit') // 유물 속성은 「성역」 그룹
+    const data = observeListings(got?.result, entry, { index, pool, statMap })
+    const at = Date.now()
+    store[key] = { at, data }
+    const keep = Object.entries(store).filter(([, v]) => v && Number.isFinite(v.at)).sort((a, b) => b[1].at - a[1].at).slice(0, UNIQUE_OBS_MAX)
+    try { await chrome.storage.local.set({ [UNIQUE_OBS_KEY]: Object.fromEntries(keep) }) } catch (_) { /* 저장 실패는 다음에 다시 묻는다 */ }
+    LOG('고유 매물 보충', JSON.stringify({ unique: entry.n, listings: data.count, lines: data.lines.length, resolved: Object.keys(data.resolved).length }))
+    return { status: 'ok', data, at }
+  } catch (err) {
+    if (err?.rate) return { status: 'rate', wait: waitSeconds(obsGate.blockedUntil - Date.now()) }
+    LOG('고유 매물 보충 실패', String(err))
+    return { status: 'error' }
+  }
+}
+
 function renderAffixButtons() {
   if (game !== 'poe2') return
   pobEnsureStyle()
@@ -1390,6 +1474,7 @@ async function openAffixesFor(group, btn) {
     // 고유 — 지금 검색이 고유 검색(희귀도 고유이거나 이름 지정)이면 고유 모드로 연다
     uniques: uniqueTable,
     startMode: rarityOfQuery(lastQuery) === 'unique' ? 'unique' : 'normal',
+    observeUnique,
     onAddUnique: async ({ unique, items }) => {
       const picks = items.map(({ id, value, role }) => ({ id, value, role }))
       // 유형은 그 고유의 유형으로, 희귀도는 「고유」로 **맞춘다**(비고유로 두면 결과가 비어 버린다).
