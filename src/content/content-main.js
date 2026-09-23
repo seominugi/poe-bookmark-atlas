@@ -814,6 +814,11 @@ function pobEnsureStyle() {
   .ba-affix-twin { flex: none; white-space: nowrap; padding: 2px 7px; border-radius: 999px; border: 1px dashed rgba(201,196,220,0.32); color: #9d98b3; cursor: help;
     font: 600 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; white-space: nowrap; }
   .ba-affix-row.is-linked .ba-affix-twin { border-style: solid; border-color: rgba(92,195,242,0.5); color: #c9efff; }
+  /* 하이브리드 — 조건 둘이 한 속성. 종류 묶음 안에서 단일 속성과 나란히 서고, 이름 끝의 조용한 칩으로만 구분한다 */
+  .ba-affix-hybrid { display: inline-block; vertical-align: 1px; padding: 1px 6px; border-radius: 999px; cursor: help; white-space: nowrap;
+    background: rgba(243,207,139,0.12); box-shadow: inset 0 0 0 1px rgba(243,207,139,0.4); color: #f3cf8b;
+    font: 700 10px/1.3 system-ui, -apple-system, "Malgun Gothic", sans-serif; }
+  .ba-affix-role.is-void { visibility: hidden !important; }
   .ba-affix-src.is-corrupted { color: #f28aa0; }
   .ba-affix-have { font: 600 10.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #77728f; }
   /* 필수·OR·티어는 조용히 숨었다가 호버·포커스·선택 때만 나타난다 — 목록이 표처럼 빽빽해 보이지 않게. */
