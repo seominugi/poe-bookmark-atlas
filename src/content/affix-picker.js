@@ -6,7 +6,7 @@
 // 디자인: 글래스 시안 1번(가운데 시트) + 트리거는 티어 칩 모양(사용자 결정 2026-09-15).
 // 실제로 넣는 일은 MAIN world 의 stat-adder.js 가 한다. 이 파일은 DOM 과 사용자 선택만 다룬다.
 
-import { filterAffixes, affixFilterValue, allAffixItems, SPECIAL_POOLS } from '../lib/affixList.js'
+import { filterAffixes, affixPicksOf, uniquePicks, allAffixItems, SPECIAL_POOLS } from '../lib/affixList.js'
 import { groupByCategory } from '../lib/affixCategory.js'
 import { bindPageTip, hidePageTip } from './page-tip.js'
 import { buildTypeDoll } from './affix-type-doll.js'
@@ -597,7 +597,8 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       b.setAttribute('aria-pressed', String(on))
     })
   }
-  const defaultPick = (item) => ({ index: item.single && item.choices.length ? 0 : -1, role: DEFAULT_ROLE })
+  // 하이브리드는 필수로만 — 「개수」 그룹에 넣으면 한 모드가 조건 둘로 두 번 세어진다(affixPicksOf)
+  const defaultPick = (item) => ({ index: item.single && item.choices.length ? 0 : -1, role: item.hybrid ? 'and' : DEFAULT_ROLE })
   /** 줄이 속한 띠 이름 — 「같은 조건」 안내에 쓴다. */
   const poolLabel = (item) => {
     if (!item.pool || item.pool === 'normal') return '기본'
@@ -608,7 +609,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
 
   // ── OR 일괄 — OR 은 수십 개를 하나씩 누르기 번거롭다(사용자 요청 2026-09-16). 필수는 많아야 6개라 행마다 고른다. ──
   // 대상은 지금 보이는(검색에 걸린) 행 중 이미 그룹에 있는 것을 뺀 것이다.
-  const bulkTargets = (list) => list.filter((r) => !r.item.have && !r.row.hidden)
+  const bulkTargets = (list) => list.filter((r) => !r.item.have && !r.row.hidden && !r.item.hybrid)
   const bulkIsOn = (list) => {
     const targets = bulkTargets(list)
     return targets.length > 0 && targets.every((r) => selected.get(keyOf(r.item))?.role === 'or')
@@ -930,7 +931,8 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     // 고른 순서가 아니라 목록 순서(접두 → 접미 → 타락)로 넣는다 — 체크한 순서는 사용자도 기억하지 못한다.
     // 다른 유형에서 고른 것이 섞이면 유형을 처음 고른 차례대로, 그 안에서는 목록 순서다.
     const chosen = [...selected.values()].sort((a, b) => a.batch - b.batch || a.pos - b.pos)
-    const picks = chosen.map((p) => ({ id: p.item.id, value: affixFilterValue(p.item, p.index), role: orGroupOf(p) }))
+    // 하이브리드는 조건 둘로 펼쳐진다(각 문장의 티어 값)
+    const picks = uniquePicks(chosen.flatMap((p) => affixPicksOf(p.item, p.index, orGroupOf(p))))
     // 서판 남은 사용 횟수 — 서판 종류와 상관없이 걸리는 유사 조건 하나(필수)
     if (usesOn()) picks.push({ id: TABLET_USES_ID, value: { min: tabletUses }, role: 'and' })
     const orMin = {}
@@ -1002,6 +1004,14 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
   box.type = 'checkbox'
   box.disabled = item.have
   const name = el(doc, 'span', 'ba-affix-name', item.text)
+  if (item.hybrid) {
+    // 조건 둘이 한 속성으로 붙는다는 표시 — 같은 종류 묶음 안에서 단일 속성 줄과 나란히 선다
+    row.classList.add('is-hybrid')
+    const tag = el(doc, 'span', 'ba-affix-hybrid', '하이브리드')
+    tag.dataset.tip = '한 속성에 조건 둘이 함께 붙어요\n넣으면 두 조건을 고른 티어 값으로 함께 넣어요(필수)'
+    bindPageTip(tag, { placement: 'below' })
+    name.append(' ', tag)
+  }
   // 툴팁은 전부 우리 것(page-tip.js) — 네이티브 title 을 쓰지 않는다(사용자 결정 2026-09-16)
   name.dataset.tip = item.open ? `${item.text}
 레벨은 거래소 칸에 직접 넣어요` : item.single ? `${item.text}\n값 범위 하나` : `${item.text}\n티어 ${item.tiers}개 · 최고 티어 필요 아이템 레벨 ${item.topLevel}`
@@ -1043,6 +1053,8 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
       b.type = 'button'
       b.dataset.role = role.key
       b.dataset.tip = role.tip
+      // 하이브리드는 필수로만 넣는다 — 후보 단추는 자리만 지키고 숨긴다(줄마다 칸이 같은 세로선에 서게)
+      if (item.hybrid && role.key !== 'and') { b.disabled = true; b.classList.add('is-void'); b.setAttribute('aria-hidden', 'true'); b.tabIndex = -1 }
       bindPageTip(b, { placement: 'below' })
       b.setAttribute('aria-pressed', 'false')
       b.addEventListener('click', (e) => {
@@ -1064,9 +1076,11 @@ function buildRow(doc, item, { setRow, defaultPick, selected, showSource, twins 
         const pill = el(doc, 'button', 'ba-affix-pill', byRange ? c.range.replace(/ 평균$/, '') : `T${c.t}`)
         pill.type = 'button'
         pill.setAttribute('aria-pressed', 'false')
-        pill.dataset.tip = item.single
-          ? `최소 ${c.min} · 최대 ${c.max} 를 함께 넣어요`
-          : `${c.range} → ${item.fill === 'max' ? '최대' : '최소'} ${c[item.fill]} · 아이템 레벨 ${c.l} 이상`
+        pill.dataset.tip = item.hybrid
+          ? `${c.range}\n두 조건에 이 티어 값을 함께 넣어요 · 아이템 레벨 ${c.l} 이상`
+          : item.single
+            ? `최소 ${c.min} · 최대 ${c.max} 를 함께 넣어요`
+            : `${c.range} → ${item.fill === 'max' ? '최대' : '최소'} ${c[item.fill]} · 아이템 레벨 ${c.l} 이상`
         bindPageTip(pill, { placement: 'below' })
         pill.addEventListener('click', (e) => {
           e.preventDefault()

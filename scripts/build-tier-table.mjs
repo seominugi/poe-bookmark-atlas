@@ -252,7 +252,7 @@ async function main() {
   const affixes = {}
   const specialCounts = {}
   const unnamedBuckets = new Set()
-  let total = 0, matched = 0, unscaled = 0, conflicts = 0, skippedValueless = 0
+  let total = 0, matched = 0, unscaled = 0, conflicts = 0, skippedValueless = 0, hybridCount = 0
   const ambiguous = []
   const twinRulesPath = join(here, `trade-twins.${game}.json`)
   const twinRules = existsSync(twinRulesPath) ? JSON.parse(readFileSync(twinRulesPath, 'utf8')).rules ?? [] : []
@@ -315,6 +315,21 @@ async function main() {
         }
       })
     }
+    // 하이브리드 — 한 모드가 두 문장(조건 둘)을 갖는 계열. 위에서는 문장마다 단일 속성 사다리에 흡수되어 목록에서 사라졌다
+    // (26개 부위 · 101계열, 2026-09-23). 속성 목록에는 **계열 그대로** 싣고, 화면은 같은 접두·접미 열·종류 묶음에 섞어 보인다.
+    // 티어 표(statTiers)에는 싣지 않는다 — 거래소 행은 조건 하나씩이라 티어 칩은 문장별 사다리로 충분하다.
+    // 문장마다 거래소 조건이 **하나로만** 이어진 계열만 — 후보가 둘인 문장이 끼면 어느 조건인지 모른다.
+    const hybrids = []
+    for (const { cands, rows, affix, statNames } of families.values()) {
+      if (cands.length < 2 || !cands.every((ids) => ids.length === 1) || hasValueConflict(rows)) continue
+      const ids = cands.map((c) => c[0])
+      if (new Set(ids).size !== ids.length) continue
+      const sorted = [...rows].sort((a, b) => b.ilvl - a.ilvl)
+      // 값 칸이 없는 조건(「즉시 회복」 류)은 문장 값을 비운다 — 거래소에 넣을 칸이 없다(단일 사다리의 valueless 와 같은 규칙)
+      const valued = ids.map((id) => !classTrade.valueless.has(id))
+      hybrids.push({ k: affix === 'suffix' ? 's' : 'p', ids, c: affixCategoryOf(statNames[0], cls), r: sorted.map((row) => ({ l: row.ilvl, v: row.byLine.map((slots, i) => (valued[i] ? slots : [])) })) })
+    }
+    hybridCount += hybrids.length
     const special = {}
     const poolMods = { n: modIdsById } // 풀 키 → 능력치 id → 모드 id 목록 (basesOf 가 쓴다)
     for (const src of SPECIAL_SOURCES) {
@@ -356,6 +371,7 @@ async function main() {
       const bases = basesOf(data, poolMods)
       const entry = {
         ...affixListsOf(Object.keys(byStat), affixById), c: categoryById, ...special,
+        ...(hybrids.length ? { h: hybrids } : {}),
         ...(mechanics.length ? { m: mechanics } : {}),
         ...(bases.length ? { b: bases } : {}),
       }
@@ -378,6 +394,7 @@ async function main() {
   console.log(`  값 충돌로 버린 계열       : ${conflicts}`)
   console.log(`  후보 모호로 버린 모드     : ${ambiguous.length}`)
   console.log(`  값 칸이 없어 표에서 뺀 것 : ${skippedValueless}`)
+  console.log(`  하이브리드 계열(속성 목록) : ${hybridCount}`)
   for (const [bucket, n] of Object.entries(specialCounts)) {
     console.log(`  ${bucket} 속성 : 모드 ${n.total} → 부위별 능력치 ${n.matched}`)
   }
