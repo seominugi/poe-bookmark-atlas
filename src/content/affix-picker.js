@@ -138,6 +138,11 @@ export function affixLimitOf(cls) {
   return 3
 }
 const SOURCE_LABEL = { prefix: '접두', suffix: '접미', corrupted: '타락' }
+// 서판 — 남은 사용 횟수는 거래소 「유사」 조건 하나로 종류와 상관없이 걸린다(「사용 횟수 #회 남음(서판)」, 2026-09-23 목록 확인).
+// 서판 8종 모두 새것은 10회(게임 데이터 implicits 「잔여 사용 횟수 10회」).
+const TABLET_CLASS = 'TowerAugmentation'
+const TABLET_USES_ID = 'pseudo.pseudo_number_of_uses_remaining'
+const TABLET_USES_MAX = 10
 // 접히는 공급원 띠 — 에센스·훼손된·합금. 일반 속성보다 드물게 찾으므로 접은 채 시작한다.
 const BAND_POOLS = SPECIAL_POOLS.filter((p) => p.sided)
 /** 목록 안에서 유일한 표식 — affixListFor 가 붙인 key, 없으면 출처와 id 로 만든다. */
@@ -293,6 +298,41 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   let bands = [] // 공급원 띠 {el, rows, setOpen, startOpen}
   let bulks = [] // 「OR 전체」 단추 {btn, rowsOf}
   let tab = 'all'
+  // 서판 남은 사용 횟수 최소(0 = 넣지 않음) — 서판 8종 모두 새것은 10회. 서판 유형을 보고 있을 때만 들어간다.
+  let tabletUses = 0
+  const usesOn = () => current.cls === TABLET_CLASS && tabletUses > 0
+  /** 서판 목록 맨 위 — 「남은 사용 횟수 최소 N회」. 값만 바꾸고 요소는 다시 만들지 않는다(포커스가 빠지지 않게). */
+  function usesRow() {
+    const row = el(doc, 'div', 'ba-affix-uses')
+    row.append(el(doc, 'span', 'ba-affix-uses-name', '남은 사용 횟수'), el(doc, 'span', 'ba-affix-uses-min', '최소'))
+    const val = el(doc, 'b', 'ba-affix-ormin-val')
+    val.setAttribute('aria-live', 'polite')
+    const note = el(doc, 'span', 'ba-affix-uses-note')
+    const step = (d, text, label) => {
+      const b = el(doc, 'button', 'ba-affix-ormin-step', text)
+      b.type = 'button'
+      b.setAttribute('aria-label', `남은 사용 횟수 최소 ${label}`)
+      b.addEventListener('click', (ev) => {
+        ev.preventDefault()
+        tabletUses = Math.min(Math.max(0, tabletUses + d), TABLET_USES_MAX)
+        paint()
+        refresh()
+      })
+      return b
+    }
+    const dec = step(-1, '−', '줄이기')
+    const inc = step(1, '+', '늘리기')
+    const paint = () => {
+      val.textContent = String(tabletUses)
+      dec.disabled = tabletUses <= 0
+      inc.disabled = tabletUses >= TABLET_USES_MAX
+      row.classList.toggle('is-on', tabletUses > 0)
+      note.textContent = tabletUses > 0 ? `회 이상인 서판만 찾아요` : `회 · 0 이면 넣지 않아요 (새 서판은 ${TABLET_USES_MAX}회)`
+    }
+    row.append(dec, val, inc, note)
+    paint()
+    return row
+  }
   let current = { cls: currentClass, base: null, list }
   {
     // 이미 유형이 정해진 채 열었으면 그 유형에서 마지막에 고른 베이스로 시작한다
@@ -408,8 +448,9 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   const refresh = () => {
     if (mode === 'unique') { refreshUnique(); return }
     const picks = [...selected.values()]
-    const n = picks.length
+    const n = picks.length + (usesOn() ? 1 : 0)
     const parts = [] // { kind, text } — 칩 하나씩
+    if (usesOn()) parts.push({ kind: 'value', text: `남은 횟수 ${tabletUses}+`, tip: `남은 사용 횟수가 ${tabletUses}회 이상인 서판을 찾아요` })
     const valued = picks.filter((p) => p.index >= 0).length
     const must = picks.filter((p) => p.role === 'and').length
     if (valued) parts.push({ kind: 'value', text: `값 ${valued}`, tip: `${valued}개는 고른 티어 값까지 채워 넣어요\n나머지는 값 칸을 비워 둬요` })
@@ -672,6 +713,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
         : '아이템 유형을 먼저 고르면, 그 유형에 붙는 속성을 보여 드려요.'))
       return
     }
+    if (current.cls === TABLET_CLASS) body.appendChild(usesRow())
     if (!counts[tab]) {
       body.appendChild(el(doc, 'div', 'ba-affix-none', '이 유형에는 없어요'))
       return
@@ -884,15 +926,17 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
       try { await onAddUnique(sel) } finally { close() }
       return
     }
-    if (!selected.size) return
+    if (!selected.size && !usesOn()) return
     // 고른 순서가 아니라 목록 순서(접두 → 접미 → 타락)로 넣는다 — 체크한 순서는 사용자도 기억하지 못한다.
     // 다른 유형에서 고른 것이 섞이면 유형을 처음 고른 차례대로, 그 안에서는 목록 순서다.
     const chosen = [...selected.values()].sort((a, b) => a.batch - b.batch || a.pos - b.pos)
     const picks = chosen.map((p) => ({ id: p.item.id, value: affixFilterValue(p.item, p.index), role: orGroupOf(p) }))
+    // 서판 남은 사용 횟수 — 서판 종류와 상관없이 걸리는 유사 조건 하나(필수)
+    if (usesOn()) picks.push({ id: TABLET_USES_ID, value: { min: tabletUses }, role: 'and' })
     const orMin = {}
     for (const [g, e] of orGroups()) orMin[g] = orMinOf(g, e.max)
     // 고른 속성이 온 유형들 — 하나뿐이면 부르는 쪽이 거래소 아이템 유형을 그 유형으로 맞출 수 있다
-    const classesPicked = [...new Set(chosen.map((p) => p.cls))]
+    const classesPicked = [...new Set([...chosen.map((p) => p.cls), ...(usesOn() ? [TABLET_CLASS] : [])])]
     addBtn.disabled = true
     addBtn.textContent = '넣는 중…'
     try { await onAdd(picks, { classes: classesPicked, orMin }) } finally { close() }
