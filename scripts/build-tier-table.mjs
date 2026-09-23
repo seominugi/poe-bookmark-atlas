@@ -199,7 +199,7 @@ export function hasValueConflict(rows) {
   return false
 }
 
-async function loadStats(game, statsPath) {
+export async function loadStats(game, statsPath) {
   if (statsPath) return JSON.parse(readFileSync(statsPath, 'utf8'))
   const cacheDir = join(here, '.cache')
   const cache = join(cacheDir, `${game}-stats.json`)
