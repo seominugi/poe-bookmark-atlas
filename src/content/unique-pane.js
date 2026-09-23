@@ -15,6 +15,7 @@ const STATE_TIP = {
   const: '모든 매물에 같은 값으로 붙어 있어 걸러도 결과가 같아요',
   alt: '문구가 같은 거래소 조건이 둘이라 아직 어느 쪽인지 몰라요\n매물에서 확인한 뒤 고를 수 있게 할 예정이에요',
   random: '아이템마다 다른 속성이 무작위로 붙어요\n매물에서 찾기로 채울 예정이에요',
+  option: '값 대신 옵션을 고르는 조건이라 아직 넣을 수 없어요\n거래소 능력치 필터에서 직접 골라 주세요',
   none: '거래소에서 이 문구의 조건을 찾지 못했어요',
 }
 const ROLE_TIP = {
@@ -73,7 +74,11 @@ export function createUniquePane(doc, { table, onChange }) {
       text.append(el(doc, 'b', 'ba-uq-item-name', e.n), el(doc, 'small', 'ba-uq-item-base', e.b))
       b.appendChild(text)
       const marks = el(doc, 'span', 'ba-uq-item-marks')
-      if (e.m?.length) marks.appendChild(el(doc, 'i', 'ba-uq-dot', null)).setAttribute('aria-label', '바알 함양 속성 있음')
+      if (e.m?.length) {
+        const dot = marks.appendChild(el(doc, 'i', 'ba-uq-dot', null))
+        dot.setAttribute('role', 'img')
+        dot.setAttribute('aria-label', '바알 함양 속성 있음')
+      }
       if (e.x) marks.appendChild(el(doc, 'i', 'ba-uq-corrupt', '타락'))
       b.appendChild(marks)
       b.addEventListener('click', () => { active = e; showMf = false; renderList(); renderDetail() })
@@ -133,6 +138,7 @@ export function createUniquePane(doc, { table, onChange }) {
     box.type = 'checkbox'
     box.checked = !!mine
     box.disabled = state !== 'ok'
+    box.setAttribute('aria-label', line.t.replace(/\n/g, ' '))
     const text = el(doc, 'span', 'ba-uq-text', line.t.replace(/\n/g, ' / '))
     if (state !== 'ok') { text.dataset.tip = STATE_TIP[state]; bindPageTip(text, { placement: 'below' }) }
     const range = state === 'ok' ? lineRange(line) : null
@@ -191,8 +197,12 @@ export function createUniquePane(doc, { table, onChange }) {
       }
     }
     box.addEventListener('change', () => {
-      if (box.checked) ensure(e, key, kind, line)
-      else { picked.delete(key); if (!picked.size) pickedUnique = null }
+      if (box.checked) {
+        // 칸에 남아 있는 값을 그대로 쓴다 — 체크를 풀었다 다시 켜면 보이는 값과 넣는 값이 달랐다(독립 검토 2026-09-23)
+        const cur = ensure(e, key, kind, line)
+        cur.min = min.value
+        cur.max = max.value
+      } else { picked.delete(key); if (!picked.size) pickedUnique = null }
       r.classList.toggle('is-on', box.checked)
       paintRoles()
       renderListMarks()
@@ -230,9 +240,16 @@ export function createUniquePane(doc, { table, onChange }) {
     const e = (table?.u ?? []).find((x) => uniqueKey(x) === pickedUnique)
     if (!e || !picked.size) return null
     const order = ['i', 'f', 'm', 'mf']
-    const items = [...picked.entries()]
-      .sort(([a], [b]) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]) || Number(a.split('|')[1]) - Number(b.split('|')[1]))
-      .map(([, p]) => ({ id: p.line.id, value: cleanLineValue(p), role: p.role, mutated: p.kind === 'm' }))
+    const seen = new Set()
+    const items = []
+    for (const [, p] of [...picked.entries()]
+      .sort(([a], [b]) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]) || Number(a.split('|')[1]) - Number(b.split('|')[1]))) {
+      // 고정 속성과 함양판 고정 속성은 같은 조건일 수 있다 — 한 번만 넣는다(먼저 온 줄의 값·역할)
+      if (seen.has(p.line.id)) continue
+      seen.add(p.line.id)
+      // 함양판 고정 속성을 골랐다면 함양된 매물을 찾는 것이다 — 함양 필터도 켠다
+      items.push({ id: p.line.id, value: cleanLineValue(p), role: p.role, mutated: p.kind === 'm' || p.kind === 'mf' })
+    }
     return { unique: e, items }
   }
 

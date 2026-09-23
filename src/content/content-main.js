@@ -1344,7 +1344,7 @@ function ensureUniqueTable() {
   if (!uniqueTableLoading) {
     uniqueTableLoading = import('../lib/uniqueMods.poe2.json')
       .then((m) => { uniqueTable = m.default })
-      .catch((err) => { LOG('고유 속성 표 로드 실패', String(err)) })
+      .catch((err) => { uniqueTableLoading = null; LOG('고유 속성 표 로드 실패', String(err)) }) // 다음에 창을 열 때 다시 받는다
   }
   return null
 }
@@ -1393,11 +1393,13 @@ async function openAffixesFor(group, btn) {
     onAddUnique: async ({ unique, items }) => {
       const picks = items.map(({ id, value, role }) => ({ id, value, role }))
       // 유형은 그 고유의 유형으로, 희귀도는 「고유」로 **맞춘다**(비고유로 두면 결과가 비어 버린다).
-      const typeFilters = { ...typeFiltersFor(unique.c ? [unique.c] : [], itemClass), rarity: 'unique', forceRarity: true }
+      // 유형은 창을 연 때의 유형과 비교하지 않고 늘 보낸다 — 거래소가 이미 같으면 바꾸지 않는다(stat-adder)
+      const typeFilters = { ...typeFiltersFor(unique.c ? [unique.c] : [], null), rarity: 'unique', forceRarity: true }
       const misc = items.some((p) => p.mutated) ? { mutated: 'true' } : null
-      const res = await requestAddStatFilters(groupToken(group), picks, typeFilters, { or: 1 }, misc)
-      LOG('속성 목록(고유) — 넣기', JSON.stringify({ unique: unique.n, added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], typed: res.typed ?? [], misced: res.misced ?? [], error: res.error ?? null }))
-      panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role), typeFilters, orMin: { or: 1 }, misc }, label))
+      const item = { name: unique.n, type: unique.b } // 아이템 검색칸 — 거래소 검색칸 선택지에 똑같은 것이 있을 때만 들어간다
+      const res = await requestAddStatFilters(groupToken(group), picks, typeFilters, { or: 1 }, { misc, item })
+      LOG('속성 목록(고유) — 넣기', JSON.stringify({ unique: unique.n, named: !!res.named, added: res.added?.length ?? 0, valued: res.valued?.length ?? 0, skipped: res.skipped ?? [], typed: res.typed ?? [], misced: res.misced ?? [], error: res.error ?? null }))
+      panel.toast(addResultMessage({ ...res, roles: picks.map((p) => p.role), typeFilters, orMin: { or: 1 }, misc, item }, label))
     },
   })
 }
@@ -1479,6 +1481,10 @@ function addResultMessage(res, label) {
   }
   if (typed.includes('rarity')) changed.push(res?.typeFilters?.rarity === 'unique' ? '희귀도 「고유」' : '희귀도 「모든 비고유」')
   if (changed.length) parts.push(`유형 필터도 맞췄어요 — ${changed.join(' · ')}.`)
+  // 고유 모드 — 아이템 검색칸. 거래소 검색칸 선택지에 없으면(새 고유·이름이 바뀐 고유) 직접 골라 달라고 한다
+  if (res?.item?.name) {
+    parts.push(res.named ? `아이템 검색칸도 맞췄어요 — 「${res.item.name}」.` : `아이템 검색칸에서 「${res.item.name}」 선택지를 찾지 못했어요 — 직접 골라 주세요.`)
+  }
   // 바알 함양 줄을 골랐으면 기타 필터 「함양된 바알 고유: 예」 — 거래소 화면에서 그 필터를 못 찾았으면 직접 켜 달라고 한다
   if (res?.misc?.mutated) {
     const misced = Array.isArray(res?.misced) ? res.misced : []
@@ -1488,12 +1494,14 @@ function addResultMessage(res, label) {
 }
 
 const pendingAdds = new Map()
-function requestAddStatFilters(token, items, typeFilters = null, orMin = null, misc = null) {
+/** @param {{misc?:object|null, item?:{name:string,type:string}|null}} [extra] 고유 모드 — 기타 필터 · 아이템 검색칸 */
+function requestAddStatFilters(token, items, typeFilters = null, orMin = null, { misc = null, item = null } = {}) {
   return new Promise((resolve) => {
     const reqId = 'a' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
-    const timer = setTimeout(() => { pendingAdds.delete(reqId); resolve({ error: 'timeout', added: [], skipped: [] }) }, 3000)
+    // 필수·후보 그룹을 새로 만들면 그룹마다 최대 1초를 기다린다(stat-adder createGroup) — 넉넉히 둔다
+    const timer = setTimeout(() => { pendingAdds.delete(reqId); resolve({ error: 'timeout', added: [], skipped: [] }) }, 6000)
     pendingAdds.set(reqId, (r) => { clearTimeout(timer); resolve(r) })
-    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items, ...(typeFilters ? { typeFilters } : {}), ...(orMin ? { orMin } : {}), ...(misc ? { misc } : {}) }, location.origin)
+    window.postMessage({ __baSource: 'ba-content', kind: 'add-stat-filters', reqId, token, items, ...(typeFilters ? { typeFilters } : {}), ...(orMin ? { orMin } : {}), ...(misc ? { misc } : {}), ...(item ? { item } : {}) }, location.origin)
   })
 }
 

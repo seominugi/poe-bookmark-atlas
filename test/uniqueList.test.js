@@ -13,6 +13,10 @@ describe('lineState — 고를 수 있는 줄', () => {
   it('바알 함양 줄은 값이 하나여도 고른다 — 붙었는지가 곧 조건이다', () => {
     expect(lineState(greed.m.find((l) => l.t.startsWith('접근 효과 범위')), 'm')).toBe('ok')
   })
+  it('선택형 조건(`…|21`)은 넣는 쪽이 받지 않아 고르지 않는다 (영웅적인 비극)', () => {
+    const line = table.u.find((e) => e.n === '영웅적인 비극').f.find((l) => l.id?.includes('|'))
+    expect(lineState(line, 'f')).toBe('option')
+  })
   it('문구가 같은 조건이 둘이면 고르지 않는다 · 무작위 자리는 무작위로', () => {
     expect(lineState({ t: '회피 +100', alt: ['a.b', 'c.d'] }, 'f')).toBe('alt')
     expect(lineState(table.u.find((e) => e.n === '모리오르 인빅투스').f.find((l) => l.k === 'r'), 'f')).toBe('random')

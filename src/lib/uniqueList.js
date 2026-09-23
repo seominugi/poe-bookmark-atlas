@@ -7,6 +7,8 @@
 
 /** 줄 종류 — 기본 속성 · 고정 속성 · 바알 함양 속성 · 함양판에 적힌 고정 속성 */
 export const LINE_KINDS = ['i', 'f', 'm', 'mf']
+// 넣는 쪽(stat-adder.js ID_RE)이 받는 조건 id 모양 — 이 밖의 것은 고르게 두면 조용히 빠진다
+const PLAIN_ID = /^[a-z]+\.[a-z0-9_]+$/
 
 /**
  * 고를 수 있는 줄인가, 아니면 왜 못 고르나.
@@ -14,13 +16,16 @@ export const LINE_KINDS = ['i', 'f', 'm', 'mf']
  * - `const`  고정·기본 속성인데 값이 하나뿐 — 모든 매물에 똑같이 붙어 걸러도 결과가 같다(바알 함양 줄은 예외: 붙었는지가 곧 조건)
  * - `alt`    문구가 같은 거래소 조건이 둘 이상 — 어느 쪽인지 매물로 확인하기 전에는 넣지 않는다(틀린 조건이 조용히 들어간다)
  * - `random` 무작위 풀 자리표시(「[3 Random Socket Modifiers]」)
+ * - `option` 선택형 조건(`explicit.stat_3418580811|21` — 값 대신 고르는 옵션이 붙는다). 넣는 쪽이 아직 옵션을 싣지 못해
+ *            거래소가 받지 않는다(독립 검토 2026-09-23: 영웅적인 비극·죽지 않는 증오·제어된 변형)
  * - `none`   거래소 조건을 찾지 못함
- * @returns {'ok'|'const'|'alt'|'random'|'none'}
+ * @returns {'ok'|'const'|'alt'|'random'|'option'|'none'}
  */
 export function lineState(line, kind) {
   if (!line) return 'none'
   if (line.k === 'r') return 'random'
   if (!line.id) return line.alt?.length ? 'alt' : 'none'
+  if (!PLAIN_ID.test(line.id)) return 'option'
   if (kind !== 'm' && isConstant(line)) return 'const'
   return 'ok'
 }
