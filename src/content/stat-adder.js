@@ -17,9 +17,16 @@
 //   role — 'here'(누른 그룹) · 'and'(필수: 모두 만족 그룹) · 'or'(하나 이상: 개수 그룹, 최소 1)
 //          'or:prefix' · 'or:suffix' — OR 을 접두어·접미어로 나눠 넣을 때. 각자 따로 개수 그룹을 쓴다(사용자 요청 2026-09-16)
 //   orMin — { [OR 역할]: 최소 개수 } 개수 그룹의 「최소」 칸. 없으면 1. 1~12 정수만 받는다(사용자 요청 2026-09-16).
-//   typeFilters — { category?, rarity? } 거래소 옵션 id. category 는 다르면 바꾸고, rarity 는 「모두」일 때만 채운다
-//                 (사용자가 직접 고른 희귀도를 덮지 않는다).
-// 응답: { __baSource:'ba-bridge', kind:'stat-filters-added', reqId, added, valued, skipped, created, typed, error? }
+//   typeFilters — { category?, rarity?, forceRarity? } 거래소 옵션 id. category 는 다르면 바꾸고, rarity 는 「모두」일 때만 채운다
+//                 (사용자가 직접 고른 희귀도를 덮지 않는다). forceRarity 면 바꾼다 — 고유 모드는 희귀도가 「고유」가 아니면
+//                 결과가 비어 버린다.
+//   misc — { mutated?: 'true' } 기타 필터(misc_filters) 옵션. 고유 모드에서 바알 함양 줄을 골랐을 때 「함양된 바알 고유: 예」.
+//          유형 필터와 같은 길(그룹 컴포넌트의 updateFilter(index,{option}))을 쓴다(2026-09-23 라이브 확인: state.filters.mutated
+//          = {option:'true'}, 검색 요청 0).
+//   item — { name, type } 고유 모드의 아이템 검색칸. 앱 루트의 setCurrentItem(entry) = commit("setItem",{name,type,disc,term})
+//          + save(!0) — 검색칸에서 고를 때 거래소가 부르는 것과 같다(2026-09-23 라이브 확인: 검색칸에 「탐욕의 포옹 바알 흉갑」,
+//          주소만 바뀌고 검색 요청 0). 검색칸 선택지에 **이름·베이스가 똑같은 항목**이 있을 때만 넣는다(「(유산)」 판보다 일반 판).
+// 응답: { __baSource:'ba-bridge', kind:'stat-filters-added', reqId, added, valued, skipped, created, typed, misced, named, error? }
 //   token — 콘텐츠 스크립트가 그룹 요소에 달아 둔 data-ba-group-token. 두 world 가 공유하는 건 DOM 뿐이다.
 (() => {
   const ORIGIN = location.origin
@@ -63,8 +70,7 @@
   function applyTypeFilters(wanted) {
     const typed = []
     if (!wanted || typeof wanted !== 'object') return typed
-    const group = [...new Set([...document.querySelectorAll('.filter-group')].map((e) => e.__vue__).filter(Boolean))]
-      .find((v) => v.group && v.group.id === 'type_filters' && typeof v.updateFilter === 'function')
+    const group = filterGroupVm('type_filters')
     if (!group || !Array.isArray(group.filters)) return typed
     const current = (id) => group.state && group.state.filters && group.state.filters[id] && group.state.filters[id].option
     const choose = (id, option, onlyWhenEmpty) => {
@@ -79,8 +85,58 @@
       typed.push(id)
     }
     choose('category', wanted.category, false)
-    choose('rarity', wanted.rarity, true)
+    choose('rarity', wanted.rarity, wanted.forceRarity !== true)
     return typed
+  }
+
+  /**
+   * 아이템 검색칸에 고유를 넣는다. 넣었으면 true.
+   * 선택지는 검색칸(multiselect.search-select)의 목록에서 찾는다 — 목록에 없는 이름을 스토어에 넣으면 거래소가 모르는 검색이 된다.
+   */
+  function applyItem(wanted) {
+    if (!wanted || typeof wanted.name !== 'string' || typeof wanted.type !== 'string') return false
+    const all = [...new Set([...document.querySelectorAll('*')].map((e) => e.__vue__).filter(Boolean))]
+    const root = all.find((v) => typeof v.setCurrentItem === 'function' && v.$store)
+    const select = all.find((v) => v.$el && v.$el.classList && v.$el.classList.contains('search-select') && Array.isArray(v.options))
+    if (!root || !select) return false
+    const entries = select.options.flatMap((g) => (g && Array.isArray(g.entries) ? g.entries : []))
+    const same = entries.filter((e) => e && e.name === wanted.name && e.type === wanted.type)
+    const entry = same.find((e) => !e.disc) || same[0]
+    if (!entry) return false
+    const now = root.$store.state && root.$store.state.persistent
+    if (!(now && now.name === entry.name && now.type === entry.type && (now.disc || null) === (entry.disc || null))) {
+      root.setCurrentItem({ name: entry.name, type: entry.type, disc: entry.disc || null })
+    }
+    return true
+  }
+
+  /** 필터 그룹(유형·기타 …)의 컴포넌트 — 그룹 id 로 찾는다. */
+  function filterGroupVm(id) {
+    return [...new Set([...document.querySelectorAll('.filter-group')].map((e) => e.__vue__).filter(Boolean))]
+      .find((v) => v.group && v.group.id === id && typeof v.updateFilter === 'function') || null
+  }
+
+  /**
+   * 기타 필터(misc_filters)의 옵션을 고른다 — 지금은 「함양된 바알 고유」(mutated) 하나. 바꾼 것의 id 목록.
+   * 드롭다운 목록에 있는 옵션만 넣는다. 그룹을 못 찾으면 아무것도 하지 않는다(부르는 쪽이 직접 켜 달라고 알린다).
+   */
+  function applyMiscFilters(wanted) {
+    const done = []
+    if (!wanted || typeof wanted !== 'object') return done
+    const group = filterGroupVm('misc_filters')
+    if (!group || !Array.isArray(group.filters)) return done
+    for (const id of ['mutated']) {
+      const option = wanted[id]
+      if (typeof option !== 'string') continue
+      const index = group.filters.findIndex((f) => f && f.id === id)
+      const filter = group.filters[index]
+      const options = filter && filter.option && Array.isArray(filter.option.options) ? filter.option.options : []
+      if (index < 0 || !options.some((o) => o && o.id === option)) continue
+      const now = group.state && group.state.filters && group.state.filters[id] && group.state.filters[id].option
+      if (now !== option) group.updateFilter(index, { option })
+      done.push(id)
+    }
+    return done
   }
 
   window.addEventListener('message', (e) => {
@@ -96,9 +152,11 @@
     const skipped = []
     const created = []
     let typed = []
+    let misced = []
+    let named = false
     const reply = (error) => {
       try {
-        window.postMessage({ __baSource: 'ba-bridge', kind: 'stat-filters-added', reqId: d.reqId, added, valued, skipped, created, typed, ...(error ? { error } : {}) }, ORIGIN)
+        window.postMessage({ __baSource: 'ba-bridge', kind: 'stat-filters-added', reqId: d.reqId, added, valued, skipped, created, typed, misced, named, ...(error ? { error } : {}) }, ORIGIN)
       } catch (_) {}
     }
     try {
@@ -107,7 +165,10 @@
       const home = el && el.__vue__
       if (!home || typeof home.selectFilter !== 'function') return reply('no-group')
       // 유형을 먼저 정한다 — 능력치 행이 생길 때 티어 칩이 새 유형 기준으로 뜬다
+      // 아이템(검색칸) → 유형 → 기타 순 — 능력치 행이 생길 때 티어 칩이 새 아이템·유형 기준으로 뜬다
+      try { named = applyItem(d.item) } catch (_) { named = false }
       try { typed = applyTypeFilters(d.typeFilters) } catch (_) { typed = [] }
+      try { misced = applyMiscFilters(d.misc) } catch (_) { misced = [] }
 
       // 역할별 대상 그룹 — 필요할 때 한 번만 정한다(같은 요청에서 「필수」 여럿이 새 그룹 하나로 모이게).
       const targets = new Map()

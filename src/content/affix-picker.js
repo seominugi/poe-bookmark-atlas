@@ -10,6 +10,7 @@ import { filterAffixes, affixFilterValue, allAffixItems, SPECIAL_POOLS } from '.
 import { groupByCategory } from '../lib/affixCategory.js'
 import { bindPageTip, hidePageTip } from './page-tip.js'
 import { buildTypeDoll } from './affix-type-doll.js'
+import { createUniquePane } from './unique-pane.js'
 
 export const AFFIX_BTN_CLASS = 'ba-affix-btn'
 export const AFFIX_POP_CLASS = 'ba-affix-pop'
@@ -166,8 +167,11 @@ const TABS = [
  *   meta.orMin — OR 역할별 「최소 몇 개」(그룹을 만들 때 개수 칸에 넣는다)
  * @param {{baseByClass?:Record<string,string>, emphasis?:boolean}} [args.prefs]
  *   emphasis — 하단 안내·선택 요약을 강조하고 바뀔 때 짧게 움직인다(기본 켬, 패널 ⚙ 설정에서 끈다)
+ * @param {{u:object[]}|null} [args.uniques] 고유 아이템 속성 표(uniqueMods) — 있으면 머리에 「비고유 | 고유」 전환이 생긴다
+ * @param {'normal'|'unique'} [args.startMode] 처음 보일 모드 — 지금 검색이 고유 검색이면 부르는 쪽이 'unique' 로 연다
+ * @param {(sel:{unique:object, items:Array<{id:string, value:{min?:number,max?:number}|null, role:'and'|'or', mutated:boolean}>})=>Promise<void>|void} [args.onAddUnique]
  */
-export function openAffixPopover({ anchor, title, subtitle, list, classes = [], currentClass = null, listForClass, basesForClass, onAdd, prefs = {}, onPrefs }) {
+export function openAffixPopover({ anchor, title, subtitle, list, classes = [], currentClass = null, listForClass, basesForClass, onAdd, prefs = {}, onPrefs, uniques = null, startMode = 'normal', onAddUnique }) {
   // 사용자 설정 — 창을 닫았다 열어도 남는다(부르는 쪽이 저장한다)
   //   baseByClass  유형마다 마지막에 고른 베이스(주얼 → 루비 …)
   const settings = { baseByClass: { ...(prefs.baseByClass ?? {}) }, emphasis: prefs.emphasis !== false }
@@ -212,8 +216,32 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   const closeBtn = el(doc, 'button', 'ba-affix-close', '✕')
   closeBtn.type = 'button'
   closeBtn.setAttribute('aria-label', '닫기')
-  head.append(titles, tabs, searchWrap, closeBtn)
+  // 「비고유 | 고유」 — 고유는 속성이 아이템마다 정해져 있어 목록 짜임이 다르다(시안 B: 이름 목록 + 상세, 사용자 결정 2026-09-23)
+  const canUnique = !!uniques && typeof onAddUnique === 'function'
+  let mode = canUnique && startMode === 'unique' ? 'unique' : 'normal'
+  const modeSeg = el(doc, 'div', 'ba-affix-mode')
+  modeSeg.setAttribute('role', 'group')
+  modeSeg.setAttribute('aria-label', '희귀도')
+  const modeBtns = [['normal', '비고유'], ['unique', '고유']].map(([key, label]) => {
+    const b = el(doc, 'button', 'ba-affix-mode-btn', label)
+    b.type = 'button'
+    b.dataset.mode = key
+    b.addEventListener('click', () => {
+      if (mode === key) return
+      mode = key
+      search.value = ''
+      render()
+      refresh()
+      search.focus({ preventScroll: true })
+    })
+    modeSeg.appendChild(b)
+    return b
+  })
+  head.append(titles)
+  if (canUnique) head.append(modeSeg)
+  head.append(tabs, searchWrap, closeBtn)
   pop.appendChild(head)
+  const uniquePane = canUnique ? createUniquePane(doc, { table: uniques, onChange: () => refresh() }) : null
 
   // ── 유형 선택 — 장비창 모양(시안 A, 사용자 결정 2026-09-16). 유형을 고르면 접혀 목록에 자리를 내준다. ──
   const pickClass = (cls) => {
@@ -376,6 +404,7 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   }
 
   const refresh = () => {
+    if (mode === 'unique') { refreshUnique(); return }
     const picks = [...selected.values()]
     const n = picks.length
     const parts = [] // { kind, text } — 칩 하나씩
@@ -446,16 +475,38 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
     }
     lastCount = n
   }
+  /** 고유 모드의 발 — 고른 고유 이름 · 필수/후보/함양 개수. */
+  function refreshUnique() {
+    const sel = uniquePane?.picks()
+    const items = sel?.items ?? []
+    const n = items.length
+    const parts = []
+    const must = items.filter((p) => p.role === 'and').length
+    const or = items.length - must
+    const mut = items.filter((p) => p.mutated).length
+    if (sel) parts.push({ kind: 'unique', text: sel.unique.n, tip: `${sel.unique.n} · ${sel.unique.b}\n넣으면 유형·희귀도(고유)도 이 아이템에 맞춰요` })
+    if (must) parts.push({ kind: 'and', text: `필수 ${must}`, tip: `필수 ${must}개가 모두 붙은 매물을 찾아요` })
+    if (or) parts.push({ kind: 'or', text: `후보 ${or}`, tip: `후보 ${or}개 중 하나 이상 붙은 매물을 찾아요` })
+    if (mut) parts.push({ kind: 'mutated', text: `함양 ${mut}`, tip: '기타 필터 「함양된 바알 고유: 예」도 함께 켜요' })
+    paintSummary(n, parts)
+    paintHint(n)
+    addBtn.textContent = n ? `${n}개 넣기` : '넣기'
+    addBtn.disabled = n === 0
+    clearBtn.hidden = n === 0
+  }
   let hintState = null
   /** 안내 — 고르기 전에는 고르는 법, 고른 뒤에는 넣는 법. 상태가 바뀔 때만 반짝인다. */
   const paintHint = (n) => {
-    const state = n ? 'picked' : 'empty'
+    const state = `${mode}|${n ? 'picked' : 'empty'}`
     if (state === hintState) return
     hintState = state
-    hintText.textContent = n
-      ? '「넣기」를 누르면 거래소 그룹에 들어가요 · 후보 중 최소 몇 개인지는 접두어·접미어 제목 줄에서 정해요'
-      : '속성을 체크하면 후보로 들어가요 · 반드시 있어야 하면 행에서 「필수」를 누르세요'
-    hint.dataset.state = state
+    hintText.textContent = mode === 'unique'
+      ? (n ? '넣으면 유형·희귀도(고유)도 맞춰요 · 빨간 줄은 「함양된 바알 고유」도 켜요'
+        : '이름으로 찾아 고르고 값을 넣으세요 · 빨간 줄은 바알 함양 속성이에요')
+      : n
+        ? '「넣기」를 누르면 거래소 그룹에 들어가요 · 후보 중 최소 몇 개인지는 접두어·접미어 제목 줄에서 정해요'
+        : '속성을 체크하면 후보로 들어가요 · 반드시 있어야 하면 행에서 「필수」를 누르세요'
+    hint.dataset.state = n ? 'picked' : 'empty'
     if (!moving()) return
     hint.classList.remove('is-shine')
     void hint.offsetWidth // 같은 효과를 다시 틀기 위해 한 번 흘린다
@@ -560,6 +611,28 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   const render = () => {
     const l = current.list
     doll.setCurrent(current.cls)
+    for (const b of modeBtns) {
+      const on = b.dataset.mode === mode
+      b.classList.toggle('is-on', on)
+      b.setAttribute('aria-pressed', String(on))
+    }
+    pop.dataset.mode = mode
+    if (mode === 'unique') {
+      // 고유 — 탭·베이스 칩은 쓰지 않는다. 검색어가 있으면 모든 유형에서 이름·속성으로 찾는다.
+      hidePageTip()
+      baseRow.hidden = true
+      tabs.hidden = true
+      search.disabled = false
+      search.placeholder = '고유 이름·속성 검색'
+      search.setAttribute('aria-label', '고유 아이템 검색')
+      body.innerHTML = ''
+      rows = []; sections = []; bands = []; bulks = []; orMinViews = []
+      body.appendChild(uniquePane.el)
+      uniquePane.setQuery(search.value.trim(), current.cls)
+      return
+    }
+    search.placeholder = '속성 검색 (예: 저항 화염)'
+    search.setAttribute('aria-label', '속성 검색')
     renderBases()
     hidePageTip() // 다시 그리면 툴팁을 띄운 행이 사라진다
     body.innerHTML = ''
@@ -790,13 +863,25 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   }
 
   tabBtns.forEach((t) => t.el.addEventListener('click', () => { tab = t.key; render() }))
-  search.addEventListener('input', applySearch)
+  search.addEventListener('input', () => {
+    if (mode === 'unique') uniquePane.setQuery(search.value.trim(), current.cls)
+    else applySearch()
+  })
   clearBtn.addEventListener('click', () => {
+    if (mode === 'unique') { uniquePane.clear(); refresh(); return }
     selected.clear()
     rows.forEach(paintRow)
     refresh()
   })
   addBtn.addEventListener('click', async () => {
+    if (mode === 'unique') {
+      const sel = uniquePane.picks()
+      if (!sel) return
+      addBtn.disabled = true
+      addBtn.textContent = '넣는 중…'
+      try { await onAddUnique(sel) } finally { close() }
+      return
+    }
     if (!selected.size) return
     // 고른 순서가 아니라 목록 순서(접두 → 접미 → 타락)로 넣는다 — 체크한 순서는 사용자도 기억하지 못한다.
     // 다른 유형에서 고른 것이 섞이면 유형을 처음 고른 차례대로, 그 안에서는 목록 순서다.
