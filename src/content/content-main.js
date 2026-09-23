@@ -741,6 +741,12 @@ function pobEnsureStyle() {
   @media (hover: hover) and (pointer: fine) { .ba-affix-ormin-step:not([disabled]):hover { background: rgba(92,195,242,0.35) !important; } }
   .ba-affix-ormin-step[disabled] { opacity: .3; cursor: default; }
   .ba-affix-ormin-step:focus-visible { outline: 2px solid #5cc3f2; outline-offset: 1px; }
+  /* 서판 남은 사용 횟수 — 조절 칸은 후보 최소 개수와 같은 모양, 줄은 목록 맨 위 */
+  .ba-affix-uses { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; margin: 10px 0 2px; padding: 8px 12px; border-radius: 10px;
+    background: rgba(0,0,0,0.22); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.07); color: #e4e0f2; font: 600 12.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; }
+  .ba-affix-uses.is-on { background: rgba(167,139,250,0.12); box-shadow: inset 0 0 0 1px rgba(167,139,250,0.35); }
+  .ba-affix-uses-name { margin-right: 4px; }
+  .ba-affix-uses-min, .ba-affix-uses-note { color: #a39fbb; font-weight: 500; }
   .ba-affix-sec-name { font: 600 11px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; letter-spacing: .06em; color: currentColor; white-space: nowrap; }
   .ba-affix-sec-count { font: 600 11px/1 ui-monospace, Consolas, monospace; color: #77728f; }
   .ba-affix-sec-line { flex: 1; height: 1px; background: linear-gradient(90deg, currentColor, transparent); opacity: .3; }

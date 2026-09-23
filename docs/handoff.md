@@ -7,6 +7,12 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
+## 서판 남은 사용 횟수 (2026-09-23, `feature/tablet-uses-remaining`)
+
+- 속성 목록 창에서 유형이 서판(`TowerAugmentation`)이면 목록 맨 위에 「남은 사용 횟수 최소 [−] N [+]」(0 = 넣지 않음, 최대 10 — 서판 8종 모두 새것 10회). 넣으면 `pseudo.pseudo_number_of_uses_remaining {min:N}` 을 **필수**로(서판 종류와 무관한 거래소 유사 조건).
+- 확인: 거래소 능력치 그룹의 `availableOptionsFlat` 에 이 조건이 있다(라이브, 「사용 횟수 #회 남음(서판)」) · 하네스에서 0→10 멈춤, 7 + 서판 속성 1개 넣기 = picks 에 `{id:pseudo…, value:{min:7}, role:'and'}`, 유형 서판.
+- ⏳ 확장을 거친 라이브 흐름은 못 봤다 — 크롬이 압축해제 개발 빌드의 새 매니페스트를 받아들이지 않았다(새로고침 3회에도 ③ 빌드의 web_accessible_resources 그대로, 확장 id `oghgmomdlgbnkfejcpkljcdfjbkdbkmo`). 검증 대기(사람)에 남김.
+
 ## 고유 아이템 속성 목록 — ③ 매물에서 속성 더 찾기 (2026-09-23, `feature/unique-observe-listings`)
 
 - 고유 상세 머리 아래 「매물에서 속성 더 찾기」 — **누를 때만** 그 고유(이름·베이스, 희귀도 고유, 싼 순)를 검색 1 + 매물 10개 가져오기 1. 결과는 리그별 `chrome.storage.local.uniqueObserved` 에 7일(최대 40개). 간격·429 는 `lib/tradeRate.js`(찜 확인과 같은 규칙).
