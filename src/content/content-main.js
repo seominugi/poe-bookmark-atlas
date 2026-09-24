@@ -937,6 +937,9 @@ function pobEnsureStyle() {
   .ba-uq-pool { margin: 2px 0 4px; padding: 4px 0 2px; border-left: 2px solid rgba(167,139,250,0.35); margin-left: 8px; }
   .ba-uq-pool-head { margin: 0 0 2px; padding: 0 8px; display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font: 12px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; }
   .ba-uq-pool-head b { color: #c9c4dc; font-weight: 700; }
+  .ba-uq-pool-find { display: block; box-sizing: border-box; width: calc(100% - 16px); margin: 2px 8px 4px; padding: 5px 9px; border-radius: 8px; font: 12px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #e6e3f5; background: rgba(255,255,255,0.05); border: 1px solid rgba(167,139,250,0.28); }
+  .ba-uq-pool-find:focus-visible { outline: 2px solid rgba(167,139,250,0.6); outline-offset: 1px; }
+  .ba-uq-row[hidden] { display: none; }
   .ba-uq-text { word-break: keep-all; line-height: 1.35; padding: 3px 0; }
   .ba-uq-check { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; margin: 0; border-radius: 5px;
     border: 1.5px solid rgba(255,255,255,0.28); background: transparent; display: grid; place-items: center; cursor: pointer; }

@@ -14,10 +14,12 @@ import { bindPageTip } from './page-tip.js'
 const STATE_TIP = {
   const: '모든 매물에 같은 값으로 붙어요\n고르면 이 속성이 붙었는지만 봐요',
   alt: '문구가 같은 거래소 조건이 둘이에요\n고르면 둘 중 하나가 붙은 매물을 찾아요',
+  pair: '두 줄이 한 속성이에요\n고르면 두 조건이 모두 붙은 매물을 찾아요(필수만)',
   random: '아이템마다 다른 속성이 무작위로 붙어요\n어떤 속성들 중에서 붙는지 몰라 여기서는 고를 수 없어요',
   option: '변형마다 거래소 조건이 달라요(여기 적힌 것은 그중 하나)\n거래소 능력치 필터에서 직접 골라 주세요',
   none: '거래소에서 이 문구의 조건을 찾지 못했어요',
 }
+const POOL_FILTER_MIN = 12 // 풀이 이보다 길면 풀 안에서 찾는 칸을 단다
 const ROLE_TIP = {
   and: '필수 — 고른 속성이 모두 붙은 매물을 찾아요',
   or: '후보 — 후보 중 하나 이상 붙은 매물을 찾아요',
@@ -204,9 +206,25 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     const head = el(doc, 'p', 'ba-uq-pool-head')
     head.append(el(doc, 'b', null, line.t), el(doc, 'span', null, `${line.r ? `${line.r}개가` : '아래 중에서'} 무작위로 붙어요 · ${line.p.length}개 중에서 고르세요`))
     wrap.appendChild(head)
+    // 풀이 길면(과대망상 할당 패시브 875 · 우물의 심장 35·38) 풀 안에서 찾는 칸 — 문구 조각이 모두 들어간 줄만 보인다
+    if (line.p.length > POOL_FILTER_MIN) {
+      const q = el(doc, 'input', 'ba-uq-pool-find')
+      q.type = 'search'
+      q.placeholder = `${line.t}에서 찾기`
+      q.setAttribute('aria-label', `${line.t}에서 찾기`)
+      q.addEventListener('input', () => {
+        const parts = q.value.toLowerCase().split(/\s+/).filter(Boolean)
+        for (const r of wrap.querySelectorAll('.ba-uq-row')) {
+          const hay = r.querySelector('.ba-uq-text')?.textContent.toLowerCase().replace(/\s+/g, '') ?? ''
+          r.hidden = !parts.every((p) => hay.includes(p))
+        }
+      })
+      wrap.appendChild(q)
+    }
     line.p.forEach((p, j) => {
-      // 선택형 조건(`…|8` 유산)은 값 칸이 없다. 나머지는 값을 모르는 채로 칸만 연다(매물마다 굴린 값이 다르다).
-      const poolLine = { t: p.t, id: p.id, pool: true, valued: !p.id.includes('|') }
+      // 범위(`v`)가 있으면 칸에 범위를 안내한다(선택형 조건도 값이 있으면 — 믿음의 분광기 「모든 ○○ 스킬 레벨 +(1-3)」).
+      // 값 자리가 없는 선택형 조건(`…|8` 유산)은 칸이 없고, 범위를 모르는 줄은 칸만 연다(매물마다 굴린 값이 다르다).
+      const poolLine = { t: p.t, id: p.id, alt: p.alt, all: p.all, v: p.v, pool: true, valued: !p.v && !!p.id && !p.id.includes('|') }
       wrap.appendChild(row(e, kind, poolLine, `${i}.${j}`, mutated))
     })
     return wrap
@@ -266,7 +284,8 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
       b.dataset.role = role
       b.dataset.tip = ROLE_TIP[role]
       bindPageTip(b, { placement: 'below' })
-      b.disabled = !on
+      // 두 줄짜리 속성은 조건 둘을 모두 넣어야 뜻이 맞다 — 「개수」 그룹에 넣으면 한 속성이 두 번 세어진다
+      b.disabled = !on || (state === 'pair' && role === 'or')
       b.addEventListener('click', (ev) => {
         ev.preventDefault() // label 안 단추 — 체크박스 토글과 섞이지 않게
         const cur = ensure(e, key, kind, line)
@@ -344,19 +363,34 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
       const pa = pos(a), pb = pos(b)
       return pa[0] - pb[0] || pa[1] - pb[1] || pa[2] - pb[2]
     }
-    const seen = new Set()
+    const byId = new Map() // 조건 id → 넣을 항목. 같은 조건을 두 번 넣지 않는다(거래소가 「이미 있다」로 빼고 알림이 헷갈린다)
     const items = []
     let altGroups = 0
     for (const [key, p] of [...picked.entries()].sort(byPos)) {
-      const ids = p.line.id ? [p.line.id] : (p.line.alt ?? [])
-      // 고정 속성과 함양판 고정 속성은 같은 조건일 수 있다 — 한 번만 넣는다(먼저 온 줄의 값·역할)
-      if (!ids.length || ids.every((id) => seen.has(id))) continue
-      ids.forEach((id) => seen.add(id))
-      const role = ids.length > 1 && p.role === 'and' ? `or:alt${++altGroups}` : p.role
+      const pair = !p.line.id && !!p.line.all?.length
+      const ids = p.line.id ? [p.line.id] : pair ? p.line.all : (p.line.alt ?? [])
+      if (!ids.length) continue
+      const value = cleanLineValue(p)
+      // 같은 조건이 여러 줄에 있다(고정·함양판 고정 · 우물의 심장 접두·접미 양쪽의 「재사용 대기시간 회복 속도」 · 두 줄짜리가
+      // 한 조건을 공유). 먼저 온 줄을 쓰되, 먼저 온 줄에 값이 없고 뒤에 친 값이 있으면 그 값을 쓴다 — 친 값이 조용히 사라지지 않게
+      const fresh = ids.filter((id) => !byId.has(id))
+      for (const id of ids) {
+        const had = byId.get(id)
+        if (had && !had.value && value && ids.length === 1) had.value = value
+      }
+      if (!fresh.length) continue
+      // 두 줄짜리는 늘 필수(둘 다 붙어야 그 속성) · 둘 중 하나(alt)는 필수면 줄마다 개수 그룹
+      const role = pair ? 'and' : ids.length > 1 && p.role === 'and' ? `or:alt${++altGroups}` : p.role
       // 함양판 고정 속성을 골랐다면 함양된 매물을 찾는 것이다 — 함양 필터도 켠다
       const mutated = p.kind === 'm' || p.kind === 'mf' || (p.kind === 'o' && !!p.line.mutated)
-      // line — 고른 줄. 조건 둘로 펼쳐진 줄도 사용자에게는 한 줄이라 개수는 이것으로 센다
-      for (const id of ids) items.push({ id, value: cleanLineValue(p), role, mutated, line: key })
+      // line — 고른 줄. 조건 둘로 펼쳐진 줄도 사용자에게는 한 줄이라 개수는 이것으로 센다.
+      // 두 줄짜리가 한 조건을 이미 넣은 경우 나머지 조건만 넣는다(둘 다 필수라 뜻이 같다)
+      for (const id of pair ? fresh : ids) {
+        if (byId.has(id)) continue
+        const item = { id, value, role, mutated, line: key }
+        byId.set(id, item)
+        items.push(item)
+      }
     }
     return { unique: e, items }
   }
