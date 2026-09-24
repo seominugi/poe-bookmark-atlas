@@ -953,7 +953,9 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   scrim.addEventListener('mousedown', () => close())
 
   const onKey = (e) => {
-    if (e.key === 'Escape') { e.stopPropagation(); close() } else if (e.key === '/' && doc.activeElement !== search && !search.disabled) {
+    // 다른 입력칸(고유 풀 안에서 찾는 칸·값 칸)에서 친 `/` 는 그 칸의 글자다 — 위 검색칸으로 빼앗지 않는다
+    const typing = /^(INPUT|TEXTAREA)$/.test(e.composedPath?.()[0]?.tagName ?? '')
+    if (e.key === 'Escape') { e.stopPropagation(); close() } else if (e.key === '/' && !typing && doc.activeElement !== search && !search.disabled) {
       e.preventDefault()
       search.focus()
     }
