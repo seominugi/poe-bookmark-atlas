@@ -522,19 +522,24 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   function refreshUnique() {
     const sel = uniquePane?.picks()
     const items = sel?.items ?? []
-    const n = items.length
+    // 조건이 둘로 갈리는 줄은 조건 둘을 넣지만 사용자에게는 한 줄이다 — 개수는 줄로 센다
+    const lines = (pred) => new Set(items.filter(pred).map((p) => p.line ?? p.id)).size
+    const must = lines((p) => p.role === 'and' || p.role.startsWith('or:alt'))
+    const or = lines((p) => p.role === 'or')
+    const n = must + or
     const parts = []
-    const must = items.filter((p) => p.role === 'and').length
-    const or = items.length - must
-    const mut = items.filter((p) => p.mutated).length
-    if (sel) parts.push({ kind: 'unique', text: sel.unique.n, tip: `${sel.unique.n} · ${sel.unique.b}\n넣으면 유형·희귀도(고유)도 이 아이템에 맞춰요` })
+    const mut = lines((p) => p.mutated)
+    // 줄을 고르지 않았어도 보고 있는 고유 하나는 이름만 넣을 수 있다
+    const only = sel ? null : uniquePane?.current() ?? null
+    const unique = sel?.unique ?? only
+    if (unique) parts.push({ kind: 'unique', text: unique.n, tip: `${unique.n} · ${unique.b}\n넣으면 아이템 검색칸·유형·희귀도(고유)도 이 아이템에 맞춰요` })
     if (must) parts.push({ kind: 'and', text: `필수 ${must}`, tip: `필수 ${must}개가 모두 붙은 매물을 찾아요` })
     if (or) parts.push({ kind: 'or', text: `후보 ${or}`, tip: `후보 ${or}개 중 하나 이상 붙은 매물을 찾아요` })
     if (mut) parts.push({ kind: 'mutated', text: `함양 ${mut}`, tip: '기타 필터 「함양된 바알 고유: 예」도 함께 켜요' })
     paintSummary(n, parts)
     paintHint(n)
-    addBtn.textContent = n ? `${n}개 넣기` : '넣기'
-    addBtn.disabled = n === 0
+    addBtn.textContent = n ? `${n}개 넣기` : only ? '이 고유만 넣기' : '넣기'
+    addBtn.disabled = n === 0 && !only
     clearBtn.hidden = n === 0
   }
   let hintState = null
@@ -920,7 +925,8 @@ export function openAffixPopover({ anchor, title, subtitle, list, classes = [], 
   })
   addBtn.addEventListener('click', async () => {
     if (mode === 'unique') {
-      const sel = uniquePane.picks()
+      const cur = uniquePane.current()
+      const sel = uniquePane.picks() ?? (cur ? { unique: cur, items: [] } : null)
       if (!sel) return
       addBtn.disabled = true
       addBtn.textContent = '넣는 중…'

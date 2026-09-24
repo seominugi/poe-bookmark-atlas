@@ -931,8 +931,12 @@ function pobEnsureStyle() {
   .ba-uq-row.is-mutated { color: #ff8a8a; background: linear-gradient(90deg, rgba(255,90,90,0.1), rgba(255,90,90,0) 80%); }
   .ba-uq-row.is-on { background: linear-gradient(90deg, rgba(167,139,250,0.2), rgba(167,139,250,0.06)); box-shadow: inset 0 0 0 1px rgba(167,139,250,0.28); }
   .ba-uq-row.is-mutated.is-on { background: linear-gradient(90deg, rgba(255,90,90,0.22), rgba(255,90,90,0.06)); box-shadow: inset 0 0 0 1px rgba(255,107,107,0.45); }
-  .ba-uq-row:not([data-state="ok"]) { cursor: default; opacity: .55; }
+  .ba-uq-row[data-state="none"], .ba-uq-row[data-state="random"] { cursor: default; opacity: .55; }
   .ba-uq-row[data-state="random"] { opacity: .75; font-style: italic; }
+  .ba-uq-row[data-state="const"]:not(.is-on) { color: #9d98b3; }
+  .ba-uq-pool { margin: 2px 0 4px; padding: 4px 0 2px; border-left: 2px solid rgba(167,139,250,0.35); margin-left: 8px; }
+  .ba-uq-pool-head { margin: 0 0 2px; padding: 0 8px; display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font: 12px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; }
+  .ba-uq-pool-head b { color: #c9c4dc; font-weight: 700; }
   .ba-uq-text { word-break: keep-all; line-height: 1.35; padding: 3px 0; }
   .ba-uq-check { appearance: none; -webkit-appearance: none; width: 16px; height: 16px; margin: 0; border-radius: 5px;
     border: 1.5px solid rgba(255,255,255,0.28); background: transparent; display: grid; place-items: center; cursor: pointer; }
@@ -1562,11 +1566,14 @@ function addResultMessage(res, label) {
   const spread = created.length || (Array.isArray(res?.roles) && res.roles.some((r) => r !== 'here'))
   if (added) parts.push(`속성 ${added}개를 ${spread ? '넣었어요' : `${label}에 넣었어요`}.${valued ? ` ${valued}개는 고른 값까지 채웠어요.` : ' 값은 티어 칩으로 고르세요.'}`)
   if (created.includes('and')) parts.push('필수 조건은 새 「모두 만족」 그룹에 넣었어요.')
+  // 고유 모드 — 문구가 같은 조건 둘을 「둘 중 하나」로 넣은 줄은 줄마다 개수 그룹을 하나씩 만든다(stat-adder 가 'alt' 로 알린다)
+  const altGroups = created.filter((c) => c === 'alt').length
   const orGroups = created.filter((c) => c === 'or').length
   const mins = Object.values(res?.orMin ?? {})
   const minText = mins.length && mins.every((n) => n === mins[0]) ? `(최소 ${mins[0]})` : ''
   if (orGroups > 1) parts.push(`후보 조건은 접두어·접미어로 나눠 새 「개수${minText}」 그룹 ${orGroups}개에 넣었어요.`)
   else if (orGroups) parts.push(`후보 조건은 새 「개수${minText}」 그룹에 넣었어요.`)
+  if (altGroups) parts.push(`문구가 같은 조건이 둘인 속성 ${altGroups}개는 「둘 중 하나」로 새 「개수(최소 1)」 그룹에 넣었어요.`)
   if (have) parts.push(`${have}개는 이미 그 그룹에 있어서 뺐어요.`)
   if (refused) parts.push(`${refused}개는 거래소가 받지 않았어요.`)
   const typed = Array.isArray(res?.typed) ? res.typed : []

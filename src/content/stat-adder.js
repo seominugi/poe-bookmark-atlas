@@ -31,9 +31,12 @@
 (() => {
   const ORIGIN = location.origin
   const TOKEN_RE = /^[a-z0-9]{6,40}$/
-  const ID_RE = /^[a-z]+\.[a-z0-9_]+$/ // explicit.stat_1573130764 · pseudo.pseudo_total_life
+  // explicit.stat_1573130764 · pseudo.pseudo_total_life · 선택형 조건 explicit.stat_264262054|8(거래소 목록이 옵션마다 따로 준 id)
+  const ID_RE = /^[a-z]+\.[a-z0-9_]+(?:\|\d+)?$/
   const MAX_ITEMS = 40
   const ROLES = new Set(['here', 'and', 'or', 'or:prefix', 'or:suffix', 'or:skill']) // or:skill — 스킬 부여 후보(따로 개수 그룹)
+  // or:alt<n> — 고유 모드에서 문구가 같은 조건 둘을 「둘 중 하나」로 넣는 줄마다의 개수 그룹(최소 1)
+  const isRole = (r) => typeof r === 'string' && (ROLES.has(r) || /^or:alt\d{1,2}$/.test(r))
 
   /** {min,max} 중 유한한 숫자만 남긴다. 남는 게 없으면 null. */
   const cleanValue = (v) => {
@@ -195,11 +198,14 @@
         } else if (role === 'or' || role.startsWith('or:')) {
           // OR 은 다른 개수 그룹에 섞으면 그 그룹의 N 이 달라진다 — 누른 그룹이 개수 그룹이 아니면 새로 만든다.
           // 나눠 넣을 때는 누른 개수 그룹을 먼저 온 쪽 하나만 쓰고, 다른 쪽은 새 그룹을 만든다(한 그룹에 섞이면 나눈 뜻이 없다).
-          if (homeType === 'count' && !homeClaimedByOr) { vm = home; homeClaimedByOr = true; setCount(vm, role) }
+          // 「둘 중 하나」 줄(or:alt)은 필수라 늘 자기 그룹을 만든다 — 누른 개수 그룹에 섞이면 필수가 「아무거나 하나」가 되고
+          // 사용자가 정해 둔 최소도 1로 바뀐다(독립 검토 2026-09-24)
+          const alt = role.startsWith('or:alt')
+          if (!alt && homeType === 'count' && !homeClaimedByOr) { vm = home; homeClaimedByOr = true; setCount(vm, role) }
           else {
             vm = await createGroup(home, 'count')
             if (vm) {
-              created.push('or')
+              created.push(alt ? 'alt' : 'or')
               setCount(vm, role)
             }
           }
@@ -214,7 +220,7 @@
         if (typeof id !== 'string' || !ID_RE.test(id)) { skipped.push({ id: String(id), reason: 'bad-id' }); continue }
         // 거래소가 모르는 id 를 넣으면 selectFilter 가 조용히 무시한다 — 무시당한 걸 알리려고 먼저 본다.
         if (!options[id]) { skipped.push({ id, reason: 'unknown' }); continue }
-        const role = ROLES.has(item.role) ? item.role : 'here'
+        const role = isRole(item.role) ? item.role : 'here'
         const vm = await targetFor(role)
         if (!vm) { skipped.push({ id, reason: 'no-target' }); continue }
         const filtersNow = () => {

@@ -8,14 +8,14 @@
 // 바알 함양 줄(빨강)을 고르면 넣을 때 기타 필터 「함양된 바알 고유: 예」도 함께 켠다(부르는 쪽).
 // 함양 오브는 속성을 **최대 2개까지** 바꾼다(오브 설명) — 빨간 줄 둘을 모두 필수로 둘 수 있다.
 
-import { findUniques, lineState, lineRange, cleanLineValue, uniqueKey } from '../lib/uniqueList.js'
+import { findUniques, lineState, lineRange, cleanLineValue, uniqueKey, pickable } from '../lib/uniqueList.js'
 import { bindPageTip } from './page-tip.js'
 
 const STATE_TIP = {
-  const: '모든 매물에 같은 값으로 붙어 있어 걸러도 결과가 같아요',
-  alt: '문구가 같은 거래소 조건이 둘이라 아직 어느 쪽인지 몰라요\n매물에서 확인한 뒤 고를 수 있게 할 예정이에요',
-  random: '아이템마다 다른 속성이 무작위로 붙어요\n매물에서 찾기로 채울 예정이에요',
-  option: '값 대신 옵션을 고르는 조건이라 아직 넣을 수 없어요\n거래소 능력치 필터에서 직접 골라 주세요',
+  const: '모든 매물에 같은 값으로 붙어요\n고르면 이 속성이 붙었는지만 봐요',
+  alt: '문구가 같은 거래소 조건이 둘이에요\n고르면 둘 중 하나가 붙은 매물을 찾아요',
+  random: '아이템마다 다른 속성이 무작위로 붙어요\n어떤 속성들 중에서 붙는지 몰라 여기서는 고를 수 없어요',
+  option: '변형마다 거래소 조건이 달라요(여기 적힌 것은 그중 하나)\n거래소 능력치 필터에서 직접 골라 주세요',
   none: '거래소에서 이 문구의 조건을 찾지 못했어요',
 }
 const ROLE_TIP = {
@@ -57,6 +57,7 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     if (!active || !shown.includes(active)) active = shown.find((e) => pickedUnique && uniqueKey(e) === pickedUnique) ?? shown[0] ?? null
     renderList()
     renderDetail()
+    changed() // 보이는 고유가 바뀌면 발의 「이 고유만 넣기」도 바뀐다
   }
 
   function renderList() {
@@ -84,7 +85,7 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
       }
       if (e.x) marks.appendChild(el(doc, 'i', 'ba-uq-corrupt', '타락'))
       b.appendChild(marks)
-      b.addEventListener('click', () => { active = e; showMf = false; renderList(); renderDetail() })
+      b.addEventListener('click', () => { active = e; showMf = false; renderList(); renderDetail(); changed() })
       listEl.appendChild(b)
     }
   }
@@ -187,13 +188,34 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     const sec = el(doc, 'section', 'ba-uq-sec')
     sec.dataset.kind = kind
     sec.appendChild(el(doc, 'h4', 'ba-uq-sec-title', label))
-    lines.forEach((line, i) => sec.appendChild(row(e, kind, line, i, mutated || (kind === 'o' && !!line.mutated))))
+    lines.forEach((line, i) => {
+      if (line.k === 'r' && line.p?.length) sec.appendChild(poolBlock(e, kind, line, i, mutated))
+      else sec.appendChild(row(e, kind, line, i, mutated || (kind === 'o' && !!line.mutated)))
+    })
     detail.appendChild(sec)
+  }
+
+  /**
+   * 무작위 풀 — 모리오르 인빅투스 「채운 홈 하나당 …」 3개, 마법사의 피 「○○의 유산」 4개처럼 아이템마다 다른 것이 붙는다.
+   * 풀의 줄을 하나씩 고른다(필수 = 그 속성이 붙은 매물, 후보 = 고른 것 중 하나 이상).
+   */
+  function poolBlock(e, kind, line, i, mutated) {
+    const wrap = el(doc, 'div', 'ba-uq-pool')
+    const head = el(doc, 'p', 'ba-uq-pool-head')
+    head.append(el(doc, 'b', null, line.t), el(doc, 'span', null, `${line.r ? `${line.r}개가` : '아래 중에서'} 무작위로 붙어요 · ${line.p.length}개 중에서 고르세요`))
+    wrap.appendChild(head)
+    line.p.forEach((p, j) => {
+      // 선택형 조건(`…|8` 유산)은 값 칸이 없다. 나머지는 값을 모르는 채로 칸만 연다(매물마다 굴린 값이 다르다).
+      const poolLine = { t: p.t, id: p.id, pool: true, valued: !p.id.includes('|') }
+      wrap.appendChild(row(e, kind, poolLine, `${i}.${j}`, mutated))
+    })
+    return wrap
   }
 
   function row(e, kind, line, i, mutated) {
     // 매물에서 본 줄은 값이 한 번만 보였어도 아이템마다 다를 수 있다 — 함양 줄처럼 「값 하나뿐」으로 막지 않는다
-    const state = lineState(line, kind === 'o' ? 'm' : kind)
+    const state = lineState(line, kind === 'o' || line.pool ? 'm' : kind)
+    const on = pickable(state)
     const key = `${kind}|${i}`
     const mine = pickedUnique === uniqueKey(e) ? picked.get(key) : null
     const r = el(doc, 'label', 'ba-uq-row')
@@ -203,23 +225,25 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     const box = el(doc, 'input', 'ba-uq-check')
     box.type = 'checkbox'
     box.checked = !!mine
-    box.disabled = state !== 'ok'
+    box.disabled = !on
     box.setAttribute('aria-label', line.t.replace(/\n/g, ' '))
     const text = el(doc, 'span', 'ba-uq-text', line.t.replace(/\n/g, ' / '))
     if (state !== 'ok') { text.dataset.tip = STATE_TIP[state]; bindPageTip(text, { placement: 'below' }) }
-    const range = state === 'ok' ? lineRange(line) : null
-    // 값이 하나뿐인 줄(바알 함양 「접근 효과 범위 100% 감소」)은 붙었는지만 본다 — 칸을 끈다
-    const valued = !!range && (range.min !== range.max || kind === 'o')
+    const range = on ? lineRange(line) : null
+    // 값이 하나뿐인 줄(바알 함양 「접근 효과 범위 100% 감소」)은 붙었는지만 본다 — 칸을 끈다.
+    // 풀의 줄은 범위를 모르지만 값은 매물마다 다르다 — 칸만 연다
+    const valued = on && ((!!range && (range.min !== range.max || kind === 'o')) || !!line.valued)
     // 거래소는 감소를 「증가」 조건의 음수로 받는다(20% 감소 = -20) — 칸에 음수가 보이는 이유를 알린다
     // 매물에서 본 줄은 거래소 문구(「증가」)로 보여 문구로는 가릴 수 없다 — 값이 음수면 알린다
-    const negTip = valued && range.max <= 0 && (kind === 'o' || /감소|감폭|감속/.test(line.t)) ? '거래소는 감소를 음수로 받아요\n예) 20% 감소 → -20' : null
+    // 풀의 줄은 거래소 문구 그대로라(「… #% 감소」 조건의 값은 양수) 범위가 없으면 안내하지 않는다(독립 검토 2026-09-24)
+    const negTip = valued && range && range.max <= 0 && (kind === 'o' || /감소|감폭|감속/.test(line.t)) ? '거래소는 감소를 음수로 받아요\n예) 20% 감소 → -20' : null
     const num = (k) => {
       const input = el(doc, 'input', 'ba-uq-num')
       input.type = 'number'
       input.inputMode = 'decimal'
       input.setAttribute('aria-label', `${line.t} ${k === 'min' ? '최소' : '최대'}`)
-      input.disabled = state !== 'ok' || !valued
-      if (valued) input.placeholder = String(range[k])
+      input.disabled = !valued
+      if (valued && range) input.placeholder = String(range[k])
       if (negTip) { input.dataset.tip = negTip; bindPageTip(input, { placement: 'below' }) }
       if (mine?.[k] != null) input.value = String(mine[k])
       // 값을 치면 그 줄을 고른 것으로 본다 — 체크를 따로 누르지 않아도 된다
@@ -242,7 +266,7 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
       b.dataset.role = role
       b.dataset.tip = ROLE_TIP[role]
       bindPageTip(b, { placement: 'below' })
-      b.disabled = state !== 'ok'
+      b.disabled = !on
       b.addEventListener('click', (ev) => {
         ev.preventDefault() // label 안 단추 — 체크박스 토글과 섞이지 않게
         const cur = ensure(e, key, kind, line)
@@ -302,20 +326,37 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     }
   }
 
-  /** 넣을 것 — 고른 고유와 줄. 넣는 순서는 보이는 순서(기본 → 고정 → 함양). */
+  /**
+   * 넣을 것 — 고른 고유와 줄. 넣는 순서는 보이는 순서(기본 → 고정 → 함양, 풀의 줄은 그 자리).
+   * 조건이 둘로 갈리는 줄(alt)은 후보 조건을 모두 넣는다 — 필수면 그 줄만의 개수 그룹(최소 1, 역할 `or:alt<n>`),
+   * 후보면 다른 후보와 같은 개수 그룹. 한 아이템에 같은 문구의 두 조건이 함께 붙지 않아 어느 쪽이든 「하나」로 센다.
+   */
   function picks() {
     const e = (table?.u ?? []).find((x) => uniqueKey(x) === pickedUnique)
     if (!e || !picked.size) return null
     const order = ['i', 'f', 'm', 'mf', 'o']
+    const pos = (key) => {
+      const [kind, at] = key.split('|')
+      const [i, j = -1] = at.split('.').map(Number)
+      return [order.indexOf(kind), i, j]
+    }
+    const byPos = ([a], [b]) => {
+      const pa = pos(a), pb = pos(b)
+      return pa[0] - pb[0] || pa[1] - pb[1] || pa[2] - pb[2]
+    }
     const seen = new Set()
     const items = []
-    for (const [, p] of [...picked.entries()]
-      .sort(([a], [b]) => order.indexOf(a.split('|')[0]) - order.indexOf(b.split('|')[0]) || Number(a.split('|')[1]) - Number(b.split('|')[1]))) {
+    let altGroups = 0
+    for (const [key, p] of [...picked.entries()].sort(byPos)) {
+      const ids = p.line.id ? [p.line.id] : (p.line.alt ?? [])
       // 고정 속성과 함양판 고정 속성은 같은 조건일 수 있다 — 한 번만 넣는다(먼저 온 줄의 값·역할)
-      if (seen.has(p.line.id)) continue
-      seen.add(p.line.id)
+      if (!ids.length || ids.every((id) => seen.has(id))) continue
+      ids.forEach((id) => seen.add(id))
+      const role = ids.length > 1 && p.role === 'and' ? `or:alt${++altGroups}` : p.role
       // 함양판 고정 속성을 골랐다면 함양된 매물을 찾는 것이다 — 함양 필터도 켠다
-      items.push({ id: p.line.id, value: cleanLineValue(p), role: p.role, mutated: p.kind === 'm' || p.kind === 'mf' || (p.kind === 'o' && !!p.line.mutated) })
+      const mutated = p.kind === 'm' || p.kind === 'mf' || (p.kind === 'o' && !!p.line.mutated)
+      // line — 고른 줄. 조건 둘로 펼쳐진 줄도 사용자에게는 한 줄이라 개수는 이것으로 센다
+      for (const id of ids) items.push({ id, value: cleanLineValue(p), role, mutated, line: key })
     }
     return { unique: e, items }
   }
@@ -327,7 +368,8 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     renderDetail()
   }
 
-  return { el: root, setQuery, picks, clear, count: () => picked.size }
+  // current — 오른쪽에 보이는 고유. 줄을 하나도 고르지 않았어도 이름(검색칸)·유형·희귀도만 넣을 수 있다(사용자 요청 2026-09-24)
+  return { el: root, setQuery, picks, clear, count: () => picked.size, current: () => active }
 }
 
 /** 결과를 받은 때 — 저장해 둔 결과(최대 7일)를 다시 보여 줄 때 얼마나 된 것인지 알린다. */

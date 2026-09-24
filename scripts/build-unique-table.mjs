@@ -16,7 +16,7 @@
 //   mf = 함양 카드에 적힌 고정 속성 — **f 와 다를 때만** 싣는다(48개 중 17개). 함양 매물의 고정 속성은 f 가 아니라
 //        mf 쪽일 수 있다(어느 쪽이 맞는지는 매물로 확인 전). 소비처는 함양 줄을 고를 때 f ∪ m 으로 합치지 말 것.
 //   줄 = { t: 문구, id?: 거래소 조건 id, alt?: [후보 id — 문구가 같은 조건이 둘 이상], v?: [[최소,최대], …] 값 자리별,
-//          k?: 'r'(무작위 풀 자리표시) }
+//          k?: 'r'(무작위 풀 자리표시), p?: [{t, id}] 무작위 풀(거래소 문구로 가려낸 것), r?: 무작위로 붙는 개수 }
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
@@ -24,6 +24,7 @@ import { gzipSync } from 'node:zlib'
 import { classFromBaseName } from '../src/lib/itemClass.js'
 import { loadStats } from './build-tier-table.mjs'
 import { lineCondition, tradeIndexes } from '../src/lib/modLineMatch.js'
+import { normalizeTradeText } from '../src/lib/statTextNorm.js'
 // 테스트가 이 파일에서 가져가던 이름 — 정본은 src/lib/modLineMatch.js
 export { matchLine, valuesByKey, tradeIndexes } from '../src/lib/modLineMatch.js'
 
@@ -31,6 +32,7 @@ const here = dirname(fileURLToPath(import.meta.url))
 const CACHE = join(here, '.cache')
 const EXPLICIT_GROUP = '비고정'
 const IMPLICIT_GROUP = '고정'
+const SKILL_GROUP = '스킬'
 const CULTIVATED_HEAD = '<h5 class="card-header">Cultivated Uniques'
 
 const ENTITIES = { '&amp;': '&', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&nbsp;': ' ' }
@@ -80,16 +82,70 @@ export function parseUniquePage(html) {
 
 // 화면에 보이지 않는 줄 — poe2db 가 내부 스탯을 그대로 적은 것(`visual use power charges … [1]`, `Has 5 Augment Sockets (Hidden)`)
 const HIDDEN = /^[a-z]|\(Hidden\)$|\[\d+\]$/
-// 무작위 풀 자리표시 — `[3 Random Socket Modifiers]`, 줄 중간의 `[Random Curse]`, `Random 1 Keystone Passive Skill [1,33]`
-const RANDOM_SLOT = /^\[[^\]]+\]$|\[Random [^\]]*\]|^Random \d/
+// 무작위 풀 자리표시 — `[3 Random Socket Modifiers]`, 줄 중간의 `[Random Curse]`, `Random 1 Keystone Passive Skill [1,33]`,
+// 마법사의 피의 `Mages Legacy의 유산`(poe2db 가 무작위 유산 이름을 풀지 못한 자리)
+const RANDOM_SLOT = /^\[[^\]]+\]$|\[Random [^\]]*\]|^Random \d|^Mages Legacy의 유산$/
+
+/**
+ * 무작위 자리 → 거래소 조건 풀. poe2db 는 풀을 적지 않지만 거래소 능력치 목록에서 문구로 가려낼 수 있는 것만 싣는다
+ * (2026-09-24 매물 실측 — 모리오르 인빅투스 매물의 무작위 줄은 모두 「채운 홈 하나당 …」, 마법사의 피는 선택형 조건
+ * `explicit.stat_264262054|1~14` 「○○의 유산」). 풀을 못 정하는 자리는 고를 수 없게 둔다 — 훼손 접두·접미(우물의 심장)는
+ * 「매물에서 속성 더 찾기」도 훼손 줄을 빼서 채워지지 않는다.
+ *   title — 풀 제목. 자리표시 문구가 영문·깨진 표기라 게임 문구(거래소 문구)에서 온 이름을 쓴다(전역 §30).
+ */
+const RANDOM_POOLS = [
+  { slot: /^\[(\d+) Random Socket Modifiers\]$/, title: '채운 홈 하나당 속성', entry: (e) => e.id.startsWith('explicit.') && e.text.startsWith('채운 홈 하나당 ') },
+  { slot: /^Mages Legacy의 유산$/, title: '마법사의 유산', entry: (e) => /^explicit\.stat_264262054\|\d+$/.test(e.id) },
+]
+
+/** 무작위 자리 줄 — 풀을 정할 수 있으면 `p: [{t, id}]`, 개수가 적혀 있으면 `r`. */
+export function randomLine(text, statsPayload) {
+  const out = { t: text, k: 'r' }
+  const rule = RANDOM_POOLS.find((r) => r.slot.test(text))
+  if (!rule) return out
+  const entries = (statsPayload?.result ?? []).flatMap((g) => g.entries ?? []).filter((e) => typeof e?.id === 'string' && typeof e.text === 'string' && rule.entry(e))
+  if (!entries.length) return out
+  out.t = rule.title
+  const n = Number(text.match(rule.slot)?.[1])
+  if (Number.isInteger(n) && n > 0) out.r = n
+  out.p = entries.map((e) => ({ t: e.text, id: e.id }))
+  return out
+}
+
+// 스킬 부여 — poe2db 「스킬 부여: 레벨 11 녹아내린 소나기」 ↔ 거래소 「스킬」 그룹 「스킬 부여: #레벨 녹아내린 소나기」.
+// 레벨이 없는 줄(「스킬 부여: 창 투척」)은 거래소에 같은 이름이 있을 때만 붙고 값은 비운다.
+const SKILL_GRANT = /^스킬 부여: (?:레벨 (\d+) )?(.+)$/
+export function skillLine(text, skillIndex) {
+  const m = SKILL_GRANT.exec(text)
+  if (!m || !skillIndex) return null
+  const ids = skillIndex.get(normalizeTradeText(`스킬 부여: #레벨 ${m[2]}`))
+  if (!ids || ids.length !== 1) return null
+  const out = { t: text, id: ids[0] }
+  if (m[1]) out.v = [[Number(m[1]), Number(m[1])]]
+  return out
+}
+
+let STATS = null // 무작위 풀·스킬 부여용 — main 이 채운다
 /** 줄 → 산출물 줄. */
 function lineOut(text, index, pool) {
-  if (RANDOM_SLOT.test(text)) return { t: text, k: 'r' }
+  if (RANDOM_SLOT.test(text)) return randomLine(text, STATS?.payload)
   const { ids, v } = lineCondition(text, index, pool)
   const out = { t: text }
   if (ids.length === 1) out.id = ids[0]
   else if (ids.length > 1) out.alt = ids
   if (v) out.v = v
+  if (!ids.length) return skillLine(text, STATS?.skill) ?? out
+  return out
+}
+
+/** 같은 무작위 풀 자리가 줄지어 있으면(마법사의 피 유산 4줄) 한 줄로 — 개수는 `r`. */
+function foldRandom(lines) {
+  const out = []
+  for (const l of lines) {
+    const prev = out[out.length - 1]
+    if (l.k === 'r' && l.p && prev?.k === 'r' && prev.p && prev.t === l.t) { prev.r = (prev.r ?? 1) + (l.r ?? 1); continue }
+    out.push(l.k === 'r' && l.p ? { ...l } : l)
+  }
   return out
 }
 
@@ -124,7 +180,7 @@ export function linesOf(blocks, index, pool, counts) {
     }
     if (joined) { out.push(joined.line); i += joined.size - 1 } else out.push(flat[i])
   }
-  return out
+  return foldRandom(out)
 }
 
 /**
@@ -172,7 +228,9 @@ async function main() {
   }
 
   const { cards, mutated } = parseUniquePage(readFileSync(listPath, 'utf8'))
-  const indexes = tradeIndexes(await loadStats('poe2', arg('--stats', null)))
+  const statsPayload = await loadStats('poe2', arg('--stats', null))
+  const indexes = tradeIndexes(statsPayload)
+  STATS = { payload: statsPayload, skill: indexes[SKILL_GROUP] }
   const items = await loadItems(arg('--items', null))
   const affixes = JSON.parse(readFileSync(join(here, '..', 'src', 'lib', 'statAffixes.poe2.json'), 'utf8'))
   const baseMap = JSON.parse(readFileSync(join(here, '..', 'src', 'lib', 'pobBaseMap.json'), 'utf8'))

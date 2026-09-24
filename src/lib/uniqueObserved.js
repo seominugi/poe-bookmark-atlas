@@ -47,7 +47,8 @@ export function observeListings(results, entry, { index, pool, statMap }) {
   const items = (Array.isArray(results) ? results : []).map((r) => r?.item).filter((it) => it && typeof it === 'object')
   const known = new Set()
   // 표에 이미 있는 조건(후보 줄의 후보 포함 — 그 줄은 아래 resolved 로 확정한다)
-  for (const kind of ['i', 'f', 'm', 'mf']) for (const l of entry?.[kind] ?? []) for (const id of [l.id, ...(l.alt ?? [])]) if (id) known.add(id)
+  // 무작위 풀(`p`)의 조건도 표에 있는 것이다 — 다시 실으면 같은 속성이 두 줄이 되고, 한쪽에 친 값이 넣을 때 빠진다(독립 검토 2026-09-24)
+  for (const kind of ['i', 'f', 'm', 'mf']) for (const l of entry?.[kind] ?? []) for (const id of [l.id, ...(l.alt ?? []), ...(l.p ?? []).map((p) => p?.id)]) if (id) known.add(id)
   // 같은 조건이라도 일반 줄과 함양 줄은 따로 센다 — 섞으면 함양 표시가 번져 「함양된 바알 고유: 예」로 검색이 좁아진다(독립 검토)
   const seen = new Map() // `${id}|${함양}` → { id, v, mutated, seen }
   // 후보가 둘인 문구의 근거 — **그 문구가 함양이 아닌 줄로 나온 매물**이 후보 중 하나만 가졌을 때만 센다.
