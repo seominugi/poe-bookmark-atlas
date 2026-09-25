@@ -912,7 +912,7 @@ function pobEnsureStyle() {
   .ba-uq-item-base { font: 500 11.5px/1.2 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; }
   .ba-uq-item.has-picks .ba-uq-item-name::after { content: " ●"; color: #a78bfa; font-size: 9px; vertical-align: 2px; }
   .ba-uq-item-marks { display: inline-flex; align-items: center; gap: 5px; flex: none; }
-  .ba-uq-dot { width: 7px; height: 7px; border-radius: 50%; background: #ff6b6b; box-shadow: 0 0 0 2px rgba(255,107,107,0.2); }
+  .ba-uq-vaal { font: 700 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; font-style: normal; white-space: nowrap; color: #ff8a8a; padding: 2px 5px; border-radius: 5px; background: rgba(255,90,90,0.14); box-shadow: inset 0 0 0 1px rgba(255,107,107,0.35); }
   .ba-uq-corrupt { font: 600 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; font-style: normal; color: #f28aa0; padding: 2px 5px; border-radius: 5px; background: rgba(242,96,120,0.14); }
 
   .ba-uq-detail { min-width: 0; padding-bottom: 8px; }
@@ -925,6 +925,8 @@ function pobEnsureStyle() {
   .ba-uq-sec { margin-top: 8px; }
   .ba-uq-sec-title { margin: 0 0 3px; padding: 0 8px; font: 700 11.5px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; letter-spacing: .02em; }
   .ba-uq-sec[data-kind="m"] .ba-uq-sec-title { color: #ff8a8a; }
+  /* 바알 함양 절 — 위 고정 속성과 붙어 보이지 않게 띄우고 가는 선으로 가른다 */
+  .ba-uq-sec[data-kind="m"] { margin-top: 16px; padding-top: 10px; border-top: 1px solid rgba(255,107,107,0.22); }
   .ba-uq-row { min-height: 32px; padding: 3px 8px; border-radius: 9px; cursor: pointer; color: #b9c6ff; }
   @media (hover: hover) and (pointer: fine) { .ba-uq-row:hover { background: rgba(255,255,255,0.05); } }
   .ba-uq-row[data-kind="i"], .ba-uq-row[data-kind="mf"] { color: #c9c4dc; }
