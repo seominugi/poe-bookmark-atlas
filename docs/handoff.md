@@ -7,6 +7,10 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
+## 고정 속성 줄을 일반 줄 모양으로 (2026-09-25, `feature/unique-fixed-lines-pick`)
+
+- 값이 하나뿐인 고정 속성(`const`, 819줄)은 #97 부터 고를 수 있었지만 회색 글씨라 막힌 것처럼 보였다 → 회색을 뺐다(사용자 요청). 거래소 조건이 없는 줄(`none` 89줄 — 「스킬 부여: 창 투척」·「홈 3개」 등)은 넣을 조건이 없어 계속 잠근다(사용자 확인).
+
 ## 고유 목록 「바알 고유」 배지 (2026-09-25, `feature/vaal-unique-badge`)
 
 - 목록의 빨간 점(바알 함양 속성 있음) → 「바알 고유」 배지. 상세 머리에도 같은 배지 + 툴팁. 표기는 거래소 기타 필터 「함양된 바알 고유」의 게임 말(아이템 필터 `IsVaalUnique` 와 같은 개념).

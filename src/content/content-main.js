@@ -935,7 +935,6 @@ function pobEnsureStyle() {
   .ba-uq-row.is-mutated.is-on { background: linear-gradient(90deg, rgba(255,90,90,0.22), rgba(255,90,90,0.06)); box-shadow: inset 0 0 0 1px rgba(255,107,107,0.45); }
   .ba-uq-row[data-state="none"], .ba-uq-row[data-state="random"] { cursor: default; opacity: .55; }
   .ba-uq-row[data-state="random"] { opacity: .75; font-style: italic; }
-  .ba-uq-row[data-state="const"]:not(.is-on) { color: #9d98b3; }
   .ba-uq-pool { margin: 2px 0 4px; padding: 4px 0 2px; border-left: 2px solid rgba(167,139,250,0.35); margin-left: 8px; }
   .ba-uq-pool-head { margin: 0 0 2px; padding: 0 8px; display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; font: 12px/1.4 system-ui, -apple-system, "Malgun Gothic", sans-serif; color: #8f89a8; }
   .ba-uq-pool-head b { color: #c9c4dc; font-weight: 700; }
