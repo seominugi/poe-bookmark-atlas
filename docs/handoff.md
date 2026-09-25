@@ -7,6 +7,11 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
+## 고유 목록 「바알 고유」 배지 (2026-09-25, `feature/vaal-unique-badge`)
+
+- 목록의 빨간 점(바알 함양 속성 있음) → 「바알 고유」 배지. 상세 머리에도 같은 배지 + 툴팁. 표기는 거래소 기타 필터 「함양된 바알 고유」의 게임 말(아이템 필터 `IsVaalUnique` 와 같은 개념).
+- 바알 함양 절이 고정 속성 바로 아래 붙어 보이던 것 → 위 여백 16px + 붉은 구분선.
+
 ## 고유 속성 — poe2db 개별 페이지로 무작위 풀 전수 채움 (2026-09-25, `feature/unique-desecrated-pools`)
 
 사용자 요청: 우물의 심장이 `[Custom Desecrated prefix]`×4 가 아니라 「속성 부여 /73」 목록으로 보여야 한다 · 전수 점검해 poe2db 로 채우자.
