@@ -80,11 +80,8 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
       text.append(el(doc, 'b', 'ba-uq-item-name', e.n), el(doc, 'small', 'ba-uq-item-base', e.b))
       b.appendChild(text)
       const marks = el(doc, 'span', 'ba-uq-item-marks')
-      if (e.m?.length) {
-        const dot = marks.appendChild(el(doc, 'i', 'ba-uq-dot', null))
-        dot.setAttribute('role', 'img')
-        dot.setAttribute('aria-label', '바알 함양 속성 있음')
-      }
+      // 바알 함양 오브로 속성이 바뀔 수 있는 고유 — 점 대신 게임 표기 「바알 고유」(거래소 기타 필터 「함양된 바알 고유」와 같은 말)
+      if (e.m?.length) marks.appendChild(el(doc, 'i', 'ba-uq-vaal', '바알 고유'))
       if (e.x) marks.appendChild(el(doc, 'i', 'ba-uq-corrupt', '타락'))
       b.appendChild(marks)
       b.addEventListener('click', () => { active = e; showMf = false; renderList(); renderDetail(); changed() })
@@ -98,6 +95,11 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     if (!e) return
     const head = el(doc, 'div', 'ba-uq-head')
     head.append(el(doc, 'h3', 'ba-uq-name', e.n), el(doc, 'span', 'ba-uq-base', e.b))
+    if (e.m?.length) {
+      const vaal = head.appendChild(el(doc, 'span', 'ba-uq-vaal', '바알 고유'))
+      vaal.dataset.tip = '바알 함양 오브로 속성이 바뀔 수 있는 고유예요\n아래 빨간 줄이 바뀔 수 있는 속성이에요'
+      bindPageTip(vaal, { placement: 'below' })
+    }
     if (e.x) head.appendChild(el(doc, 'span', 'ba-uq-corrupt', '타락 고유'))
     detail.appendChild(head)
     const note = el(doc, 'p', 'ba-uq-note', '값을 넣은 줄만 걸러져요 · 빈칸이면 그 속성이 붙은 것만 봐요')
