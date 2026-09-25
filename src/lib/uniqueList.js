@@ -4,7 +4,8 @@
 //
 // 표 한 항목: { n: 이름, b: 베이스, c: 유형|null, x?: 1(타락 고유), i?/f?/m?/mf?: [줄] }
 //   줄: { t: 문구, id?: 거래소 조건, alt?: [후보 id], v?: [[최소,최대], …], k?: 'r'(무작위 풀 자리),
-//         p?: [{t, id?, alt?, all?, v?}] 무작위 풀(all = 두 줄짜리 속성의 조건 둘), r?: 무작위로 붙는 개수 }
+//         p?: [{t, id?, alt?, all?, v?}] 무작위 풀(all = 두 줄짜리 속성의 조건 둘), r?: 무작위로 붙는 개수,
+//         o?: 1(빌드 때 거래소 매물에서 본 속성), was?: 목록에 고정처럼 적혀 있던 변형 문구 }
 
 /** 줄 종류 — 기본 속성 · 고정 속성 · 바알 함양 속성 · 함양판에 적힌 고정 속성 */
 export const LINE_KINDS = ['i', 'f', 'm', 'mf']
@@ -92,7 +93,8 @@ export function findUniques(table, term, cls) {
   const parts = String(term ?? '').toLowerCase().split(/\s+/).map((p) => p.replace(/^~+/, '')).filter(Boolean)
   if (!parts.length) return all.filter((e) => cls && e.c === cls).sort(byName)
   const hits = all.filter((e) => {
-    const hay = norm([e.n, e.b, ...LINE_KINDS.flatMap((k) => (e[k] ?? []).map((l) => l.t)), e.m?.length ? '함양' : ''].join(' '))
+    // was — 매물 관찰로 무작위 풀이 된 줄의 원래 문구(「시작 지점」 · 「칼구르」로도 찾게)
+    const hay = norm([e.n, e.b, ...LINE_KINDS.flatMap((k) => (e[k] ?? []).flatMap((l) => [l.t, l.was ?? ''])), e.m?.length ? '함양' : ''].join(' '))
     return parts.every((p) => hay.includes(norm(p)))
   })
   const nameHit = (e) => parts.every((p) => norm(e.n).includes(norm(p)))

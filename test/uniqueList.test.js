@@ -14,8 +14,10 @@ describe('lineState — 고를 수 있는 줄', () => {
     expect(lineState(greed.m.find((l) => l.t.startsWith('접근 효과 범위')), 'm')).toBe('ok')
   })
   it('표의 줄이 선택형 조건 하나면 고르지 않는다 — 변형 하나로 좁혀진다 (영웅적인 비극) · 풀의 선택형 줄은 고른다 (마법사의 피)', () => {
-    const line = table.u.find((e) => e.n === '영웅적인 비극').f.find((l) => l.id?.includes('|'))
-    expect(lineState(line, 'f')).toBe('option')
+    // 영웅적인 비극은 매물 관찰로 칼구르 3종 풀이 됐다(2026-09-25) — 규칙은 모양으로 고정한다
+    expect(lineState({ t: '보라나의 핏줄이 …', id: 'explicit.stat_3418580811|21' }, 'f')).toBe('option')
+    const heroic = table.u.find((e) => e.n === '영웅적인 비극').f.find((l) => l.k === 'r')
+    expect(heroic.p.map((p) => p.id).sort()).toEqual(['explicit.stat_3418580811|21', 'explicit.stat_3418580811|22', 'explicit.stat_3418580811|23'])
     const legacy = table.u.find((e) => e.n === '마법사의 피').f.find((l) => l.k === 'r').p[0]
     expect(lineState({ ...legacy, pool: true }, 'm')).toBe('ok')
   })

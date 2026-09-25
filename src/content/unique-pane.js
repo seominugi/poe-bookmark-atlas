@@ -206,7 +206,12 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
   function poolBlock(e, kind, line, i, mutated) {
     const wrap = el(doc, 'div', 'ba-uq-pool')
     const head = el(doc, 'p', 'ba-uq-pool-head')
-    head.append(el(doc, 'b', null, line.t), el(doc, 'span', null, `${line.r ? `${line.r}개가` : '아래 중에서'} 무작위로 붙어요 · ${line.p.length}개 중에서 고르세요`))
+    // o — 빌드 때 거래소 매물에서 본 속성(표본이라 가능한 전부는 아니다) · was — 목록에 고정처럼 적혀 있던 변형 하나
+    const sub = line.o
+      ? `거래소 매물에 붙어 있던 속성이에요 · ${line.p.length}개`
+      : `${line.r ? `${line.r}개가` : '아래 중에서'} 무작위로 붙어요 · ${line.p.length}개 중에서 고르세요`
+    head.append(el(doc, 'b', null, line.t), el(doc, 'span', null, sub))
+    if (line.was) head.title = `목록에는 「${line.was}」로 적혀 있지만 매물마다 달라요`
     wrap.appendChild(head)
     // 풀이 길면(과대망상 할당 패시브 875 · 우물의 심장 35·38) 풀 안에서 찾는 칸 — 문구 조각이 모두 들어간 줄만 보인다
     if (line.p.length > POOL_FILTER_MIN) {
