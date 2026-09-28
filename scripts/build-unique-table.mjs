@@ -104,6 +104,8 @@ const RANDOM_POOLS = [
   // 과대망상 — 「할당 Passive Skill」 3줄(poe2db 가 무작위 패시브 이름을 풀지 못한 자리). 거래소는 「할당 ○○」 선택형 조건
   { slot: /^할당 Passive Skill$/, title: '할당하는 패시브 스킬', entry: (e) => /^explicit\.stat_2954116742\|\d+$/.test(e.id) },
   // 믿음의 분광기 — 「모든 Specific Skill 스킬 레벨 +(1-3)」. 거래소는 「모든 ○○ 스킬 레벨 +#」 선택형 조건(값 = 레벨)
+  // 앗지리의 위풍 — 「… as though it was also a [Random socketable equipment type]」. 거래소는 부위별 조건 넷(투구·장화·장갑·방패)
+  { slot: /\[Random socketable equipment type\]/, title: '영혼 핵 보너스 부위', entry: (e) => e.id.startsWith('explicit.') && /^이 아이템은 \S+인 것처럼 장착된 영혼 핵의 보너스를 받음$/.test(e.text) },
   { slot: /^모든 Specific Skill 스킬 레벨 \+\((\d+)-(\d+)\)$/, title: '스킬 레벨', entry: (e) => /^explicit\.stat_448592698\|\d+$/.test(e.id), valued: true },
 ]
 
@@ -234,6 +236,18 @@ export function randomLine(text, ctx = {}) {
     out.p = poolRows(rows, { ...ctx, desecrated })
     return out
   }
+  // 직접 훼손하는 자리(태어나지 않은 리치 「[Custom Desecrated prefix]」) — 그 부위에 붙는 훼손된 속성 전체(statAffixes 의 d).
+  // 종류 키(g)를 실어 화면이 치명타·피해 같은 소분류로 나눠 보인다. 값은 가장 높은 티어의 범위.
+  if (/Custom Desecrated/i.test(text) && ctx.affixD) {
+    const textOf = new Map((ctx.payload?.result ?? []).flatMap((g) => g.entries ?? []).map((e) => [e.id, e.text]))
+    const pool = Object.entries(ctx.affixD).filter(([id, a]) => (!side || a.k === side) && textOf.has(id)).map(([id, a]) => {
+      const top = [...(a.r ?? [])].sort((x, y) => y.l - x.l)[0]
+      let i = 0
+      const t = textOf.get(id).replace(/#/g, () => { const r = top?.v?.[i++]; return r ? (r[0] === r[1] ? String(r[0]) : `(${r[0]}-${r[1]})`) : '#' })
+      return top?.v?.length ? { t, id, v: top.v, g: a.c } : { t, id, g: a.c }
+    })
+    if (pool.length) { out.t = slotTitle(text); out.p = pool; return out }
+  }
   const rule = RANDOM_POOLS.find((r) => r.slot.test(text))
   if (!rule) return out
   const entries = (ctx.payload?.result ?? []).flatMap((g) => g.entries ?? []).filter((e) => typeof e?.id === 'string' && typeof e.text === 'string' && rule.entry(e))
@@ -260,11 +274,12 @@ export function skillLine(text, skillIndex) {
 }
 
 let STATS = null // 무작위 풀·스킬 부여용 — main 이 채운다
+let DESECRATED_D = null // 지금 만드는 고유 부위의 훼손된 속성 표(statAffixes[c].d) — main 이 고유마다 바꾼다
 let PAGE = null // 지금 만드는 고유의 개별 페이지 풀 — main 이 고유마다 바꾼다
 const PAGE_USED = { page: false } // 무작위 자리가 페이지 표를 썼나 — 안 썼으면 main 이 applyUnusedPage
 /** 줄 → 산출물 줄. */
 function lineOut(text, index, pool) {
-  if (RANDOM_SLOT.test(text)) return randomLine(text, { payload: STATS?.payload, page: PAGE, indexes: STATS?.indexes, explicitIndex: index, pool, used: PAGE_USED })
+  if (RANDOM_SLOT.test(text)) return randomLine(text, { payload: STATS?.payload, page: PAGE, indexes: STATS?.indexes, explicitIndex: index, pool, used: PAGE_USED, affixD: DESECRATED_D })
   const { ids, v } = lineCondition(text, index, pool)
   const out = { t: text }
   if (ids.length === 1) out.id = ids[0]
@@ -613,6 +628,7 @@ async function main() {
     const pagePath = slug ? join(PAGES, `${slug}.html`) : null
     PAGE = pagePath && existsSync(pagePath) ? parsePagePool(readFileSync(pagePath, 'utf8'), card.name) : null
     PAGE_USED.page = false
+    DESECRATED_D = affixes[c]?.d ?? null
     const i = linesOf(card.implicit, indexes[IMPLICIT_GROUP], pool, counts)
     const f = linesOf(card.explicit, explicitIndex, pool, counts)
     const m = linesOf(cult?.mutated ?? [], explicitIndex, pool, counts)

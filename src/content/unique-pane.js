@@ -10,6 +10,7 @@
 
 import { findUniques, lineState, lineRange, cleanLineValue, uniqueKey, pickable } from '../lib/uniqueList.js'
 import { bindPageTip } from './page-tip.js'
+import { groupByCategory } from '../lib/affixCategory.js'
 import vaalOrbIcon from '../icons/vaal-cultivation-orb.png'
 
 const STATE_TIP = {
@@ -250,15 +251,28 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
           const hay = r.querySelector('.ba-uq-text')?.textContent.toLowerCase().replace(/\s+/g, '') ?? ''
           r.hidden = !parts.every((p) => hay.includes(p))
         }
+        // 소분류 제목은 그 아래 줄이 하나라도 보일 때만
+        for (const g of wrap.querySelectorAll('.ba-uq-pool-group')) g.hidden = ![...g.querySelectorAll('.ba-uq-row')].some((r) => !r.hidden)
       })
       wrap.appendChild(q)
     }
-    line.p.forEach((p, j) => {
+    const addRow = (to, p, j) => {
       // 범위(`v`)가 있으면 칸에 범위를 안내한다(선택형 조건도 값이 있으면 — 믿음의 분광기 「모든 ○○ 스킬 레벨 +(1-3)」).
       // 값 자리가 없는 선택형 조건(`…|8` 유산)은 칸이 없고, 범위를 모르는 줄은 칸만 연다(매물마다 굴린 값이 다르다).
       const poolLine = { t: p.t, id: p.id, alt: p.alt, all: p.all, v: p.v, pool: true, valued: !p.v && !!p.id && !p.id.includes('|') }
-      wrap.appendChild(row(e, kind, poolLine, `${i}.${j}`, mutated))
-    })
+      to.appendChild(row(e, kind, poolLine, `${i}.${j}`, mutated))
+    }
+    // 종류 키(g)가 있는 풀(직접 훼손하는 자리 — 그 부위의 훼손된 속성 전체)은 속성 목록과 같은 소분류로 나눈다.
+    // 순번 j 는 풀 안 원래 자리 그대로 — 고른 줄의 키가 묶음 순서에 따라 바뀌지 않게
+    const indexed = line.p.map((p, j) => ({ p, j }))
+    if (line.p.some((p) => p.g)) {
+      for (const g of groupByCategory(indexed, (x) => x.p.g)) {
+        const box = el(doc, 'div', 'ba-uq-pool-group')
+        box.appendChild(el(doc, 'p', 'ba-uq-pool-group-title', g.label))
+        for (const x of g.items) addRow(box, x.p, x.j)
+        wrap.appendChild(box)
+      }
+    } else for (const x of indexed) addRow(wrap, x.p, x.j)
     return wrap
   }
 
