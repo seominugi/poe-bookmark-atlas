@@ -10,6 +10,7 @@
 
 import { findUniques, lineState, lineRange, cleanLineValue, uniqueKey, pickable } from '../lib/uniqueList.js'
 import { bindPageTip } from './page-tip.js'
+import vaalOrbIcon from '../icons/vaal-cultivation-orb.png'
 
 const STATE_TIP = {
   const: '모든 매물에 같은 값으로 붙어요\n고르면 이 속성이 붙었는지만 봐요',
@@ -19,6 +20,8 @@ const STATE_TIP = {
   option: '변형마다 거래소 조건이 달라요(여기 적힌 것은 그중 하나)\n거래소 능력치 필터에서 직접 골라 주세요',
   none: '거래소에서 이 문구의 조건을 찾지 못했어요',
 }
+// 바알 함양 오브 — 거래소 static 이미지(trade2 static 「vaal-cultivation-orb」)를 확장에 실었다
+const vaalOrbUrl = (() => { try { return chrome.runtime.getURL(vaalOrbIcon) } catch (_) { return null } })()
 const POOL_FILTER_MIN = 12 // 풀이 이보다 길면 풀 안에서 찾는 칸을 단다
 const ROLE_TIP = {
   and: '필수 — 고른 속성이 모두 붙은 매물을 찾아요',
@@ -41,7 +44,6 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
   let cls = null
   let shown = []
   let active = null // 오른쪽에 보이는 고유(표 항목)
-  let showMf = false // 함양판 고정 속성 목록을 펼쳤나
   // 「매물에서 속성 더 찾기」 결과 — 고유 키 → { data:{count, lines, resolved}, at }. 창을 닫으면 잊는다(저장은 부르는 쪽).
   const observed = new Map()
   const obsState = new Map() // 고유 키 → 'loading' | 상태 문구
@@ -84,7 +86,7 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
       if (e.m?.length) marks.appendChild(el(doc, 'i', 'ba-uq-vaal', '바알 고유'))
       if (e.x) marks.appendChild(el(doc, 'i', 'ba-uq-corrupt', '타락'))
       b.appendChild(marks)
-      b.addEventListener('click', () => { active = e; showMf = false; renderList(); renderDetail(); changed() })
+      b.addEventListener('click', () => { active = e; renderList(); renderDetail(); changed() })
       listEl.appendChild(b)
     }
   }
@@ -97,6 +99,7 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     head.append(el(doc, 'h3', 'ba-uq-name', e.n), el(doc, 'span', 'ba-uq-base', e.b))
     if (e.m?.length) {
       const vaal = head.appendChild(el(doc, 'span', 'ba-uq-vaal', '바알 고유'))
+      orbImg(vaal)
       vaal.dataset.tip = '바알 함양 오브로 속성이 바뀔 수 있는 고유예요\n아래 빨간 줄이 바뀔 수 있는 속성이에요'
       bindPageTip(vaal, { placement: 'below' })
     }
@@ -110,19 +113,8 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     cols.append(el(doc, 'span', null, ''), el(doc, 'span', null, '속성'), el(doc, 'span', null, '최소'), el(doc, 'span', null, '최대'), el(doc, 'span', null, '역할'))
     detail.appendChild(cols)
     section(e, 'i', '기본 속성')
-    section(e, 'f', '고정 속성')
-    if (e.m?.length) {
-      section(e, 'm', '바알 함양 — 최대 2개까지 이 중에서 바뀌어요', { mutated: true })
-      if (e.mf?.length) {
-        const t = el(doc, 'button', 'ba-uq-mf-toggle', showMf ? '함양판 고정 속성 접기' : '함양판에 적힌 고정 속성 보기')
-        t.type = 'button'
-        t.dataset.tip = '함양된 매물은 고정 속성이 위 목록과 조금 다를 수 있어요\n(poe2db 함양판 기준 — 매물로 확인 전)'
-        bindPageTip(t, { placement: 'below' })
-        t.addEventListener('click', () => { showMf = !showMf; renderDetail() })
-        detail.appendChild(t)
-        if (showMf) section(e, 'mf', '함양판 고정 속성')
-      }
-    }
+    fixedSection(e)
+    if (e.m?.length) section(e, 'm', '바알 함양 — 최대 2개까지 이 중에서 바뀌어요', { mutated: true })
     const obs = observed.get(uniqueKey(e))
     if (obs?.data?.lines?.length) section(e, 'o', `매물에서 본 속성 — 싼 매물 ${obs.data.count}개 기준 · 무작위로 붙는 속성일 수 있어요`)
   }
@@ -191,7 +183,8 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     if (!lines.length) return
     const sec = el(doc, 'section', 'ba-uq-sec')
     sec.dataset.kind = kind
-    sec.appendChild(el(doc, 'h4', 'ba-uq-sec-title', label))
+    const title = sec.appendChild(el(doc, 'h4', 'ba-uq-sec-title', label))
+    if (kind === 'm') orbImg(title)
     lines.forEach((line, i) => {
       if (line.k === 'r' && line.p?.length) sec.appendChild(poolBlock(e, kind, line, i, mutated))
       else sec.appendChild(row(e, kind, line, i, mutated || (kind === 'o' && !!line.mutated)))
@@ -200,7 +193,39 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
   }
 
   /**
-   * 무작위 풀 — 모리오르 인빅투스 「채운 홈 하나당 …」 3개, 마법사의 피 「○○의 유산」 4개처럼 아이템마다 다른 것이 붙는다.
+   * 고정 속성 — 함양판(mf)이 있으면 한 목록에 합친다(사용자 요청 2026-09-28, 펼치기 단추를 없앴다).
+   * 함양하면 없어지는 줄에는 「함양 시 사라짐」, 함양판에만 있는 줄은 끝에 「함양 시 생김」 칩을 단다.
+   * 함양판에만 있는 줄은 `mf` 로 고른다 — 고르면 함양 필터도 켠다(picks).
+   */
+  function fixedSection(e) {
+    if (!e.mf?.length) { section(e, 'f', '고정 속성'); return }
+    const lineKey = (l) => l.id || (l.alt ?? []).join() || l.t
+    const inMf = new Set(e.mf.map(lineKey))
+    const inF = new Set((e.f ?? []).map(lineKey))
+    const sec = el(doc, 'section', 'ba-uq-sec')
+    sec.dataset.kind = 'f'
+    sec.appendChild(el(doc, 'h4', 'ba-uq-sec-title', '고정 속성'))
+    const chip = (node, text, tip) => {
+      const c = el(doc, 'i', 'ba-uq-imbue-chip', text)
+      c.dataset.tip = `${tip}\n(poe2db 함양판 기준 — 매물로 확인 전)`
+      bindPageTip(c, { placement: 'below' })
+      ;(node.querySelector('.ba-uq-text, .ba-uq-pool-head') ?? node).appendChild(c)
+      return node
+    }
+    const place = (kind, line, i, mutated) => (line.k === 'r' && line.p?.length ? poolBlock(e, kind, line, i, mutated) : row(e, kind, line, i, mutated))
+    linesOf(e, 'f').forEach((line, i) => {
+      const node = place('f', line, i, false)
+      sec.appendChild(inMf.has(lineKey(e.f[i])) ? node : chip(node, '함양 시 사라짐', '바알 함양하면 이 속성이 없어져요'))
+    })
+    linesOf(e, 'mf').forEach((line, i) => {
+      if (inF.has(lineKey(e.mf[i]))) return
+      sec.appendChild(chip(place('mf', line, i, true), '함양 시 생김', '바알 함양하면 이 속성이 붙어요\n고르면 함양된 매물만 찾아요'))
+    })
+    detail.appendChild(sec)
+  }
+
+  /**
+   * 무작위 풀 —모리오르 인빅투스 「채운 홈 하나당 …」 3개, 마법사의 피 「○○의 유산」 4개처럼 아이템마다 다른 것이 붙는다.
    * 풀의 줄을 하나씩 고른다(필수 = 그 속성이 붙은 매물, 후보 = 고른 것 중 하나 이상).
    */
   function poolBlock(e, kind, line, i, mutated) {
@@ -420,6 +445,18 @@ function ago(at) {
   if (m < 60) return `${m}분 전`
   const h = Math.floor(m / 60)
   return h < 24 ? `${h}시간 전` : `${Math.floor(h / 24)}일 전`
+}
+
+/** 바알 함양 오브 그림을 앞에 붙인다(이미지를 못 읽으면 글자만). */
+function orbImg(node) {
+  if (!vaalOrbUrl) return
+  const img = node.ownerDocument.createElement('img')
+  img.className = 'ba-uq-orb'
+  img.src = vaalOrbUrl
+  img.alt = ''
+  img.width = img.height = 16
+  img.addEventListener('error', () => img.remove())
+  node.prepend(img)
 }
 
 function el(doc, tag, className, text) {

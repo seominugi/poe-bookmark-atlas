@@ -963,10 +963,9 @@ function pobEnsureStyle() {
   .ba-uq-role[data-role="and"].is-on { color: #c7f5df !important; border-color: rgba(79,211,154,0.5) !important; background: rgba(79,211,154,0.16) !important; }
   .ba-uq-role[data-role="or"].is-on { color: #d3f0ff !important; border-color: rgba(92,195,242,0.5) !important; background: rgba(92,195,242,0.16) !important; }
   .ba-uq-role:focus-visible { outline: 2px solid #f5f3ff; outline-offset: 1px; }
-  .ba-uq-mf-toggle { margin: 8px 0 0 8px !important; padding: 5px 10px !important; border-radius: 8px !important; cursor: pointer;
-    border: 1px dashed rgba(255,107,107,0.45) !important; background: transparent !important; color: #ffb3b3 !important;
-    font: 600 11.5px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif !important; }
-  @media (hover: hover) and (pointer: fine) { .ba-uq-mf-toggle:hover { background: rgba(255,90,90,0.1) !important; } }
+  .ba-uq-orb { display: inline-block; width: 16px; height: 16px; margin-right: 4px; vertical-align: -4px; }
+  /* 바알 고유 고정 속성 — 함양하면 사라지는/생기는 줄의 칩 */
+  .ba-uq-imbue-chip { display: inline-block; margin-left: 6px; vertical-align: 1px; font: 700 10px/1 system-ui, -apple-system, "Malgun Gothic", sans-serif; font-style: normal; white-space: nowrap; color: #ff8a8a; padding: 2px 5px; border-radius: 5px; background: rgba(255,90,90,0.14); box-shadow: inset 0 0 0 1px rgba(255,107,107,0.35); }
   /* 「매물에서 속성 더 찾기」 — 누를 때만 거래소에 묻는다. 결과 한 줄은 조용한 글자 */
   .ba-uq-observe { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin: 0 0 10px; }
   .ba-uq-observe-btn { height: 28px; padding: 0 12px !important; margin: 0 !important; border-radius: 8px !important; cursor: pointer;

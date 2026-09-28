@@ -112,7 +112,32 @@ const SLOT_TITLES = [
   [/Desecrated prefix/i, '훼손된 접두어'],
   [/Desecrated suffix/i, '훼손된 접미어'],
   [/Socket Modifiers/i, '채운 홈 하나당 속성'],
+  [/Keystone/i, '핵심노드'], // 게임 표기 「할당된 핵심노드 1개당 …」
 ]
+/**
+ * 풀 줄의 영문 패시브 이름 → 게임 한국어 표기(전역 §30). 거래소 선택형 조건 중 번역되지 않은 것이 있다
+ * (살점 도가니 키스톤 `explicit.stat_3831171903|n` —카카오 거래소도 「Blood Magic」). 조건 id 는 그대로라 검색은 같다.
+ * 사전에 없는 이름은 영문 그대로 둔다. 대소문자만 다른 표기(「Dance With Death」)도 같은 이름으로 본다.
+ * @param {Array<{f?:object[],m?:object[],mf?:object[]}>} u @param {Map<string,string>} names 소문자 영문 → 한국어
+ */
+export function koreanizePoolNames(u, names) {
+  let n = 0
+  for (const e of u) for (const k of ['i', 'f', 'm', 'mf']) for (const l of e[k] ?? []) for (const q of l.p ?? []) {
+    const ko = /^[A-Za-z' -]+$/.test(q.t) ? names.get(q.t.toLowerCase()) : null
+    if (ko) { q.t = ko; n++ }
+  }
+  return n
+}
+
+/** poe-kr-en-dictionary 의 패시브 트리 사전(영문 → 한국어). 저장소가 없으면 빈 맵. */
+function passiveNames() {
+  for (let dir = here; ; dir = dirname(dir)) {
+    const f = join(dir, 'poe-kr-en-dictionary', 'dict', 'POE2', 'en-ko', 'poe2_passives_skill_tree.json')
+    if (existsSync(f)) return new Map(Object.entries(JSON.parse(readFileSync(f, 'utf8'))).map(([en, ko]) => [en.toLowerCase(), ko]))
+    if (dirname(dir) === dir) return new Map()
+  }
+}
+
 const slotTitle = (text) => SLOT_TITLES.find(([re]) => re.test(text))?.[1] ?? '무작위 속성'
 const slotSide = (text) => (/prefix/i.test(text) ? 'p' : /suffix/i.test(text) ? 's' : null)
 
@@ -609,6 +634,8 @@ async function main() {
     if (got && (got.sibling.length || got.slot.length || got.extra || got.filled)) observedReport.push(`${card.name}: 형제 ${got.sibling.join(' · ') || 0} / 자리 ${got.slot.join(',') || 0} / 채움 ${got.filled} / 매물 속성 ${got.extra}`)
     u.push(entry)
   }
+  const koNames = koreanizePoolNames(u, passiveNames())
+  console.log(`풀 이름 한국어로: ${koNames}줄`)
   const orphanMutated = [...mutated.keys()].filter((n) => !cards.some((c) => c.name === n))
 
   const stat = (key) => {
