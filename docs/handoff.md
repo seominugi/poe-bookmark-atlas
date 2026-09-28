@@ -1,11 +1,19 @@
 ---
-timestamp: 2026-09-24 (Asia/Seoul)
+timestamp: 2026-09-28 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
 # poe-bookmark-atlas 핸드오프
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
+
+## 0.15.0 릴리즈 — 속성 목록 고유 모드 (2026-09-28, `feature/release-0.15.0`)
+
+- 사용자 요청: 고유 데이터는 제보로 계속 고치더라도 먼저 배포. 0.14.1 이후 #91~#103 이 실린다(고유 모드 · 매물에서 속성 더 찾기 · 서판 남은 사용 횟수 · 하이브리드 속성 · 무작위 풀 · 바알 함양 칩).
+- 버전 0.15.0(manifest·package·lock) · `WHATS_NEW_VERSION` 0.15.0 · 새 투어 스텝 「고유 아이템도 속성 목록에서」(PoE2 전용, PoE1 은 새 기능 투어 0스텝 → 조용히 넘김) · 노트 0.15.0(목업 지시자 없음 → GitHub 본문 그대로).
+- #103: 함양판 고정 속성 토글 → 고정 속성 줄의 「함양 시 사라짐/생김」 칩 · 바알 함양 오브 그림(거래소 static 이미지를 `src/icons/` 에 실음 — divine.png 와 같은 방식. ⚠ #97 에서 「poe-game-data 이미지 배포 금지」로 고유 이미지를 뺀 결정이 있다 — 이 오브 그림은 poe-game-data 가 아니라 GGG CDN 에서 받은 것이라 화폐 아이콘과 같은 선에 두었다. 문제가 되면 빼면 된다) · 살점 도가니 핵심노드 33개 한국어(빌드 `koreanizePoolNames`, poe-kr-en-dictionary 패시브 트리 사전).
+- 남은 데이터 결함(제보 대기): 태어나지 않은 리치 `[Custom Desecrated prefix]` · 앗지리의 위풍 고정 속성의 영문 자리표시.
+- 스토어 업로드는 사용자 몫(`deploy/poe-bookmark-atlas-0.15.0.zip`). 권한 변화 없음 — 재승인 안내 없음.
 
 ## 고유 속성 — 유형별 매물 관찰로 무작위 변형 찾기 (2026-09-25, `feature/unique-option-families`)
 
