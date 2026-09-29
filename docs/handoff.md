@@ -1,11 +1,16 @@
 ---
-timestamp: 2026-09-28 (Asia/Seoul)
+timestamp: 2026-09-29 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
 # poe-bookmark-atlas 핸드오프
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
+
+## 0.15.1 릴리즈 — 고유 영문 자리표시 정리 (2026-09-29, `feature/release-0.15.1`)
+
+- #105(앗지리 영혼 핵 부위 풀 · 리치 직접 훼손 접두어 풀, 종류별 소분류)만 싣는 패치. 투어 스텝 없음(`WHATS_NEW_VERSION` 0.15.0 유지 — 노트 창은 버전 비교라 0.15.1 노트가 뜬다). 권한 변화 없음.
+- ⚠ 0.15.0 이 아직 심사 중이면 업로드하는 순간 제출분이 대체된다(내용은 0.15.0 을 포함하므로 손실은 없다).
 
 ## 0.15.0 릴리즈 — 속성 목록 고유 모드 (2026-09-28, `feature/release-0.15.0`)
 
