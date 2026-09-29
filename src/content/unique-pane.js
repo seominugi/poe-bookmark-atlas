@@ -200,9 +200,16 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
    */
   function fixedSection(e) {
     if (!e.mf?.length) { section(e, 'f', '고정 속성'); return }
-    const lineKey = (l) => l.id || (l.alt ?? []).join() || l.t
-    const inMf = new Set(e.mf.map(lineKey))
-    const inF = new Set((e.f ?? []).map(lineKey))
+    // 줄 → 거래소 조건 id 들(무작위 풀이면 구성원까지). 조건이 없으면 문구.
+    // 한쪽은 풀 한 줄, 다른 쪽은 같은 조건을 낱줄로 적은 경우가 있다(살점 도가니 「… 감폭」 6개 · 앗지리 영혼 핵 부위 4개) —
+    // 조건이 하나라도 겹치면 같은 속성으로 본다(라이브 확인 2026-09-30: 풀은 「사라짐」, 낱줄은 「생김」으로 잘못 붙었다)
+    const keysOf = (l) => {
+      const ids = [l, ...(l.p ?? [])].flatMap((x) => [x.id, ...(x.alt ?? []), ...(x.all ?? [])]).filter(Boolean)
+      return ids.length ? ids : [l.t]
+    }
+    const inMf = new Set(e.mf.flatMap(keysOf))
+    const inF = new Set((e.f ?? []).flatMap(keysOf))
+    const overlaps = (l, set) => keysOf(l).some((k) => set.has(k))
     const sec = el(doc, 'section', 'ba-uq-sec')
     sec.dataset.kind = 'f'
     sec.appendChild(el(doc, 'h4', 'ba-uq-sec-title', '고정 속성'))
@@ -216,10 +223,10 @@ export function createUniquePane(doc, { table, onChange, observe = null }) {
     const place = (kind, line, i, mutated) => (line.k === 'r' && line.p?.length ? poolBlock(e, kind, line, i, mutated) : row(e, kind, line, i, mutated))
     linesOf(e, 'f').forEach((line, i) => {
       const node = place('f', line, i, false)
-      sec.appendChild(inMf.has(lineKey(e.f[i])) ? node : chip(node, '함양 시 사라짐', '바알 함양하면 이 속성이 없어져요'))
+      sec.appendChild(overlaps(e.f[i], inMf) ? node : chip(node, '함양 시 사라짐', '바알 함양하면 이 속성이 없어져요'))
     })
     linesOf(e, 'mf').forEach((line, i) => {
-      if (inF.has(lineKey(e.mf[i]))) return
+      if (overlaps(e.mf[i], inF)) return
       sec.appendChild(chip(place('mf', line, i, true), '함양 시 생김', '바알 함양하면 이 속성이 붙어요\n고르면 함양된 매물만 찾아요'))
     })
     detail.appendChild(sec)
