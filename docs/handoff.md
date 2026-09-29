@@ -1,11 +1,17 @@
 ---
-timestamp: 2026-09-29 (Asia/Seoul)
+timestamp: 2026-09-30 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
 # poe-bookmark-atlas 핸드오프
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
+
+## 0.15.1 라이브 확인 (2026-09-30)
+
+- claude-in-chrome 의 로그인 크롬(Browser 2)에 이제 **개발 빌드(`nohgc…`)가 로드돼 있다** — 메모리의 「로그인 프로필 = 스토어본」과 다르다. 확장 id 부터 볼 것.
+- #105·#107 정상(원장 done). #103 은 살점 도가니·앗지리 오칩으로 failed → **#110 에서 수정**(풀과 낱줄의 조건 겹침 판정). 0.15.1 스토어본에는 이 오칩이 남아 있다 — 다음 패치에 실린다.
+- 백그라운드 탭에서 setTimeout 을 여러 번 기다리는 JS 는 45초 제한에 걸린다 — 한 번에 한 고유씩 읽을 것.
 
 ## 0.15.1 릴리즈 — 고유 영문 자리표시 정리 (2026-09-29, `feature/release-0.15.1`)
 
