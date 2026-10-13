@@ -7,6 +7,12 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
+## poe-game-data v2026.10.13.1 로 lock 갱신 (2026-10-13)
+
+- poe-game-data 를 **v2026.09.17.2 → v2026.10.13.1** 로 올렸다. 다섯 소비처를 한 태그로 맞추는 작업의 일부다(08-30 단일 스냅샷 계약 — 소비처가 다섯 태그로 갈라져 있었다). 이 태그는 poe-ggpk-extractor `release:full` 이 PoE1 3.29.3.3 · PoE2 0.5.5.4.2 를 한 GGPK 에서 처음부터 다시 뽑은 첫 스냅샷이다.
+- `build-tier-table` 을 다시 돌렸다 — 티어·속성 표 내용 변화 0(속성 표는 줄끝만 달라 되돌림). PoE2 모드 데이터는 번체 문구만 바뀌었다.
+- 검증: vitest 1,034 통과 · build 통과(`POE_GAME_DATA_ROOT` = v2026.10.13.1 체크아웃).
+
 ## 0.15.1 라이브 확인 (2026-09-30)
 
 - claude-in-chrome 의 로그인 크롬(Browser 2)에 이제 **개발 빌드(`nohgc…`)가 로드돼 있다** — 메모리의 「로그인 프로필 = 스토어본」과 다르다. 확장 id 부터 볼 것.
