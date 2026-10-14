@@ -41,7 +41,10 @@ const KNOWN_BUCKETS = new Set(['normal', 'unique', ...SPECIAL_SOURCES.map((s) =>
 
 // 게임 데이터가 표시 배율을 적용하지 않은 스탯 — 값이 100배(흡수·치명타)·60배(재생)로 들어 있다.
 // 배율을 넣어 되살릴 수는 있으나 게임으로 검증하지 못해 v1 에서는 제외한다(설계 문서 §7).
-const UNSCALED_STAT = /(_permyriad|_per_minute)$|^local_critical_strike_chance$/
+// 단위 토막은 이름 끝이 아니어도 본다 — `local_flask_gain_X_charges_every_minute`(「1초마다 충전 9 획득」, 분당 9)·
+// `life_regeneration_rate_per_minute_%`·`…_permyriad_chance_to_cost_no_tribute` 가 끝 고정 규칙을 빠져나갔다(2026-10-14 독립 검토).
+// 옛 렌더러(poe-game-data v2026.10.14 까지)는 분당 → 초당 처리기를 몰라 문장도 날값이라 shownDiffers 로도 못 잡는다.
+const UNSCALED_STAT = /_(permyriad|per_minute|every_minute)(_|$)|^local_critical_strike_chance$/
 
 /**
  * 대응표가 양쪽 실물과 맞는지 본다. 문제 목록을 돌려주고, 비어 있으면 통과다.
