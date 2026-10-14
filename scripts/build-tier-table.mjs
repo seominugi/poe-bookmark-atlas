@@ -41,7 +41,10 @@ const KNOWN_BUCKETS = new Set(['normal', 'unique', ...SPECIAL_SOURCES.map((s) =>
 
 // 게임 데이터가 표시 배율을 적용하지 않은 스탯 — 값이 100배(흡수·치명타)·60배(재생)로 들어 있다.
 // 배율을 넣어 되살릴 수는 있으나 게임으로 검증하지 못해 v1 에서는 제외한다(설계 문서 §7).
-const UNSCALED_STAT = /(_permyriad|_per_minute)$|^local_critical_strike_chance$/
+// 단위 토막은 이름 끝이 아니어도 본다 — `local_flask_gain_X_charges_every_minute`(「1초마다 충전 9 획득」, 분당 9)·
+// `life_regeneration_rate_per_minute_%`·`…_permyriad_chance_to_cost_no_tribute` 가 끝 고정 규칙을 빠져나갔다(2026-10-14 독립 검토).
+// 옛 렌더러(poe-game-data v2026.10.14 까지)는 분당 → 초당 처리기를 몰라 문장도 날값이라 shownDiffers 로도 못 잡는다.
+const UNSCALED_STAT = /_(permyriad|per_minute|every_minute)(_|$)|^local_critical_strike_chance$/
 
 /**
  * 대응표가 양쪽 실물과 맞는지 본다. 문제 목록을 돌려주고, 비어 있으면 통과다.
@@ -184,9 +187,26 @@ export function preferLadder(prev, prevInferred, next, nextInferred) {
   return prev.length < next.length
 }
 
-/** 표시 배율이 적용되지 않아 값을 그대로 쓸 수 없는 모드인가. */
+/**
+ * 표시 배율이 적용되지 않아 값을 그대로 쓸 수 없는 모드인가.
+ *
+ * 이름(UNSCALED_STAT)만으로는 다 못 잡는다 — 모드 문장(text.kr)은 게임 처리기를 거친 화면 숫자인데 표 값은 날값(valueRange)이라,
+ * 처리기가 값을 바꾸는 스탯은 이름에 단위가 없어도 어긋난다(2026-10-14 v2026.10.13.1 실측: `rage_loss_delay_ms_+` 「(1-2)초」 ↔ 1000~2000,
+ * `base_thorns_critical_strike_chance` 「(2-4)%」 ↔ 200~400, `…_permyriad_chance_to_cost_no_tribute` 「(3-6)%」 ↔ 300~600,
+ * 문장에 숫자가 박힌 플래그 「인챈트 2개」 ↔ 1). 그래서 **날값이 문장에 그대로 보이지 않는 줄**이 있으면 같은 규칙으로 뺀다.
+ * 부호는 보지 않는다(negate 「#% 감소」 는 날값 −N 을 N 으로 그린다). 숫자가 없는 문장(「즉시 회복」)은 값 칸이 없어 보지 않는다.
+ */
 function isUnscaled(mod) {
-  return (mod.stats ?? []).some((s) => (s.stats ?? []).some((x) => UNSCALED_STAT.test(x.stat ?? '')))
+  return (mod.stats ?? []).some((s) => (s.stats ?? []).some((x) => UNSCALED_STAT.test(x.stat ?? '')) || shownDiffers(s))
+}
+
+/** 한 문장의 날값 중 화면 숫자에 없는 것이 있는가 */
+export function shownDiffers(line) {
+  const text = line?.text?.kr
+  if (!text) return false
+  const shown = new Set((text.match(/\d+(?:\.\d+)?/g) ?? []).map(Number))
+  if (!shown.size) return false
+  return (line.stats ?? []).some((x) => (x.valueRange ?? []).some((v) => !shown.has(Math.abs(v))))
 }
 
 /** 같은 요구 레벨에 값이 둘 이상이면 티어 순서를 정할 수 없다. */
