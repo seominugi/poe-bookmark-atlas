@@ -184,9 +184,26 @@ export function preferLadder(prev, prevInferred, next, nextInferred) {
   return prev.length < next.length
 }
 
-/** 표시 배율이 적용되지 않아 값을 그대로 쓸 수 없는 모드인가. */
+/**
+ * 표시 배율이 적용되지 않아 값을 그대로 쓸 수 없는 모드인가.
+ *
+ * 이름(UNSCALED_STAT)만으로는 다 못 잡는다 — 모드 문장(text.kr)은 게임 처리기를 거친 화면 숫자인데 표 값은 날값(valueRange)이라,
+ * 처리기가 값을 바꾸는 스탯은 이름에 단위가 없어도 어긋난다(2026-10-14 v2026.10.13.1 실측: `rage_loss_delay_ms_+` 「(1-2)초」 ↔ 1000~2000,
+ * `base_thorns_critical_strike_chance` 「(2-4)%」 ↔ 200~400, `…_permyriad_chance_to_cost_no_tribute` 「(3-6)%」 ↔ 300~600,
+ * 문장에 숫자가 박힌 플래그 「인챈트 2개」 ↔ 1). 그래서 **날값이 문장에 그대로 보이지 않는 줄**이 있으면 같은 규칙으로 뺀다.
+ * 부호는 보지 않는다(negate 「#% 감소」 는 날값 −N 을 N 으로 그린다). 숫자가 없는 문장(「즉시 회복」)은 값 칸이 없어 보지 않는다.
+ */
 function isUnscaled(mod) {
-  return (mod.stats ?? []).some((s) => (s.stats ?? []).some((x) => UNSCALED_STAT.test(x.stat ?? '')))
+  return (mod.stats ?? []).some((s) => (s.stats ?? []).some((x) => UNSCALED_STAT.test(x.stat ?? '')) || shownDiffers(s))
+}
+
+/** 한 문장의 날값 중 화면 숫자에 없는 것이 있는가 */
+export function shownDiffers(line) {
+  const text = line?.text?.kr
+  if (!text) return false
+  const shown = new Set((text.match(/\d+(?:\.\d+)?/g) ?? []).map(Number))
+  if (!shown.size) return false
+  return (line.stats ?? []).some((x) => (x.valueRange ?? []).some((v) => !shown.has(Math.abs(v))))
 }
 
 /** 같은 요구 레벨에 값이 둘 이상이면 티어 순서를 정할 수 없다. */
