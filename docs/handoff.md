@@ -1,11 +1,21 @@
 ---
-timestamp: 2026-09-30 (Asia/Seoul)
+timestamp: 2026-10-14 (Asia/Seoul)
 project: poe-bookmark-atlas
 ---
 
 # poe-bookmark-atlas 핸드오프
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
+
+## 모드 문장 부호 대비 — 「최대 퀄리티 #%」 거래소 id 쌍 규칙 (2026-10-14, #113 머지 8fbb54c5)
+
+- poe-ggpk-extractor #61 부터 poe-game-data 모드 문장이 게임 부호·값 처리기를 싣고, 빈 `{:+d}` 자리를 그린다(에센스 「최대 퀄리티 +20%」).
+  다음 `release:full` 태그부터 실린다 — 이 저장소 lock 은 아직 v2026.10.13.1.
+- 새 데이터로 `build-tier-table` 을 미리 돌렸다: 티어 표 동일 · 매칭 94.2% 동일 · 속성 목록은 추가만 6건(전엔 빈 자리라 안 맞던 줄).
+  새로 생긴 「문구가 같은데 실측이 없는 id 쌍」 2건(Amulet·Ring 최대 퀄리티)을 `trade-twins.poe2.json` 규칙으로 정리했다
+  (2026-10-14 Forbidden Rites 실측: stat_2039822488 목걸이 4702·반지 5164, stat_275498888 0·0). 규칙 scope 는 파일 관례대로 `accessory` —
+  허리띠는 실측하지 않았다(지금 허리띠에 이 쌍은 없다).
+- 다음 lock 갱신 때 `build-tier-table` 결과의 미실측 쌍이 기존 3건(스킬 부여)인지 본다.
 
 ## poe-game-data v2026.10.13.1 로 lock 갱신 (2026-10-13)
 
