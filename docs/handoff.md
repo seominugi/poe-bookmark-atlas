@@ -7,6 +7,16 @@ project: poe-bookmark-atlas
 
 POE2 거래소(poe.kakaogames.com) 북마크·히스토리 관리 Chrome MV3 확장 (Vite + @crxjs/vite-plugin). 우측 도킹 Shadow DOM 패널. 제작 브랜드: 서미누기.
 
+## 고유 표 패시브 이름 — 옛 번역 사전 대신 poe-game-data 판 (2026-10-19, 사전 저장소 은퇴)
+
+- `scripts/build-unique-table.mjs` 의 `passiveNames()` 가 옛 사전(poe-kr-en-dictionary `dict/POE2/en-ko/poe2_passives_skill_tree.json`)
+  대신 **lock 이 고정한 poe-game-data 판의 `poe2/passives.json`** 을 읽는다. 사전 저장소 은퇴 작업(전 소비처 전환)의 하나.
+- 판과 사전이 함께 가진 이름 1,606개 중 16개는 판 표기가 맞다(사전 오류 — Defensive Stance 「공격 태세」 → 「방어 태세」),
+  사전에만 있던 2,026개는 지금 트리에 없는 이름이다.
+- **지금 lock(v2026.10.13.1)에는 그 파일이 없다**(v2026.10.14 부터). 다음 고유 표 재생성 전에 lock 을 v2026.10.14 이상으로 올려야
+  패시브 이름이 한글이 된다 — 안 올리면 경고 뒤 영문 그대로(사전이 없을 때와 같은 폴백). lock 올리기는 추출기 consumer-registry 의
+  manualBump 절차(티어·베이스 맵 재생성 포함). 커밋된 표(`src/lib`)는 이번에 바뀌지 않았다.
+
 ## 티어 표 — 날값이 화면과 다른 모드를 더 뺀다 (2026-10-14, #115)
 
 - 티어 값은 날값(valueRange)이라, 표시 배율이 다른 스탯은 `isUnscaled` 로 뺀다(설계 문서 §7, 화면 숫자로 되살리지 않는다).

@@ -27,6 +27,7 @@ import { classFromBaseName } from '../src/lib/itemClass.js'
 import { loadStats } from './build-tier-table.mjs'
 import { lineCondition, tradeIndexes, valuesByKey, flipped } from '../src/lib/modLineMatch.js'
 import { normalizeTradeText } from '../src/lib/statTextNorm.js'
+import { DATA_LOCK, resolveLockedGameDataRoot } from './poe-game-data-lock.mjs'
 // 테스트가 이 파일에서 가져가던 이름 — 정본은 src/lib/modLineMatch.js
 export { matchLine, valuesByKey, tradeIndexes } from '../src/lib/modLineMatch.js'
 
@@ -131,13 +132,34 @@ export function koreanizePoolNames(u, names) {
   return n
 }
 
-/** poe-kr-en-dictionary 의 패시브 트리 사전(영문 → 한국어). 저장소가 없으면 빈 맵. */
+/**
+ * 패시브 이름 표(소문자 영문 → 한국어) — lock 이 고정한 poe-game-data 판의 `poe2/passives.json`(GGPK 패시브 트리, 판
+ * v2026.10.14 부터). 옛 번역 사전(poe-kr-en-dictionary)의 패시브 트리 사전을 읽던 자리다 — 사전 저장소 은퇴(2026-10-19).
+ * 그 사전과 판이 함께 가진 이름 1,606개 중 16개가 판 표기와 달랐다(사전이 틀림 — Defensive Stance 「공격 태세」 → 「방어 태세」),
+ * 사전에만 있는 2,026개는 지금 트리에 없는 이름이다.
+ * 판 체크아웃을 못 찾거나 lock 의 판에 파일이 없으면(v2026.10.13.1 이하) 빈 맵 — 이름은 영문 그대로 남는다(사전이 없을 때와 같다).
+ * 같은 영문의 노드가 여럿이면 처음 것을 쓴다.
+ */
 function passiveNames() {
-  for (let dir = here; ; dir = dirname(dir)) {
-    const f = join(dir, 'poe-kr-en-dictionary', 'dict', 'POE2', 'en-ko', 'poe2_passives_skill_tree.json')
-    if (existsSync(f)) return new Map(Object.entries(JSON.parse(readFileSync(f, 'utf8'))).map(([en, ko]) => [en.toLowerCase(), ko]))
-    if (dirname(dir) === dir) return new Map()
+  let root
+  try {
+    root = resolveLockedGameDataRoot({ startDir: here })
+  } catch (err) {
+    console.warn(`  ⚠ 패시브 이름: poe-game-data 판을 못 찾아 영문으로 둔다 — ${err.message}`)
+    return new Map()
   }
+  const f = join(root, 'poe2', 'passives.json')
+  if (!existsSync(f)) {
+    console.warn(`  ⚠ 패시브 이름: lock 판 ${DATA_LOCK.snapshot} 에 poe2/passives.json 이 없어 영문으로 둔다 — lock 을 v2026.10.14 이상으로 올리면 한글이 된다`)
+    return new Map()
+  }
+  const names = new Map()
+  for (const row of JSON.parse(readFileSync(f, 'utf8')).passives ?? []) {
+    const en = row?.name?.en?.trim()
+    const ko = row?.name?.kr?.trim()
+    if (en && ko && !names.has(en.toLowerCase())) names.set(en.toLowerCase(), ko)
+  }
+  return names
 }
 
 const slotTitle = (text) => SLOT_TITLES.find(([re]) => re.test(text))?.[1] ?? '무작위 속성'
